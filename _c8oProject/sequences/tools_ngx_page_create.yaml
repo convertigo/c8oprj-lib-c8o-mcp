@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Create an NGX page with the Basic presentation patterns
-  Creates a list, detail, form or dashboard page from a page spec: page-enter event with locals and a CallSequenceAction of its facade, lost-session redirect, record lists or tables, label/value lists, KPI cards, empty states, UIForm with Form SmartSources, toast and navigation, local?.x templates, and the AppLayout style created or completed; a new app gets the default theme (AppTheme). All or nothing.
+  Creates a list, detail, form or dashboard page from a page spec: page-enter event with locals and a CallSequenceAction of its facade, lost-session redirect, record lists, tables or the AG Grid of lib_ExtendedComponents_ui_ngx (sorting, filtering, paging, CSV export; imported when missing), label/value lists, KPI cards, empty states, UIForm with Form SmartSources, toast and navigation, local?.x templates, and the AppLayout style created or completed; a new app gets the default theme (AppTheme). All or nothing.
 ↓Include [steps.SimpleStep-1792270100034]: 
   expression: include("js/tools_generators_ngx.js");
 ↓Run [steps.SimpleStep-1792270100035]: 

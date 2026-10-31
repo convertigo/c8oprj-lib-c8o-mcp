@@ -23,6 +23,11 @@ include("js/tools_generators_ngx_theme.js");
   // The icon of a KPI card that gives none, after its accent.
   var KPI_ICONS = { success: "checkmark-circle-outline", danger: "alert-circle-outline", warning: "time-outline", medium: "pause-circle-outline",
     primary: "stats-chart-outline", secondary: "stats-chart-outline", tertiary: "stats-chart-outline" };
+  // The AG Grid of lib_ExtendedComponents_ui_ngx sorts, filters, pages and exports a list: agents rebuilt admin tables by
+  // hand and never looked for it (PCA eval 31/10). A list of GRID_AUTO_CELLS cells or more gets it unless grid is false.
+  var GRID_LIBRARY = "lib_ExtendedComponents_ui_ngx";
+  var GRID_COMPONENT = "agGrid";
+  var GRID_AUTO_CELLS = 5;
   var SURFACE = "var(--app-surface, var(--ion-item-background, #fff))";
   var BORDER = "1px solid var(--app-border, var(--ion-border-color, rgba(127,127,127,0.2)))";
   var MUTED = "var(--app-muted, var(--ion-color-medium, #64748b))";
@@ -73,6 +78,23 @@ include("js/tools_generators_ngx_theme.js");
     [".app-cell-main", ".app-cell-main { font-weight: 600; }"],
     [".app-cell-sub", ".app-cell-sub { display: block; font-weight: 400; font-size: var(--app-font-size-sm, 14px); color: " + MUTED + "; }"],
     [".app-table-head", ".app-table-head { display: none; --detail-icon-opacity: 0; }"],
+    // The AG Grid of a grid list: its quartz theme takes the AppTheme tokens, so it follows the app's light or dark mode.
+    [".app-grid", ".app-grid { margin: 0; }\n" +
+      ".app-grid .ag-theme-quartz { --ag-font-family: var(--ion-font-family, inherit); --ag-font-size: var(--app-font-size-sm, 14px); " +
+      "--ag-foreground-color: var(--ion-text-color, #0f172a); --ag-data-color: var(--ion-text-color, #0f172a); --ag-secondary-foreground-color: " + MUTED + "; " +
+      "--ag-background-color: " + SURFACE + "; --ag-odd-row-background-color: " + SURFACE + "; " +
+      "--ag-header-background-color: var(--app-surface-2, var(--ion-background-color-step-50, #f4f5f7)); --ag-header-foreground-color: var(--ion-text-color, #0f172a); " +
+      "--ag-control-panel-background-color: var(--app-surface-2, var(--ion-background-color-step-50, #f4f5f7)); " +
+      "--ag-border-color: var(--app-border, var(--ion-border-color, rgba(127,127,127,0.2))); --ag-row-border-color: var(--app-border, var(--ion-border-color, rgba(127,127,127,0.2))); " +
+      "--ag-secondary-border-color: var(--app-border, var(--ion-border-color, rgba(127,127,127,0.2))); --ag-header-column-separator-color: var(--app-border, var(--ion-border-color, rgba(127,127,127,0.2))); " +
+      "--ag-input-border-color: var(--app-border, var(--ion-border-color, rgba(127,127,127,0.3))); " +
+      "--ag-row-hover-color: rgba(var(--ion-color-primary-rgb, 37,99,235), 0.06); --ag-selected-row-background-color: rgba(var(--ion-color-primary-rgb, 37,99,235), 0.12); " +
+      "--ag-active-color: var(--ion-color-primary, #2563eb); --ag-input-focus-border-color: var(--ion-color-primary, #2563eb); " +
+      "--ag-range-selection-border-color: var(--ion-color-primary, #2563eb); --ag-checkbox-checked-color: var(--ion-color-primary, #2563eb); " +
+      "--ag-modal-overlay-background-color: rgba(var(--ion-background-color-rgb, 255,255,255), 0.66); " +
+      "--ag-wrapper-border-radius: var(--app-radius-lg, 12px); --ag-border-radius: var(--app-radius-sm, 6px); }\n" +
+      ".app-grid-clickable .ag-row { cursor: pointer; }\n" +
+      ".app-grid .app-grid-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: var(--app-font-size-xs, 12px); font-weight: 600; line-height: 1.6; }"],
     // Ionic stretches a checkbox in an item over the whole row (it acts as the row's label): it pushed the texts to the middle.
     [".app-has-select ion-checkbox.in-item", ".app-has-select ion-checkbox.in-item { flex: 0 0 auto; width: auto; margin-inline-end: var(--app-space-3, 12px); }\n" +
       ".app-table ion-checkbox.in-item { margin-inline-end: 0; }"],
@@ -304,8 +326,9 @@ include("js/tools_generators_ngx_theme.js");
     return { className: "ngx.components.UIControlVariable#UIControlVariable", name: name, properties: { varValue: value } };
   }
 
-  // Navigation action from {page, kind: push|root|pop, data: {param: "TS expression"}}.
-  function navAction(name, nav, scopeItem) {
+  // Navigation action from {page, kind: push|root|pop, data: {param: "TS expression"}}. On a list row a bare field name is
+  // the row's field: scope.<item> in a ForEach, rowBase (the row of a grid event, event?.data?.) otherwise.
+  function navAction(name, nav, scopeItem, rowBase) {
     var kind = str(nav.kind || nav.mode || "push");
     if (kind === "pop") {
       return nxAction("PopPageAction", name, {});
@@ -315,7 +338,9 @@ include("js/tools_generators_ngx_theme.js");
       props.data = { mode: "SCRIPT", value: "{" + Object.keys(nav.data).map(function (k) {
         var v = str(nav.data[k]);
         // {id: "id"} on a list row means the row field.
-        if (scopeItem && IDENT.test(v)) {
+        if (rowBase && IDENT.test(v)) {
+          v = rowBase + v;
+        } else if (scopeItem && IDENT.test(v)) {
           v = "scope." + scopeItem + "?." + v;
         }
         return k + ": " + v;
@@ -390,6 +415,43 @@ include("js/tools_generators_ngx_theme.js");
     return String(page.getName()) === "Page" && /^Default home page$/i.test(comment);
   }
 
+  // A library a generated page uses: referenced by the app already, else imported from the marketplace when the workspace
+  // lacks it, then referenced (marketplace-import does the same). Returns {library, status, sharedComponent} with the
+  // QName of the shared component the page binds, or {error}.
+  G.ensureLibrary = function (projectDbo, library, component) {
+    if (!C8O.marketplace || typeof C8O.marketplace.importLibrary !== "function") {
+      include("js/marketplace.js");
+    }
+    var M = C8O.marketplace;
+    var appName = String(projectDbo.getName());
+    var status = "referenced";
+    try {
+      var refs = M.getProjectReferenceMap(projectDbo);
+      if (!(refs && refs.lower && refs.lower[library.toLowerCase()])) {
+        var loadedBefore = M.resolveProject(library) != null;
+        var imported = M.importLibrary({ project: library, save: true, forceImport: false });
+        if (!imported || imported.status !== "ready") {
+          return { library: library, error: library + " could not be imported from the marketplace (" +
+            str(imported && (imported.importMessage || imported.status)) + ")." };
+        }
+        var ref = M.addReference(appName, library, imported.projectUrl);
+        if (!ref.referenceAdded && !ref.referenceAlready) {
+          return { library: library, error: "the reference to " + library + " could not be added to " + appName + ": " + (ref.warnings || []).join(" ") };
+        }
+        status = loadedBefore ? "reference added" : "imported and referenced";
+      }
+      var libProject = M.resolveProject(library);
+      var libApp = libProject ? libProject.getMobileApplication().getApplicationComponent() : null;
+      var shared = libApp ? childNamed(libApp, component) : null;
+      if (!shared) {
+        return { library: library, error: library + " has no shared component " + component + "." };
+      }
+      return { library: library, status: status, sharedComponent: qnameOf(shared) };
+    } catch (e) {
+      return { library: library, error: library + ": " + String(e && e.message ? e.message : e) };
+    }
+  };
+
   G.ngxPageCreate = function (args) {
     var tool = "ngx-page-create";
     var projectDbo = projectOf(args.project, tool);
@@ -403,7 +465,9 @@ include("js/tools_generators_ngx_theme.js");
       if (given.length) {
         return given;
       }
-      defaulted.push(field + " \"" + fallback + "\"");
+      if (defaulted.indexOf(field + " \"" + fallback + "\"") < 0) {
+        defaulted.push(field + " \"" + fallback + "\"");
+      }
       return fallback;
     };
     var spec = parseJson(args.spec, "spec", "object") || {};
@@ -478,6 +542,10 @@ include("js/tools_generators_ngx_theme.js");
     // On a page entered again (back, menu) the view still shows the previous data: setting data to null there threw NG0100
     // (Previous value: '7', run 10). These locals keep their value on re-entry until the data call replaces them.
     var locals = { data: "c8oPage.local?.data ?? null", error: "c8oPage.local?.error ?? null", loading: "c8oPage.local?.loading ?? true" };
+    // The lists built as an AG Grid, each with its native blocks: an automatic grid falls back to them when the library
+    // cannot be had. A native table where a grid fits gets a hint naming the library.
+    var gridPlans = [];
+    var gridHints = [];
     params.forEach(function (p) {
       locals[p] = "c8oPage.navParams?.data?." + p + " != null ? '' + c8oPage.navParams.data." + p + " : ''";
     });
@@ -618,6 +686,7 @@ include("js/tools_generators_ngx_theme.js");
         errors.push(label + ".columns must be a non-empty array of {label, field, labels?, prefix?, suffix?}.");
         columns = undefined;
       }
+      var gridChoice = gridChoiceOf(prefix, spec2, label, columns);
       var rowChildren;
       var head = null;
       if (columns === undefined) {
@@ -659,7 +728,7 @@ include("js/tools_generators_ngx_theme.js");
         if (badgeNode) {
           cells.push(cell("StatusCell", str(spec2.badgeLabel), [badgeNode]));
         }
-        if (cells.length > 8) {
+        if (cells.length > 8 && !gridChoice) {
           warnings.push(label + ".columns: " + cells.length + " cells in a row; a wide screen aligns 8 at most, keep the columns that matter.");
         }
         var rowClass = "app-row app-cols-" + Math.min(8, cells.length);
@@ -738,7 +807,151 @@ include("js/tools_generators_ngx_theme.js");
           blocks.push(bar);
         }
       }
-      return blocks;
+      if (!gridChoice) {
+        return blocks;
+      }
+      var gridBlocks = [blocks[0], gridNode(prefix, spec2, label, gridChoice, item, itemsPath, selectSpec, empty)].concat(blocks.slice(2));
+      gridPlans.push({ mode: gridChoice.mode, label: label, cells: gridChoice.cells, nativeBlocks: blocks, gridBlocks: gridBlocks, local: gridChoice.local,
+        use: gridBlocks[1].children[1].children[0] });
+      return gridBlocks;
+    }
+
+    // grid: true, {pageSize, csv, xlsx, locale} or false; left out, a list of GRID_AUTO_CELLS cells or more (title, columns,
+    // note, badge) gets the grid. Returns null for a native list.
+    function gridChoiceOf(prefix, spec2, label, columns) {
+      var g = spec2.grid;
+      if (g === false || str(g) === "false") {
+        return null;
+      }
+      var cellCount = 1 + (Array.isArray(columns) ? columns.length : 0) + (spec2.note !== undefined ? 1 : 0) + (spec2.badge !== undefined ? 1 : 0);
+      var mode = g === true || str(g) === "true" || isObj(g) ? "asked" : "auto";
+      if (g !== undefined && mode === "auto") {
+        errors.push(label + ".grid must be true, false or {pageSize, csv, xlsx, locale}.");
+        return null;
+      }
+      if (mode === "auto" && (!Array.isArray(columns) || cellCount < GRID_AUTO_CELLS)) {
+        if (Array.isArray(columns)) {
+          gridHints.push(label);
+        }
+        return null;
+      }
+      var o = isObj(g) ? g : {};
+      var pageSize = o.pageSize === undefined ? 20 : Number(o.pageSize);
+      if (!(pageSize >= 1 && pageSize <= 500 && Math.floor(pageSize) === pageSize)) {
+        errors.push(label + ".grid.pageSize must be an integer from 1 to 500.");
+        pageSize = 20;
+      }
+      var locale = str(o.locale);
+      if (locale.length && !/^[a-z]{2}(-[A-Z]{2})?$/.test(locale)) {
+        errors.push(label + ".grid.locale must be a language code such as fr or fr-FR.");
+        locale = "";
+      }
+      return { mode: mode, pageSize: pageSize, csv: o.csv === true, xlsx: o.xlsx === true, locale: locale, cells: cellCount,
+        local: "grid" + upperFirst(prefix) + "Columns" };
+    }
+
+    // The column definitions of a grid list, as TypeScript run at page enter (functions are allowed there, not in the
+    // template): header, field, labels shown and filtered by, prefix and suffix, the badge as a colored pill.
+    function gridColumns(spec2, label, item, selectSpec) {
+      var path = function (f) {
+        var fp = str(f).replace(/^\.+/, "");
+        return fp.indexOf(item + ".") === 0 ? fp.substring(item.length + 1) : fp;
+      };
+      var mapOf = function (o) {
+        return "({" + Object.keys(o).map(function (k) { return jsString(k) + ": " + jsString(o[k]); }).join(", ") + "} as any)";
+      };
+      var column = function (header, spec3, extra) {
+        var f = isObj(spec3) ? spec3 : { field: spec3 };
+        var fp = path(f.field);
+        var getter = "p.data?." + fp.split(".").join("?.");
+        var parts = ["headerName: " + jsString(header), "field: " + jsString(fp)];
+        if (isObj(f.labels)) {
+          parts.push("valueFormatter: (p: any) => " + mapOf(f.labels) + "[p.value] ?? (p.value ?? '')");
+          parts.push("filterValueGetter: (p: any) => " + mapOf(f.labels) + "[" + getter + "] ?? " + getter);
+        } else if ((f.prefix != null && String(f.prefix).length) || (f.suffix != null && String(f.suffix).length)) {
+          parts.push("valueFormatter: (p: any) => p.value == null || p.value === '' ? '' : " + jsString(f.prefix != null ? String(f.prefix) : "") +
+            " + p.value + " + jsString(f.suffix != null ? String(f.suffix) : ""));
+        }
+        return "{" + parts.concat(["comparator: cmp"], extra || []).join(", ") + "}";
+      };
+      var cols = [column(textOr(spec2.titleLabel, "Name", label + ".titleLabel"), spec2.title,
+        ["minWidth: 140"].concat(selectSpec ? ["checkboxSelection: true", "headerCheckboxSelection: true"] : []))];
+      // The subtitle is the longer text (a label, a description, an email): it gets the room.
+      if (spec2.subtitle !== undefined) {
+        cols.push(column(textOr(spec2.subtitleLabel, "Details", label + ".subtitleLabel"), spec2.subtitle, ["flex: 2", "minWidth: 200"]));
+      }
+      (Array.isArray(spec2.columns) ? spec2.columns : []).forEach(function (c) {
+        var col = isObj(c) ? c : { field: c };
+        if (str(col.field).length && str(col.label).length) {
+          cols.push(column(str(col.label), col));
+        }
+      });
+      if (spec2.note !== undefined) {
+        cols.push(column(textOr(spec2.noteLabel, "Note", label + ".noteLabel"), spec2.note));
+      }
+      if (spec2.badge !== undefined) {
+        var badge = isObj(spec2.badge) ? spec2.badge : { field: spec2.badge };
+        var colors = isObj(badge.colors) ? badge.colors : (isObj(badge.labels) ? G.statusColors(badge.labels) : {});
+        // The pill of the native badge: its color at 14 % behind a text mixed with the text color (darker in light mode,
+        // lighter in dark mode).
+        var renderer = "cellRenderer: (p: any) => { const c = " + mapOf(colors) + "[p.value] || 'medium'; const s = document.createElement('span'); " +
+          "s.className = 'app-grid-badge'; s.style.background = 'rgba(var(--ion-color-' + c + '-rgb), 0.14)'; " +
+          "s.style.color = 'color-mix(in srgb, var(--ion-color-' + c + ') 72%, var(--ion-text-color, #000))'; " +
+          "s.textContent = p.valueFormatted ?? p.value ?? ''; return p.value == null || p.value === '' ? '' : s; }";
+        cols.push(column(textOr(spec2.badgeLabel, "Status", label + ".badgeLabel"), badge, [renderer]));
+      }
+      // One natural order for every column: numbers the database sends as text ("1290.00", "320.00") and codes with a
+      // number (PC-0002, PC-0010) sort by value, accented words next to the others.
+      return "(() => { const cmp = (a: any, b: any) => String(a ?? '').localeCompare(String(b ?? ''), undefined, {numeric: true, sensitivity: 'base'}); " +
+        "return [" + cols.join(", ") + "]; })()";
+    }
+
+    function useVar(name, value) {
+      return { className: "ngx.components.UIUseVariable#UIUseVariable", name: name,
+        properties: { varValue: typeof value === "object" ? value : { mode: "SCRIPT", value: String(value) } } };
+    }
+
+    // The grid list: the agGrid shared component of lib_ExtendedComponents_ui_ngx bound to the page data, sorting,
+    // filtering and paging on the client, the row click and the selection of the native list.
+    function gridNode(prefix, spec2, label, choice, item, itemsPath, selectSpec, empty) {
+      locals[choice.local] = gridColumns(spec2, label, item, selectSpec);
+      var vars = [
+        useVar("columnDefs", { mode: "SOURCE", local: choice.local }),
+        useVar("rowData", { mode: "SOURCE", local: itemsPath }),
+        useVar("defaultColDef", "{sortable: true, filter: true, resizable: true, editable: false, flex: 1, minWidth: 120}"),
+        useVar("autoSizeColumns", "false"),
+        useVar("pagination", "true"),
+        useVar("paginationPageSize", String(choice.pageSize)),
+        useVar("paginationPageSizeSelector", "true"),
+        useVar("rowHeight", "44"),
+        useVar("domLayout", "'autoHeight'"),
+        useVar("class", "'ag-theme-quartz'"),
+        // The grid's own texts (filter menu, paging) in the app's language unless the spec gives one.
+        useVar("localeText", choice.locale.length ? jsString(choice.locale) : "this.translate?.currentLang || 'en'"),
+        useVar("overlayNoRowsTemplate", jsString("<span>" + String(empty).replace(/[<>&]/g, "") + "</span>")),
+        useVar("rowSelection", selectSpec ? "'multiple'" : "'single'"),
+        useVar("suppressRowClickSelection", selectSpec ? "true" : "false")
+      ];
+      if (choice.csv) {
+        vars.push(useVar("showCsvDownload", "true"));
+      }
+      if (choice.xlsx) {
+        vars.push(useVar("showXlsxDownload", "true"));
+      }
+      if (isObj(spec2.onItem)) {
+        vars.push({ className: "ngx.components.UIControlEvent#UIControlEvent", name: "EventRowClicked",
+          properties: { eventName: "RowClicked", attrName: "(RowClicked)" }, children: [navAction("Open", spec2.onItem, null, "event?.data?.")] });
+      }
+      if (selectSpec) {
+        var key = str(selectSpec.field || "id").split(".").join("?.");
+        vars.push({ className: "ngx.components.UIControlEvent#UIControlEvent", name: "EventSelectionChanged",
+          properties: { eventName: "SelectionChanged", attrName: "(SelectionChanged)" },
+          children: [setLocal("Pick", "selected", "(event?.api?.getSelectedRows?.() || []).map((r: any) => '' + r?." + key + ")")] });
+      }
+      var use = { className: "ngx.components.UIUseShared#UIUseShared", name: prefix + "Grid",
+        properties: { sharedcomponent: GRID_LIBRARY + ".MobileApplication.Application." + GRID_COMPONENT }, children: vars };
+      return nx("DivTag", prefix + "GridBox", {}, [cls("app-grid" + (isObj(spec2.onItem) ? " app-grid-clickable" : "")),
+        ifDirective(prefix + "IfRows", "!!(" + localPath(itemsPath) + "?.length)", [use])]);
     }
 
     function labelValueList(name, fields, base, label) {
@@ -1074,6 +1287,29 @@ include("js/tools_generators_ngx_theme.js");
     if (errors.length) {
       invalid(tool, errors);
     }
+    // A grid list needs lib_ExtendedComponents_ui_ngx in the app: referenced already, else imported from the marketplace
+    // and referenced, as marketplace-import does (that stays if the page then fails). An automatic grid falls back to the
+    // native table when the library cannot be had; an asked one refuses the page.
+    var gridLibrary = null;
+    if (gridPlans.length) {
+      gridLibrary = G.ensureLibrary(projectDbo, GRID_LIBRARY, GRID_COMPONENT);
+      if (gridLibrary.error) {
+        var askedGrids = gridPlans.filter(function (gp) { return gp.mode === "asked"; }).map(function (gp) { return gp.label + ".grid"; });
+        if (askedGrids.length) {
+          invalid(tool, [askedGrids.join(", ") + ": " + gridLibrary.error + " Give grid:false for a native table."]);
+        }
+        gridPlans.forEach(function (gp) {
+          content.splice(content.indexOf(gp.gridBlocks[1]), 1, gp.nativeBlocks[1]);
+          pageEventChildren = pageEventChildren.filter(function (n) { return n.name !== "Init" + upperFirst(gp.local); });
+          delete locals[gp.local];
+        });
+        warnings.push("The list was built as a native table: " + gridLibrary.error);
+      } else {
+        gridPlans.forEach(function (gp) {
+          gp.use.properties.sharedcomponent = gridLibrary.sharedComponent;
+        });
+      }
+    }
 
     // Entry page: root:true makes this page the one the app opens on; with no root page at all (the starter page
     // deleted), the new page becomes it, else the viewer stayed on /home, "Cannot match any routes" (run 13a F-09).
@@ -1263,6 +1499,14 @@ include("js/tools_generators_ngx_theme.js");
     }
     var rootPage = makeRoot ? name : String(currentRoot.getName());
     var finish = session.finish(page);
+    // A library referenced just now reaches the Mobile Builder only once the app is loaded again (marketplace.js).
+    var reload = null;
+    if (gridLibrary && !gridLibrary.error && gridLibrary.status !== "referenced" && finish.saved) {
+      reload = C8O.marketplace.reloadAfterNewReference(projectName, gridLibrary.library);
+      if (reload.message.length) {
+        session.warnings.push(reload.message);
+      }
+    }
     var menuLabel = inMenu ? G.addMenuTranslation(projectDbo, title) : null;
     return {
       status: "ok",
@@ -1280,6 +1524,13 @@ include("js/tools_generators_ngx_theme.js");
       mobileBuilder: finish.mobileBuilder,
       menuLabel: menuLabel,
       badgeColors: Object.keys(derivedColors).length ? derivedColors : undefined,
+      library: gridLibrary && !gridLibrary.error ? { name: gridLibrary.library, status: gridLibrary.status, sharedComponent: gridLibrary.sharedComponent } : undefined,
+      listRendering: gridPlans.length && !(gridLibrary && gridLibrary.error)
+        ? gridPlans.map(function (gp) { return gp.label + ": AG Grid of " + GRID_LIBRARY + " (" + (gp.mode === "asked" ? "grid asked" : gp.cells + " cells") +
+          "): sorting, filtering and paging in the grid, " + "CSV export with grid.csv" + "; local " + gp.local + " holds its columns."; })
+        : (gridHints.length ? gridHints.map(function (h) { return h + ": native table. The AG Grid of " + GRID_LIBRARY + " (marketplace library, a " +
+          "standard Convertigo component) sorts, filters, pages and exports it: create the page again with " + h + ".grid true (" + h + ".grid {csv:true} for a CSV button)."; })
+        : undefined),
       warnings: (defaulted.length ? ["English default texts were used for " + defaulted.join(", ") +
         ": if the app is in another language, change those texts on the page, or delete it and create it again with these fields in that language."] : [])
         .concat(warnings, session.warnings),

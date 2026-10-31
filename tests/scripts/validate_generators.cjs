@@ -196,6 +196,9 @@ function load(world) {
       vm.runInContext(sources[file], sandbox);
     }
   };
+  if (world.marketplace) {
+    sandbox.C8O.marketplace = world.marketplace;
+  }
   vm.createContext(sandbox);
   sandbox.include('js/tools_generators_ngx.js');
   return sandbox.C8O.generators;
@@ -1499,4 +1502,161 @@ test('a second page completes AppLayout with the rules of the classes it uses, o
   assert.equal(again.style, 'AppLayout kept');
   const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
   assert.equal(css.split('@media (min-width: 768px)').length, 2);
+});
+
+// --- grid lists: the AG Grid of lib_ExtendedComponents_ui_ngx ------------------------------------
+
+// A marketplace where the grid library can be imported (or fails to), and the library project it loads.
+function withGridLibrary(world, opts) {
+  const o = opts || {};
+  const calls = { imported: [], referenced: [], reloaded: [] };
+  const lib = bean('lib_ExtendedComponents_ui_ngx', 'com.twinsoft.convertigo.beans.core.Project');
+  const libApp = bean('Application', 'x.ApplicationComponent', bean('MobileApplication', 'x.MobileApplication', lib));
+  lib.getMobileApplication = () => ({ getApplicationComponent: () => libApp });
+  bean('agGrid', 'com.twinsoft.convertigo.beans.ngx.components.UISharedRegularComponent', libApp);
+  let loaded = !!o.loaded;
+  world.marketplace = {
+    importLibrary: args => {
+      calls.imported.push(args.project);
+      if (o.importFails) {
+        return { status: 'failed', importMessage: 'network unreachable' };
+      }
+      loaded = true;
+      return { status: 'ready', projectUrl: args.project + '=https://example/archive.zip' };
+    },
+    resolveProject: name => (name === 'lib_ExtendedComponents_ui_ngx' && loaded ? lib : null),
+    getProjectReferenceMap: () => ({ lower: o.referenced ? { lib_extendedcomponents_ui_ngx: { referenceName: 'lib_ExtendedComponents_ui_ngx' } } : {} }),
+    addReference: (target, library) => { calls.referenced.push(target + '->' + library); return { referenceAdded: true, warnings: [] }; },
+    reloadAfterNewReference: (target, library) => { calls.reloaded.push(target); return { reloaded: true, message: target + ' was reloaded so that the Mobile Builder writes the shared components of ' + library + ' into the app.' }; }
+  };
+  if (o.referenced) {
+    loaded = true;
+  }
+  return calls;
+}
+
+const gridList = extra => Object.assign({ item: 'p', title: 'numeroPoste', titleLabel: 'Poste', subtitle: 'libelle', subtitleLabel: 'Libellé',
+  columns: [{ label: 'Service', field: 'service' }, { label: 'Échéance', field: 'p.dateEcheance', prefix: 'le ' }, { label: 'RPCA', field: 'rpca.nom' }],
+  badgeLabel: 'Statut', badge: { field: 'statut', labels: { A_JOUR: 'À jour', EN_RETARD: 'En retard' } }, empty: 'Aucun poste' }, extra || {});
+
+test('a list asked as a grid uses the AG Grid of lib_ExtendedComponents_ui_ngx, imported and referenced when missing', () => {
+  const world = makeWorld();
+  const calls = withGridLibrary(world);
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'Postes', kind: 'list', sequence: 'poste_list', authRedirect: 'Login',
+    list: gridList({ grid: { csv: true, pageSize: 50 }, onItem: { page: 'Login', data: { id: 'id' } } }) });
+  // The app is reloaded after the page is saved: the Mobile Builder writes a new library's shared components only then.
+  assert.deepEqual(plain(calls), { imported: ['lib_ExtendedComponents_ui_ngx'], referenced: ['App->lib_ExtendedComponents_ui_ngx'], reloaded: ['App'] });
+  assert.match(out.warnings.join(' '), /App was reloaded so that the Mobile Builder writes the shared components of lib_ExtendedComponents_ui_ngx/);
+  assert.deepEqual(plain(out.library), { name: 'lib_ExtendedComponents_ui_ngx', status: 'imported and referenced',
+    sharedComponent: 'lib_ExtendedComponents_ui_ngx.MobileApplication.Application.agGrid' });
+  assert.match(out.listRendering[0], /^list: AG Grid of lib_ExtendedComponents_ui_ngx \(grid asked\)/);
+  const nodes = nodesOf(world, 'Postes');
+  assert.equal(nodes.RecList, undefined, 'no native list');
+  assert.equal(classOf(nodes.RecGridBox), 'app-grid app-grid-clickable');
+  assert.equal(nodes.RecIfRows.properties.directiveExpression, '!!(local?.data?.items?.length)');
+  const use = nodes.RecGrid;
+  assert.equal(use.className, 'ngx.components.UIUseShared#UIUseShared');
+  assert.equal(use.properties.sharedcomponent, 'lib_ExtendedComponents_ui_ngx.MobileApplication.Application.agGrid');
+  const v = {};
+  use.children.forEach(c => { v[c.name] = c.properties.varValue || c; });
+  assert.deepEqual(plain(v.columnDefs), { mode: 'SOURCE', local: 'gridRecColumns' });
+  assert.deepEqual(plain(v.rowData), { mode: 'SOURCE', local: 'data.items' });
+  assert.equal(v.defaultColDef.value, '{sortable: true, filter: true, resizable: true, editable: false, flex: 1, minWidth: 120}', 'read only: the library default edits cells');
+  assert.equal(v.paginationPageSize.value, '50');
+  assert.equal(v.showCsvDownload.value, 'true');
+  assert.equal(v.showXlsxDownload, undefined);
+  assert.equal(v.localeText.value, "this.translate?.currentLang || 'en'", "the grid's texts follow the app language");
+  assert.equal(v.class.value, "'ag-theme-quartz'");
+  // The row click opens the row with its field, read on the grid event.
+  assert.deepEqual(plain(v.EventRowClicked.properties), { eventName: 'RowClicked', attrName: '(RowClicked)' });
+  assert.equal(v.EventRowClicked.children[0].properties.data.value, '{id: event?.data?.id}');
+  // The columns, set at page enter: labels shown and filtered by, the prefix, the nested field, the badge pill.
+  const init = world.ops.filter(op => op.name === 'Postes')[0].children.filter(c => c.name === 'PageEvent')[0].children
+    .filter(c => c.name === 'InitGridRecColumns')[0];
+  const cols = init.properties.Value.value;
+  assert.match(cols, /^\(\(\) => \{ const cmp = \(a: any, b: any\) => String\(a \?\? ''\)\.localeCompare\(String\(b \?\? ''\), undefined, \{numeric: true, sensitivity: 'base'\}\); return \[/,
+    'numbers sent as text and codes sort by value');
+  assert.match(cols, /return \[\{headerName: 'Poste', field: 'numeroPoste', comparator: cmp, minWidth: 140\}, \{headerName: 'Libellé', field: 'libelle', comparator: cmp, flex: 2, minWidth: 200\}/);
+  assert.match(cols, /\{headerName: 'Échéance', field: 'dateEcheance', valueFormatter: \(p: any\) => p\.value == null \|\| p\.value === '' \? '' : 'le ' \+ p\.value \+ '', comparator: cmp\}/);
+  assert.match(cols, /field: 'rpca\.nom'/);
+  assert.match(cols, /headerName: 'Statut', field: 'statut', valueFormatter: \(p: any\) => \(\{'A_JOUR': 'À jour', 'EN_RETARD': 'En retard'\} as any\)\[p\.value\]/);
+  assert.match(cols, /filterValueGetter: \(p: any\) => \(\{'A_JOUR': 'À jour'.*\[p\.data\?\.statut\] \?\? p\.data\?\.statut/);
+  assert.match(cols, /cellRenderer: \(p: any\) => \{ const c = \(\{'A_JOUR': 'success', 'EN_RETARD': 'danger'\} as any\)\[p\.value\] \|\| 'medium';/);
+  assert.equal(nodes.RecIfEmpty.children[0].name, 'EmptyState', 'the empty state stays');
+  // The grid reads the AppTheme tokens: light and dark follow the app.
+  const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
+  assert.match(css, /\.app-grid \.ag-theme-quartz \{ --ag-font-family: var\(--ion-font-family, inherit\);/);
+  assert.match(css, /--ag-background-color: var\(--app-surface, var\(--ion-item-background, #fff\)\)/);
+  assert.match(css, /--ag-active-color: var\(--ion-color-primary, #2563eb\)/);
+  assert.match(css, /--ag-wrapper-border-radius: var\(--app-radius-lg, 12px\)/);
+  assert.match(css, /\.app-grid-clickable \.ag-row \{ cursor: pointer; \}/);
+});
+
+test('a list of five cells or more gets the grid without asking; a referenced library is not imported again', () => {
+  const world = makeWorld();
+  const calls = withGridLibrary(world, { referenced: true });
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'Postes', kind: 'list', sequence: 'poste_list', list: gridList() });
+  assert.deepEqual(plain(calls), { imported: [], referenced: [], reloaded: [] });
+  assert.equal(out.library.status, 'referenced');
+  assert.match(out.listRendering[0], /\(5 cells\): sorting, filtering and paging in the grid/);
+  assert.ok(nodesOf(world, 'Postes').RecGrid);
+});
+
+test('an automatic grid falls back to the native table when the library cannot be had; an asked one refuses the page', () => {
+  const world = makeWorld();
+  withGridLibrary(world, { importFails: true });
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'Postes', kind: 'list', sequence: 'poste_list', list: gridList() });
+  const nodes = nodesOf(world, 'Postes');
+  assert.ok(nodes.RecList && !nodes.RecGrid && !nodes.RecGridBox, 'the native table');
+  assert.equal(classOf(nodes.RecList), 'app-list app-table');
+  assert.match(out.warnings.join(' '), /built as a native table: lib_ExtendedComponents_ui_ngx could not be imported from the marketplace \(network unreachable\)/);
+  const events = world.ops.filter(op => op.name === 'Postes')[0].children.filter(c => c.name === 'PageEvent')[0].children.map(c => c.name);
+  assert.ok(!events.includes('InitGridRecColumns'), 'no grid columns local');
+  assert.equal(out.library, undefined);
+  const before = world.ops.length;
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Postes2', kind: 'list', sequence: 'poste_list', list: gridList({ grid: true }) }),
+    /list\.grid: lib_ExtendedComponents_ui_ngx could not be imported.*Give grid:false for a native table/);
+  assert.equal(world.ops.length, before, 'nothing created');
+});
+
+test('a native table where a grid fits names the library; grid false keeps the native table without a word', () => {
+  const world = makeWorld();
+  const calls = withGridLibrary(world);
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'Small', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', titleLabel: 'Poste',
+    columns: [{ label: 'Service', field: 'service' }], empty: 'Aucun' } });
+  assert.match(out.listRendering[0], /^list: native table\. The AG Grid of lib_ExtendedComponents_ui_ngx \(marketplace library, a standard Convertigo component\)/);
+  assert.match(out.listRendering[0], /list\.grid true/);
+  const off = G.ngxPageCreate({ project: 'App', name: 'Wide', kind: 'list', sequence: 'poste_list', list: gridList({ grid: false }) });
+  assert.equal(off.listRendering, undefined);
+  assert.ok(nodesOf(world, 'Wide').RecList);
+  const plainList = G.ngxPageCreate({ project: 'App', name: 'Cards', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  assert.equal(plainList.listRendering, undefined, 'a list without columns is not a table');
+  assert.deepEqual(plain(calls.imported), []);
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Bad', kind: 'list', sequence: 'poste_list', list: gridList({ grid: 'yes' }) }),
+    /list\.grid must be true, false or \{pageSize, csv, xlsx, locale\}/);
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Bad2', kind: 'list', sequence: 'poste_list', list: gridList({ grid: { pageSize: 0, locale: 'french' } }) }),
+    /grid\.pageSize must be an integer from 1 to 500[\s\S]*grid\.locale must be a language code/);
+});
+
+test('a grid list keeps the multiple selection: checkboxes on the first column and the selection actions', () => {
+  const world = makeWorld();
+  withGridLibrary(world, { referenced: true });
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'Postes', kind: 'list', sequence: 'poste_list',
+    list: gridList({ grid: { locale: 'fr' }, select: { field: 'id', actions: [{ label: 'Déclarer', page: 'Login', data: { ids: 'selection' } }] } }) });
+  const nodes = nodesOf(world, 'Postes');
+  const v = {};
+  nodes.RecGrid.children.forEach(c => { v[c.name] = c.properties.varValue || c; });
+  assert.equal(v.rowSelection.value, "'multiple'");
+  assert.equal(v.suppressRowClickSelection.value, 'true');
+  assert.equal(v.localeText.value, "'fr'");
+  assert.equal(v.EventSelectionChanged.children[0].properties.Value.value, "(event?.api?.getSelectedRows?.() || []).map((r: any) => '' + r?.id)");
+  assert.ok(nodes.RecSelectionActions, 'the selection actions below the grid');
+  const init = world.ops.filter(op => op.name === 'Postes')[0].children.filter(c => c.name === 'PageEvent')[0].children;
+  assert.match(init.filter(c => c.name === 'InitGridRecColumns')[0].properties.Value.value, /minWidth: 140, checkboxSelection: true, headerCheckboxSelection: true\}/);
+  assert.ok(init.some(c => c.name === 'InitSelected'));
 });
