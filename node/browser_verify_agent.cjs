@@ -1167,6 +1167,7 @@ function normalizeReport(args, config, shots, pendingFailures, trace, network) {
     }
   });
   var unresolved = Object.values(pendingFailures || {});
+  var downgraded = [];
   report.checks.forEach(function (c) {
     var issues = unresolved.slice();
     if (c.status === "passed") {
@@ -1186,6 +1187,7 @@ function normalizeReport(args, config, shots, pendingFailures, trace, network) {
     }
     if (c.status === "passed" && (!c.evidence || issues.length)) {
       c.status = "not_checked";
+      downgraded.push(c.id || c.check);
       c.evidence = "Proof incomplete. " + issues.join("; ") + (c.evidence ? " Claimed evidence: " + c.evidence : "");
     }
   });
@@ -1194,6 +1196,8 @@ function normalizeReport(args, config, shots, pendingFailures, trace, network) {
     report.visualDefects.some(function (d) { return d.severity === "blocking"; }))) {
     report.verdict = report.checks.some(function (c) { return c.status === "failed"; }) ? "failed" : "partial";
   }
+  if (downgraded.length) report.summary = "Proof incomplete for " + downgraded.join(", ") +
+    ". These outcomes are not verified." + (report.summary ? " Unverified agent summary: " + report.summary : "");
   return report;
 }
 

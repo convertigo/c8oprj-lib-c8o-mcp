@@ -6,6 +6,7 @@ const trace=[{id:'A1',tool:'click',failed:false,result:'1 loan'}, {id:'A2',tool:
 test('a plausible passed story cannot substitute for journal evidence',()=>{
  const out=agent.normalizeReport({verdict:'passed',checks:[check]},config,[],{},[]);
  assert.equal(out.verdict,'partial');assert.match(out.checks[0].evidence,/journal/);
+ assert.match(out.summary,/Proof incomplete.*not verified/);
 });
 test('observations, claimed actions and actual Flow errors constrain every passed check',()=>{
  assert.equal(agent.normalizeReport({verdict:'passed',checks:[check]},config,[],{},trace).verdict,'passed');
@@ -15,6 +16,8 @@ test('observations, claimed actions and actual Flow errors constrain every passe
  assert.equal(agent.normalizeReport({verdict:'passed',checks:[check]},config,[],{},trace,network).verdict,'partial');
  const expected={...check,check:'Third request refused',evidence:'Limit reached',observedText:'Limit reached',evidenceRefs:['N1'],actionRefs:['A2'],expectedErrorCode:'LOAN_LIMIT_REACHED'};
  assert.equal(agent.normalizeReport({verdict:'passed',checks:[expected]},{checks:['Third request refused']},[],{},trace,network).verdict,'passed');
+ assert.equal(agent.normalizeReport({verdict:'passed',checks:[expected]},config,[],{},trace,network).verdict,'partial','a positive requested check cannot be renamed into an expected refusal');
+ assert.equal(agent.normalizeReport({verdict:'passed',checks:[{...check,actionRefs:['A1','A1']}]},config,[],{},trace).verdict,'partial','one click cannot substantiate two distinct actions');
 });
 test('row-scoped targets resolve inside the named row and never as a global button',()=>{
  const calls=[];const child={nth:n=>{calls.push(['nth',n]);return child;}};
