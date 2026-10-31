@@ -1011,6 +1011,13 @@ function wireMessages(messages) {
         copy[k] = m[k];
       }
     }
+    // An empty answer of the model (no text, no tool call) is refused once sent back: Mistral answers HTTP 400
+    // "Assistant message must have either content or tool_calls", and the verification is lost.
+    if (copy.role === "assistant" && !(Array.isArray(copy.tool_calls) && copy.tool_calls.length)
+        && !(typeof copy.content === "string" && copy.content.trim())) {
+      copy.content = "(no answer)";
+      delete copy.tool_calls;
+    }
     return copy;
   });
 }

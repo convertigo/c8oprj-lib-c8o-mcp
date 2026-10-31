@@ -590,6 +590,14 @@ test('agent loop: a model that stops answering without tools is made to call fin
   assert.equal(sent.length, 4);
   assert.equal(sent[2].tool_choice, 'auto');
   assert.deepEqual(sent[3].tool_choice, { type: 'function', function: { name: 'finish' } });
+  // Mistral refuses an assistant message with neither content nor tool_calls (HTTP 400, a whole run lost): an empty
+  // answer is sent back with a content.
+  for (const body of sent) {
+    for (const message of body.messages.filter(m => m.role === 'assistant')) {
+      assert.ok((typeof message.content === 'string' && message.content.trim()) || (message.tool_calls && message.tool_calls.length),
+        'an assistant message has a content or tool calls: ' + JSON.stringify(message));
+    }
+  }
   assert.equal(result.report.summary, 'Priority shown on the 5 rows.');
   assert.equal(result.stopReason, 'finished');
 });
