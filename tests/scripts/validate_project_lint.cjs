@@ -148,3 +148,212 @@ assert.strictEqual(theme([{ name: "LightTheme", css: starterLight }, { name: "Ap
 assert.strictEqual(theme([{ name: "LightTheme", css: starterLight.replace("#2563eb", "#E30613") }]), "", "a starter theme edited by hand counts");
 
 console.log("project-lint boundary rules OK");
+
+// LIB-* rules (31/10): agents hand-built what a marketplace library gives (CSV exports, admin grids with sort, filter and
+// paging, chart wrappers, logins). project-lint names the library and how to get it.
+const { test } = require("node:test");
+const lib = context.C8O.lint;
+// Values made in the vm context: compared as plain JSON.
+const plain = value => JSON.parse(JSON.stringify(value));
+
+test("LIB-HANDMADE-CSV: code about CSV that joins its cells or rows", () => {
+  assert.strictEqual(lib.handmadeCsv('var lines = rows.map(function (r) { return r.join(";"); });\nresponse = lines.join("\\r\\n"); contentType = "text/csv";'), '.join(";")');
+  assert.strictEqual(lib.handmadeCsv('const csv = header + "\\n" + body; download("export.csv", csv);'), '+ "\\n"');
+  assert.strictEqual(lib.handmadeCsv("let out = ''; for (const r of rows) { out += r.id + ',' + r.name + '\\r\\n'; } // CSV"), "'\\r\\n'");
+  assert.strictEqual(lib.handmadeCsv("const toCsv = rows => rows.map(r => r.join(separator)).join(EOL);"), ".join(separator)");
+  assert.strictEqual(lib.handmadeCsv("csvLine = `${r.id};${r.name}`;"), "${r.id};${");
+});
+
+test("LIB-HANDMADE-CSV: a CSV word without a join, or a join without CSV, is not flagged", () => {
+  assert.strictEqual(lib.handmadeCsv('// the CSV export goes through lib_csv_response\nvar call = {"_use_separator": ";", "_use_sequence_data": "App.list"};'), "");
+  assert.strictEqual(lib.handmadeCsv('var cells = line.split(";"); // read the uploaded .csv'), "");
+  assert.strictEqual(lib.handmadeCsv('label = names.join(", ") + "\\n";'), "", "no CSV in this code");
+  assert.strictEqual(lib.handmadeCsv(""), "");
+});
+
+const page = (lists, codes, agGrid) => ({ lists, codes, agGrid: agGrid === true });
+
+test("LIB-HANDMADE-GRID: a page that sorts, filters and pages its ForEach list itself", () => {
+  const roots = plain(lib.listRoots("local?.view"));
+  assert.deepStrictEqual(roots, ["view"]);
+  const all = lib.handmadeGrid(page(roots, [
+    { where: "ApplyFilters", sets: "", text: "page.local.view = page.local.rows.filter(r => !page.local.search || r.name.toLowerCase().includes(page.local.search))" +
+      ".sort((a, b) => a.name.localeCompare(b.name)).slice(page.local.pageIndex * page.local.pageSize, (page.local.pageIndex + 1) * page.local.pageSize);" },
+    { where: "ExportCsv", sets: "", text: "const csv = page.local.rows.map(r => r.name).sort();" }
+  ]));
+  assert.deepStrictEqual(plain(all), { ops: ["sorts", "filters", "pages"], where: ["ApplyFilters"] });
+  // A SetLocalAction that sets the listed local, and the slice pipe in the ForEach source.
+  assert.deepStrictEqual(plain(lib.handmadeGrid(page(["rows"], [
+    { where: "SortByName", sets: "rows", text: "c8oPage.local.all.slice().sort((a: any, b: any) => a.name < b.name ? -1 : 1)" }]))),
+  { ops: ["sorts"], where: ["SortByName"] });
+  assert.deepStrictEqual(plain(lib.handmadeGrid(page(["rows"], [
+    { where: "ForEach", sets: "", text: "local?.rows | slice:(local.page * 10):(local.page * 10 + 10)" }]))).ops, ["pages"]);
+  // A filter by a local named so, without string search.
+  assert.deepStrictEqual(plain(lib.handmadeGrid(page(["items"], [
+    { where: "Apply", sets: "", text: "page.local.shown = page.local.items.filter(i => i.status === page.local.statusFilter);" }]))).ops, ["filters"]);
+});
+
+test("LIB-HANDMADE-GRID: a generated list page with server filters is not flagged", () => {
+  // ngx-page-create: the ForEach lists local data, the filters are locals passed to the CallSequenceAction, and the
+  // selection toggle filters the selected keys, not the list.
+  const roots = plain(lib.listRoots(JSON.stringify({ filter: "Local", project: "App", input: "", model: { data: [{ localObject: "local" }], path: "?.data?.items" } }))
+    .concat(lib.listRoots("local?.data?.items")));
+  assert.deepStrictEqual(roots, ["data", "data"]);
+  assert.strictEqual(lib.handmadeGrid(page(["data"], [
+    { where: "InitFilterStatus", sets: "filterStatus", text: "''" },
+    { where: "StoreData", sets: "data", text: "out?.success ? (out?.data ?? null) : null" },
+    { where: "Toggle", sets: "selected", text: "((s: any[], v: string) => s.indexOf(v) >= 0 ? s.filter((x: any) => x !== v) : s.concat([v]))((c8oPage.local.selected || []).slice(), '' + scope.item?.id)" },
+    { where: "ForEach", sets: "", text: "local?.data?.items " }
+  ])), null);
+});
+
+test("LIB-HANDMADE-GRID: a page using the agGrid, a removed row or a page without a list is not flagged", () => {
+  const sorting = [{ where: "SortRows", sets: "", text: "page.local.rows.sort((a, b) => a.name.localeCompare(b.name));" }];
+  assert.ok(lib.handmadeGrid(page(["rows"], sorting)));
+  assert.strictEqual(lib.handmadeGrid(page(["rows"], sorting, true)), null, "the page uses the agGrid");
+  assert.strictEqual(lib.handmadeGrid(page([], sorting)), null, "no ForEach");
+  assert.strictEqual(lib.handmadeGrid(page(["rows"], [{ where: "RemoveDeleted", sets: "rows", text: "c8oPage.local.rows.filter((r: any) => r.id !== event.id)" }])), null);
+  assert.strictEqual(lib.handmadeGrid(page(["rows"], [{ where: "SortOptions", sets: "", text: "page.local.options.sort();" }])), null, "another local");
+});
+
+test("LIB-NPM-DUPLICATE: npm packages a library already wraps", () => {
+  const found = plain(lib.npmDuplicates([["ag-grid-community", "^31.0.0"], ["lodash", "^4.17.0"], ["@fullcalendar/core", "6.1.0"],
+    ["Chart.js", "4"], ["papaparse", "5"]]));
+  assert.deepStrictEqual(found.map(d => d.package + " -> " + d.library), ["ag-grid-community -> lib_ExtendedComponents_ui_ngx",
+    "@fullcalendar/core -> lib_FullCalendar", "chart.js -> libApexCharts", "papaparse -> lib_csv_response"]);
+  assert.match(found[3].also, /agGrid of lib_ExtendedComponents_ui_ngx also exports/);
+  assert.deepStrictEqual(plain(lib.npmDuplicates([["lodash", "4"], ["date-fns", "3"]])), []);
+  assert.deepStrictEqual(plain(lib.npmDuplicates(null)), []);
+});
+
+test("LIB-HANDMADE-AUTH: password columns in SQL and password hashing in code", () => {
+  assert.strictEqual(lib.passwordColumn("SELECT id, email, password_hash FROM users WHERE email = {email}"), "password_hash");
+  assert.strictEqual(lib.passwordColumn("INSERT INTO comptes (email, mot_de_passe) VALUES ({email}, {mdp})"), "mot_de_passe");
+  assert.strictEqual(lib.passwordColumn('UPDATE "users" SET "pwd" = {pwd} WHERE id = {id}'), "pwd");
+  assert.strictEqual(lib.passwordColumn("SELECT u.id FROM users u WHERE u.email = {email} AND u.passwd = {secret}"), "passwd");
+  assert.strictEqual(lib.passwordColumn("SELECT password_reset_sent_at, password_changed_at FROM users"), "", "other columns");
+  assert.strictEqual(lib.passwordColumn("SELECT id FROM users WHERE note = 'password' AND token = {password} -- password"), "", "a literal, a variable, a comment");
+  assert.strictEqual(lib.passwordHashing('var digest = java.security.MessageDigest.getInstance("SHA-256").digest(String(password).getBytes("UTF-8"));'), "MessageDigest");
+  assert.strictEqual(lib.passwordHashing("const ok = bcrypt.compareSync(pwd, row.hash);"), "bcrypt");
+  assert.strictEqual(lib.passwordHashing("var sum = MessageDigest.getInstance('MD5').digest(fileBytes);" + " ".repeat(300) + "smtpPassword = symbols.smtp;"), "", "a checksum far from the password");
+  assert.strictEqual(lib.passwordHashing("var sum = MessageDigest.getInstance('MD5').digest(fileBytes);"), "");
+});
+
+test("LIB-* fixes: how to import the library, or that the app references it", () => {
+  assert.strictEqual(lib.libraryFix("App", ["lib_csv_response", "lib_download_file"], {}),
+    'Import lib_csv_response: marketplace-import({project:"lib_csv_response", targetProject:"App"}), then marketplace-describe({project:"lib_csv_response"}) ' +
+    "for its sequences and shared components; lib_download_file the same way.");
+  assert.strictEqual(lib.libraryFix("App", ["lib_csv_response", "lib_download_file"], { lib_csv_response: true }),
+    'The app references lib_csv_response: call its generate_csv sequence instead; marketplace-describe({project:"lib_csv_response"}) gives their QNames.');
+  assert.match(lib.libraryFix("App", ["lib_ExtendedComponents_ui_ngx"], { lib_extendedcomponents_ui_ngx: true }),
+    /^The app references lib_ExtendedComponents_ui_ngx: use its agGrid shared component \(ngx-page-create kind list with list\.grid:true\) instead/);
+  Object.keys(lib.LIBRARIES).forEach(name => assert.ok(lib.LIBRARIES[name].gives && lib.LIBRARIES[name].use, name));
+});
+
+// The whole run on fake beans: the walk gives each rule its objects, once per object.
+function fakeBean(cls, name, props, children) {
+  return Object.assign({ getClass: () => ({ getName: () => "com.twinsoft.convertigo.beans." + cls }), getName: () => name, getComment: () => "Does it.",
+    children: children || [] }, props || {});
+}
+function named(node, parent) {
+  const qname = parent ? parent + "." + node.getName() : node.getName();
+  node.getFullQName = () => qname;
+  node.children.forEach(c => named(c, qname));
+  return node;
+}
+function fakeJava(files) {
+  class File {
+    constructor(parent, child) { this.path = (parent instanceof File ? parent.path : String(parent)) + "/" + child; }
+    rel() { return this.path.replace(/^\/p\//, ""); }
+    isDirectory() { return Object.keys(files).some(f => f.startsWith(this.rel() + "/")); }
+    listFiles() {
+      const names = new Set(Object.keys(files).filter(f => f.startsWith(this.rel() + "/")).map(f => f.slice(this.rel().length + 1).split("/")[0]));
+      return [...names].map(n => new File(this, n));
+    }
+    getName() { return this.path.split("/").pop(); }
+    length() { return (files[this.rel()] || "").length; }
+    toPath() { return this.rel(); }
+  }
+  return { io: { File }, nio: { file: { Files: { readAllBytes: p => files[p] } } }, lang: { String: function (bytes) { return new String(bytes); } } };
+}
+function runLint(project, files) {
+  const sandbox = {
+    C8O: { dbo: { getDirectChildren: d => d.children || [], _normalizeXMLVector: v => v || null, _misplacedSmartSourceKeys: () => [], _NGX_NOT_SET: "not set" },
+      sqlDialect: { of: () => "hsqldb", unbalancedQuote: () => null, dateMath: () => null, foreignSyntax: () => [], aliasFolding: () => null } },
+    Packages: { com: { twinsoft: { convertigo: { engine: { Engine: { theApp: { databaseObjectsManager: {
+      getOriginalProjectByName: n => (String(n) === project.getName() ? project : null) } } } } } } } },
+    java: fakeJava(files || {}),
+    JSON
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(source, sandbox, { filename: "tools_project_lint.js" });
+  return plain(sandbox.C8O.lint.run(project.getName(), { checkTexts: false }));
+}
+const smart = (mode, value, raw) => ({ getMode: () => mode, getValue: () => value, getSmartValue: () => (raw === undefined ? value : raw), getExpression: () => value });
+const setLocal = (name, property, value) => fakeBean("ngx.components.UIDynamicAction", name, { getBeanData: () => JSON.stringify({ name: "SetLocalAction",
+  properties: { Property: { mode: "plain", value: property }, Value: { mode: "script", value } } }) });
+const forEach = (name, source) => fakeBean("ngx.components.UIControlDirective", name, { getDirectiveName: () => "ForEach", getSourceSmartType: () => source });
+const custom = (name, code, deps) => fakeBean("ngx.components.UICustomAction", name, { getActionValue: () => code, getPackageDependencies: () => deps || [] });
+const ngxPage = (name, children, root) => fakeBean("ngx.components.PageComponent", name, { isRoot: root === true, getScriptContent: () => "", getTitle: () => "" }, children);
+
+function handBuiltApp(name, references) {
+  const app = fakeBean("ngx.components.ApplicationComponent", "Application", {}, [
+    ngxPage("Orders", [
+      forEach("ForEachView", smart("SCRIPT", "local?.view")),
+      custom("ApplyFilters", "page.local.view = page.local.rows.filter(r => r.name.toLowerCase().includes(page.local.search)).sort((a, b) => a.name.localeCompare(b.name))" +
+        ".slice(page.local.pageIndex * page.local.pageSize, (page.local.pageIndex + 1) * page.local.pageSize);",
+        [["ag-grid-community", "^31.0.0"], ["ag-grid-angular", "^31.0.0"], ["lodash", "^4.17.0"]]),
+      custom("ExportCsv", 'const csv = page.local.rows.map(r => [r.id, r.name].join(";")).join("\\n"); save(new Blob([csv], { type: "text/csv" }));')
+    ], true),
+    ngxPage("Generated", [
+      forEach("ForEachItems", smart("SOURCE", "local?.data?.items", JSON.stringify({ filter: "Local", model: { path: "?.data?.items" } }))),
+      setLocal("InitFilterStatus", "filterStatus", "''"),
+      setLocal("StoreData", "data", "out?.success ? (out?.data ?? null) : null"),
+      setLocal("Toggle", "selected", "((s: any[], v: string) => s.indexOf(v) >= 0 ? s.filter((x: any) => x !== v) : s.concat([v]))((c8oPage.local.selected || []).slice(), '' + scope.item?.id)"),
+      fakeBean("ngx.components.UIDynamicAction", "Load", { getBeanData: () => JSON.stringify({ name: "CallSequenceAction", properties: { requestable: { mode: "plain", value: name + ".list_orders" } } }) })
+    ]),
+    ngxPage("WithGrid", [
+      forEach("ForEachRows", smart("SCRIPT", "local?.rows")),
+      fakeBean("ngx.components.UIUseShared", "Grid", { getSharedComponentQName: () => "lib_ExtendedComponents_ui_ngx.MobileApplication.Application.agGrid" }),
+      custom("SortRows", "page.local.rows.sort((a, b) => a.name.localeCompare(b.name));")
+    ])
+  ]);
+  const project = fakeBean("core.Project", name, { getDirPath: () => "/p", getReferenceList: () => ({ size: () => references.length, get: i => references[i] }) }, [
+    fakeBean("connectors.SqlConnector", "db", {}, [fakeBean("transactions.SqlTransaction", "q_login", { getSqlQuery: () => "SELECT id, password_hash FROM users WHERE email = {email}" })]),
+    fakeBean("sequences.GenericSequence", "export_orders", {}, [fakeBean("steps.SimpleStep", "BuildCsv", {
+      getExpression: () => 'var out = rows.map(function (r) { return r.join(";"); }).join("\\r\\n"); contentType = "text/csv";' })]),
+    fakeBean("sequences.GenericSequence", "export_json", {}, [fakeBean("steps.JsonFieldStep", "line", {
+      getKey: () => smart("PLAIN", "line"), getValue: () => smart("JS", 'csvRows.map(function (r) { return r.id + ";" + r.name; }).join("\\n")') })]),
+    fakeBean("mobile.MobileApplication", "MobileApplication", {}, [app])
+  ]);
+  return named(project);
+}
+const projectFiles = {
+  "js/export.js": 'function toCsv(rows) { return rows.map(function (r) { return r.join(","); }).join("\\n"); } // text/csv',
+  "js/auth.js": 'var hash = java.security.MessageDigest.getInstance("SHA-256").digest(String(password).getBytes("UTF-8"));',
+  "js/notes.js": "// the CSV export goes through lib_csv_response",
+  "js/vendor/papaparse.min.js": 'csv.join(",")'
+};
+
+test("project-lint run: the LIB-* findings of an app built by hand, once per object", () => {
+  const result = runLint(handBuiltApp("App", [{ getParser: () => ({ getProjectName: () => "lib_UserManager" }) }, {}]), projectFiles);
+  const of = rule => result.findings.filter(f => f.rule === rule);
+  assert.deepStrictEqual(of("LIB-HANDMADE-CSV").map(f => f.qname), ["App.export_orders.BuildCsv", "App.export_json.line",
+    "App.MobileApplication.Application.Orders.ExportCsv", "js/export.js"]);
+  assert.match(of("LIB-HANDMADE-CSV")[0].fix, /^Import lib_csv_response: marketplace-import\(\{project:"lib_csv_response", targetProject:"App"\}\), then marketplace-describe/);
+  assert.match(of("LIB-HANDMADE-CSV")[0].message, /lib_csv_response gives a sequence \(generate_csv\).*list\.grid:\{csv:true\}/);
+  assert.deepStrictEqual(of("LIB-HANDMADE-GRID").map(f => f.qname), ["App.MobileApplication.Application.Orders"]);
+  assert.match(of("LIB-HANDMADE-GRID")[0].message, /^The page sorts, filters and pages its list \(ForEach over view\) itself, in ApplyFilters: a hand-made data grid\./);
+  assert.deepStrictEqual(of("LIB-NPM-DUPLICATE").map(f => f.qname), ["App.MobileApplication.Application.Orders.ApplyFilters"]);
+  assert.match(of("LIB-NPM-DUPLICATE")[0].message, /^package_dependencies adds ag-grid-community, ag-grid-angular, which the library lib_ExtendedComponents_ui_ngx already wraps/);
+  assert.match(of("LIB-NPM-DUPLICATE")[0].fix, /Then take these packages out of package_dependencies\.$/);
+  assert.deepStrictEqual(of("LIB-HANDMADE-AUTH").map(f => f.qname), ["App.db.q_login", "js/auth.js"]);
+  of("LIB-HANDMADE-AUTH").forEach(f => assert.match(f.fix, /^The app references lib_UserManager: call its sequences \(SignIn, CreateAccount, ForgotPassword\.\.\.\) instead/));
+  result.findings.filter(f => /^LIB-/.test(f.rule)).forEach(f => assert.strictEqual(f.severity, "warning", f.rule));
+});
+
+test("project-lint run: a library is never sent to itself", () => {
+  const result = runLint(handBuiltApp("lib_csv_response", []), projectFiles);
+  assert.deepStrictEqual(result.findings.filter(f => f.rule === "LIB-HANDMADE-CSV"), []);
+  assert.strictEqual(result.findings.filter(f => f.rule === "LIB-HANDMADE-AUTH").length, 2, "other rules still apply");
+});
