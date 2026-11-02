@@ -613,9 +613,12 @@ test('gateway: a named tool refused in tool_choice falls back to required', asyn
 
 test('design suggestions are advice: kept apart, normalized, and never change the verdict (31/10)', () => {
   const shots = [{ name: 'home', file: '/out/home.png' }];
-  const report = agent.normalizeReport({ verdict: 'passed', summary: 's', checks: [{ check: 'a', status: 'passed', evidence: 'e' }],
+  // a passed check needs its journal evidence
+  const trace = [{ id: 'A1', tool: 'click', failed: false, result: 'ok' }];
+  const report = agent.normalizeReport({ verdict: 'passed', summary: 's',
+    checks: [{ id: 'C1', check: 'a', status: 'passed', evidence: 'e', observedText: 'ok', evidenceRefs: ['A1'], actionRefs: ['A1'] }],
     designSuggestions: [{ aspect: 'hierarchy', suggestion: 'Make the page title larger than the section titles.', location: 'Home', screenshot: 'home' },
-      { aspect: 'mood', suggestion: 'Rows are cramped.' }, { aspect: 'color', suggestion: '' }] }, {}, shots);
+      { aspect: 'mood', suggestion: 'Rows are cramped.' }, { aspect: 'color', suggestion: '' }] }, {}, shots, {}, trace);
   assert.equal(report.verdict, 'passed');
   assert.deepEqual(report.visualDefects, []);
   assert.deepEqual(report.designSuggestions, [
