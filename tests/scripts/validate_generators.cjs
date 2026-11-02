@@ -268,7 +268,8 @@ test('a structured select writes aliases and the optional, contains, list and bo
       { variable: 'id', column: 'p.id', required: true }, { sql: 'p.x = 1' }], orderBy: 'p.id', limit: 10 } }, errors, 't');
   assert.deepEqual(plain(errors), []);
   assert.match(sql, /^SELECT p\.id AS "id", p\.numero_poste AS "numeroPoste"\nFROM poste_pca p\nWHERE/);
-  assert.match(sql, /\(\{rpcaId\} = '' OR p\.rpca_id = \{rpcaId\}\)/);
+  // HSQLDB refuses the empty text of an absent variable typed as the column: the value is text emptied to NULL.
+  assert.match(sql, /\(\{rpcaId\} = '' OR p\.rpca_id = NULLIF\(CAST\(\{rpcaId\} AS VARCHAR\(4000\)\), ''\)\)/);
   assert.match(sql, /\(\{q\} = '' OR \(LOWER\(COALESCE\(CAST\(p\.numero_poste AS VARCHAR\(4000\)\), ''\)\) LIKE '%' \|\| LOWER\(\{q\}\) \|\| '%' OR /);
   assert.match(sql, /\(\{ids\} = '' OR POSITION\(',' \|\| CAST\(p\.id AS VARCHAR\(40\)\) \|\| ',' IN ',' \|\| \{ids\} \|\| ','\) > 0\)/);
   assert.match(sql, /\(\{actif\} = '' OR p\.actif = \(\{actif\} = 'true'\)\)/);
@@ -281,6 +282,27 @@ test('a structured select writes aliases and the optional, contains, list and bo
   const bad = [];
   G.buildSql({ select: { from: 't', columns: { Bad: 'x' } } }, bad, 't');
   assert.match(bad[0], /must be camelCase/);
+});
+
+test('an optional comparison gives HSQLDB a text value emptied to NULL, a required one and other databases the bare variable', () => {
+  const G = load(makeWorld());
+  const select = (where, dialect) => {
+    const errors = [];
+    const sql = G.buildSql({ select: { from: 'orders o', columns: ['o.id'], where } }, errors, 't', dialect);
+    assert.deepEqual(plain(errors), []);
+    return sql;
+  };
+  const range = select([{ variable: 'from', column: 'o.created', op: '>=' }, { variable: 'id', column: 'o.id', required: true }]);
+  assert.match(range, /\(\{from\} = '' OR o\.created >= NULLIF\(CAST\(\{from\} AS VARCHAR\(4000\)\), ''\)\)/);
+  assert.match(range, /AND \(o\.id = \{id\}\)/, 'a required filter has a value: it stays bare');
+  assert.deepEqual(plain(G.lintSql(range, 'hsqldb').errors), []);
+  assert.deepEqual(plain(G.lintSql(range, 'hsqldb').warnings), []);
+  assert.match(select([{ variable: 'ownerId', column: 'o.owner_id' }], 'hsqldb'), /o\.owner_id = NULLIF\(CAST\(\{ownerId\} AS VARCHAR\(4000\)\), ''\)/);
+  ['postgresql', 'mysql', 'oracle', 'sqlserver'].forEach(d =>
+    assert.match(select([{ variable: 'ownerId', column: 'o.owner_id' }], d), /\(\{ownerId\} = '' OR o\.owner_id = \{ownerId\}\)/, d));
+  assert.match(G.lintSql('SELECT o.id AS "id" FROM orders o WHERE {ownerId} IS NULL OR o.owner_id = {ownerId}').errors.join('\n'),
+    /\(\{ownerId\} = '' OR col = NULLIF\(CAST\(\{ownerId\} AS VARCHAR\(4000\)\), ''\)\)/);
+  assert.match(G.lintSql('SELECT o.id AS "id" FROM orders o WHERE {ownerId} IS NULL', 'postgresql').errors.join('\n'), /\(\{ownerId\} = '' OR col = \{ownerId\}\)/);
 });
 
 test('sql-transaction-create validates everything first, then creates the transactions with their variables', () => {

@@ -170,15 +170,16 @@ Checked on HSQLDB (PostgreSQL has the same `POSITION` and `||`): `"56,57"` retur
 ### An absent variable is an empty string, never NULL
 A `SqlTransaction` replaces a variable that has no value (not sent, or sent as null) with an empty string before binding it. A `{variable} IS NULL` test is therefore never true, and an optional filter written that way returns no row when the filter is omitted.
 
-Write optional filters against the empty string:
+Write optional filters against the empty string. On HSQLDB, compare a column that is not text (a number, a date, a timestamp, a boolean) with `NULLIF(CAST({x} AS VARCHAR(4000)), '')`; a text column takes `{x}` itself:
 
 ```sql
 SELECT ... FROM orders
-WHERE ({ownerId} = '' OR owner_id = {ownerId})
+WHERE ({ownerId} = '' OR owner_id = NULLIF(CAST({ownerId} AS VARCHAR(4000)), ''))
+  AND ({status} = '' OR status = {status})
   AND ({search} = '' OR LOWER(order_number) LIKE '%' || LOWER({search}) || '%')
 ```
 
-Checked on HSQLDB, on an INTEGER column and a LIKE: without the variable every row comes back, with it only the matching ones, while the `IS NULL` form returns nothing. This form also works on a DATE column: the engine binds the empty value as NULL (checked live on HSQLDB). Keep the parameter bare: wrapping it in `NULLIF` or `COALESCE` makes HSQLDB refuse the statement at preparation ("data type cast needed for parameter", "incompatible data types in combination"). If a driver still asks for a type, cast the parameter itself, `CAST({x} AS VARCHAR(40))`, in both branches.
+Checked on HSQLDB 2.7.4, binding each value as the engine does: without the variable every row comes back, with it only the matching ones, while the `IS NULL` form returns nothing. The bare form `owner_id = {ownerId}` returns the same rows, but HSQLDB gives that parameter the type of the column and refuses the empty text there: the engine binds NULL and logs a WARN with a stack trace on every call without the filter ("Error generating value for parameter", caused by "invalid character value for cast" on a number, "invalid datetime format" on a date). Typed as text and emptied to NULL, the value still compares in the type of the column: `>=` orders an INTEGER, a DECIMAL, a DATE or a TIMESTAMP as numbers and dates, not as texts. A value the column cannot take (`'x'` for a number) fails the call with "invalid character value for cast", where the bare form matched nothing. `NULLIF({x}, '')` without the cast is refused at preparation ("data type cast needed for parameter"), and `CAST({x} AS VARCHAR(40))` without `NULLIF` still warns on a date and fails when the column test comes first in the `OR`. Other databases keep `col = {x}` (not checked here). `sql-transaction-create` writes the HSQLDB form for the comparisons of a structured `select` (`where: [{variable, column}]`).
 
 ### Pattern 1: read-first validation
 Always validate the read path first.

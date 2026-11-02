@@ -408,7 +408,8 @@ C8O.generators = C8O.generators || {};
     }
     var isNull = /\{([A-Za-z_]\w*)\}\s+IS\s+(NOT\s+)?NULL/i.exec(String(sql));
     if (isNull) {
-      errors.push("{" + isNull[1] + "} IS NULL is never true: an absent variable is an empty string. Write the optional filter ({" + isNull[1] + "} = '' OR col = {" + isNull[1] + "}).");
+      errors.push("{" + isNull[1] + "} IS NULL is never true: an absent variable is an empty string. Write the optional filter ({" + isNull[1] + "} = '' OR col = " +
+        D.optionalValue(dialect, "{" + isNull[1] + "}") + ").");
     }
     var inList = /\bIN\s*\(\s*\{([A-Za-z_]\w*)\}\s*\)/i.exec(String(sql));
     if (inList) {
@@ -498,7 +499,7 @@ C8O.generators = C8O.generators || {};
       if (op === "bool") {
         return col + " = (" + v + " = 'true')";
       }
-      return col + " " + op + " " + v;
+      return col + " " + op + " " + (filter.required === true ? v : D.optionalValue(dialect, v));
     });
     var test = tests.length > 1 ? "(" + tests.join(" OR ") + ")" : tests[0];
     return filter.required === true ? "(" + test + ")" : "(" + v + " = '' OR " + test + ")";

@@ -70,6 +70,15 @@ C8O.sqlDialect = C8O.sqlDialect || {};
     return dialect === "mysql" ? "CAST(" + expression + " AS CHAR)" : "CAST(" + expression + " AS VARCHAR(" + (size || 40) + "))";
   };
 
+  // The value an optional filter compares a column with, ({x} = '' OR col = <value>). HSQLDB gives a bare {x} the type
+  // of the column and refuses the empty text of an absent variable there: the engine binds NULL, the rows are right,
+  // but it logs a WARN with a stack trace on every call ("invalid character value for cast" on a number,
+  // "invalid datetime format" on a date). Typed as text and emptied to NULL, the value still compares in the type of
+  // the column (checked on HSQLDB 2.7.4: INTEGER, DECIMAL, DATE, TIMESTAMP, BOOLEAN, VARCHAR). Other databases keep {x}.
+  api.optionalValue = function (dialect, value) {
+    return dialect && dialect !== "hsqldb" ? value : "NULLIF(" + api.text(dialect, value, 4000) + ", '')";
+  };
+
   // True when value (a comma-separated string, no spaces) lists column.
   api.inList = function (dialect, column, value) {
     if (dialect === "mysql") {
