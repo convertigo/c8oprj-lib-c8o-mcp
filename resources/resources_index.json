@@ -806,7 +806,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_integration_sql.md",
     "guideId": "convertigo/integration-sql",
-    "revision": 7,
+    "revision": 8,
     "scopeTags": [
       "domain",
       "integration",
@@ -1132,7 +1132,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_multipage_app.md",
     "guideId": "convertigo/recipe-multipage-app",
-    "revision": 23,
+    "revision": 24,
     "scopeTags": [
       "recipe",
       "ngx",
