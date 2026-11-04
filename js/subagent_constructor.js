@@ -1,3 +1,23 @@
+// Shared storage contract across Tigo projects. Resolved only on the engine.
+if (typeof C8O === "undefined") { var C8O = {}; }
+if (typeof C8O.tigoAgentsDirectory !== "function") {
+  C8O.tigoAgentsDirectory = function (workspaceRoot, FileClass) {
+    var F = FileClass || Packages.java.io.File;
+    var configured = "";
+    try {
+      var value = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.symbolsGetValue("assistant.agents.directory");
+      configured = value == null ? "" : String(value).replace(/^\s+|\s+$/g, "");
+    } catch (_noAgentsDirectorySymbol) {}
+    if (!configured.length) { return new F(workspaceRoot, "agents"); }
+    if (configured.indexOf("\u0000") !== -1) { throw new Error("Invalid assistant.agents.directory"); }
+    var directory = new F(configured);
+    if (!directory.isAbsolute()) { throw new Error("assistant.agents.directory must be an absolute path"); }
+    if (directory.getParentFile() === null) { throw new Error("assistant.agents.directory must be a dedicated directory, not a filesystem root"); }
+    return directory;
+  };
+}
+// End shared storage contract.
+
 /*
  * The constructor sub-agent (profile "constructor" of js/subagents.js, runner "vibe-session"): a Mistral Vibe
  * programmatic session (node/vibe_subagent_runner.cjs runs `vibe -p`) builds one lot in one project through the
@@ -119,8 +139,8 @@ C8O.constructorRunner = C8O.constructorRunner || {};
     };
     host.vibeBin = function () {
       var bin = windows
-        ? new File(new File(new File(new File(new File(workspace, "agents"), "vibe"), ".venv"), "Scripts"), "vibe.exe")
-        : new File(new File(new File(new File(new File(workspace, "agents"), "vibe"), ".venv"), "bin"), "vibe");
+        ? new File(new File(new File(new File(C8O.tigoAgentsDirectory(workspace, File), "vibe"), ".venv"), "Scripts"), "vibe.exe")
+        : new File(new File(new File(new File(C8O.tigoAgentsDirectory(workspace, File), "vibe"), ".venv"), "bin"), "vibe");
       if (!bin.isFile()) {
         throw new Error("Mistral Vibe is not installed in this Studio (" + bin.getPath() + "): start a Tigo conversation with Vibe once.");
       }
@@ -132,7 +152,7 @@ C8O.constructorRunner = C8O.constructorRunner || {};
     };
     // The conversation's Vibe home names it in X-Convertigo-Conversation-Id; without one, the most recent user home.
     host.vibeTemplate = function (conversationId) {
-      var homes = new File(new File(new File(workspace, "agents"), "vibe"), "homes-convertigo");
+      var homes = new File(new File(C8O.tigoAgentsDirectory(workspace, File), "vibe"), "homes-convertigo");
       var users = new File(homes, "users").listFiles();
       var best = null, bestTime = -1, owned = null;
       for (var u = 0; users !== null && u < users.length; u++) {

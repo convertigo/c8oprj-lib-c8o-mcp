@@ -134,7 +134,7 @@ test('the key of the user\'s agent is found in the folder the Assistant and the 
   assert.equal(api.userPathSlug('studio', sha), 'studio');
   assert.equal(api.owner('google:1093:gregoryv@convertigo.com'), 'gregoryv@convertigo.com', 'an OAuth sign-in goes by its email');
   assert.equal(api.owner('c8o:admin'), 'c8o:admin');
-  assert.match(source, /agents\/vibe\/homes-convertigo\/users\/" \+ api\.userPathSlug\(user, sha256Hex\) \+ "\/\.vibe-home\/\.env"/);
+  assert.match(source, /vibe\/homes-convertigo\/users\/" \+ api\.userPathSlug\(user, sha256Hex\) \+ "\/\.vibe-home\/\.env"/);
   assert.match(source, /return userAgentKey\(user\) \|\| serverKey\(\);/);
 });
 

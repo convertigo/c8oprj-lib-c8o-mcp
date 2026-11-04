@@ -1,3 +1,23 @@
+// Shared storage contract across Tigo projects. Resolved only on the engine.
+if (typeof C8O === "undefined") { var C8O = {}; }
+if (typeof C8O.tigoAgentsDirectory !== "function") {
+  C8O.tigoAgentsDirectory = function (workspaceRoot, FileClass) {
+    var F = FileClass || Packages.java.io.File;
+    var configured = "";
+    try {
+      var value = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.symbolsGetValue("assistant.agents.directory");
+      configured = value == null ? "" : String(value).replace(/^\s+|\s+$/g, "");
+    } catch (_noAgentsDirectorySymbol) {}
+    if (!configured.length) { return new F(workspaceRoot, "agents"); }
+    if (configured.indexOf("\u0000") !== -1) { throw new Error("Invalid assistant.agents.directory"); }
+    var directory = new F(configured);
+    if (!directory.isAbsolute()) { throw new Error("assistant.agents.directory must be an absolute path"); }
+    if (directory.getParentFile() === null) { throw new Error("assistant.agents.directory must be a dedicated directory, not a filesystem root"); }
+    return directory;
+  };
+}
+// End shared storage contract.
+
 /*
  * Tigo sub-agents: the main agent hands a large piece of work to a sub-agent with a fresh context, its own model, its own
  * tools and its own limits, and gets back a short report; the sub-agent's context is then thrown away. The main agent
@@ -365,7 +385,7 @@ C8O.subagents = C8O.subagents || {};
     var host = {
       readKey: function () {
         try {
-          var keyFile = new File(new File(new File(workspace, "agents"), "convertigo"), "llm-api-key");
+          var keyFile = new File(new File(C8O.tigoAgentsDirectory(workspace, File), "convertigo"), "llm-api-key");
           if (keyFile.isFile()) {
             var first = str(readText(keyFile).split(/\r?\n/)[0]);
             if (first.length && first.indexOf("#") !== 0) {
@@ -377,7 +397,7 @@ C8O.subagents = C8O.subagents || {};
       },
       readSettings: function () {
         try {
-          var file = new File(new File(new File(workspace, "agents"), "convertigo"), "subagent-profiles.json");
+          var file = new File(new File(C8O.tigoAgentsDirectory(workspace, File), "convertigo"), "subagent-profiles.json");
           return file.isFile() ? JSON.parse(readText(file)) : {};
         } catch (_badSettings) {
           return {};

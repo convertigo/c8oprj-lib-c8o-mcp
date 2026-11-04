@@ -1,3 +1,23 @@
+// Shared storage contract across Tigo projects. Resolved only on the engine.
+if (typeof C8O === "undefined") { var C8O = {}; }
+if (typeof C8O.tigoAgentsDirectory !== "function") {
+  C8O.tigoAgentsDirectory = function (workspaceRoot, FileClass) {
+    var F = FileClass || Packages.java.io.File;
+    var configured = "";
+    try {
+      var value = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.symbolsGetValue("assistant.agents.directory");
+      configured = value == null ? "" : String(value).replace(/^\s+|\s+$/g, "");
+    } catch (_noAgentsDirectorySymbol) {}
+    if (!configured.length) { return new F(workspaceRoot, "agents"); }
+    if (configured.indexOf("\u0000") !== -1) { throw new Error("Invalid assistant.agents.directory"); }
+    var directory = new F(configured);
+    if (!directory.isAbsolute()) { throw new Error("assistant.agents.directory must be an absolute path"); }
+    if (directory.getParentFile() === null) { throw new Error("assistant.agents.directory must be a dedicated directory, not a filesystem root"); }
+    return directory;
+  };
+}
+// End shared storage contract.
+
 /*
  * The verifier sub-agent (profile "verifier" of js/subagents.js, runner "vision-browser") and its browser-verify tool.
  * A vision model of the Convertigo LLM gateway (default mistral/mistral-large-4) drives the Studio browser of the
@@ -344,7 +364,7 @@ C8O.browserVerify = C8O.browserVerify || {};
     host.playwrightModule = function () {
       var runtimes = ["vibe", "codex", "claude"];
       for (var i = 0; i < runtimes.length; i++) {
-        var dir = new File(new File(new File(new File(workspace, "agents"), runtimes[i]), "npm"), "node_modules/playwright-core");
+        var dir = new File(new File(new File(C8O.tigoAgentsDirectory(workspace, File), runtimes[i]), "npm"), "node_modules/playwright-core");
         if (new File(dir, "package.json").isFile()) {
           return String(dir.getPath());
         }
