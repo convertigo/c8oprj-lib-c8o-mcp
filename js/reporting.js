@@ -1,3 +1,23 @@
+// Shared storage contract across Tigo projects. Resolved only on the engine.
+if (typeof C8O === "undefined") { var C8O = {}; }
+if (typeof C8O.tigoAgentsDirectory !== "function") {
+  C8O.tigoAgentsDirectory = function (workspaceRoot, FileClass) {
+    var F = FileClass || Packages.java.io.File;
+    var configured = "";
+    try {
+      var value = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.symbolsGetValue("assistant.agents.directory");
+      configured = value == null ? "" : String(value).replace(/^\s+|\s+$/g, "");
+    } catch (_noAgentsDirectorySymbol) {}
+    if (!configured.length) { return new F(workspaceRoot, "agents"); }
+    if (configured.indexOf("\u0000") !== -1) { throw new Error("Invalid assistant.agents.directory"); }
+    var directory = new F(configured);
+    if (!directory.isAbsolute()) { throw new Error("assistant.agents.directory must be an absolute path"); }
+    if (directory.getParentFile() === null) { throw new Error("assistant.agents.directory must be a dedicated directory, not a filesystem root"); }
+    return directory;
+  };
+}
+// End shared storage contract.
+
 if (typeof C8O === "undefined" || typeof C8O.project === "undefined") {
   include("js/util.js");
 }
@@ -51,7 +71,7 @@ C8O.reporting.serverFeedbackKeyInstalled = function () {
     var key = C8O.util.toTrimmedString(java.lang.System.getenv("TIGO_FEEDBACK_KEY"));
     if (!key.length) {
       var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-      var file = new java.io.File(String(Engine.USER_WORKSPACE_PATH), "agents/feedback/server-key");
+      var file = new java.io.File(C8O.tigoAgentsDirectory(String(Engine.USER_WORKSPACE_PATH), java.io.File), "feedback/server-key");
       if (file.isFile() && file.length() < 512 && !java.nio.file.Files.isSymbolicLink(file.toPath())) {
         key = C8O.util.toTrimmedString(new java.lang.String(java.nio.file.Files.readAllBytes(file.toPath()), "UTF-8"));
       }
@@ -140,7 +160,7 @@ C8O.reporting.tigoMode = function (userKey) {
     if (policy === "off" || policy === "ask" || policy === "auto") {
       return policy;
     }
-    var file = new java.io.File(String(Engine.USER_WORKSPACE_PATH), directory + "/settings.json");
+    var file = new java.io.File(C8O.tigoAgentsDirectory(String(Engine.USER_WORKSPACE_PATH), java.io.File), directory.replace(/^agents\//, "") + "/settings.json");
     if (!file.isFile() || file.length() > 65536) {
       return "off";
     }
@@ -369,8 +389,8 @@ C8O.reporting.writeTigoReport = function (input) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var createdAt = new Date().toISOString();
   var reportId = String(Packages.java.util.UUID.randomUUID().toString());
-  var workspace = java.nio.file.Paths.get(String(Engine.USER_WORKSPACE_PATH)).toRealPath();
-  var incoming = workspace.resolve(directory).resolve("incoming");
+  var workspace = C8O.tigoAgentsDirectory(String(Engine.USER_WORKSPACE_PATH), java.io.File).toPath().toAbsolutePath().normalize();
+  var incoming = workspace.resolve(directory.replace(/^agents\//, "")).resolve("incoming");
   for (var p = incoming; p != null && !p.equals(workspace); p = p.getParent()) {
     if (java.nio.file.Files.isSymbolicLink(p)) {
       throw new Error("Unsafe feedback path");

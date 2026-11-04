@@ -1,3 +1,23 @@
+// Shared storage contract across Tigo projects. Resolved only on the engine.
+if (typeof C8O === "undefined") { var C8O = {}; }
+if (typeof C8O.tigoAgentsDirectory !== "function") {
+  C8O.tigoAgentsDirectory = function (workspaceRoot, FileClass) {
+    var F = FileClass || Packages.java.io.File;
+    var configured = "";
+    try {
+      var value = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.symbolsGetValue("assistant.agents.directory");
+      configured = value == null ? "" : String(value).replace(/^\s+|\s+$/g, "");
+    } catch (_noAgentsDirectorySymbol) {}
+    if (!configured.length) { return new F(workspaceRoot, "agents"); }
+    if (configured.indexOf("\u0000") !== -1) { throw new Error("Invalid assistant.agents.directory"); }
+    var directory = new F(configured);
+    if (!directory.isAbsolute()) { throw new Error("assistant.agents.directory must be an absolute path"); }
+    if (directory.getParentFile() === null) { throw new Error("assistant.agents.directory must be a dedicated directory, not a filesystem root"); }
+    return directory;
+  };
+}
+// End shared storage contract.
+
 /*
  * nocode-form-preview-capture for lib_ConvertigoMCP: an image of the preview of a form, taken by the C8Oforms page the
  * user has open (its tab shared with getDisplayMedia, one click per session), never by a browser of the server.
@@ -289,7 +309,7 @@ C8O.nocodePreviewCapture = C8O.nocodePreviewCapture || {};
     }
     function userAgentKey(user) {
       try {
-        var env = new File(String(Engine.USER_WORKSPACE_PATH) + "/agents/vibe/homes-convertigo/users/" + api.userPathSlug(user, sha256Hex) + "/.vibe-home/.env");
+        var env = new File(C8O.tigoAgentsDirectory(String(Engine.USER_WORKSPACE_PATH), File), "vibe/homes-convertigo/users/" + api.userPathSlug(user, sha256Hex) + "/.vibe-home/.env");
         if (env.isFile()) {
           var lines = String(new java.lang.String(Files.readAllBytes(env.toPath()), "UTF-8")).split(/\r?\n/);
           for (var i = 0; i < lines.length; i++) {

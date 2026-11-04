@@ -1,3 +1,23 @@
+// Shared storage contract across Tigo projects. Resolved only on the engine.
+if (typeof C8O === "undefined") { var C8O = {}; }
+if (typeof C8O.tigoAgentsDirectory !== "function") {
+  C8O.tigoAgentsDirectory = function (workspaceRoot, FileClass) {
+    var F = FileClass || Packages.java.io.File;
+    var configured = "";
+    try {
+      var value = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.symbolsGetValue("assistant.agents.directory");
+      configured = value == null ? "" : String(value).replace(/^\s+|\s+$/g, "");
+    } catch (_noAgentsDirectorySymbol) {}
+    if (!configured.length) { return new F(workspaceRoot, "agents"); }
+    if (configured.indexOf("\u0000") !== -1) { throw new Error("Invalid assistant.agents.directory"); }
+    var directory = new F(configured);
+    if (!directory.isAbsolute()) { throw new Error("assistant.agents.directory must be an absolute path"); }
+    if (directory.getParentFile() === null) { throw new Error("assistant.agents.directory must be a dedicated directory, not a filesystem root"); }
+    return directory;
+  };
+}
+// End shared storage contract.
+
 /*
  * image-describe: a vision model of the Convertigo LLM gateway (OpenAI-compatible LiteLLM) describes an
  * image for an agent that cannot see one, such as GLM 5.3 ("Image input is not enabled for this model").
@@ -284,7 +304,7 @@ C8O.imageDescribe = C8O.imageDescribe || {};
     var File = java.io.File;
     var Files = java.nio.file.Files;
     var roots = [];
-    [Engine.USER_WORKSPACE_PATH, Engine.PROJECTS_PATH].forEach(function (root) {
+    [Engine.USER_WORKSPACE_PATH, Engine.PROJECTS_PATH, String(C8O.tigoAgentsDirectory(String(Engine.USER_WORKSPACE_PATH), File))].forEach(function (root) {
       if (str(root).length) {
         roots.push(new File(String(root)).getCanonicalFile());
       }
@@ -300,7 +320,7 @@ C8O.imageDescribe = C8O.imageDescribe || {};
     return {
       readKey: function () {
         try {
-          var keyFile = new File(new File(new File(String(Engine.USER_WORKSPACE_PATH), "agents"), "convertigo"), "llm-api-key");
+          var keyFile = new File(new File(C8O.tigoAgentsDirectory(String(Engine.USER_WORKSPACE_PATH), File), "convertigo"), "llm-api-key");
           if (keyFile.isFile()) {
             var first = str(String(new java.lang.String(Files.readAllBytes(keyFile.toPath()), "UTF-8")).split(/\r?\n/)[0]);
             if (first.length && first.indexOf("#") !== 0) {

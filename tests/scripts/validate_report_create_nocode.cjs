@@ -44,7 +44,7 @@ function reporting({ studio = false, env = {}, files = {}, policy = '', user = n
         System: { getenv: name => env[name] || null },
         String: class { constructor(v, enc) { this.v = Buffer.isBuffer(v) ? v.toString(enc ? 'utf8' : 'utf8') : String(v); } getBytes() { return Buffer.from(this.v, 'utf8'); } toString() { return this.v; } }
       },
-      io: { File: class { constructor(base, rel) { this.p = base + '/' + rel; } isFile() { return Object.prototype.hasOwnProperty.call(files, this.p); } length() { return Buffer.byteLength(files[this.p] || ''); } toPath() { return this.p; } } },
+      io: { File: class { toString() { return this.p; } constructor(base, rel) { this.p = base + '/' + rel; } isFile() { return Object.prototype.hasOwnProperty.call(files, this.p); } length() { return Buffer.byteLength(files[this.p] || ''); } toPath() { return this.p; } } },
       nio: { file: { Files: { isSymbolicLink: () => false, readAllBytes: p => Buffer.from(files[p], 'utf8') } } },
       security: { MessageDigest: { getInstance: () => ({ digest: bytes => Array.from(crypto.createHash('sha256').update(bytes).digest(), b => b > 127 ? b - 256 : b) }) } }
     },
