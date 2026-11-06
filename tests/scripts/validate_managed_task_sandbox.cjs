@@ -38,6 +38,10 @@ test('every execution, including version detection, is wrapped; only the task an
     assert.equal(plan.env.VIBE_ENABLE_BACKGROUND_PROCESSES,'false');
     assert.deepEqual(JSON.parse(plan.env.VIBE_ENABLED_TOOLS),policy.allowedTools(config));
     assert.ok(!plan.prefix.includes(path.dirname(config.outDir)));
+    assert.ok(!plan.prefix.includes('/etc'));
+    assert.ok(!plan.prefix.includes('/etc/hosts'));
+    assert.ok(!plan.prefix.includes('/proc/1'));
+    assert.ok(!plan.prefix.includes('/usr/local/tomcat'));
   } finally {fs.rmSync(dir, {recursive:true,force:true});}
 });
 test('refuses another runtime version', () => {

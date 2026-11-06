@@ -3,7 +3,7 @@
 var fs = require('fs');
 var path = require('path');
 var cp = require('child_process');
-var SYSTEM_READ = ['/bin', '/sbin', '/lib', '/lib32', '/lib64', '/usr/bin', '/usr/sbin', '/usr/lib', '/usr/lib64', '/usr/share', '/etc', '/dev', '/sys', '/proc/self', '/proc/thread-self', '/proc/cpuinfo', '/proc/meminfo', '/proc/stat', '/proc/uptime', '/proc/version'];
+var SYSTEM_READ = ['/bin', '/sbin', '/lib', '/lib32', '/lib64', '/usr/bin', '/usr/sbin', '/usr/lib', '/usr/lib64', '/usr/share', '/etc/ssl/certs', '/etc/resolv.conf', '/etc/nsswitch.conf', '/etc/gai.conf', '/etc/localtime', '/dev', '/sys', '/proc/self', '/proc/thread-self', '/proc/cpuinfo', '/proc/meminfo', '/proc/stat', '/proc/uptime', '/proc/version'];
 var PINNED_VERSION = '3.1.0';
 function allowedTools(config) {
   if (!['Convertigo', 'convertigo-flow'].includes(config.server || 'Convertigo')) throw new Error('Unsupported managed task server');
