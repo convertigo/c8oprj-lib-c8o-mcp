@@ -1,4 +1,5 @@
 const { test } = require('node:test');
+const sandboxDeps = {platform: 'linux', spawnSync: (_bin, args) => ({status: 0, stdout: args.includes('--probe') ? '1\n' : '3.1.0\n'})};
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
@@ -116,10 +117,12 @@ test('a run: child home and task in the run folder, Vibe limits, activity, repor
   const result = await runner.run({ vibeBin: '/venv/bin/vibe', templateHome: template, outDir, workdir: projectDir, projectDir, project: 'App',
     model: 'glm-5-3', task: 'Create the poste_stats sequence', inputs: { project: 'App', qnames: ['App.cn:db'] }, reportFormat: 'the QNames created',
     maxSteps: 30, timeBudgetMs: 300000, maxCostUsd: 0.8, callId: 'build-1', disabledTools: ['Convertigo_subagent-run'] },
-    { spawn, env: { CONVERTIGO_MCP_TOKEN: 'secret-bearer', PATH: '/bin' } });
-  assert.equal(seen.bin, '/venv/bin/vibe');
+    { ...sandboxDeps, spawn, env: { CONVERTIGO_MCP_TOKEN: 'secret-bearer', PATH: '/bin' } });
+  assert.equal(seen.bin, '/usr/local/bin/c8o-agent-sandbox');
+  assert.ok(seen.args.indexOf('--') < seen.args.indexOf('--auto-approve'));
+  assert.ok(seen.args.includes(projectDir));
   const args = seen.args.join(' ');
-  assert.match(args, /^-p --prompt-file .*task\.md --max-turns 30 --max-price 4 --time-limit 300 --output streaming --output-dir .*vibe --auto-approve --workdir /);
+  assert.match(args.slice(args.indexOf('-p --prompt-file')), /^-p --prompt-file .*task\.md --max-turns 30 --max-price 4 --time-limit 300 --output streaming --output-dir .*vibe --auto-approve --workdir /);
   assert.match(args, /--disabled-tools Convertigo_subagent-run/);
   // Vibe prices the input as uncached: its --max-price (5 x the budget) is a safety net, the runner holds the budget.
   assert.equal(seen.options.env.VIBE_HOME, path.join(outDir, 'vibe-home'));
@@ -151,14 +154,14 @@ test('a run: child home and task in the run folder, Vibe limits, activity, repor
 test('a run stopped by Vibe keeps its stop reason; a crash without export is an error', async () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'constructor-'));
   fs.writeFileSync(path.join(tmp, 'config.toml'), TEMPLATE);
-  const base = { vibeBin: 'vibe', templateHome: tmp, workdir: tmp, project: 'App', model: 'glm-5-3', task: 't', callId: 'build-2' };
+  const base = { vibeBin: '/venv/bin/vibe', templateHome: tmp, workdir: tmp, project: 'App', model: 'glm-5-3', task: 't', callId: 'build-2' };
   const stopped = await runner.run(Object.assign({ outDir: path.join(tmp, 'a') }, base),
-    { spawn: fakeVibe([], { outcome: 'interrupted', stop_reason: 'max_price', usage: {}, cost_usd: 0.8, steps: 40 }), env: {} });
+    { ...sandboxDeps, spawn: fakeVibe([], { outcome: 'interrupted', stop_reason: 'max_price', usage: {}, cost_usd: 0.8, steps: 40 }), env: {} });
   assert.equal(stopped.ok, true);
   assert.equal(stopped.stopReason, 'max_price');
   assert.equal(stopped.report.verdict, 'partial');
   const crashed = await runner.run(Object.assign({ outDir: path.join(tmp, 'b') }, base), {
-    spawn: () => {
+    ...sandboxDeps, spawn: () => {
       const child = new EventEmitter(); child.stdout = new EventEmitter(); child.stderr = new EventEmitter();
       setImmediate(() => { child.stderr.emit('data', Buffer.from('Traceback\nModuleNotFoundError: vibe\n')); child.emit('close', 1); });
       return child;

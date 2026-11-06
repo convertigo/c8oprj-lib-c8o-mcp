@@ -1,4 +1,5 @@
 const { test } = require('node:test');
+const sandboxDeps = {platform: 'linux', spawnSync: (_bin, args) => ({status: 0, stdout: args.includes('--probe') ? '1\n' : '3.1.0\n'})};
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
@@ -242,7 +243,7 @@ test('a Flow constructor run: the rules of its side, the scope in the task, the 
   const result = await runner.run({ vibeBin: '/venv/bin/vibe', templateHome: template, outDir, workdir: projectDir, projectDir, project: 'App',
     model: 'glm-5-3', task: 'Fill the bodies of the contract Flows', inputs: { project: 'App', pack: 'flow', scope: 'backend', contracts: ['App.ListItems'] },
     maxSteps: 60, timeBudgetMs: 600000, maxCostUsd: 1, callId: 'build-1', server: 'convertigo-flow', pack: 'flow', scope: 'backend', disabledTools },
-    { spawn, env: { CONVERTIGO_MCP_TOKEN: 'secret-bearer', PATH: '/bin' } });
+    { ...sandboxDeps, spawn, env: { CONVERTIGO_MCP_TOKEN: 'secret-bearer', PATH: '/bin' } });
   const args = seen.args.join(' ');
   assert.match(args, /--disabled-tools convertigo-flow_subagent-run/);
   assert.match(args, /--disabled-tools bash .*--disabled-tools write_file/);

@@ -123,6 +123,8 @@ C8O.constructorRunner = C8O.constructorRunner || {};
         meta: pack ? { pack: pack.pack, scope: pack.scope } : {},
         config: {
           vibeBin: host.vibeBin(),
+          sandboxHelper: host.sandboxHelper ? host.sandboxHelper() : "",
+          sandboxPythonPath: host.sandboxPythonPath ? host.sandboxPythonPath() : "",
           templateHome: template.home,
           workdir: projectDir,
           projectDir: projectDir,
@@ -208,6 +210,25 @@ C8O.constructorRunner = C8O.constructorRunner || {};
         throw new Error("Mistral Vibe is not installed in this Studio (" + bin.getPath() + "): start a Tigo conversation with Vibe once.");
       }
       return String(bin.getPath());
+    };
+    // Resolve only server-owned paths, never a tool parameter or a profile input.
+    host.sandboxHelper = function () {
+      var configured = str(java.lang.System.getProperty("convertigo.agent.sandbox.helper"));
+      if (configured.length) return configured;
+      var arch = String(java.lang.System.getProperty("os.arch")).toLowerCase();
+      var target = /^(aarch64|arm64)$/.test(arch) ? "linux-arm64" : "linux-amd64";
+      var bridge = Engine.theApp.databaseObjectsManager.getOriginalProjectByName("lib_ConvertigoAgentBridge");
+      var shipped = bridge ? new File(String(bridge.getDirPath()), "sandbox/" + target + "/c8o-agent-sandbox") : null;
+      if (shipped !== null && shipped.isFile()) {
+        if (!shipped.canExecute()) shipped.setExecutable(true, true);
+        return String(shipped.getCanonicalPath());
+      }
+      return "/usr/local/bin/c8o-agent-sandbox";
+    };
+    host.sandboxPythonPath = function () {
+      var bridge = Engine.theApp.databaseObjectsManager.getOriginalProjectByName("lib_ConvertigoAgentBridge");
+      var folder = bridge ? new File(String(bridge.getDirPath()), "sandbox/python") : null;
+      return folder !== null && new File(folder, "sitecustomize.py").isFile() ? String(folder.getCanonicalPath()) : "";
     };
     host.runnerScript = function () {
       var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName("lib_ConvertigoMCP");

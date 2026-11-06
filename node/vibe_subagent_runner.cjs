@@ -16,6 +16,7 @@
 var fs = require("fs");
 var path = require("path");
 var childProcess = require("child_process");
+var taskSandbox = require("./managed_task_sandbox.cjs");
 
 function str(value) {
   return value == null ? "" : String(value).trim();
@@ -30,6 +31,8 @@ function normalizeConfig(raw) {
   });
   return {
     vibeBin: str(raw.vibeBin),
+    sandboxHelper: str(raw.sandboxHelper),
+    sandboxPythonPath: str(raw.sandboxPythonPath),
     templateHome: str(raw.templateHome),
     outDir: path.resolve(str(raw.outDir)),
     workdir: path.resolve(str(raw.workdir)),
@@ -192,7 +195,12 @@ function childConfig(text, config) {
     }
     out = out.concat(block.lines);
   }
-  var result = out.join("\n");
+  // Replace inherited top-level switches: a template cannot widen this profile.
+  out = out.filter(function (line, index) {
+    var top = !out.slice(0, index).some(function (l) { return /^\s*\[/.test(l); });
+    return !top || !/^\s*(enabled_tools|enable_auto_approve|bypass_tool_permissions|enable_background_processes|enable_subagents|outside_workdir)\s*=/.test(line);
+  });
+  var result = taskSandbox.policyLines(config).join("\n") + "\n" + out.join("\n");
   if (/^\s*active_model\s*=.*$/m.test(result)) {
     result = result.replace(/^\s*active_model\s*=.*$/m, "active_model = " + JSON.stringify(config.model));
   } else {
@@ -381,13 +389,15 @@ function run(rawConfig, deps) {
   var prices = modelPrices(fs.readFileSync(path.join(home, "config.toml"), "utf8"), config.model);
   var args = ["-p", "--prompt-file", promptFile, "--max-turns", String(config.maxSteps), "--max-price", String(Math.round(config.maxCostUsd * 5 * 100) / 100),
     "--time-limit", String(Math.round(config.timeBudgetMs / 1000)), "--output", "streaming", "--output-dir", exportDir,
-    "--auto-approve", "--workdir", config.workdir];
+    "--auto-approve", "--workdir", config.workdir, "--agent", "accept-edits"];
+  taskSandbox.allowedTools(config).forEach(function (tool) { args.push("--enabled-tools", tool); });
   config.disabledTools.forEach(function (tool) {
     args.push("--disabled-tools", tool);
   });
-  var env = Object.assign({}, deps.env || process.env, { VIBE_HOME: home });
+  var launch = taskSandbox.prepare(config, home, deps);
+  var env = launch.env;
   return new Promise(function (resolve) {
-    var child = (deps.spawn || childProcess.spawn)(config.vibeBin, args, { cwd: config.workdir, env: env, stdio: ["ignore", "pipe", "pipe"] });
+    var child = (deps.spawn || childProcess.spawn)(launch.bin, launch.prefix.concat(args), { cwd: config.workdir, env: env, stdio: ["ignore", "pipe", "pipe"] });
     var buffer = "";
     var overBudget = false;
     var budgetWatch = setInterval(function () {
