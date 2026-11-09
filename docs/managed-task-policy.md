@@ -11,6 +11,9 @@ identity, server mode and model-supplied scope fields cannot grant it. Studio
 credentials can name the local administrator rather than the literal `studio`.
 This follows the existing unrestricted authoring rights of that administrator.
 
+Without kernel confinement, native read_file/write_file/edit are also removed:
+the constructor reads and writes through its MCP tools only, including legacy.
+This is a local-owner exception, not a sandbox for untrusted task content.
 The explicit tool list and version check remain in force. On Linux, Landlock
 is still used when available. Otherwise the task report and activity include
 an explicit warning that the process uses the developer's OS permissions.

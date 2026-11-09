@@ -381,6 +381,7 @@ function run(rawConfig, deps) {
   var started = Date.now();
   fs.mkdirSync(config.outDir, { recursive: true });
   var home = path.join(config.outDir, "vibe-home");
+  var launch = taskSandbox.prepare(config, home, deps);
   buildHome(config, home);
   var promptFile = path.join(config.outDir, "task.md");
   fs.writeFileSync(promptFile, buildTask(config));
@@ -395,7 +396,6 @@ function run(rawConfig, deps) {
   config.disabledTools.forEach(function (tool) {
     args.push("--disabled-tools", tool);
   });
-  var launch = taskSandbox.prepare(config, home, deps);
   var env = launch.env;
   if (launch.warning) logActivity(config, {at: Date.now(), text: "! " + launch.warning});
   return new Promise(function (resolve) {

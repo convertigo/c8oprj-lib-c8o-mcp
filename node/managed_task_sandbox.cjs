@@ -8,7 +8,7 @@ var PINNED_VERSION = '3.1.0';
 function allowedTools(config) {
   if (!['Convertigo', 'convertigo-flow'].includes(config.server || 'Convertigo')) throw new Error('Unsupported managed task server');
   var names = [(config.server || 'Convertigo') + '_*', 'todo', 'skill'];
-  if (config.pack !== 'flow') names = names.concat(['read_file', 'write_file', 'edit']);
+  if (config.pack !== 'flow' && config.nativeFileToolsAllowed === true) names = names.concat(['read_file', 'write_file', 'edit']);
   return names;
 }
 function policyLines(config) {
@@ -25,6 +25,8 @@ function prepare(config, home, deps) {
   var probe = linux ? exec(helper, ['--probe'], {encoding: 'utf8', timeout: 5000, env: {}, maxBuffer: 4096}) : null;
   var confined = !!(probe && !probe.error && probe.status === 0 && /^[1-9]\d*\s*$/.test(probe.stdout || ''));
   if (!confined && !owner) throw new Error('Managed tasks require a usable Landlock helper');
+  // Derived here, never copied from the caller's task fields.
+  config.nativeFileToolsAllowed = confined;
   var runtime = path.dirname(path.dirname(config.vibeBin));
   var ro = SYSTEM_READ.concat([runtime]);
   // A venv may use a Python installation outside its own directory.

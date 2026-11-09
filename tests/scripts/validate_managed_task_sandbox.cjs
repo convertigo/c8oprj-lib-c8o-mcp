@@ -50,7 +50,7 @@ test('refuses another runtime version', () => {
   finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
 test('profile whitelist contains no shell, web, process or nested agent tool; unknown servers are refused', () => {
-  assert.deepEqual(policy.allowedTools({server:'Convertigo'}),['Convertigo_*','todo','skill','read_file','write_file','edit']);
+  assert.deepEqual(policy.allowedTools({server:'Convertigo',nativeFileToolsAllowed:true}),['Convertigo_*','todo','skill','read_file','write_file','edit']);
   assert.deepEqual(policy.allowedTools({server:'convertigo-flow',pack:'flow'}),['convertigo-flow_*','todo','skill']);
   assert.throws(()=>policy.allowedTools({server:'*'}),/Unsupported/);
   const text=runner.childConfig('enabled_tools = ["*"]\nenable_auto_approve = false\nbypass_tool_permissions = true\nenable_background_processes = true\nenable_subagents = true\n[[models]]\nname="x"', {model:'x',server:'Convertigo'});
@@ -104,4 +104,19 @@ test('the host grants the Studio exception only from verified author credentials
  for(const kind of ['managed','durable'])assert.equal(api.isStudioOwner({authenticated:true,kind,scope:'mcp:full',user:'admin'},true),true);
  for(const [auth,mode]of [[{authenticated:true,kind:'nocode',scope:'mcp:full',user:'studio'},true],[{authenticated:true,kind:'managed',scope:'mcp:full',user:'studio'},false],[{authenticated:false,kind:'managed',scope:'mcp:full'},true],[{authenticated:true,kind:'managed',scope:'mcp:readonly'},true],[{},true]])assert.equal(api.isStudioOwner(auth,mode),false);
  const source=fs.readFileSync(path.resolve(__dirname,'../../js/subagent_constructor.js'),'utf8');assert.match(source,/executionScope: host.executionScope \? host.executionScope\(\) : "shared"/);assert.doesNotMatch(source,/executionScope: (?:inputs|params)\./);
+});
+
+test('unconfined Studio owners have MCP-only tools even if raw flags ask for native files',()=>{
+ const {dir,config,home}=fixture();config.executionScope='studio-owner';config.nativeFileToolsAllowed=true;
+ try{const p=policy.prepare(config,home,{platform:'darwin',spawnSync:()=>({status:0,stdout:'3.1.0\n'})});
+ assert.deepEqual(policy.allowedTools(config),['Convertigo_*','todo','skill']);
+ assert.deepEqual(JSON.parse(p.env.VIBE_ENABLED_TOOLS),['Convertigo_*','todo','skill']);
+ const text=runner.childConfig('',config);assert.match(text,/enabled_tools = \["Convertigo_\*","todo","skill"\]/);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+test('task inputs cannot turn a shared host into a Studio owner',()=>{
+ const vm=require('node:vm'),s={C8O:{}};vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../../js/subagents.js'),'utf8'),s);vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../../js/subagent_constructor.js'),'utf8'),s);
+ const host={projectDir:()=>'/fixture/App',callerBearer:()=> 'fixture',vibeTemplate:()=>({home:'/fixture/template',mcpTokenEnv:'CONVERTIGO_MCP_TOKEN'}),nodePath:()=>'/fixture/node',runnerScript:()=>'/fixture/runner',vibeBin:()=>'/fixture/vibe',executionScope:()=> 'shared'};
+ const p=s.C8O.constructorRunner.runner.prepare({project:'App',userId:'studio',executionScope:'studio-owner',inputs:{project:'App',executionScope:'studio-owner',nativeFileToolsAllowed:true}}, {model:'fixture',limits:{maxSteps:2,timeBudgetSec:30,maxCostUsd:1}}, {},host);
+ assert.equal(p.config.executionScope,'shared');assert.equal(p.config.nativeFileToolsAllowed,undefined);
 });
