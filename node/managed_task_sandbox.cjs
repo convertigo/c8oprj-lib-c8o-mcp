@@ -16,12 +16,15 @@ function policyLines(config) {
 }
 function prepare(config, home, deps) {
   deps = deps || {};
-  if ((deps.platform || process.platform) !== 'linux') throw new Error('Managed tasks require Landlock confinement');
+  var owner = config.executionScope === 'studio-owner';
+  var linux = (deps.platform || process.platform) === 'linux';
+  if (!linux && !owner) throw new Error('Managed tasks require Landlock confinement');
   var helper = config.sandboxHelper || '/usr/local/bin/c8o-agent-sandbox';
   if (!path.isAbsolute(helper) || !path.isAbsolute(config.vibeBin)) throw new Error('Managed task executables must be absolute paths');
   var exec = deps.spawnSync || cp.spawnSync;
-  var probe = exec(helper, ['--probe'], {encoding: 'utf8', timeout: 5000, env: {}, maxBuffer: 4096});
-  if (probe.error || probe.status !== 0 || !/^[1-9]\d*\s*$/.test(probe.stdout || '')) throw new Error('Managed tasks require a usable Landlock helper');
+  var probe = linux ? exec(helper, ['--probe'], {encoding: 'utf8', timeout: 5000, env: {}, maxBuffer: 4096}) : null;
+  var confined = !!(probe && !probe.error && probe.status === 0 && /^[1-9]\d*\s*$/.test(probe.stdout || ''));
+  if (!confined && !owner) throw new Error('Managed tasks require a usable Landlock helper');
   var runtime = path.dirname(path.dirname(config.vibeBin));
   var ro = SYSTEM_READ.concat([runtime]);
   // A venv may use a Python installation outside its own directory.
@@ -52,8 +55,11 @@ function prepare(config, home, deps) {
   // Do not inherit a global Python hook; ABI 1 compatibility comes from the shipped helper only.
   delete env.PYTHONPATH;
   if (config.sandboxPythonPath) env.PYTHONPATH = config.sandboxPythonPath;
-  var version = exec(helper, prefix.concat(['--version']), {encoding: 'utf8', timeout: 10000, env: env, cwd: config.workdir, maxBuffer: 4096});
+  var bin = confined ? helper : config.vibeBin;
+  if (!confined) prefix = [];
+  var version = exec(bin, prefix.concat(['--version']), {encoding: 'utf8', timeout: 10000, env: env, cwd: config.workdir, maxBuffer: 4096});
   if (version.error || version.status !== 0 || !new RegExp('(?:^|\\s)' + PINNED_VERSION.replace(/\./g, '\\.') + '(?:\\s|$)').test(version.stdout || '')) throw new Error('Managed task runtime version must be ' + PINNED_VERSION);
-  return {bin: helper, prefix: prefix, env: env};
+  return {bin: bin, prefix: prefix, env: env, confined: confined, scope: owner ? 'studio-owner' : 'shared',
+    warning: confined ? '' : 'Local Studio owner task runs with the developer operating-system permissions; no kernel confinement is available.'};
 }
 module.exports = {prepare, allowedTools, policyLines, PINNED_VERSION};

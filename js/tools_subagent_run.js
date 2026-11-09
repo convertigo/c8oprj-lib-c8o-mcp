@@ -34,7 +34,7 @@ C8O.subagentRun = C8O.subagentRun || {};
       throw new Error("A full Convertigo MCP bearer token is required");
     }
     try {
-      return api.run(params, C8O.constructorRunner.extendHost(C8O.browserVerify.javaHost(), contextObject));
+      return api.run(params, C8O.constructorRunner.extendHost(C8O.browserVerify.javaHost(), contextObject, auth));
     } catch (error) {
       if (!error || error.code !== "SUBAGENT_BUSY") throw error;
       return {ok: false, status: "busy", runId: error.details.runId,

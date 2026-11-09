@@ -89,3 +89,19 @@ test('an external Python grants its executable and libraries, never its entire i
     assert.ok(!ro.includes(path.join(prefix,'lib')));
   } finally {fs.rmSync(dir,{recursive:true,force:true});}
 });
+for(const platform of ['darwin','win32'])test('trusted local Studio owner can run on '+platform+' with an explicit warning',()=>{
+ const {dir,config,home}=fixture();config.executionScope='studio-owner';const seen=[];
+ try{const p=policy.prepare(config,home,{platform,spawnSync:(bin,args)=>{seen.push({bin,args});return {status:0,stdout:'3.1.0\n'}}});assert.equal(p.confined,false);assert.equal(p.scope,'studio-owner');assert.equal(p.bin,config.vibeBin);assert.deepEqual(p.prefix,[]);assert.match(p.warning,/operating-system permissions/);assert.equal(seen.length,1);assert.deepEqual(seen[0].args,['--version']);assert.deepEqual(JSON.parse(p.env.VIBE_ENABLED_TOOLS),policy.allowedTools(config));}
+ finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+test('a Linux Studio owner still uses Landlock when available and can fall back explicitly when unavailable',()=>{
+ const {dir,config,home}=fixture();config.executionScope='studio-owner';
+ try{for(const abi of [0,8]){const p=policy.prepare(config,home,{platform:'linux',spawnSync:(_b,a)=>({status:0,stdout:a.includes('--probe')?String(abi)+'\n':'3.1.0\n'})});assert.equal(p.confined,abi>0);assert.equal(Boolean(p.warning),abi===0);}}
+ finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+test('the host grants the Studio exception only from verified author credentials and engine mode',()=>{
+ const vm=require('node:vm');const s={C8O:{}};vm.runInNewContext(fs.readFileSync(path.resolve(__dirname,'../../js/subagent_constructor.js'),'utf8'),s);const api=s.C8O.constructorRunner;
+ for(const kind of ['managed','durable'])assert.equal(api.isStudioOwner({authenticated:true,kind,scope:'mcp:full',user:'admin'},true),true);
+ for(const [auth,mode]of [[{authenticated:true,kind:'nocode',scope:'mcp:full',user:'studio'},true],[{authenticated:true,kind:'managed',scope:'mcp:full',user:'studio'},false],[{authenticated:false,kind:'managed',scope:'mcp:full'},true],[{authenticated:true,kind:'managed',scope:'mcp:readonly'},true],[{},true]])assert.equal(api.isStudioOwner(auth,mode),false);
+ const source=fs.readFileSync(path.resolve(__dirname,'../../js/subagent_constructor.js'),'utf8');assert.match(source,/executionScope: host.executionScope \? host.executionScope\(\) : "shared"/);assert.doesNotMatch(source,/executionScope: (?:inputs|params)\./);
+});

@@ -31,6 +31,7 @@ function normalizeConfig(raw) {
   });
   return {
     vibeBin: str(raw.vibeBin),
+    executionScope: raw.executionScope === "studio-owner" ? "studio-owner" : "shared",
     sandboxHelper: str(raw.sandboxHelper),
     sandboxPythonPath: str(raw.sandboxPythonPath),
     templateHome: str(raw.templateHome),
@@ -396,6 +397,7 @@ function run(rawConfig, deps) {
   });
   var launch = taskSandbox.prepare(config, home, deps);
   var env = launch.env;
+  if (launch.warning) logActivity(config, {at: Date.now(), text: "! " + launch.warning});
   return new Promise(function (resolve) {
     var child = (deps.spawn || childProcess.spawn)(launch.bin, launch.prefix.concat(args), { cwd: config.workdir, env: env, stdio: ["ignore", "pipe", "pipe"] });
     var buffer = "";
@@ -449,6 +451,7 @@ function run(rawConfig, deps) {
       var usage = exported.usage || {};
       var report = parseReport(lastAssistant);
       report.changedFiles = changedFiles(config.projectDir, started);
+      report.execution = {scope: launch.scope, confined: launch.confined, warning: launch.warning || ""};
       var journal = journalUsage(home);
       var journalCost = tokenCost(journal, prices);
       var cost = journal.requests > 0 && journalCost !== null ? journalCost : Number(exported.cost_usd);
@@ -456,6 +459,7 @@ function run(rawConfig, deps) {
         ok: !!exported.outcome || code === 0,
         error: exported.outcome || code === 0 ? "" : ("vibe exited with code " + code + ": " + stderr.split("\n").filter(Boolean).slice(-3).join(" ")).substring(0, 600),
         report: report,
+        execution: report.execution,
         finalMessage: lastAssistant.substring(0, 6000),
         stopReason: overBudget ? "cost budget" : (str(exported.stop_reason) || (exported.outcome === "finished" ? "finished" : str(exported.outcome) || "exit " + code)),
         toolCalls: toolCalls,

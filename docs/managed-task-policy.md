@@ -1,9 +1,20 @@
 # Managed task execution
 
-Constructor tasks require Linux and a usable `c8o-agent-sandbox` Landlock helper.
-This requirement also applies to local Studio callers. On other platforms, or
-when the helper cannot confine the command, the runner returns an error before
-starting the task. It never falls back to an unconfined command.
+Server and shared-user constructor tasks require Linux and a usable
+`c8o-agent-sandbox` Landlock helper. On other platforms, or when the helper
+cannot confine the command, these tasks return an error before execution.
+
+A local Studio owner may run without kernel confinement, including on macOS.
+The host grants this scope only when the JVM is in Studio mode and the caller
+has a verified full-author managed/durable MCP token. No Code tokens, missing
+identity, server mode and model-supplied scope fields cannot grant it. Studio
+credentials can name the local administrator rather than the literal `studio`.
+This follows the existing unrestricted authoring rights of that administrator.
+
+The explicit tool list and version check remain in force. On Linux, Landlock
+is still used when available. Otherwise the task report and activity include
+an explicit warning that the process uses the developer's OS permissions.
+The exception applies to both legacy and capability-pack constructors.
 
 The host resolves the helper from `convertigo.agent.sandbox.helper`, the Bridge
 project's shipped helper, or `/usr/local/bin/c8o-agent-sandbox`. Tool inputs cannot
@@ -22,7 +33,7 @@ Profile-specific disabled tool lists further narrow the available MCP tools.
 
 Headless approval is used only with the explicit tool list and verified helper.
 It is not a filesystem boundary. Any additional headless launch path must use
-the same policy or refuse execution. The browser verifier uses its own API loop
+the same verified host scope and policy or refuse execution. The browser verifier uses its own API loop
 and does not start a headless CLI process.
 
 Validation: `node --test tests/scripts/validate_managed_task_sandbox.cjs`, plus

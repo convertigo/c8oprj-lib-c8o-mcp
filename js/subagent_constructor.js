@@ -96,6 +96,13 @@ C8O.constructorRunner = C8O.constructorRunner || {};
     return env ? env[1] : "CONVERTIGO_MCP_TOKEN";
   };
 
+  // Full author tokens on a local Studio have the owner's existing authoring rights.
+  // No Code credentials and server runtimes never receive this exception.
+  api.isStudioOwner = function (auth, studioMode) {
+    return studioMode === true && !!auth && auth.authenticated === true &&
+      auth.scope === "mcp:full" && (auth.kind === "managed" || auth.kind === "durable");
+  };
+
   api.runner = {
     prepare: function (params, profile, ctx, host) {
       var inputs = inputsOf(params);
@@ -123,6 +130,7 @@ C8O.constructorRunner = C8O.constructorRunner || {};
         meta: pack ? { pack: pack.pack, scope: pack.scope } : {},
         config: {
           vibeBin: host.vibeBin(),
+          executionScope: host.executionScope ? host.executionScope() : "shared",
           sandboxHelper: host.sandboxHelper ? host.sandboxHelper() : "",
           sandboxPythonPath: host.sandboxPythonPath ? host.sandboxPythonPath() : "",
           templateHome: template.home,
@@ -146,6 +154,7 @@ C8O.constructorRunner = C8O.constructorRunner || {};
     toResult: function (output, run, root) {
       var report = output.report || {};
       var result = {
+        execution: output.execution || null,
         status: "finished",
         runId: run.runId,
         profile: run.profile,
@@ -177,7 +186,7 @@ C8O.constructorRunner = C8O.constructorRunner || {};
 
   // The constructor's part of the Studio host: the project folder, the caller's bearer, the Vibe binary and the Tigo
   // home the child home is built from (the conversation's own, else the user's).
-  api.extendHost = function (host, contextObject) {
+  api.extendHost = function (host, contextObject, authenticatedCaller) {
     var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     var File = java.io.File;
     var Files = java.nio.file.Files;
@@ -185,6 +194,11 @@ C8O.constructorRunner = C8O.constructorRunner || {};
     var windows = String(java.lang.System.getProperty("os.name")).toLowerCase().indexOf("win") >= 0;
     var read = function (file) { return String(new java.lang.String(Files.readAllBytes(file.toPath()), "UTF-8")); };
 
+    host.executionScope = function () {
+      var studio = false;
+      try { studio = Engine.isStudioMode() === true; } catch (_noStudioMode) {}
+      return api.isStudioOwner(authenticatedCaller, studio) ? "studio-owner" : "shared";
+    };
     host.projectDir = function (project) {
       try {
         var p = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(project);
