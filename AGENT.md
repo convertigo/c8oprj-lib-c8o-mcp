@@ -92,6 +92,11 @@ Do not present planner/specialist routing, benchmark flows, or manual YAML editi
 - `rag-query` must not expose `stream`; backend calls must always force `stream=false`.
 - Built-in resources such as `convertigo://capabilities` and `convertigo://recipes/quickstart` are part of the onboarding surface and must stay aligned with the live contract.
 - `TOOLS.md` is generated from the live MCP catalog and is not a hand-maintained contract file.
+- On a server whose C8Oforms gives each No Code user a Tigo key of their own (`APIV2_TigoUserKey` and
+  `C8Oforms.tigo.server.id`, or seen since the engine started), the tools that start an agent outside the Agent Bridge
+  (`subagent-run`, `browser-verify`) are refused whatever the bearer: `js/user_key_server_policy.js` removes them from
+  the tool list, the router answers `agent_isolation_unavailable`, and `C8O.subagents.run` refuses to start. A tool
+  added later that starts an agent goes into its `AGENT_TOOLS`. Test: `tests/scripts/validate_user_key_server_policy.cjs`.
 
 ## Who owns the managed MCP url (contract with lib_ConvertigoAgentBridge)
 

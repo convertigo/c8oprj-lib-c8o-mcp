@@ -21,6 +21,7 @@ if (typeof C8O.tigoAgentsDirectory !== "function") {
 // Centralized dispatcher for MCP requests (initialize/tools/prompts/etc.).
 include("js/nocode_tool_policy.js");
 include("js/gateway_tool_policy.js");
+include("js/user_key_server_policy.js");
 include("js/mcp_repeated_failures.js");
 var paramsJson = "{}";
 try {
@@ -691,6 +692,11 @@ if (methodName === "initialize") {
   var gatewayPolicy = C8O.gatewayToolPolicy || null;
   if (!mappingError && gatewayPolicy && !gatewayPolicy.allows(targetSequence)) {
     mappingError = { status: "403", code: "-32601", message: gatewayPolicy.refusal(targetSequence) };
+  }
+  // A server with per-user Tigo keys runs no agent outside the Bridge's confinement: whatever the bearer.
+  var userKeyServer = C8O.userKeyServerPolicy || null;
+  if (!mappingError && userKeyServer && !userKeyServer.allows(targetSequence)) {
+    mappingError = { status: "403", code: "-32601", message: userKeyServer.refusal(targetSequence), data: { code: userKeyServer.CODE } };
   }
   // The text review of project-lint calls a gateway model too: the agent reviews the texts itself.
   if (!mappingError && targetSequence === "tools_project_lint" && gatewayPolicy && gatewayPolicy.active() && toolArgs) {

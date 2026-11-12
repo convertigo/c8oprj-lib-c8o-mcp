@@ -38,6 +38,7 @@ if (typeof C8O.tigoAgentsDirectory !== "function") {
  * Bridge per model and per sub-agent. The gateway key stays server side: it reaches the runner through its environment.
  */
 if (typeof C8O === "undefined") { var C8O = {}; }
+if (typeof include === "function") { include("js/user_key_server_policy.js"); }
 C8O.subagents = C8O.subagents || {};
 
 (function (api) {
@@ -268,6 +269,10 @@ C8O.subagents = C8O.subagents || {};
   api.run = function (params, host, runners, options) {
     params = params || {};
     options = options || {};
+    // A server with per-user Tigo keys: no sub-agent outside the Bridge's confinement, whoever calls (user_key_server_policy.js)
+    if (C8O.userKeyServerPolicy) {
+      C8O.userKeyServerPolicy.assertAllows(options.usageTool === "browser-verify" ? "tools_browser_verify" : "tools_subagent_run");
+    }
     var waitSec = api.normalizeWaitSec(params.waitSec);
     var resume = str(params.runId);
     if (resume.length) {
