@@ -22,6 +22,7 @@ Optional checks, when these variables are set:
 
 from __future__ import annotations
 
+import atexit
 import contextlib
 import io
 import json
@@ -49,9 +50,23 @@ try:
 except ImportError:
     HAS_YAML = False
 
-FIXTURES = REPO / "tests" / "fixtures" / "yaml-formats"
-LEGACY = FIXTURES / "legacy" / "YamlFormatsSample"
-STANDARD = FIXTURES / "standard" / "YamlFormatsSample"
+# The fixtures keep their project file as c8oProject.yaml.fixture: the archive (CAR) of this library holds the whole project
+# folder, and an engine that deploys it took the first c8oProject.yaml it found, a fixture (MCP 0.3.0-beta.12 deployed
+# YamlFormatsSample as lib_ConvertigoMCP). The tests read a copy where the file has its real name.
+FIXTURE_SOURCES = REPO / "tests" / "fixtures" / "yaml-formats"
+FIXTURES = Path(tempfile.mkdtemp(prefix="c8o-yaml-formats-")).resolve()
+atexit.register(shutil.rmtree, FIXTURES, True)
+
+
+def materialize_fixture(kind: str) -> Path:
+    target = FIXTURES / kind / "YamlFormatsSample"
+    shutil.copytree(FIXTURE_SOURCES / kind / "YamlFormatsSample", target)
+    (target / "c8oProject.yaml.fixture").rename(target / "c8oProject.yaml")
+    return target
+
+
+LEGACY = materialize_fixture("legacy")
+STANDARD = materialize_fixture("standard")
 needs_yaml = unittest.skipUnless(HAS_YAML, "PyYAML is not installed (pip install pyyaml)")
 HEADER = "convertigo: 8.5.0.m006\n"
 

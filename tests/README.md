@@ -40,7 +40,9 @@ project in the format its `c8oProject.yaml` starts with: legacy (`↑convertigo:
 only) or the standard YAML of Convertigo 8.5 (`convertigo: 8.5.0.m006`, a bean's value is its source path, read and
 written with PyYAML by `c8o_yaml_standard.py`). The fixtures under `tests/fixtures/yaml-formats` are one project in
 both formats: the legacy one is made of files of this project plus `sequences/Edge.yaml`, the standard one is its
-conversion by the engine. The tests check that both formats give the same trees, index, deltas and save checks, that
+conversion by the engine. Their project file is named `c8oProject.yaml.fixture` (the tests read a copy where it has its
+real name): the archive of this library holds the whole folder, and an engine deploys the first `c8oProject.yaml` it
+finds in it. The tests check that both formats give the same trees, index, deltas and save checks, that
 the Python writer gives the engine's bytes, and the lint on both. Set `C8O_ENGINE_CLASSPATH` (engine jar and its
 dependencies, Java 21+) to compare with the engine itself through `tests/scripts/StandardYamlOracle.java`, and
 `C8O_NODE_YAML` (a `node_modules/js-yaml` or `node_modules/yaml` folder) to also parse the written files with a
