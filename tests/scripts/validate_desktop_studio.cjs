@@ -69,3 +69,29 @@ test('sub-agents: the owner of a desktop Studio runs as studio-owner, a server c
     assert.equal(run(kind, { ...owner, kind: 'nocode' }), 'shared', kind + ': a No Code token never');
   }
 });
+
+function persistSandbox(kind) {
+  const sandbox = {
+    include: () => {},
+    Packages: { com: { twinsoft: { convertigo: { engine: {
+      Engine: ENGINES[kind],
+      mobile: { MobileBuilder: { getBuilderOf: () => null } },
+      helpers: { BatchOperationHelper: {} }
+    } } } } }
+  };
+  vm.runInNewContext(read('js/databaseobject_persist.js'), sandbox);
+  sandbox.C8O.dbo._isMobileObject = () => true;
+  return sandbox;
+}
+
+test('NGX regeneration after an edit: the desktop Studio asks its builder, a server skips it', () => {
+  for (const kind of Object.keys(ENGINES)) {
+    const result = persistSandbox(kind).C8O.dbo.triggerMobileBuilderRefresh({}, []);
+    assert.equal(result.requested, DESKTOP.includes(kind), kind);
+    assert.equal(result.message, DESKTOP.includes(kind) ? 'Skipped: no mobile builder for target' : 'Skipped: Convertigo Studio required', kind);
+  }
+  const crud = read('js/crud_ui_refresh.js');
+  assert.match(crud, /if \(!summary\.studioMode\) \{[\s\S]{0,200}summary\.studioMode = Engine\.isDesktopStudio\(\) === true;/);
+  // the Eclipse editor and the Eclipse build job keep Studio mode
+  assert.match(read('js/databaseobject_studio.js'), /studioMode = Engine\.isStudioMode\(\) === true;/);
+});

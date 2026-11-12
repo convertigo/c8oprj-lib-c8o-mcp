@@ -299,11 +299,20 @@ C8O.dbo.triggerMobileBuilderRefresh = function (dbo, errors, additionalDbos) {
   } catch (_ignoreStudioMode) {
     result.studioMode = false;
   }
+  if (!result.studioMode) {
+    // The Electron Studio: a desktop Studio engine without Studio mode (Engine.isDesktopStudio, Convertigo 8.5; an
+    // older engine has no such method). Its builder regenerates the sources of a project built at least once.
+    try {
+      result.studioMode = Engine.isDesktopStudio() === true;
+    } catch (_ignoreNoDesktopStudio) {
+      result.studioMode = false;
+    }
+  }
   result.mobileObject = C8O.dbo._isMobileObject(dbo);
   result.requested = result.studioMode && result.mobileObject;
 
   if (!result.requested) {
-    result.message = !result.studioMode ? "Skipped: Studio mode required" : "Skipped: target is not a mobile object";
+    result.message = !result.studioMode ? "Skipped: Convertigo Studio required" : "Skipped: target is not a mobile object";
     return result;
   }
 

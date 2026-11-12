@@ -30,6 +30,14 @@ include("js/mobile_builder_cycle.js");
     } catch (_ignoreStudioMode) {
       summary.studioMode = false;
     }
+    if (!summary.studioMode) {
+      // The Electron Studio: a desktop Studio engine without Studio mode (Engine.isDesktopStudio, Convertigo 8.5).
+      try {
+        summary.studioMode = Engine.isDesktopStudio() === true;
+      } catch (_ignoreNoDesktopStudio) {
+        summary.studioMode = false;
+      }
+    }
     var unique = {};
     var entries = ctx.ensureArray(targets);
     var strategySet = {};
@@ -69,7 +77,7 @@ include("js/mobile_builder_cycle.js");
       targetResult.requested = summary.studioMode && mobileObject;
       summary.requested = summary.requested || targetResult.requested;
       if (!targetResult.requested) {
-        targetResult.message = !summary.studioMode ? "Skipped: Studio mode required" : "Skipped: target is not a mobile object";
+        targetResult.message = !summary.studioMode ? "Skipped: Convertigo Studio required" : "Skipped: target is not a mobile object";
         summary.targets.push(targetResult);
         continue;
       }
