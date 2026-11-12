@@ -103,6 +103,30 @@ if (typeof include === "function") {
 
   var REVIEW_BATCH = 20;
   var REVIEW_MAX = 400;
+  // A text already reviewed with the same model and language is not sent again: a run lints after each fix and the whole
+  // review (up to 35 s, through the gateway) ran each time, 16 lints in one CRM conversation (12/11). The verdicts stay
+  // in the engine server store for a week.
+  var REVIEW_CACHE_KEY = "lib_ConvertigoMCP.lintTextReviews.v1";
+  var REVIEW_CACHE_MS = 7 * 24 * 3600 * 1000;
+  var REVIEW_CACHE_MAX = 20000;
+
+  function reviewCacheOf(options) {
+    try {
+      if (options.reviewCache) {
+        return options.reviewCache;
+      }
+      var store = options.context ? options.context.server : null;
+      if (!store) {
+        return null;
+      }
+      if (store.get(REVIEW_CACHE_KEY) == null) {
+        store.set(REVIEW_CACHE_KEY, new Packages.java.util.concurrent.ConcurrentHashMap());
+      }
+      return store.get(REVIEW_CACHE_KEY);
+    } catch (_noReviewCache) {
+      return null;
+    }
+  }
   var REVIEW_PROMPT = "You proofread the user-facing strings of a software application. Each line is `id<TAB>text`. " +
     "Ellipses (…) mark values inserted at run time. Check every line, short labels included: one missing accent is a problem. Report only real problems: misspelled words, missing or wrong accents " +
     "or diacritics, typos, broken grammar, and strings written in another language than the one expected. Ignore product names, " +
@@ -128,22 +152,21 @@ if (typeof include === "function") {
       return { skipped: "No text review: checkTexts is false, or this agent calls no gateway model (Claude agents always get false). " +
         "Review the texts the user sees yourself (language, spelling, accents, tone, no placeholder)." };
     }
-    // A long list makes the model skip strings: review at most REVIEW_BATCH strings per call.
-    var groups = [];
-    var pushGroups = function (label, language, items) {
-      for (var from = 0; from < items.length && from < REVIEW_MAX; from += REVIEW_BATCH) {
-        groups.push({ label: label, language: language, items: items.slice(from, from + REVIEW_BATCH) });
+    var sources = [];
+    var pushSource = function (label, language, items) {
+      if (items.length) {
+        sources.push({ label: label, language: language, items: items.slice(0, REVIEW_MAX) });
       }
     };
-    pushGroups("app texts", "", order.map(function (text) { return { text: text, where: owners[text].join(", ") }; }));
+    pushSource("app texts", "", order.map(function (text) { return { text: text, where: owners[text].join(", ") }; }));
     for (var lang in i18n.values) {
       if (Object.prototype.hasOwnProperty.call(i18n.values, lang)) {
-        pushGroups(lang + ".json", lang, i18n.values[lang].map(function (entry) {
+        pushSource(lang + ".json", lang, i18n.values[lang].map(function (entry) {
           return { text: entry.text, where: "DisplayObjects/mobile/assets/i18n/" + lang + ".json#" + entry.key };
         }));
       }
     }
-    if (!groups.length) {
+    if (!sources.length) {
       return { reviewed: 0 };
     }
     if (!C8O.imageDescribe || !C8O.imageDescribe.javaHost) {
@@ -166,6 +189,58 @@ if (typeof include === "function") {
     var reviewed = 0;
     var notReviewed = 0;
     var problems = 0;
+    var fromCache = 0;
+    var report = function (item, kind, fixed, label, language) {
+      problems++;
+      add("TEXT-REVIEW", "warning", item.where.split(", ")[0],
+        "\"" + item.text.substring(0, 80) + "\" (" + str(kind || "spelling") + ", " + label +
+        (language ? ", " + language : "") + ")" + (item.where.indexOf(",") > 0 ? "; also in " + item.where.substring(item.where.indexOf(",") + 2) : ""),
+        "Write \"" + str(fixed).substring(0, 120) + "\".");
+    };
+    // The verdicts already known: reported again without a call. The other texts are reviewed, REVIEW_BATCH strings per
+    // call (a long list makes the model skip strings).
+    var cache = reviewCacheOf(options);
+    var cacheKey = function (language, text) {
+      return model + "\u0001" + language + "\u0001" + text;
+    };
+    var groups = [];
+    for (var sIndex = 0; sIndex < sources.length; sIndex++) {
+      var source = sources[sIndex];
+      var pending = [];
+      for (var iIndex = 0; iIndex < source.items.length; iIndex++) {
+        var known = null;
+        try {
+          var raw = cache ? cache.get(cacheKey(source.language, source.items[iIndex].text)) : null;
+          known = raw == null ? null : JSON.parse(String(raw));
+        } catch (_badCached) {
+          known = null;
+        }
+        if (known && Number(known.at) + REVIEW_CACHE_MS > host.now()) {
+          fromCache++;
+          reviewed++;
+          if (known.fixed) {
+            report(source.items[iIndex], known.kind, known.fixed, source.label, known.language);
+          }
+        } else {
+          pending.push(source.items[iIndex]);
+        }
+      }
+      for (var from = 0; from < pending.length; from += REVIEW_BATCH) {
+        groups.push({ label: source.label, language: source.language, items: pending.slice(from, from + REVIEW_BATCH) });
+      }
+    }
+    var remember = function (group, index, verdict) {
+      if (!cache) {
+        return;
+      }
+      try {
+        if (typeof cache.size === "function" && cache.size() > REVIEW_CACHE_MAX && typeof cache.clear === "function") {
+          cache.clear();
+        }
+        verdict.at = host.now();
+        cache.put(cacheKey(group.language, group.items[index].text), JSON.stringify(verdict));
+      } catch (_noRemember) {}
+    };
     // The review runs inside the tool call, which a client fails after about a minute (Vibe: mcp_transport_failed on a
     // project-lint of 103 texts, usage tests 30/10). Past the budget the groups left are not reviewed, and said so.
     var reviewBudgetMs = Number(options.textReviewBudgetMs) > 0 ? Number(options.textReviewBudgetMs) : 35000;
@@ -241,19 +316,23 @@ if (typeof include === "function") {
       }
       reviewed += items.length;
       var issues = Array.isArray(answer.issues) ? answer.issues : [];
+      var verdicts = {};
       for (var q = 0; q < issues.length; q++) {
         var item = items[Number(issues[q].id)];
         if (!item || !str(issues[q].fixed).length || str(issues[q].fixed) === item.text) {
           continue;
         }
-        problems++;
-        add("TEXT-REVIEW", "warning", item.where.split(", ")[0],
-          "\"" + item.text.substring(0, 80) + "\" (" + str(issues[q].kind || "spelling") + ", " + groups[g].label +
-          (answer.language ? ", " + answer.language : "") + ")" + (item.where.indexOf(",") > 0 ? "; also in " + item.where.substring(item.where.indexOf(",") + 2) : ""),
-          "Write \"" + str(issues[q].fixed).substring(0, 120) + "\".");
+        verdicts[Number(issues[q].id)] = { kind: str(issues[q].kind || "spelling"), fixed: str(issues[q].fixed), language: str(answer.language) };
+        report(item, issues[q].kind, issues[q].fixed, groups[g].label, answer.language);
+      }
+      for (var v = 0; v < items.length; v++) {
+        remember(groups[g], v, verdicts[v] || { ok: true });
       }
     }
     var result = { reviewed: reviewed, problems: problems, model: model, usages: usages };
+    if (fromCache > 0) {
+      result.fromCache = fromCache;
+    }
     if (notReviewed > 0) {
       result.notReviewed = notReviewed;
       result.message = notReviewed + " texts were not reviewed: " + (outOfTime

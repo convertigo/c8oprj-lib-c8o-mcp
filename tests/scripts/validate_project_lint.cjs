@@ -409,3 +409,47 @@ test("NGX-LOGOUT-AUTOLOGIN: a logout called without noAutoLogin; with it, nothin
   const noAudit = runLint(sessionApp([ngxPage("Login", [callSeq("SignIn", "App.auth_login")], true)]), {});
   assert.deepStrictEqual(noAudit.findings.filter(f => /LOGOUT/.test(f.rule)), [], "without the audit model the rule stays silent");
 });
+
+test("TEXT-REVIEW: a text already reviewed with the same model and language is not sent again, its finding is kept", () => {
+  const map = new Map();
+  const reviewCache = { get: (k) => (map.has(k) ? map.get(k) : null), put: (k, v) => map.set(k, v), size: () => map.size, clear: () => map.clear() };
+  let clock = 1000;
+  const posts = [];
+  const hostOf = () => ({ readKey: () => "sk-test", now: () => clock, header: () => null,
+    post: (url, key, body) => {
+      const request = JSON.parse(body);
+      posts.push(request);
+      const lines = request.messages[1].content.split("\n").filter((l) => /^\d+\t/.test(l));
+      const issues = lines.filter((l) => /Gerer/.test(l)).map((l) => ({ id: Number(l.split("\t")[0]), fixed: "Gérer les postes", kind: "accents" }));
+      return { status: 200, body: JSON.stringify({ choices: [{ message: { content: JSON.stringify({ language: "fr", issues }) } }] }), header: () => null };
+    } });
+  const lint = (texts, model) => {
+    const found = [];
+    const owners = {};
+    texts.forEach((t, i) => { owners[t] = ["P." + i]; });
+    const result = context.C8O.lint.reviewTexts({ host: hostOf(), reviewCache, textModel: model }, texts, owners, { values: {} },
+      (rule, severity, where, message, fix) => found.push({ rule, where, message, fix }), null);
+    return { result, found };
+  };
+  const first = lint(["Gerer les postes", "Version"]);
+  assert.strictEqual(posts.length, 1);
+  assert.strictEqual(first.found.length, 1);
+  assert.strictEqual(first.result.fromCache, undefined);
+  // the next lint, one text added: only that one goes to the gateway, the known finding is reported again
+  const second = lint(["Gerer les postes", "Version", "Nouveau client"]);
+  assert.strictEqual(posts.length, 2);
+  assert.deepStrictEqual(posts[1].messages[1].content.split("\n").filter((l) => /^\d+\t/.test(l)), ["0\tNouveau client"]);
+  assert.strictEqual(second.result.fromCache, 2);
+  assert.strictEqual(second.result.reviewed, 3);
+  assert.deepStrictEqual(second.found.map((f) => f.fix), ["Write \"Gérer les postes\"."]);
+  assert.ok(/accents, app texts, fr/.test(second.found[0].message));
+  // nothing new: no call at all
+  lint(["Gerer les postes", "Version", "Nouveau client"]);
+  assert.strictEqual(posts.length, 2);
+  // another model reviews again; a week later too
+  lint(["Version"], "other-model");
+  assert.strictEqual(posts.length, 3);
+  clock += 8 * 24 * 3600 * 1000;
+  lint(["Version"]);
+  assert.strictEqual(posts.length, 4);
+});
