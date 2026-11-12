@@ -276,9 +276,9 @@ function fakeJava(files) {
   }
   return { io: { File }, nio: { file: { Files: { readAllBytes: p => files[p] } } }, lang: { String: function (bytes) { return new String(bytes); } } };
 }
-function runLint(project, files) {
+function runLint(project, files, securityAudit) {
   const sandbox = {
-    C8O: { dbo: { getDirectChildren: d => d.children || [], _normalizeXMLVector: v => v || null, _misplacedSmartSourceKeys: () => [], _NGX_NOT_SET: "not set" },
+    C8O: { securityAudit, dbo: { getDirectChildren: d => d.children || [], _normalizeXMLVector: v => v || null, _misplacedSmartSourceKeys: () => [], _NGX_NOT_SET: "not set" },
       sqlDialect: { of: () => "hsqldb", unbalancedQuote: () => null, dateMath: () => null, foreignSyntax: () => [], aliasFolding: () => null } },
     Packages: { com: { twinsoft: { convertigo: { engine: { Engine: { theApp: { databaseObjectsManager: {
       getOriginalProjectByName: n => (String(n) === project.getName() ? project : null) } } } } } } } },
@@ -356,4 +356,56 @@ test("project-lint run: a library is never sent to itself", () => {
   const result = runLint(handBuiltApp("lib_csv_response", []), projectFiles);
   assert.deepStrictEqual(result.findings.filter(f => f.rule === "LIB-HANDMADE-CSV"), []);
   assert.strictEqual(result.findings.filter(f => f.rule === "LIB-HANDMADE-AUTH").length, 2, "other rules still apply");
+});
+
+// --- sign out (PCA eval 31/10: no generated app had one until a reviewer asked) ---------------------------------------------
+
+const callSeq = (name, target, noAutoLogin) => fakeBean("ngx.components.UIDynamicAction", name, { getBeanData: () => JSON.stringify({ name: "CallSequenceAction",
+  properties: Object.assign({ requestable: { mode: "plain", value: target } }, noAutoLogin === undefined ? {} : { noAutoLogin: { mode: "plain", value: String(noAutoLogin) } }) }) });
+// The audit model of an app with a login (its own step), a logout that calls the library's, and a list.
+const sessionModel = () => ({
+  requestables: [{ qname: "App.auth_login", calls: [] }, { qname: "App.auth_logout", calls: ["lib_UserManager.Logout"] },
+    { qname: "lib_UserManager.Logout", calls: [] }, { qname: "App.order_list", calls: [] }],
+  steps: [{ owner: "App.auth_login", kind: "setAuthenticatedUser", enabled: true },
+    { owner: "lib_UserManager.Logout", kind: "removeUser", enabled: true },
+    { owner: "App.auth_login", kind: "js", enabled: true, signals: { removesUser: true } }]
+});
+function sessionApp(pages) {
+  const app = fakeBean("ngx.components.ApplicationComponent", "Application", {}, pages);
+  return named(fakeBean("core.Project", "App", { getDirPath: () => "/p", getReferenceList: () => ({ size: () => 0, get: () => null }) },
+    [fakeBean("mobile.MobileApplication", "MobileApplication", {}, [app])]));
+}
+
+test("sessionSequences: the login and logout requestables, with the ones that call them", () => {
+  const C8O = (() => { const sb = { C8O: { dbo: {} }, JSON }; vm.createContext(sb); vm.runInContext(source, sb); return sb.C8O; })();
+  const roles = plain(C8O.lint.sessionSequences(sessionModel()));
+  assert.deepStrictEqual(roles, { opens: { "App.auth_login": true }, ends: { "lib_UserManager.Logout": true, "App.auth_logout": true, "App.auth_login": true } });
+  assert.deepStrictEqual(plain(C8O.lint.sessionSequences({ steps: [{ owner: "App.x", kind: "removeUser", enabled: false }] })), { opens: {}, ends: {} });
+  assert.strictEqual(C8O.lint.noAutoLoginOf({ ionBean: "CallSequenceAction", noAutoLogin: "plain:true" }), true, "the YAML form");
+  assert.strictEqual(C8O.lint.noAutoLoginOf({ name: "CallSequenceAction", properties: { noAutoLogin: false } }), false, "unset in memory");
+});
+
+test("NGX-NO-LOGOUT: an app that signs users in and never signs them out", () => {
+  const result = runLint(sessionApp([ngxPage("Login", [callSeq("SignIn", "App.auth_login", true)], true),
+    ngxPage("Orders", [callSeq("Load", "App.order_list")])]), {}, { collect: () => sessionModel() });
+  const found = result.findings.filter(f => /LOGOUT/.test(f.rule));
+  assert.deepStrictEqual(found.map(f => [f.rule, f.severity, f.qname]), [["NGX-NO-LOGOUT", "warning", "App.MobileApplication.Application"]]);
+  assert.match(found[0].message, /^The app signs users in \(App\.auth_login\) but nothing in it calls a sequence that ends the session/);
+  assert.match(found[0].fix, /^Add a logout page to the menu: ngx-page-create kind logout, sequence auth_logout \(it ends the session\), logout\.page the login page\.$/);
+});
+
+test("NGX-LOGOUT-AUTOLOGIN: a logout called without noAutoLogin; with it, nothing is reported", () => {
+  const audit = { collect: () => sessionModel() };
+  const without = runLint(sessionApp([ngxPage("Login", [callSeq("SignIn", "App.auth_login")], true),
+    ngxPage("Logout", [callSeq("End", "App.auth_logout")])]), {}, audit);
+  assert.deepStrictEqual(without.findings.filter(f => /LOGOUT/.test(f.rule)).map(f => [f.rule, f.qname]),
+    [["NGX-LOGOUT-AUTOLOGIN", "App.MobileApplication.Application.Logout.End"]]);
+  assert.match(without.findings.filter(f => f.rule === "NGX-LOGOUT-AUTOLOGIN")[0].message, /the SDK replays the last login as soon as the session ends/);
+  const withIt = runLint(sessionApp([ngxPage("Login", [callSeq("SignIn", "App.auth_login")], true),
+    ngxPage("Logout", [callSeq("End", "App.auth_logout", true)])]), {}, audit);
+  assert.deepStrictEqual(withIt.findings.filter(f => /LOGOUT/.test(f.rule)), []);
+  const noLogin = runLint(sessionApp([ngxPage("Orders", [callSeq("Load", "App.order_list")], true)]), {}, audit);
+  assert.deepStrictEqual(noLogin.findings.filter(f => /LOGOUT/.test(f.rule)), [], "an app without a sign-in needs no sign-out");
+  const noAudit = runLint(sessionApp([ngxPage("Login", [callSeq("SignIn", "App.auth_login")], true)]), {});
+  assert.deepStrictEqual(noAudit.findings.filter(f => /LOGOUT/.test(f.rule)), [], "without the audit model the rule stays silent");
 });

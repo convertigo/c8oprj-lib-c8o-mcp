@@ -291,6 +291,77 @@ if (typeof include === "function") {
     return /^[A-Za-z_][\w-]*\.[A-Za-z_]\w*$/.test(String(value || "")) ? String(value) : "";
   };
 
+  // Whether a CallSequence action sets noAutoLogin: {noAutoLogin: "plain:true"} in the YAML, {noAutoLogin: {mode, value}}
+  // in memory.
+  C8O.lint.noAutoLoginOf = function (bean) {
+    var props = bean && bean.properties && typeof bean.properties === "object" ? bean.properties : (bean || {});
+    var v = props.noAutoLogin;
+    var value = v && typeof v === "object" ? v.value : (typeof v === "string" ? v.replace(/^plain:/, "") : v);
+    return value === true || String(value) === "true";
+  };
+
+  // The requestables of the security audit model that open the user's session (SetAuthenticatedUser, LDAP authentication,
+  // context.setAuthenticatedUser) and those that end it (RemoveAuthenticatedUser, RemoveSession, the same calls in
+  // JavaScript), with the requestables that call them: {opens: {qname: true}, ends: {qname: true}}.
+  C8O.lint.sessionSequences = function (model) {
+    var opens = {};
+    var ends = {};
+    ((model && model.steps) || []).forEach(function (s) {
+      var signals = s.signals || {};
+      if (s.enabled === false) {
+        return;
+      }
+      if (s.kind === "setAuthenticatedUser" || s.kind === "ldapAuth" || signals.setsUser === true) {
+        opens[s.owner] = true;
+      }
+      if (s.kind === "removeUser" || s.kind === "endSession" || signals.removesUser === true || signals.endsSession === true) {
+        ends[s.owner] = true;
+      }
+    });
+    var requestables = (model && model.requestables) || [];
+    for (var changed = true; changed;) {
+      changed = false;
+      requestables.forEach(function (r) {
+        (r.calls || []).forEach(function (target) {
+          if (opens[target] && !opens[r.qname]) {
+            opens[r.qname] = changed = true;
+          }
+          if (ends[target] && !ends[r.qname]) {
+            ends[r.qname] = changed = true;
+          }
+        });
+      });
+    }
+    return { opens: opens, ends: ends };
+  };
+
+  // Sign out (PCA eval 31/10: no generated app had one until a reviewer asked). calls are the app's CallSequence actions,
+  // [{dbo, target, noAutoLogin}]. A sequence that opens the session is a login even when it ends a previous one first. The
+  // fix names a logout sequence of the app's project when it has one: ngx-page-create calls sequences of that project.
+  C8O.lint.sessionFindings = function (roles, calls, projectName) {
+    var out = [];
+    var logins = calls.filter(function (c) { return roles.opens[c.target] === true; });
+    var logouts = calls.filter(function (c) { return roles.ends[c.target] === true && roles.opens[c.target] !== true; });
+    if (logins.length && !logouts.length) {
+      var known = Object.keys(roles.ends).filter(function (q) {
+        var parts = q.split(".");
+        return roles.opens[q] !== true && parts.length === 2 && parts[0] === String(projectName);
+      });
+      out.push({ rule: "NGX-NO-LOGOUT", dbo: null, message: "The app signs users in (" + logins[0].target + ") but nothing in it calls a " +
+        "sequence that ends the session: a signed-in user cannot sign out, and the next person on the same browser stays signed in.",
+        fix: "Add a logout page to the menu: ngx-page-create kind logout, sequence " + (known.length ? known[0].split(".").pop() + " (it ends the session)"
+          : "a logout business sequence (business-sequence-create with session:{logout:true})") + ", logout.page the login page." });
+    }
+    logouts.forEach(function (c) {
+      if (!c.noAutoLogin) {
+        out.push({ rule: "NGX-LOGOUT-AUTOLOGIN", dbo: c.dbo, message: "The action calls " + c.target + ", which ends the session, without noAutoLogin: " +
+          "the SDK replays the last login as soon as the session ends, so the user is signed in again without knowing it.",
+          fix: "Set noAutoLogin to true on this CallSequenceAction (ngx-page-create kind logout does)." });
+      }
+    });
+    return out;
+  };
+
   // The primary colors a framework or the NGX starter ships: an app whose styles declare no other one was never given a
   // visual identity (31/10: every agent-built app showed the starter's blue).
   var DEFAULT_PRIMARIES = ["#2563eb", "#60a5fa", "#3b82f6", "#0054e9", "#3880ff", "#4d8dff", "#428cff"];
@@ -344,11 +415,11 @@ if (typeof include === "function") {
   // A public form or a webhook receiver writes for anyone by design: a "public-write: <reason>" line in its comment
   // (commentOf(qname)) turns the error into a warning that is still reported, with the reason; a line without a reason
   // changes nothing.
-  C8O.lint.anonymousWrites = function (audit, projectName, commentOf) {
+  C8O.lint.anonymousWrites = function (audit, projectName, commentOf, collected) {
     if (!audit || typeof audit.collect !== "function" || typeof audit.evaluate !== "function" || typeof audit.suppressionGuard !== "function") {
       return [];
     }
-    var model = audit.collect(projectName, { includeEngine: false, includeFrontend: false });
+    var model = collected || audit.collect(projectName, { includeEngine: false, includeFrontend: false });
     var guard = audit.suppressionGuard(model);
     var out = [];
     var seen = {};
@@ -894,6 +965,7 @@ if (typeof include === "function") {
             // a server (PCA eval 30/10: the "run the reminder check" button of the admin dashboard called the Private job).
             var callTarget = className === "UIDynamicAction" ? C8O.lint.callTargetOf(bean) : "";
             if (callTarget.length) {
+              ngxCalls.push({ dbo: dbo, target: callTarget, noAutoLogin: C8O.lint.noAutoLoginOf(bean) });
               try {
                 var calledProject = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(callTarget.split(".")[0]);
                 var called = calledProject ? calledProject.getSequenceByName(callTarget.split(".")[1]) : null;
@@ -1031,6 +1103,8 @@ if (typeof include === "function") {
     // Objects a reader of the project needs explained, kept without a comment; and the starter's own page.
     var uncommented = { sequence: [], transaction: [], connector: [], page: [] };
     var pages = [];
+    // The CallSequence actions of the app's pages and shared components: [{dbo, target, noAutoLogin}].
+    var ngxCalls = [];
     var appStyles = [];
     var appComponent = null;
     var views = [];
@@ -1140,9 +1214,19 @@ if (typeof include === "function") {
         "(\"Cannot match any routes\").", "Set isRoot on the entry page: databaseobject-tree-apply {properties:{isRoot:true}} on it.");
     }
 
+    var auditModel = null;
+    try {
+      auditModel = C8O.securityAudit.collect(String(project.getName()), { includeEngine: false, includeFrontend: false });
+    } catch (_noAuditModel) {}
+    if (appComponent && auditModel) {
+      C8O.lint.sessionFindings(C8O.lint.sessionSequences(auditModel), ngxCalls, String(project.getName())).forEach(function (f) {
+        add(f.rule, "warning", f.dbo || appComponent, f.message, f.fix);
+      });
+    }
+
     try {
       var commentOf = function (qname) { return requestableComment(project, qname); };
-      C8O.lint.anonymousWrites(C8O.securityAudit, String(project.getName()), commentOf).forEach(function (w) {
+      C8O.lint.anonymousWrites(C8O.securityAudit, String(project.getName()), commentOf, auditModel).forEach(function (w) {
         add("SEC-ANONYMOUS-WRITE", w.severity, w.qname, w.message, w.severity === "warning"
           ? "Keep it only if anyone must be able to write here; the reviewer sees this warning on every lint."
           : "Private for a job only the scheduler or other sequences call; otherwise authenticatedContextRequired=true and a role check " +

@@ -107,7 +107,14 @@ test('the public-write line is read on a line of its own', () => {
 test('project-lint loads the audit rules and adds SEC-ANONYMOUS-WRITE with the severity of each finding', () => {
   const source = read('js/tools_project_lint.js');
   assert.match(source, /^if \(typeof include === "function"\) \{\n  include\("js\/security_audit_rules\.js"\);\n  include\("js\/security_audit_collect\.js"\);\n\}$/m);
-  assert.match(source, /C8O\.lint\.anonymousWrites\(C8O\.securityAudit, String\(project\.getName\(\)\), commentOf\)\.forEach/);
+  assert.match(source, /C8O\.lint\.anonymousWrites\(C8O\.securityAudit, String\(project\.getName\(\)\), commentOf, auditModel\)\.forEach/);
   assert.match(source, /add\("SEC-ANONYMOUS-WRITE", w\.severity, w\.qname, w\.message,/);
   assert.match(source, /say so with a line \\"public-write: <reason>\\" in its comment/);
+});
+
+test('the lint passes the audit model it already collected, which is not collected again', () => {
+  const C8O = load();
+  const audit = Object.assign({}, C8O.securityAudit, { collect: () => { throw new Error('collected twice'); } });
+  const found = JSON.parse(JSON.stringify(C8O.lint.anonymousWrites(audit, 'P', null, pcaApp())));
+  assert.deepEqual(found.map(f => f.qname), ['P.reminder_runDaily']);
 });
