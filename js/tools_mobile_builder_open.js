@@ -885,6 +885,29 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     }
   }
 
+  // The web Studio shows the application of a project and attaches to its development server (StudioReveal, Convertigo
+  // 8.5): {status: published|not_found|unavailable|error, message, id, listening}; null on an engine without it.
+  function revealWebStudioApplication(projectName) {
+    var StudioReveal = null;
+    try {
+      StudioReveal = Packages.com.twinsoft.convertigo.engine.studio.StudioReveal;
+      if (typeof StudioReveal.revealApplication !== "function") {
+        StudioReveal = null;
+      }
+    } catch (_ignoreEngineWithoutStudioReveal) {
+      StudioReveal = null;
+    }
+    if (StudioReveal === null) {
+      return null;
+    }
+    try {
+      var answer = JSON.parse(String(StudioReveal.revealApplication(String(projectName))));
+      return { status: trim(answer.status), message: trim(answer.message), id: trim(answer.id), listening: answer.listening === true };
+    } catch (revealError) {
+      return { status: "error", message: String(revealError && revealError.message ? revealError.message : revealError), id: "", listening: false };
+    }
+  }
+
   // Starts the development build of a project as the Build view of the web Studio does (WsBuilder.startDevBuild, an
   // engine entry point without a client session; the open Build views follow it). An engine without it starts nothing.
   // restart false: a development build that already serves the application is kept (started false).
@@ -1047,6 +1070,9 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         timeoutSecValue = 0;
       }
     }
+    // reveal in the web Studio: it shows the application and attaches to its development server (the Eclipse Studio
+    // opens its editor instead)
+    var webStudioReveal = webStudio && revealValue === true ? revealWebStudioApplication(projectName) : null;
     var launchState = readBuilderLaunchState(projectName);
     if (launchRequested === true) {
       launchState = markBuilderLaunch(projectName);
@@ -1566,6 +1592,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       studioMode: studioMode === true,
       webStudio: webStudio === true,
       webStudioBuild: webStudioBuild,
+      webStudioReveal: webStudioReveal,
       webStudioDevBuild: webStudioDevBuild,
       threadAlive: ready || status === "building" || status === "starting",
       timeoutSec: timeoutSecValue,

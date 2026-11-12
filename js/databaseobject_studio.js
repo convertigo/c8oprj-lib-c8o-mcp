@@ -202,6 +202,17 @@ C8O.dbo._refreshStudioTreeByQName = function (targetQName, errors) {
   return result;
 };
 
+// The web / Electron Studio follows the agent through its engine (StudioReveal, Convertigo 8.5): the object is published
+// to the web Studios of the engine. null on an engine without it.
+C8O.dbo.webStudioReveal = function () {
+  try {
+    var StudioReveal = Packages.com.twinsoft.convertigo.engine.studio.StudioReveal;
+    return typeof StudioReveal.reveal === "function" ? StudioReveal : null;
+  } catch (_ignoreEngineWithoutStudioReveal) {
+    return null;
+  }
+};
+
 C8O.dbo.revealStudioTreeByQName = function (targetQName, errors) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var System = java.lang.System;
@@ -232,6 +243,36 @@ C8O.dbo.revealStudioTreeByQName = function (targetQName, errors) {
   };
 
   if (!studioMode) {
+    // Not the Eclipse Studio: the web Studio of the engine, when the engine has StudioReveal; else skipped as before.
+    var webReveal = requestedQName.length ? C8O.dbo.webStudioReveal() : null;
+    if (webReveal !== null) {
+      var published = null;
+      try {
+        published = JSON.parse(String(webReveal.reveal(requestedQName)));
+      } catch (webRevealError) {
+        published = { status: "error", message: String(webRevealError && webRevealError.message ? webRevealError.message : webRevealError) };
+      }
+      result.channel = "web-studio";
+      if (published && published.status === "published") {
+        result.status = "revealed";
+        result.executed = true;
+        result.revealed = true;
+        result.selected = true;
+        result.targetQName = String(published.id || requestedQName);
+        result.listening = published.listening === true;
+        result.message = published.listening === true ? "Revealed in the web Studio" : "Published to the web Studio (none listens now)";
+        return result;
+      }
+      if (published && (published.status === "not_found" || published.status === "error")) {
+        result.status = "error";
+        result.message = String(published.message || ("Database object not found: " + requestedQName));
+        if (errors && errors.push) {
+          errors.push({ name: "__studioReveal__", message: result.message });
+        }
+        return result;
+      }
+      // unavailable: an engine whose web Studio is off, as an engine without it
+    }
     result.status = "skipped";
     result.message = "Reveal skipped: Convertigo Studio required";
     return result;

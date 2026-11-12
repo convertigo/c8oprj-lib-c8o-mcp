@@ -132,6 +132,18 @@ C8O.uiReveal = C8O.uiReveal || {};
       : (result && result.studioMode === false
         ? "Mobile builder reveal skipped: Convertigo Studio required"
         : "Mobile builder reveal requested");
+    // The web Studio of the engine (StudioReveal): it shows the application and attaches to its development server.
+    var web = result && result.webStudioReveal;
+    if (web && web.status === "published") {
+      out.status = "revealed";
+      out.webStudio = true;
+      out.listening = web.listening === true;
+      out.message = web.listening === true ? "The web Studio shows the application" : "Published to the web Studio (none listens now)";
+    } else if (web && (web.status === "not_found" || web.status === "error")) {
+      out.status = "error";
+      out.webStudio = true;
+      out.message = trim(web.message) || "The web Studio cannot show the application";
+    }
     if (options && trim(options.message).length) {
       out.message = trim(options.message);
     }

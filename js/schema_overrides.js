@@ -2248,6 +2248,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         started: { type: "boolean", description: "True when this call started the development build; false when one already serves the application." },
         error: { type: "string" }
       })),
+      webStudioReveal: nullableSchema(closedObjectSchema({
+        status: { type: "string", description: "published when the web Studio was asked to show the application; not_found, unavailable or error otherwise." },
+        message: { type: "string" },
+        id: { type: "string" },
+        listening: { type: "boolean", description: "Whether a web Studio of the engine listens to the reveals now." }
+      })),
       webStudioDevBuild: nullableSchema(closedObjectSchema({
         state: { type: "string", description: "serving while a development build of the web Studio runs, else none." },
         phase: { type: "string", description: "installing or building while it works, empty once the application is served." },
