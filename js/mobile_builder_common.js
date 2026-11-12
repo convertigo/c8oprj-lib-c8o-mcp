@@ -170,6 +170,34 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
     result.compileErrors.push(entry);
   }
 
+  // A compile error names a generated file and line (src/app/pages/companydetail/companydetail.ts:317:107): an agent
+  // searched the templates for minutes for what an action had written there (CRM 12/11). The generated line is joined,
+  // so the bean that wrote it (an action, a custom action, a page script) can be found and fixed: the sources are
+  // generated again from the beans. readLine(path relative to _private/ionic, line number) answers the line or null.
+  function withGeneratedLines(errors, readLine) {
+    return (errors || []).map(function (error) {
+      try {
+        var text = String(error.message || "") + " " + String(error.extra || "");
+        var match = /(src\/app\/[\w\/.-]+\.(?:ts|html|scss)):(\d+)(?::\d+)?/.exec(text);
+        var line = match ? readLine(match[1], Number(match[2])) : null;
+        if (line == null) {
+          return error;
+        }
+        var copy = {};
+        for (var key in error) {
+          if (Object.prototype.hasOwnProperty.call(error, key)) {
+            copy[key] = error[key];
+          }
+        }
+        copy.generatedFile = match[1] + ":" + match[2];
+        copy.generatedLine = String(line).replace(/^\s+|\s+$/g, "").substring(0, 400);
+        return copy;
+      } catch (_noGeneratedLine) {
+        return error;
+      }
+    });
+  }
+
   function parseOpenUrl(text) {
     if (!text || !String(text).length) {
       return "";
@@ -525,6 +553,7 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
   C8O.mobileBuilderCommon.lower = lower;
   C8O.mobileBuilderCommon.trim = trim;
   C8O.mobileBuilderCommon.compactText = compactText;
+  C8O.mobileBuilderCommon.withGeneratedLines = withGeneratedLines;
   C8O.mobileBuilderCommon.boundedDiagnosticText = boundedDiagnosticText;
   C8O.mobileBuilderCommon.parseJsonText = parseJsonText;
   C8O.mobileBuilderCommon.isCompileErrorMessage = isCompileErrorMessage;

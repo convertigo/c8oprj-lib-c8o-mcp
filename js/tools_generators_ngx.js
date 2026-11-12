@@ -1160,6 +1160,31 @@ include("js/tools_generators_ngx_theme.js");
       return out;
     }
 
+    // A bare name in the data or the vars of a page action has no scope there: {id: "id"} wrote "data: {id: id}" and the
+    // build failed (TS2304 "Cannot find name 'id'", CRM 12/11). A param or a local of the page reads its local (a param is
+    // copied into its local at page enter), true/false/null stay literals, any other bare name is refused with the names
+    // there are.
+    var ACTION_LITERALS = ["true", "false", "null", "undefined"];
+    function pageExpressions(values, where) {
+      if (!isObj(values)) {
+        return values;
+      }
+      var out = {};
+      Object.keys(values).forEach(function (k) {
+        var v = str(values[k]);
+        if (IDENT.test(v) && ACTION_LITERALS.indexOf(v) < 0) {
+          if (Object.prototype.hasOwnProperty.call(locals, v)) {
+            out[k] = "c8oPage.local." + v;
+            return;
+          }
+          errors.push(where + "." + k + ": " + v + " is not a param or a local of this page. Give a TypeScript expression: " +
+            "c8oPage.local.<name> (" + Object.keys(locals).join(", ") + "), a quoted string or a number.");
+        }
+        out[k] = values[k];
+      });
+      return out;
+    }
+
     function actionButtons(actions, label, options) {
       options = options || {};
       if (!actions.length) {
@@ -1182,7 +1207,7 @@ include("js/tools_generators_ngx_theme.js");
           var callChildren = [];
           if (isObj(a.vars)) {
             var seqVars = sequenceVariables(projectDbo, str(a.sequence)) || [];
-            var avars = withSelection(a.vars);
+            var avars = pageExpressions(withSelection(a.vars), label + "[" + i + "].vars");
             Object.keys(avars).forEach(function (v) {
               if (seqVars.length && seqVars.indexOf(v) < 0) {
                 errors.push(label + "[" + i + "].vars." + v + " is not a variable of " + a.sequence + " (" + seqVars.join(", ") + ").");
@@ -1201,7 +1226,7 @@ include("js/tools_generators_ngx_theme.js");
           }
           // The navigation waits for the sequence's success, as the form submit does; a failure shows its first error.
           var callError = "stack['Call'].out?.errors?.[0]?.message || 'Error'";
-          var okChildren = str(a.page).length ? [navAction("Go", { page: a.page, kind: a.kind || "root", data: withSelection(a.data) })] : [];
+          var okChildren = str(a.page).length ? [navAction("Go", { page: a.page, kind: a.kind || "root", data: pageExpressions(withSelection(a.data), label + "[" + i + "].data") })] : [];
           if (okChildren.length) {
             callChildren.push(nxAction("IfAction", "IfOk", { condition: { mode: "SCRIPT", value: "out?.success" } }, okChildren));
           }
@@ -1212,7 +1237,7 @@ include("js/tools_generators_ngx_theme.js");
           chain = nxAction("CallSequenceAction", "Call", { requestable: { mode: "PLAIN", value: projectName + "." + str(a.sequence) }, noAutoLogin: { mode: "PLAIN", value: "true" },
             cacheTtl: { mode: "PLAIN", value: "0" } }, callChildren);
         } else if (str(a.page).length || str(a.kind) === "pop") {
-          chain = navAction("Go", { page: a.page, kind: a.kind, data: withSelection(a.data) });
+          chain = navAction("Go", { page: a.page, kind: a.kind, data: pageExpressions(withSelection(a.data), label + "[" + i + "].data") });
         } else {
           errors.push(label + "[" + i + "] needs page (navigation) or sequence (a call, then page).");
           chain = null;

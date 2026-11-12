@@ -2102,7 +2102,13 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       level: { type: "string" },
       category: { type: "string" },
       message: { type: "string" },
-      extra: { type: "string" }
+      extra: { type: "string" },
+      // where the error is and the generated source line it names, to find the bean that wrote it
+      file: { type: "string" },
+      line: { type: "number" },
+      column: { type: "number" },
+      generatedFile: { type: "string" },
+      generatedLine: { type: "string" }
     });
   }
 
@@ -2248,7 +2254,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         compiled: { type: "string", description: "success, failed or empty: the last compilation." },
         port: { type: "number" },
         url: { type: "string", description: "The application path through the engine (a WEB_ADMIN session only)." },
-        localUrl: { type: "string", description: "The application on the development server." }
+        localUrl: { type: "string", description: "The application on the development server." },
+        errors: { type: "array", items: { type: "string" }, description: "The errors of the last compilation, file:line:column: message (an engine that gives them)." }
       })),
       threadAlive: { type: "boolean" },
       timeoutSec: { type: "number" },

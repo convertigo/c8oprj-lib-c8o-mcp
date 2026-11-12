@@ -20,6 +20,40 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
   var lower = helper.lower;
   var trim = helper.trim;
   var compactText = helper.compactText;
+  var withGeneratedLines = helper.withGeneratedLines;
+
+  // An error of the engine's last compilation, "src/app/pages/p/p.ts:317:107: TS2304: Cannot find name 'id'.", as a
+  // compile error with its place.
+  function engineCompileError(text) {
+    var value = String(text || "");
+    var place = /^(.+?):(\d+):(\d+):\s*/.exec(value);
+    var entry = { time: "", level: "ERROR", category: "compilation", message: value.substring(0, 6000), extra: "" };
+    if (place) {
+      entry.file = place[1];
+      entry.line = Number(place[2]);
+      entry.column = Number(place[3]);
+    }
+    return entry;
+  }
+
+  // The line of a generated source of the project (path relative to _private/ionic, inside it), or null.
+  function generatedSourceLine(projectName, relativePath, lineNumber) {
+    try {
+      var project = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getOriginalProjectByName(String(projectName));
+      if (project == null) {
+        return null;
+      }
+      var root = new java.io.File(String(project.getDirPath()), "_private/ionic").getCanonicalFile();
+      var file = new java.io.File(root, String(relativePath)).getCanonicalFile();
+      if (String(file.getPath()).indexOf(String(root.getPath()) + java.io.File.separator) !== 0 || !file.isFile() || file.length() > 4000000) {
+        return null;
+      }
+      var lines = java.nio.file.Files.readAllLines(file.toPath(), java.nio.charset.StandardCharsets.UTF_8);
+      return lineNumber >= 1 && lineNumber <= lines.size() ? String(lines.get(lineNumber - 1)) : null;
+    } catch (_noSourceLine) {
+      return null;
+    }
+  }
   var parseJsonText = helper.parseJsonText;
   var isCompileErrorMessage = helper.isCompileErrorMessage;
   var pushCompileError = helper.pushCompileError;
@@ -901,7 +935,9 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         compiled: trim(parsed.compiled),
         port: isNaN(port) ? 0 : port,
         url: trim(parsed.url),
-        localUrl: trim(parsed.localUrl)
+        localUrl: trim(parsed.localUrl),
+        // the errors of the last compilation, "file:line:column: message" (an engine without them gives none)
+        errors: Array.isArray(parsed.errors) ? parsed.errors.slice(0, 20).map(function (e) { return String(e); }) : []
       };
     } catch (_ignoreUnreadableDevBuildState) {
       return undefined;
@@ -1115,7 +1151,11 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       if (failed) {
         var logs = collectBuilderLogs(projectName, launchState != null && launchState.requestedAt > 0 ? launchState.requestedAt : startedAt - 600000,
           logsLimitValue, false, { keepLast: true });
-        snapshot.compileErrors = logs.compileErrors || [];
+        // The errors of the last compilation come from the engine (devBuildState.errors): the Studio log prints them once,
+        // at the compilation, and a later call read only "Application bundle generation failed" (CRM 12/11). An engine
+        // without them: the errors found in the log, as before.
+        var engineErrors = (devState.errors || []).map(engineCompileError);
+        snapshot.compileErrors = engineErrors.length ? engineErrors : (logs.compileErrors || []);
         snapshot.lines = logs.lines || [];
         snapshot.query = logs.query || {};
       }
@@ -1410,6 +1450,9 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
 
     var viewerOnLauncher = ready !== true && viewerOnLauncherPage(browserState);
     var waited = waitValue === true && timeoutSecValue > 0;
+    if (snapshot.compileErrors && snapshot.compileErrors.length && withGeneratedLines) {
+      snapshot.compileErrors = withGeneratedLines(snapshot.compileErrors, function (path, line) { return generatedSourceLine(projectName, path, line); });
+    }
     var status = ready
       ? "ready"
       : (snapshot.failed === true
@@ -1430,7 +1473,11 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       : (status === "compile_error"
         ? (
           snapshot.compileErrors && snapshot.compileErrors.length
-            ? ("Mobile builder compile failed: " + compactText((snapshot.compileErrors[0].message || "") + " " + (snapshot.compileErrors[0].extra || "")))
+            ? ("Mobile builder compile failed: " + compactText((snapshot.compileErrors[0].message || "") + " " + (snapshot.compileErrors[0].extra || "")) +
+              (snapshot.compileErrors[0].generatedLine
+                ? " Generated line " + snapshot.compileErrors[0].generatedFile + ": " + snapshot.compileErrors[0].generatedLine +
+                  " Fix the bean that wrote it (an action, a custom action or a script of that page) and build again: the generated sources come from the beans."
+                : ""))
             : "Mobile builder compile failed before exposing the browser URL."
         )
         : (status === "building"

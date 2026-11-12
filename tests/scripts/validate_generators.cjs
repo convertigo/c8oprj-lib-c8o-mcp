@@ -1878,3 +1878,23 @@ test('a menu page created after the logout page goes before it: the way out stay
   const after = find(world.project, 'App.Application.NgxApp').children.filter(c => /PageComponent/.test(c.javaClass)).map(c => c.name);
   assert.deepEqual(after.slice(-4), ['Plist', 'Dash', 'Sortie', 'PosteForm']);
 });
+
+test('a bare name in the data or vars of a page action reads the page param or local, else is refused (TS2304, CRM 12/11)', () => {
+  const world = makeWorld();
+  const out = load(world).ngxPageCreate({ project: 'App', name: 'CompanyDetail', title: 'Company', kind: 'detail', params: ['id'],
+    actions: [{ label: 'Edit', page: 'CompanyForm', kind: 'push', data: { id: 'id' } },
+      { label: 'Deals', page: 'Deals', kind: 'push', data: { companyId: 'id', archived: 'false', name: "'x'" } }] });
+  assert.equal(out.status, 'ok');
+  const tree = JSON.stringify(creates(world));
+  assert.match(tree, /\{id: c8oPage\.local\.id\}/, 'the param, not a bare id');
+  assert.match(tree, /\{companyId: c8oPage\.local\.id, archived: false, name: 'x'\}/, 'literals and expressions unchanged');
+  assert.doesNotMatch(tree, /\{id: id\}/);
+  assert.throws(() => load(makeWorld()).ngxPageCreate({ project: 'App', name: 'CompanyDetail2', title: 'C', kind: 'detail', params: ['id'],
+    actions: [{ label: 'Edit', page: 'CompanyForm', data: { id: 'companyId' } }] }),
+    /actions\[0\]\.data\.id: companyId is not a param or a local of this page\. Give a TypeScript expression: c8oPage\.local\.<name> \([^)]*\bid\b[^)]*\)/);
+  // the vars of a called sequence too
+  const world2 = makeWorld();
+  load(world2).ngxPageCreate({ project: 'App', name: 'Welcome2', title: 'S', kind: 'detail', params: ['profile'],
+    actions: [{ label: 'Admin', sequence: 'auth_loginDemo', vars: { profile: 'profile' }, page: 'Login', kind: 'root' }] });
+  assert.match(JSON.stringify(creates(world2)), /"name":"profile".{0,200}c8oPage\.local\.profile/);
+});

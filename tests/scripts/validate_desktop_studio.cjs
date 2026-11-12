@@ -125,21 +125,25 @@ test('mobile-builder-open reads the development build of the web Studio from its
   const source = read('js/tools_mobile_builder_open.js');
   const reader = source.match(/\n  function readWebStudioDevBuild\(projectName\) \{\n[\s\S]*?\n  \}\n/)[0];
   const box = WsBuilder => ({ trim: v => String(v ?? '').trim(), Packages: { com: { twinsoft: { convertigo: { engine: { admin: { services: { studio: { ngxbuilder: { WsBuilder } } } } } } } } } });
-  const read1 = WsBuilder => { const r = vm.runInNewContext(reader + 'readWebStudioDevBuild("TigoApp");', box(WsBuilder)); return r === undefined ? r : { ...r }; };
+  const read1 = WsBuilder => { const r = vm.runInNewContext(reader + 'readWebStudioDevBuild("TigoApp");', box(WsBuilder)); return r === undefined ? r : JSON.parse(JSON.stringify(r)); };
   assert.equal(read1({}), undefined, 'an engine without devBuildState');
   assert.deepEqual(read1({ devBuildState: () => null }), { state: 'none' });
   assert.deepEqual(read1({ devBuildState: () => JSON.stringify({ state: 'serving', phase: '', compiled: 'success', port: 48046,
     url: '/convertigo/projects/TigoApp/DisplayObjects/dev48046/', localUrl: 'http://localhost:48046/convertigo/projects/TigoApp/DisplayObjects/dev48046/' }) }),
     { state: 'serving', phase: '', compiled: 'success', port: 48046, url: '/convertigo/projects/TigoApp/DisplayObjects/dev48046/',
-      localUrl: 'http://localhost:48046/convertigo/projects/TigoApp/DisplayObjects/dev48046/' });
+      localUrl: 'http://localhost:48046/convertigo/projects/TigoApp/DisplayObjects/dev48046/', errors: [] });
+  assert.deepEqual(read1({ devBuildState: () => JSON.stringify({ state: 'serving', phase: '', compiled: 'failed', port: 1,
+    errors: ["src/app/pages/companydetail/companydetail.ts:317:107: TS2304: Cannot find name 'id'."] }) }).errors,
+    ["src/app/pages/companydetail/companydetail.ts:317:107: TS2304: Cannot find name 'id'."], 'the errors of the last compilation');
   assert.equal(read1({ devBuildState: () => '{not json' }), undefined);
   // the readiness of the web Studio: served (compiled success, no phase), failed, or still installing/building
   const refresh = source.match(/\n    function refreshWebStudioState\(devState\) \{\n[\s\S]*?\n    \}\n/)[0];
+  const engineError = source.match(/\n  function engineCompileError\(text\) \{\n[\s\S]*?\n  \}\n/)[0];
   const run = (devState, launchRequested = true) => {
     const ctx = { devState, launchRequested, startedAt: Date.now(), BUILDER_STARTUP_GRACE_MS: 120000, launchState: null, projectName: 'TigoApp', logsLimitValue: 40,
       collectBuilderLogs: () => ({ compileErrors: [{ message: 'TS2304' }], lines: [], query: {} }), java: { lang: { System: { currentTimeMillis: () => Date.now() } } },
       snapshot: null, readinessDecision: null, webStudioDevBuild: null };
-    const ready = vm.runInNewContext('var snapshot, readinessDecision, webStudioDevBuild;' + refresh + 'var r = refreshWebStudioState(devState); ({ r, snapshot, readinessDecision });', ctx);
+    const ready = vm.runInNewContext('var snapshot, readinessDecision, webStudioDevBuild;' + engineError + refresh + 'var r = refreshWebStudioState(devState); ({ r, snapshot, readinessDecision });', ctx);
     return { ready: ready.r, snapshot: ready.snapshot, decision: ready.readinessDecision };
   };
   const served = run({ state: 'serving', phase: '', compiled: 'success', port: 48046, localUrl: 'http://localhost:48046/x/' });
@@ -153,7 +157,12 @@ test('mobile-builder-open reads the development build of the web Studio from its
   assert.equal(rebuilding.ready, false, 'a recompilation is waited for');
   const failed = run({ state: 'serving', phase: '', compiled: 'failed', port: 48046, localUrl: 'http://localhost:48046/x/' });
   assert.equal(failed.snapshot.failed, true);
-  assert.equal(failed.snapshot.compileErrors[0].message, 'TS2304', 'the errors come from the Studio log');
+  assert.equal(failed.snapshot.compileErrors[0].message, 'TS2304', 'an engine without errors: the errors of the Studio log');
+  const failedWithErrors = run({ state: 'serving', phase: '', compiled: 'failed', port: 48046, localUrl: 'http://localhost:48046/x/',
+    errors: ["src/app/pages/companydetail/companydetail.ts:317:107: TS2304: Cannot find name 'id'."] });
+  assert.deepEqual({ ...failedWithErrors.snapshot.compileErrors[0] }, { time: '', level: 'ERROR', category: 'compilation',
+    message: "src/app/pages/companydetail/companydetail.ts:317:107: TS2304: Cannot find name 'id'.", extra: '',
+    file: 'src/app/pages/companydetail/companydetail.ts', line: 317, column: 107 }, 'the engine errors, each with its place');
   const none = run({ state: 'none' }, false);
   assert.equal(none.snapshot.building, false, 'no build: stopped');
   assert.match(source, /if \(webStudio\) \{\n\s+var devState = readWebStudioDevBuild\(projectName\);\n\s+if \(devState !== undefined\) \{\n\s+return refreshWebStudioState\(devState\);/);
@@ -180,4 +189,23 @@ test('the Studio log collector keeps the latest lines on demand (an npm install 
   assert.ok(!first.lines.some(l => /Local:/.test(l.message)), 'the first lines are the npm install');
   assert.ok(last.lines.some(l => /Local:   http:\/\/localhost:48046/.test(l.message)), 'the latest lines hold the served URL');
   assert.match(read('js/mobile_builder_common.js'), /keepLast: !!\(options && options\.keepLast === true\)/);
+});
+
+test('mobile-builder-open joins the generated line a compile error names, to find the bean that wrote it', () => {
+  const box = { C8O: {}, include: () => {} };
+  vm.runInNewContext(read('js/mobile_builder_common.js'), box);
+  const withLines = box.C8O.mobileBuilderCommon.withGeneratedLines;
+  const asked = [];
+  const out = withLines([{ message: "src/app/pages/companydetail/companydetail.ts:317:107: TS2304: Cannot find name 'id'.", extra: '' },
+    { message: 'Application bundle generation failed.', extra: '' }],
+    (file, line) => { asked.push([file, line]); return '        data: {id: id},   '; });
+  assert.deepEqual(asked, [['src/app/pages/companydetail/companydetail.ts', 317]]);
+  assert.equal(out[0].generatedFile, 'src/app/pages/companydetail/companydetail.ts:317');
+  assert.equal(out[0].generatedLine, 'data: {id: id},');
+  assert.equal(out[1].generatedLine, undefined, 'no place, nothing joined');
+  assert.equal(withLines([{ message: 'src/app/x.ts:9:1: e' }], () => null)[0].generatedLine, undefined, 'an unreadable line');
+  const source = read('js/tools_mobile_builder_open.js');
+  assert.match(source, /Generated line " \+ snapshot\.compileErrors\[0\]\.generatedFile/);
+  assert.match(source, /String\(file\.getPath\(\)\)\.indexOf\(String\(root\.getPath\(\)\) \+ java\.io\.File\.separator\) !== 0/, 'only a file inside _private/ionic');
+  assert.match(read('js/schema_overrides.js'), /generatedLine: \{ type: "string" \}/);
 });
