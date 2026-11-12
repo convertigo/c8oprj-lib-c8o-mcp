@@ -968,6 +968,12 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     } else if (webStudio && stateOnlyValue !== true) {
       webStudioBuild = startWebStudioDevBuild(projectName, endpoint, forceRestartValue);
       launchRequested = webStudioBuild.started === true;
+      // An engine that cannot start the build of its web Studio (older than WsBuilder.startDevBuild) or that refused it:
+      // nothing will come to wait for, the call answers at once and says so.
+      if (webStudioBuild.supported !== true || webStudioBuild.error.length) {
+        waitValue = false;
+        timeoutSecValue = 0;
+      }
     }
     var launchState = readBuilderLaunchState(projectName);
     if (launchRequested === true) {
