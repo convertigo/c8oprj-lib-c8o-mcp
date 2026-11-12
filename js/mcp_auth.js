@@ -358,6 +358,20 @@ C8O.mcpAuth = C8O.mcpAuth || {};
     }
   }
 
+  // A Studio on the desktop of its one user: the Eclipse Studio (Studio mode) or the Electron Studio (a desktop Studio
+  // engine, Engine.isDesktopStudio, Convertigo 8.5; an older engine has no such method). Its agents run on this
+  // workstation, where the local setup writes their configuration.
+  function isLocalStudio() {
+    if (isStudioMode()) {
+      return true;
+    }
+    try {
+      return Engine.isDesktopStudio() === true;
+    } catch (_desktopStudioUnavailable) {
+      return false;
+    }
+  }
+
   function endpointUrl(contextObject) {
     try {
       var base = trim(contextObject.getConvertigoUrl()).replace(/\/+$/g, "");
@@ -664,7 +678,7 @@ C8O.mcpAuth = C8O.mcpAuth || {};
       status: authorized ? "ok" : "forbidden",
       authorized: authorized,
       studioMode: studioMode,
-      localSetupAvailable: authorized && studioMode,
+      localSetupAvailable: authorized && isLocalStudio(),
       storagePath: authorized ? String(rootDirectory().getAbsolutePath()) : "",
       mcpUrl: endpointUrl(contextObject),
       tokens: authorized ? listRecords() : [],
@@ -781,7 +795,7 @@ C8O.mcpAuth = C8O.mcpAuth || {};
   function setupLocalAgent(contextObject, agent, token) {
     try {
       requireWebAdmin(contextObject);
-      if (!isStudioMode()) {
+      if (!isLocalStudio()) {
         return createResultError(
           "local_setup_unavailable",
           "Local agent setup is available only when this application runs from Convertigo Studio on the same workstation."

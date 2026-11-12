@@ -47,11 +47,26 @@ C8O.reporting.resolveMode = function () {
   return mode;
 };
 
+// A Studio on the desktop of its one user: the Eclipse Studio (Studio mode) or the Electron Studio (a desktop Studio
+// engine, Engine.isDesktopStudio, Convertigo 8.5; an older engine has no such method). It has one feedback folder.
+C8O.reporting.localStudio = function () {
+  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+  try {
+    if (Engine.isStudioMode()) {
+      return true;
+    }
+  } catch (_noStudioMode) {}
+  try {
+    return Engine.isDesktopStudio() === true;
+  } catch (_noDesktopStudio) {
+    return false;
+  }
+};
+
 // The folder of Tigo's feedback for this request: the Studio's, or on a server the No Code Studio user's
 // (agents/feedback/users/<userKey>), or "" when there is none.
 C8O.reporting._feedbackDirectory = function (userKey) {
-  var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
-  if (Engine.isStudioMode()) {
+  if (C8O.reporting.localStudio()) {
     return "agents/feedback";
   }
   if (!C8O.reporting.serverFeedbackKeyInstalled()) {
@@ -372,7 +387,7 @@ C8O.reporting.writeReport = function (input) {
 // with the same ones, and shows it to the user before it is sent (or sends it after the turn in automatic mode).
 C8O.reporting.writeTigoReport = function (input) {
   // On a server, the No Code Studio user of this request, read once: their consent and their incoming/ folder.
-  var userKey = Packages.com.twinsoft.convertigo.engine.Engine.isStudioMode() ? undefined : C8O.reporting.requestFeedbackUserKey();
+  var userKey = C8O.reporting.localStudio() ? undefined : C8O.reporting.requestFeedbackUserKey();
   var directory = C8O.reporting._feedbackDirectory(userKey);
   var mode = directory.length ? C8O.reporting.tigoMode(userKey) : "off";
   if (mode === "off") {

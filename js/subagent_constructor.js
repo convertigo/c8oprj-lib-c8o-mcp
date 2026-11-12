@@ -194,9 +194,14 @@ C8O.constructorRunner = C8O.constructorRunner || {};
     var windows = String(java.lang.System.getProperty("os.name")).toLowerCase().indexOf("win") >= 0;
     var read = function (file) { return String(new java.lang.String(Files.readAllBytes(file.toPath()), "UTF-8")); };
 
+    // The owner of a desktop Studio: the Eclipse Studio (Studio mode) or the Electron Studio (Engine.isDesktopStudio,
+    // Convertigo 8.5; an older engine has no such method). A server never has one.
     host.executionScope = function () {
       var studio = false;
       try { studio = Engine.isStudioMode() === true; } catch (_noStudioMode) {}
+      if (!studio) {
+        try { studio = Engine.isDesktopStudio() === true; } catch (_noDesktopStudio) {}
+      }
       return api.isStudioOwner(authenticatedCaller, studio) ? "studio-owner" : "shared";
     };
     host.projectDir = function (project) {
