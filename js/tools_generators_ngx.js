@@ -58,6 +58,7 @@ include("js/tools_generators_ngx_theme.js");
       "text-align: center; border: 1px dashed var(--app-border, var(--ion-border-color, rgba(127,127,127,0.3))); border-radius: var(--app-radius-lg, 12px); background: var(--app-surface-2, transparent); }"],
     [".app-empty-icon", ".app-empty-icon { font-size: 40px; color: var(--ion-color-primary, #2563eb); opacity: 0.75; }"],
     [".app-empty", ".app-empty { margin: 0; color: " + MUTED + "; }"],
+    [".app-field-empty", ".app-field-empty { margin: var(--app-space-1, 4px) 0 var(--app-space-3, 12px); font-size: var(--app-font-size-sm, 14px); color: var(--ion-color-danger, #c0392b); }"],
     [".app-error", ".app-error { color: var(--ion-color-danger, #c0392b); padding: var(--app-space-3, 12px) var(--app-space-4, 16px); margin: 0 0 var(--app-space-4, 16px); " +
       "background: rgba(var(--ion-color-danger-rgb, 192,57,43), 0.08); border: 1px solid rgba(var(--ion-color-danger-rgb, 192,57,43), 0.25); border-radius: var(--app-radius, 8px); }"],
     [".app-badge", ".app-badge { margin-inline: var(--app-space-2, 8px); padding: 4px 10px; border-radius: 999px; font-size: var(--app-font-size-xs, 12px); font-weight: 600; letter-spacing: 0.01em; }"],
@@ -67,7 +68,8 @@ include("js/tools_generators_ngx_theme.js");
       "@media (prefers-color-scheme: dark) { :root:not(.force-light) ion-badge.app-badge.ion-color { color: color-mix(in srgb, var(--ion-color-base) 75%, #fff); } }"],
     // Table layout of a list with columns: a header row and aligned cells on a wide screen, label and value lines on a phone.
     [".app-row", ".app-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px var(--app-space-4, 16px); align-items: center; width: 100%; padding: var(--app-space-1, 4px) 0; }"],
-    [".app-cell", ".app-cell { min-width: 0; overflow-wrap: anywhere; }\n" +
+    // break-word, not anywhere: a date or a status in a narrow column broke letter by letter (run 3).
+    [".app-cell", ".app-cell { min-width: 0; overflow-wrap: break-word; }\n" +
       ".app-cell:not(.app-cell-main) { display: flex; justify-content: space-between; gap: var(--app-space-3, 12px); }\n" +
       ".app-cell:not(.app-cell-main)[data-label]::before { content: attr(data-label); color: " + MUTED + "; font-size: var(--app-font-size-sm, 14px); }"],
     [".app-cell-main", ".app-cell-main { font-weight: 600; }"],
@@ -472,6 +474,21 @@ include("js/tools_generators_ngx_theme.js");
     var used = {};
     // Badge colors read from the status words, given back so the agent can check them (list.badge.colors overrides).
     var derivedColors = {};
+    // The paths of the page data are read in the data of the business sequence's answer (out.data, kept in local.data):
+    // "items", not "data.items", which bound local?.data?.data?.items (run 3, F-P-19). A path written from out, local or
+    // data comes back to that base and says so; the answer gives each binding made (bindings).
+    var bindings = {};
+    function dataPath(path, label) {
+      var raw = str(path).replace(/\?\./g, ".").replace(/^\.+/, "");
+      var m = /^(?:c8oPage\.)?(?:local\.|out\.)?data\.(.+)$/.exec(raw);
+      if (m) {
+        warnings.push(label + " \"" + str(path) + "\": the paths are read in the data of the answer of " + (facade || "the page sequence") +
+          ", so \"" + m[1] + "\" (" + localPath("data." + m[1]) + ").");
+        raw = m[1];
+      }
+      bindings[label] = localPath("data." + raw);
+      return raw;
+    }
     // pageWillEnter sets these locals while Angular checks the page that the menu or a link opens: a binding whose value
     // changes then (undefined -> null) throws NG0100 in dev on every generated page (run 9a). The conditions are written so
     // that the first render already reads the values set here: !!local?.error, and an unset loading counts as loading.
@@ -519,7 +536,8 @@ include("js/tools_generators_ngx_theme.js");
           var fsrc = f.optionsFrom;
           var fit = str(fsrc.item || "opt");
           var flabel = fsrc.label !== undefined ? fsrc.label : "label";
-          options.push(forEach("Each" + pascal(f.name), "data." + str(fsrc.items || "items"), fit, [nx("SelectOption", "Opt",
+          var filterOptions = dataPath(fsrc.items || "items", "filters[" + i + "].optionsFrom.items");
+          options.push(forEach("Each" + pascal(f.name), "data." + filterOptions, fit, [nx("SelectOption", "Opt",
             { Value: { mode: "SCRIPT", value: "'' + " + field(fsrc.value || "id", fit) } },
             [expr(valueExpr(function (p) { return field(p, fit); }, flabel))])]));
         }
@@ -591,7 +609,7 @@ include("js/tools_generators_ngx_theme.js");
         return [];
       }
       var item = str(spec2.item || "row");
-      var itemsPath = "data." + str(spec2.items || "items");
+      var itemsPath = "data." + dataPath(spec2.items || "items", label + ".items");
       if (!IDENT.test(item)) {
         errors.push(label + ".item must be an identifier.");
       }
@@ -611,6 +629,8 @@ include("js/tools_generators_ngx_theme.js");
         if (badgeColors) {
           badgeChildren.push(attr("[color]", "Attr_color", colorExpr(rowField(badge.field), badgeColors)));
         }
+        // A row without the field showed an empty grey pill (run 3, F-P-18): no value, no badge.
+        badgeChildren.push(attr("[hidden]", "Attr_hidden", "(" + rowField(badge.field) + " ?? '') === ''"));
         badgeNode = nx("Badge", "Status", {}, badgeChildren);
       }
       var columns = spec2.columns;
@@ -633,40 +653,91 @@ include("js/tools_generators_ngx_theme.js");
           rowChildren.push(nx("Note", "Nt", { IonSlot: { mode: "PLAIN", value: "end" } }, [expr(valueExpr(rowField, spec2.note))]));
         }
       } else {
-        var titleLabel = textOr(spec2.titleLabel, "Name", label + ".titleLabel");
-        var headLabels = [titleLabel];
-        var mainCell = [cls("app-cell app-cell-main"), plainAttr("data-label", "Attr_label", titleLabel), expr(valueExpr(rowField, spec2.title))];
-        if (spec2.subtitle !== undefined) {
-          mainCell.push(nx("SpanTag", "Second", {}, [cls("app-cell-sub"), expr(valueExpr(rowField, spec2.subtitle))]));
-        }
-        var cells = [nx("SpanTag", "Main", {}, mainCell)];
-        var usedCells = { Main: true };
-        var cell = function (base, cellLabel, children) {
-          headLabels.push(cellLabel);
-          return nx("SpanTag", uniqueName(base, usedCells), {}, [cls("app-cell")].concat(cellLabel.length ? [plainAttr("data-label", "Attr_label", cellLabel)] : []).concat(children));
+        // Columns that repeated the title, the subtitle, the note or the status made duplicate cells, cells without header and
+        // more cells than the grid holds (run 3, F-P-16). A column of the title or subtitle field is left out (its label heads
+        // the title column), a column of the note field replaces the note cell, a column of the badge field or of its label
+        // field (statusLabel, statutLibelle...) shows the badge. A note or a badge without column nor label goes in the title
+        // cell. Every column has a header, and the title column needs one in the app's language.
+        var fieldOf = function (v) { return str(isObj(v) ? v.field : v); };
+        var titleField = fieldOf(spec2.title), subField = fieldOf(spec2.subtitle), noteField = fieldOf(spec2.note);
+        var badgeField = badgeNode ? fieldOf(spec2.badge) : "";
+        var isStatusField = function (f) {
+          return badgeField.length > 0 && (f === badgeField || (f.toLowerCase().indexOf(badgeField.toLowerCase()) === 0 &&
+            /^(label|libelle|lib|text|texte|name|nom|display|caption)$/i.test(f.substring(badgeField.length))));
         };
+        var titleLabel = str(spec2.titleLabel);
+        var kept = [], dropped = [];
+        var badgeInColumns = false, noteInColumns = false;
         columns.forEach(function (c, ci) {
           var col = isObj(c) ? c : { field: c };
           if (!str(col.field).length || !str(col.label).length) {
             errors.push(label + ".columns[" + ci + "] must be {label, field, labels?, prefix?, suffix?}.");
             return;
           }
-          cells.push(cell("C" + pascal(str(col.field).split(".").pop()), str(col.label), [expr(valueExpr(rowField, col))]));
+          var f = str(col.field);
+          if (f === titleField || (subField.length && f === subField)) {
+            if (f === titleField && !titleLabel.length) {
+              titleLabel = str(col.label);
+            }
+            dropped.push("columns[" + ci + "] " + f + " is the " + (f === titleField ? "title" : "subtitle") + ", shown in the title column");
+            return;
+          }
+          if (isStatusField(f)) {
+            if (!badgeInColumns) {
+              kept.push({ col: col, badge: true });
+            }
+            badgeInColumns = true;
+            dropped.push("columns[" + ci + "] " + f + " shows the badge " + badgeField);
+            return;
+          }
+          if (noteField.length && f === noteField) {
+            noteInColumns = true;
+          }
+          kept.push({ col: col });
         });
-        if (spec2.note !== undefined) {
-          cells.push(cell("NoteCell", str(spec2.noteLabel), [expr(valueExpr(rowField, spec2.note))]));
+        if (!titleLabel.length) {
+          errors.push(label + ".titleLabel is required with columns: the header of the title column, in the app's language (a column of the title field gives it too).");
         }
-        if (badgeNode) {
-          cells.push(cell("StatusCell", str(spec2.badgeLabel), [badgeNode]));
+        var mainCell = [cls("app-cell app-cell-main"), plainAttr("data-label", "Attr_label", titleLabel), expr(valueExpr(rowField, spec2.title))];
+        var badgeLabel = str(spec2.badgeLabel), noteLabel = str(spec2.noteLabel);
+        if (badgeNode && !badgeInColumns && !badgeLabel.length) {
+          mainCell.push(badgeNode);
+        }
+        if (spec2.subtitle !== undefined) {
+          mainCell.push(nx("SpanTag", "Second", {}, [cls("app-cell-sub"), expr(valueExpr(rowField, spec2.subtitle))]));
+        }
+        if (spec2.note !== undefined && !noteInColumns && !noteLabel.length) {
+          mainCell.push(nx("SpanTag", "NoteSub", {}, [cls("app-cell-sub"), expr(valueExpr(rowField, spec2.note))]));
+        }
+        var headLabels = [titleLabel];
+        var cells = [nx("SpanTag", "Main", {}, mainCell)];
+        var usedCells = { Main: true };
+        var cell = function (base, cellLabel, children) {
+          headLabels.push(cellLabel);
+          return nx("SpanTag", uniqueName(base, usedCells), {}, [cls("app-cell"), plainAttr("data-label", "Attr_label", cellLabel)].concat(children));
+        };
+        kept.forEach(function (k) {
+          cells.push(k.badge ? cell("StatusCell", str(k.col.label), [badgeNode])
+            : cell("C" + pascal(str(k.col.field).split(".").pop()), str(k.col.label), [expr(valueExpr(rowField, k.col))]));
+        });
+        if (spec2.note !== undefined && !noteInColumns && noteLabel.length) {
+          cells.push(cell("NoteCell", noteLabel, [expr(valueExpr(rowField, spec2.note))]));
+        }
+        if (badgeNode && !badgeInColumns && badgeLabel.length) {
+          cells.push(cell("StatusCell", badgeLabel, [badgeNode]));
+        }
+        if (dropped.length) {
+          warnings.push(label + ".columns: " + dropped.join("; ") + ".");
         }
         if (cells.length > 8) {
-          warnings.push(label + ".columns: " + cells.length + " cells in a row; a wide screen aligns 8 at most, keep the columns that matter.");
+          errors.push(label + ".columns: " + cells.length + " cells in a row (the title column and " + (cells.length - 1) + " others): a table shows 8 at most " +
+            "on a wide screen; keep the columns that matter and show the others on the detail page.");
         }
         var rowClass = "app-row app-cols-" + Math.min(8, cells.length);
         rowChildren = [nx("DivTag", "Cells", {}, [cls(rowClass)].concat(cells))];
         var usedHeads = {};
         head = nx("ListItem", "Head", {}, [cls("app-table-head"), nx("DivTag", "HeadRow", {}, [cls(rowClass)].concat(headLabels.map(function (h) {
-          return nx("SpanTag", uniqueName("H" + (pascal(h) || "Cell"), usedHeads), {}, [cls("app-cell")].concat(h.length ? [txt(h)] : []));
+          return nx("SpanTag", uniqueName("H" + (pascal(h) || "Cell"), usedHeads), {}, [cls("app-cell"), txt(h)]);
         })))]);
       }
       var itemProps = {};
@@ -874,7 +945,7 @@ include("js/tools_generators_ngx_theme.js");
         errors.push("detail is required for a detail page with a sequence: {record?, fields:[{label, field}]}.");
       } else {
         content.push(ifDirective("IfError", "!!local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
-        var base = "data" + (str(detail.record).length ? "." + str(detail.record) : "");
+        var base = "data" + (str(detail.record).length ? "." + dataPath(detail.record, "detail.record") : "");
         var lv = labelValueList("Fields", detail.fields, base, "detail.fields");
         if (lv) {
           content.push(ifDirective("IfRecord", localPath(base), [lv]));
@@ -908,7 +979,7 @@ include("js/tools_generators_ngx_theme.js");
               kpiChildren.push(nx("Icon", "Icon", { IconName: { mode: "PLAIN", value: kpiIcon } }, [cls("app-kpi-icon")]));
             }
             return nx("DivTag", uniqueName("Kpi" + pascal(k.field.split(".").pop()), usedKpis), {}, kpiChildren.concat([
-              nx("SpanTag", "Value", {}, [cls("app-kpi-value"), expr("(" + localPath("data." + k.field) + " ?? 0)")]),
+              nx("SpanTag", "Value", {}, [cls("app-kpi-value"), expr("(" + localPath("data." + dataPath(k.field, "dashboard.kpis[" + i + "].field")) + " ?? 0)")]),
               nx("SpanTag", "Label", {}, [cls("app-kpi-label"), txt(str(k.label) || k.field)])]));
           }))));
         }
@@ -920,7 +991,7 @@ include("js/tools_generators_ngx_theme.js");
           var prefix = "S" + (i + 1);
           content.push(nx("Heading3", prefix + "Title", {}, [cls("app-section"), txt(str(s.heading || s.label) || ("Section " + (i + 1)))]));
           if (Array.isArray(s.fields)) {
-            var sbase = "data." + str(s.record);
+            var sbase = "data." + dataPath(s.record, "dashboard.sections[" + i + "].record");
             var slv = labelValueList(prefix + "Fields", s.fields, sbase, "dashboard.sections[" + i + "].fields");
             if (slv) {
               content.push(ifDirective(prefix + "IfRecord", localPath(sbase), [slv]));
@@ -984,6 +1055,7 @@ include("js/tools_generators_ngx_theme.js");
             props.Disabled = { mode: "SCRIPT", value: "local?." + disabledLocal + " === true" };
           }
           var control;
+          var afterField = null;
           var cname = pascal(f.name);
           if (type === "textarea") {
             if (f.maxLength !== undefined) {
@@ -998,7 +1070,22 @@ include("js/tools_generators_ngx_theme.js");
               var src = f.optionsFrom;
               var it = str(src.item || "opt");
               var labelField = src.label !== undefined ? src.label : "label";
-              opts.push(forEach("Each" + cname, "data." + str(src.items || "items"), it, [nx("SelectOption", "Opt", { Value: { mode: "SCRIPT", value: "'' + " + field(src.value || "id", it) } },
+              // The options are read in the answer of the page sequence: a list it does not return left the select empty with
+              // no sign (run 3, F-P-17). No sequence is an error; otherwise the answer says where the list must be, and the page
+              // says when it is empty.
+              var optionsPath = dataPath(src.items || "items", "form.fields[" + i + "].optionsFrom.items");
+              var optionsBinding = localPath("data." + optionsPath);
+              var noOption = textOr(src.empty, "No option to choose from.", "form.fields[" + i + "].optionsFrom.empty");
+              if (!facade.length) {
+                errors.push("form.fields[" + i + "].optionsFrom reads the page data, but the page has no sequence: give sequence, the business sequence " +
+                  "whose answer holds data." + optionsPath + " (it is called at page enter).");
+              } else {
+                warnings.push("form.fields[" + i + "].optionsFrom: the options are " + optionsBinding + ", so the answer of " + facade + " must hold data." +
+                  optionsPath + " (check it with requestable-execute); without it the select stays empty and the page shows \"" + noOption + "\".");
+              }
+              afterField = ifDirective("If" + cname + "NoOption", "local?.loading === false && !(" + optionsBinding + "?.length)", [
+                nx("Paragraph", cname + "NoOption", {}, [cls("app-field-empty"), txt(noOption)])]);
+              opts.push(forEach("Each" + cname, "data." + optionsPath, it, [nx("SelectOption", "Opt", { Value: { mode: "SCRIPT", value: "'' + " + field(src.value || "id", it) } },
                 [expr(valueExpr(function (p) { return field(p, it); }, labelField))])]));
             } else {
               opts = list(f.options).map(function (o, oi) {
@@ -1033,9 +1120,15 @@ include("js/tools_generators_ngx_theme.js");
             props.Type = { mode: "PLAIN", value: type };
             control = nx("Input", "In" + cname, props);
           }
-          return { spec: f, node: nx("FormItem", uniqueName("Fi" + cname, usedItems), {}, [control]) };
+          return { spec: f, node: nx("FormItem", uniqueName("Fi" + cname, usedItems), {}, [control]), after: afterField };
         }).filter(function (x) { return x; });
-        var formChildren = fieldsNodes.map(function (x) { return x.node; });
+        var formChildren = [];
+        fieldsNodes.forEach(function (x) {
+          formChildren.push(x.node);
+          if (x.after) {
+            formChildren.push(x.after);
+          }
+        });
         if (form.cancel !== false) {
           formChildren.push(nx("Button", "BtnCancel", { IonFill: { mode: "PLAIN", value: "outline" } }, [txt(textOr(form.cancelLabel, "Cancel", "form.cancelLabel")),
             controlEvent("EventonClick", "onClick", [navAction("Back", isObj(form.cancel) ? form.cancel : { kind: "pop" })])]));
@@ -1280,6 +1373,7 @@ include("js/tools_generators_ngx_theme.js");
       mobileBuilder: finish.mobileBuilder,
       menuLabel: menuLabel,
       badgeColors: Object.keys(derivedColors).length ? derivedColors : undefined,
+      bindings: Object.keys(bindings).length ? bindings : undefined,
       warnings: (defaulted.length ? ["English default texts were used for " + defaulted.join(", ") +
         ": if the app is in another language, change those texts on the page, or delete it and create it again with these fields in that language."] : [])
         .concat(warnings, session.warnings),
