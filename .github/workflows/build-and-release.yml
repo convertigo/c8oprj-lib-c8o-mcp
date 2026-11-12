@@ -71,6 +71,19 @@ jobs:
           sh gradlew --stacktrace --info car -x generateMobileBuilder \
             "${PROJECT_VERSION_ARG[@]}"
 
+      # An engine deploys the first project descriptor it finds in the archive: 0.3.0-beta.12 shipped a test fixture
+      # first and deployed it in place of lib_ConvertigoMCP. The archive must hold this project's descriptor only.
+      - name: Check the CAR holds this project only
+        run: |
+          car=$(ls build/*.car | head -n 1)
+          descriptors=$(unzip -Z1 "$car" | grep -E '(^|/)c8oProject\.(yaml|xml)$' || true)
+          echo "Project descriptors in $car:"
+          echo "$descriptors"
+          if [ "$descriptors" != "lib_ConvertigoMCP/c8oProject.yaml" ]; then
+            echo "::error::The archive must hold one project descriptor, lib_ConvertigoMCP/c8oProject.yaml"
+            exit 1
+          fi
+
       - name: Save application project
         uses: actions/upload-artifact@v4
         with:
