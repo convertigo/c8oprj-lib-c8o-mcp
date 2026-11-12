@@ -663,19 +663,35 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       groupAggregations: {
         source: "tableData only",
         variable: "forms_tableAggregations",
-        operators: ["count", "sum", "avg", "min", "max"],
+        operators: ["count", "sum", "avg", "min", "max", "median", "std_dev", "variance", "empty_count", "not_empty_count",
+          "empty_percentage", "not_empty_percentage", "unique_count", "checked_count", "not_checked_count", "checked_percentage",
+          "not_checked_percentage", "earliest_date", "latest_date", "distribution"],
         syntax: "Comma-separated aggregation specs: count or operator:Column name, each with an optional label after = (count=Deals, sum:Contract Value=Revenue).",
-        examples: ["count", "sum:Amount", "avg:Amount", "min:Date", "max:Score", "count=Nombre de ventes,sum:Contract Value=Montant,sum:Expected revenue=Revenu attendu"],
+        examples: ["count", "sum:Amount", "avg:Amount", "min:Date", "max:Score", "count=Nombre de ventes,sum:Contract Value=Montant,sum:Expected revenue=Revenu attendu",
+          "empty_percentage:Email=Sans email", "checked_count:Paid", "median:Amount", "latest_date:Created on", "distribution:Status"],
+        summary: "Without forms_tableGroupBy, the aggregations give one row for the whole table, like the footer (Summarize) of a Baserow grid: count=Total,sum:Amount=Montant.",
+        operatorColumns: {
+          "count": "rows of the group, no column",
+          "empty_count, not_empty_count, empty_percentage, not_empty_percentage": "most column types, linked rows and files included",
+          "unique_count": "single-value columns (text, number, date, single select...)",
+          "checked_count, not_checked_count, checked_percentage, not_checked_percentage": "boolean columns",
+          "sum, avg, median, std_dev, variance": "numeric columns",
+          "min, max": "numeric or date columns (the value of the cell)",
+          "earliest_date, latest_date": "date columns",
+          "distribution": "single-value columns: the 10 most frequent values with their count and share, then the others"
+        },
+        plugin: "count, sum, avg, min and max by group work on any Baserow (on the rows read when the c8oforms Baserow plugin is absent). The other operators, and any aggregation without forms_tableGroupBy, need the c8oforms plugin of Baserow: without it the source answers an error.",
         labels: {
           purpose: "The label names the value in chart legends and grid headers. Without a label the viewer shows the operator and the column in the language of the user (Somme · Contract Value, Nombre).",
           key: "The key of the value stays count or <operator>_<column> (sum_Contract Value): paths and references to it (<grid>.0.sum_Contract Value) do not change with the label.",
           rules: "Plain text of at most 128 characters, without comma, =, < or >. Give one per aggregation shown to end users, in their language, so a chart can show several readable series.",
-          compatibility: "Older viewers and lib_BaseRow versions show the key (sum_Contract Value) in legends and headers."
+          compatibility: "Older viewers and lib_BaseRow versions show the key (sum_Contract Value) in legends and headers; lib_BaseRow before 1.2.0 knows count, sum, avg, min and max only, by group only."
         },
         recommendedUse: [
           "count works for any grouped data.",
           "sum and avg should target numeric columns.",
-          "min and max should target simple single-value columns."
+          "min and max should target numeric or date columns; earliest_date and latest_date date columns.",
+          "Percentages and distributions read best in a grid; a chart plots numeric values."
         ],
         unsupportedColumns: ["files", "linked rows", "multiple selections", "other multi-value columns"]
       },

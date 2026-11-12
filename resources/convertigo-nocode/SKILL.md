@@ -318,7 +318,7 @@ Treat layout, margin, padding and borders as part of generation, not optional fi
 - Treat `forms_config.str` as the source of truth for the Baserow table and dynamic output columns. Inspect `table_id`, `table_id_int`, `columns`, `hidden`, `link_row_table_id`, `source_id`, and `source_owner`.
 - `table_id` is the human-readable Baserow path, commonly shaped like `Workspace~>Database~>Table`; `table_id_int` is the numeric Baserow table id.
 - The effective Baserow output columns are dynamically deduced from `forms_config.columns`, with `forms_config.hidden` indicating hidden columns.
-- The source variables sit next to `forms_config` under `sources["lib_BaseRow.formssource_GetTableData"].vars`. `forms_tableFilter`, `forms_tableSort`, `forms_tableDistinct`, `forms_tableGroupBy`, and `forms_tableAggregations` carry optional query behavior. Empty strings mean no extra filter, sort, distinct, grouping, or aggregation is applied; populated `conds` arrays describe active filter/sort criteria.
+- The source variables sit next to `forms_config` under `sources["lib_BaseRow.formssource_GetTableData"].vars`. `forms_tableFilter`, `forms_tableSort`, `forms_tableDistinct`, `forms_tableGroupBy`, and `forms_tableAggregations` carry optional query behavior. Empty strings mean no extra filter, sort, distinct, grouping, or aggregation is applied; populated `conds` arrays describe active filter/sort criteria. `forms_tableAggregations` takes the aggregations of the footer of a Baserow grid (`authoringContract.baserowSources.groupAggregations.operators`), one value per group with `forms_tableGroupBy`, or one row for the whole table without it.
 - Use `nocode-form-get` for inspection. If the read tool is unavailable, report the missing capability.
 
 ## Error Handling
