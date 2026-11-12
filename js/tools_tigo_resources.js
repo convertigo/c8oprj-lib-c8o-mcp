@@ -41,6 +41,9 @@ var resourceKey = String(key || "");
 var resourceScope = resourceInput.scope === "workspace" || resourceKey.indexOf("workspace::") === 0 ? "workspace" : "project";
 delete resourceInput.scope;
 var resourceStudio = resourceEngine.isStudioMode() === true;
+if (!resourceStudio) {
+  try { resourceStudio = resourceEngine.isDesktopStudio() === true; } catch (_noDesktopStudio) {}
+}
 if (resourceScope === "workspace" && !resourceStudio) {
   throw new Error("Personal agent configuration requires the local Studio owner");
 }
