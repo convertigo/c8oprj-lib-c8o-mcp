@@ -120,3 +120,64 @@ test('mobile-builder-open: the web Studio starts its development build through t
   assert.match(schema, /webStudio: \{ type: "boolean"/);
   assert.match(schema, /webStudioBuild: nullableSchema\(closedObjectSchema\(\{\n\s+supported: \{ type: "boolean"/);
 });
+
+test('mobile-builder-open reads the development build of the web Studio from its engine (devBuildState)', () => {
+  const source = read('js/tools_mobile_builder_open.js');
+  const reader = source.match(/\n  function readWebStudioDevBuild\(projectName\) \{\n[\s\S]*?\n  \}\n/)[0];
+  const box = WsBuilder => ({ trim: v => String(v ?? '').trim(), Packages: { com: { twinsoft: { convertigo: { engine: { admin: { services: { studio: { ngxbuilder: { WsBuilder } } } } } } } } } });
+  const read1 = WsBuilder => { const r = vm.runInNewContext(reader + 'readWebStudioDevBuild("TigoApp");', box(WsBuilder)); return r === undefined ? r : { ...r }; };
+  assert.equal(read1({}), undefined, 'an engine without devBuildState');
+  assert.deepEqual(read1({ devBuildState: () => null }), { state: 'none' });
+  assert.deepEqual(read1({ devBuildState: () => JSON.stringify({ state: 'serving', phase: '', compiled: 'success', port: 48046,
+    url: '/convertigo/projects/TigoApp/DisplayObjects/dev48046/', localUrl: 'http://localhost:48046/convertigo/projects/TigoApp/DisplayObjects/dev48046/' }) }),
+    { state: 'serving', phase: '', compiled: 'success', port: 48046, url: '/convertigo/projects/TigoApp/DisplayObjects/dev48046/',
+      localUrl: 'http://localhost:48046/convertigo/projects/TigoApp/DisplayObjects/dev48046/' });
+  assert.equal(read1({ devBuildState: () => '{not json' }), undefined);
+  // the readiness of the web Studio: served (compiled success, no phase), failed, or still installing/building
+  const refresh = source.match(/\n    function refreshWebStudioState\(devState\) \{\n[\s\S]*?\n    \}\n/)[0];
+  const run = (devState, launchRequested = true) => {
+    const ctx = { devState, launchRequested, startedAt: Date.now(), BUILDER_STARTUP_GRACE_MS: 120000, launchState: null, projectName: 'TigoApp', logsLimitValue: 40,
+      collectBuilderLogs: () => ({ compileErrors: [{ message: 'TS2304' }], lines: [], query: {} }), java: { lang: { System: { currentTimeMillis: () => Date.now() } } },
+      snapshot: null, readinessDecision: null, webStudioDevBuild: null };
+    const ready = vm.runInNewContext('var snapshot, readinessDecision, webStudioDevBuild;' + refresh + 'var r = refreshWebStudioState(devState); ({ r, snapshot, readinessDecision });', ctx);
+    return { ready: ready.r, snapshot: ready.snapshot, decision: ready.readinessDecision };
+  };
+  const served = run({ state: 'serving', phase: '', compiled: 'success', port: 48046, localUrl: 'http://localhost:48046/x/' });
+  assert.equal(served.ready, true);
+  assert.equal(served.snapshot.openUrl, 'http://localhost:48046/x/');
+  assert.equal(served.decision.compileState, 'success');
+  const installing = run({ state: 'serving', phase: 'installing', compiled: '', port: 48046, localUrl: '' });
+  assert.equal(installing.ready, false);
+  assert.equal(installing.snapshot.building, true);
+  const rebuilding = run({ state: 'serving', phase: 'building', compiled: 'success', port: 48046, localUrl: 'http://localhost:48046/x/' });
+  assert.equal(rebuilding.ready, false, 'a recompilation is waited for');
+  const failed = run({ state: 'serving', phase: '', compiled: 'failed', port: 48046, localUrl: 'http://localhost:48046/x/' });
+  assert.equal(failed.snapshot.failed, true);
+  assert.equal(failed.snapshot.compileErrors[0].message, 'TS2304', 'the errors come from the Studio log');
+  const none = run({ state: 'none' }, false);
+  assert.equal(none.snapshot.building, false, 'no build: stopped');
+  assert.match(source, /if \(webStudio\) \{\n\s+var devState = readWebStudioDevBuild\(projectName\);\n\s+if \(devState !== undefined\) \{\n\s+return refreshWebStudioState\(devState\);/);
+  assert.match(source, /viewerBaseUrl = webStudioDevBuild\.localUrl;/);
+  assert.match(read('js/schema_overrides.js'), /webStudioDevBuild: nullableSchema\(closedObjectSchema\(\{\n\s+state: \{ type: "string"/);
+});
+
+test('the Studio log collector keeps the latest lines on demand (an npm install before the served URL)', () => {
+  const rows = [];
+  for (let i = 0; i < 1500; i++) rows.push(['Studio', '2026-11-12 15:00:00,000', 'INFO', 'ws', i === 1490 ? '  ➜  Local:   http://localhost:48046/convertigo/projects/TigoApp/DisplayObjects/dev48046/' : 'npm http fetch GET 200 package ' + i]);
+  const jsonRow = r => ({ get: i => r[i], length: () => r.length });
+  class LogManager {
+    constructor() { this.at = 0; this.max = 300; }
+    setDateStart() {} setDateEnd() {} setTimeout() {} setContinue() {} close() {}
+    setMaxLines(n) { this.max = n; }
+    hasMoreResults() { return this.at < rows.length; }
+    getLines() { const chunk = rows.slice(this.at, this.at + this.max); this.at += chunk.length; return { length: () => chunk.length, getJSONArray: i => jsonRow(chunk[i]) }; }
+  }
+  const box = { C8O: {}, Packages: { com: { twinsoft: { convertigo: { engine: { admin: { logmanager: { LogManager } } } } } } },
+    java: { lang: { System: { currentTimeMillis: () => Date.parse('2026-11-12T15:00:05Z') } }, util: { Date: class { constructor(t) { this.t = t; } } } } };
+  vm.runInNewContext(read('js/requestable_logs.js'), box);
+  const collect = keepLast => box.C8O.requestableLogs.collect({ category: 'Studio', startTime: 0, endTime: Date.now() + 1000, limit: 320, maxScan: 12800, keepLast });
+  const first = collect(false), last = collect(true);
+  assert.ok(!first.lines.some(l => /Local:/.test(l.message)), 'the first lines are the npm install');
+  assert.ok(last.lines.some(l => /Local:   http:\/\/localhost:48046/.test(l.message)), 'the latest lines hold the served URL');
+  assert.match(read('js/mobile_builder_common.js'), /keepLast: !!\(options && options\.keepLast === true\)/);
+});

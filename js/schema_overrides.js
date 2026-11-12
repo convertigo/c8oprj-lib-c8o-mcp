@@ -2242,6 +2242,14 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         started: { type: "boolean", description: "True when this call started the development build; false when one already serves the application." },
         error: { type: "string" }
       })),
+      webStudioDevBuild: nullableSchema(closedObjectSchema({
+        state: { type: "string", description: "serving while a development build of the web Studio runs, else none." },
+        phase: { type: "string", description: "installing or building while it works, empty once the application is served." },
+        compiled: { type: "string", description: "success, failed or empty: the last compilation." },
+        port: { type: "number" },
+        url: { type: "string", description: "The application path through the engine (a WEB_ADMIN session only)." },
+        localUrl: { type: "string", description: "The application on the development server." }
+      })),
       threadAlive: { type: "boolean" },
       timeoutSec: { type: "number" },
       elapsedMs: { type: "number" },

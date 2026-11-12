@@ -874,6 +874,40 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     }
   }
 
+  // The development build of a project in the web Studio, as the engine tells it (WsBuilder.devBuildState, an engine
+  // entry point beside startDevBuild): {state:"none"} when none runs, else {state:"serving", phase ("installing",
+  // "building" or "" once served), compiled ("success", "failed" or "" for the last compilation), port, url, localUrl}.
+  // undefined on an engine without it: the readiness is then read from the Studio log.
+  function readWebStudioDevBuild(projectName) {
+    var WsBuilder = null;
+    try {
+      WsBuilder = Packages.com.twinsoft.convertigo.engine.admin.services.studio.ngxbuilder.WsBuilder;
+      if (typeof WsBuilder.devBuildState !== "function") {
+        return undefined;
+      }
+    } catch (_ignoreEngineWithoutDevBuildState) {
+      return undefined;
+    }
+    try {
+      var text = WsBuilder.devBuildState(String(projectName));
+      if (text == null || !String(text).length) {
+        return { state: "none" };
+      }
+      var parsed = JSON.parse(String(text));
+      var port = parseInt(String(parsed.port || "0"), 10);
+      return {
+        state: trim(parsed.state) || "none",
+        phase: trim(parsed.phase),
+        compiled: trim(parsed.compiled),
+        port: isNaN(port) ? 0 : port,
+        url: trim(parsed.url),
+        localUrl: trim(parsed.localUrl)
+      };
+    } catch (_ignoreUnreadableDevBuildState) {
+      return undefined;
+    }
+  }
+
   function startBuildWithWsBuilder(projectName, endpoint) {
     var WsBuilder = Packages.com.twinsoft.convertigo.engine.admin.services.studio.ngxbuilder.WsBuilder;
     var JSONObject = Packages.org.codehaus.jettison.json.JSONObject;
@@ -922,6 +956,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     var studioMode = isStudioRuntime(Engine);
     var webStudio = isDesktopWebStudio(Engine, studioMode);
     var webStudioBuild = null;
+    // the last state of the development build of the web Studio, when its engine tells it (devBuildState)
+    var webStudioDevBuild = null;
 
     var endpoint = normalizeEndpoint(EnginePropertiesManager.getProperty(PropertyName.APPLICATION_SERVER_CONVERTIGO_URL));
     var projectRef = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(projectName);
@@ -1055,14 +1091,67 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       }
     }
 
+    // The web Studio: the state of its development build comes from the engine (devBuildState), not from an Eclipse
+    // editor or viewer; the Studio log only gives the errors of a failed compilation.
+    function refreshWebStudioState(devState) {
+      webStudioDevBuild = devState;
+      var serving = devState.state === "serving";
+      var phase = serving ? devState.phase : "";
+      var compiled = serving ? devState.compiled : "";
+      var served = serving && phase === "" && compiled === "success";
+      var failed = serving && phase === "" && compiled === "failed";
+      var building = serving ? !served && !failed : (launchRequested === true && java.lang.System.currentTimeMillis() < startedAt + BUILDER_STARTUP_GRACE_MS);
+      snapshot = {
+        openUrl: serving ? (devState.localUrl || "") : "",
+        port: serving ? devState.port : 0,
+        compiled: served,
+        failed: failed,
+        building: building,
+        terminal: served || failed,
+        compileErrors: [],
+        lines: [],
+        query: {}
+      };
+      if (failed) {
+        var logs = collectBuilderLogs(projectName, launchState != null && launchState.requestedAt > 0 ? launchState.requestedAt : startedAt - 600000,
+          logsLimitValue, false, { keepLast: true });
+        snapshot.compileErrors = logs.compileErrors || [];
+        snapshot.lines = logs.lines || [];
+        snapshot.query = logs.query || {};
+      }
+      readinessDecision = {
+        ready: served,
+        viewerReady: served,
+        browserControlReady: false,
+        compileBlocking: building,
+        compileState: failed ? "failed" : (building ? "building" : (served ? "success" : "unknown")),
+        readyReason: served ? "compiled" : ""
+      };
+      return served;
+    }
+
     function refreshCurrentState() {
+      if (webStudio) {
+        var devState = readWebStudioDevBuild(projectName);
+        if (devState !== undefined) {
+          return refreshWebStudioState(devState);
+        }
+      }
       syncGenerationState();
-      snapshot = collectBuilderLogs(
-        projectName,
-        pendingBuildTimestamp > 0 ? pendingBuildTimestamp : startedAt,
-        logsLimitValue,
-        pendingBuildTimestamp > 0
-      );
+      snapshot = webStudio
+        ? collectBuilderLogs(
+          projectName,
+          launchState != null && launchState.requestedAt > 0 ? launchState.requestedAt : startedAt - 600000,
+          logsLimitValue,
+          false,
+          { keepLast: true }
+        )
+        : collectBuilderLogs(
+          projectName,
+          pendingBuildTimestamp > 0 ? pendingBuildTimestamp : startedAt,
+          logsLimitValue,
+          pendingBuildTimestamp > 0
+        );
       editorState = readEditorState(editorRef);
       browserState = readBrowserState(editorRef);
       buildJobState = studioMode
@@ -1299,6 +1388,10 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       viewerUrl = nodeUrl;
     }
     var viewerBaseUrl = deriveViewerBaseUrl(viewerUrl, nodeUrl);
+    if (webStudioDevBuild !== null && webStudioDevBuild.state === "serving" && webStudioDevBuild.localUrl.length) {
+      // the application on the development server of the web Studio, as its engine serves it
+      viewerBaseUrl = webStudioDevBuild.localUrl;
+    }
     var viewerHomeUrl = deriveViewerHomeUrl(viewerBaseUrl, viewerUrl, rootPageSegmentValue);
     if (!viewerUrl.length && viewerHomeUrl.length) {
       viewerUrl = viewerHomeUrl;
@@ -1426,6 +1519,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       studioMode: studioMode === true,
       webStudio: webStudio === true,
       webStudioBuild: webStudioBuild,
+      webStudioDevBuild: webStudioDevBuild,
       threadAlive: ready || status === "building" || status === "starting",
       timeoutSec: timeoutSecValue,
       elapsedMs: elapsedMs,

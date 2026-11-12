@@ -487,7 +487,9 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
     return result;
   }
 
-  function collectBuilderLogs(projectName, startedAt, logsLimit, exactStart) {
+  // options.keepLast: the most recent lines of the window instead of its first ones (the web Studio writes the whole
+  // output of its development build in the Studio log, the npm install first).
+  function collectBuilderLogs(projectName, startedAt, logsLimit, exactStart, options) {
     var now = java.lang.System.currentTimeMillis();
     var fetchLimit = Math.max(logsLimit * 8, 120);
     var maxScan = Math.max(fetchLimit * 40, 2000);
@@ -497,7 +499,8 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
       endTime: now + 1000,
       limit: fetchLimit,
       maxScan: maxScan,
-      timeoutMs: 250
+      timeoutMs: 250,
+      keepLast: !!(options && options.keepLast === true)
     });
     var parsed = parseReadyState(raw && raw.lines ? raw.lines : [], projectName);
     var relevant = parsed.relevant;

@@ -196,6 +196,9 @@ C8O.requestableLogs = C8O.requestableLogs || {};
     }
 
     var maxScan = parseIntBounded(opts.maxScan, Math.max(limitValue * 20, 200), limitValue, 20000);
+    // keepLast: the most recent matching lines of the window (the limit as a sliding window up to maxScan), for a reader
+    // that waits for the end of a long output (an npm install writes about 1200 lines before the URL a dev server serves).
+    var keepLast = opts.keepLast === true;
 
     var lines = [];
     var scanned = 0;
@@ -211,7 +214,7 @@ C8O.requestableLogs = C8O.requestableLogs || {};
       lm.setContinue(true);
 
       var guard = 0;
-      while (lines.length < limitValue && lm.hasMoreResults() && scanned < maxScan && guard < 10000) {
+      while ((keepLast || lines.length < limitValue) && lm.hasMoreResults() && scanned < maxScan && guard < 10000) {
         guard++;
         var rows = lm.getLines();
         var count = rows != null ? rows.length() : 0;
@@ -227,7 +230,9 @@ C8O.requestableLogs = C8O.requestableLogs || {};
           if (matches(parsed, opts)) {
             delete parsed.extrasLower;
             lines.push(parsed);
-            if (lines.length >= limitValue) {
+            if (lines.length > limitValue && keepLast) {
+              lines.shift();
+            } else if (lines.length >= limitValue && !keepLast) {
               break;
             }
           }
