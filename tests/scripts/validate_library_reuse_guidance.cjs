@@ -47,5 +47,5 @@ test('the bootstrap every agent runs has the reuse step, before the first mutati
   assert.match(boot, /write each capability you build yourself, and why/);
   // The how-to stays in one place: no second copy of the long reuse instructions.
   assert.equal(skill.split('Reuse before building').length, 2);
-  assert.match(skill, /`ngx-page-create` \(list, detail, form or dashboard page; a table list of 5 cells or more is the agGrid of `lib_ExtendedComponents_ui_ngx`/);
+  assert.match(skill, /`ngx-page-create` \(list, detail, form, dashboard or logout page; a table list of 5 cells or more is the agGrid of `lib_ExtendedComponents_ui_ngx`/);
 });
