@@ -876,7 +876,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-11-09.style-model-v24",
+      contractVersion: "2026-11-12.flow-triggers-style-model-v25",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -1202,7 +1202,16 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       baserowSources: baserowSourceContract(),
       backendActions: backendActionContract(),
       flowAuthoring: {
-        rule: "Use flows only when referenced by a button, when formulas/business logic are needed, or when a submit step must execute backend actions.",
+        rule: "Use flows only when referenced by a button, run by a trigger (the opening of the application, a page event, a value change), when formulas/business logic are needed, or when a submit step must execute backend actions.",
+        triggers: {
+          shape: "flow.triggers: [\"app_open\" | { on: \"page_enter\" | \"page_return\" | \"page_leave\", page: \"<page name>\" } | { on: \"change\", field: \"<field, grid or gallery name>\" }], compiled to { type, page } / { type: \"value_change\", element: <id> }. A flow may have a button and triggers; formulas and submit take none.",
+          semantics: "app_open: the application is loaded (then the arrival on its first page). page_enter: an arrival on the page; page_return: back to the page the respondent came from (Back, Previous, the browser arrow, a button leading back); page_leave: right after leaving the page (it cannot stop the navigation). change: the value really changed (the respondent, a step of a flow, a value following other data); a value set at the opening or on the first display of a page, or the same row chosen again, is no change.",
+          order: "On a page change the departure flows run first, then the arrival flows once the page is ready (defaults computed). On a change, formulas and conditions first, then the change flows. An event caused by a flow (push_page, set_value) runs its flows right after that step, inside that flow, which goes on; an event caused by the respondent waits for the flow running.",
+          loops: "A flow already running is not run again by an event (a flow changing the value it listens to is not re-run: flow_trigger_loop warns), and 8 flows nest at most.",
+          example: { id: "prepare_detail", name: "Préparer la fiche", triggers: [{ on: "change", field: "interventions" }], elements: [{ type: "reset_fields", scope: "page", targetPage: "Fiche", except: ["technicien"] }] }
+        },
+        valueLifetime: "lifetime on an input: how long its value is kept. Omitted (application): while the application is open. \"page\": back to its default on each arrival on its page, kept on a return (Back). { selection: \"<grid, gallery or select>\" }: back to its default when another row is chosen there (the detail of a record does not leak into the next one). \"session\": also after a reload in the same tab (sessionStorage), erased when the response is sent or at sign-out; not for files, photos, signatures, nor for personal data on a shared device; prefer it to localStorage in a formula for filters kept after a reload.",
+        setValue: "{ type: 'set_value', targetField: '<field name>', value: 'Done' } gives a text, barcode, date, time, slider, radio, select or checkbox field a value as if the respondent had entered it (value is a text, {{ }} tokens allowed; expression: a JavaScript expression instead). Its dependencies and conditions are refreshed, and change triggers run.",
         formulas: "Put business_logic elements in the flow with id formulas.",
         expressions: EXPRESSION_RUNTIME,
         buttonFlow: "A button field sets flow to the stable flow id. Set a meaningful visible flow.name in the user's language; do not confuse it with the id. Missing names fall back to the unique triggering button label or a humanized id. Explicit names also apply to the built-in formulas/submit flows.",
@@ -1215,12 +1224,13 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           submit: "Do not test the outcome of a submit with if_else: a failed submit stops the flow (see generationQuality.toasts.afterSubmit). An if_else without a condition always runs its then branch: it is refused at creation and reported on existing forms."
         },
         resetFields: {
-          shape: "{ type: 'reset_fields', scope: 'application' | 'page' | 'component', targetPage: '<page name>', targetField: '<component name>' }",
+          shape: "{ type: 'reset_fields', scope: 'application' | 'page' | 'component', targetPage: '<page name>', targetField: '<component name>', except: ['<component name>'] }",
+          except: "The components listed (a card or a layout with what it holds) keep their value; the rest of the scope goes back to its defaults.",
           semantics: "page resets the input values of that page (default: the current page); component resets the named component and its children; application resets every input. Values are rebuilt from their defaults. scope defaults to component with targetField, page with targetPage, otherwise application.",
           order: "Put reset_fields before the push_page that leaves the page, or target the page explicitly; resetting a list grid does not clear its visual selection."
         },
         gridActions: "targetGrid accepts a unique field name in reduced JSON, resolved to the component id: a grid for add_row_to_local_grid and remove_row_from_local_grid; a grid, a gallery or a chart for refresh_grid (it reloads the data source of its target; a map is not reloaded). add_row_to_local_grid accepts row as a literal JSON object or an explicit object-valued SmartSource. Local insertions are not persistent saves.",
-        elementTypes: ["business_logic", "toast", "submit", "if_else", "for_loop", "push_page", "push_app", "add_row_to_local_grid", "remove_row_from_local_grid", "refresh_grid", "reset_fields"],
+        elementTypes: ["business_logic", "toast", "submit", "if_else", "for_loop", "push_page", "push_app", "add_row_to_local_grid", "remove_row_from_local_grid", "refresh_grid", "reset_fields", "set_value"],
         examples: [
           { id: "open_requests", name: "Open my requests", elements: [{ type: "push_page", targetPage: "My requests" }] },
           { id: "refresh_requests", name: "Refresh requests", elements: [{ type: "refresh_grid", targetGrid: "requests" }] },
@@ -2316,6 +2326,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var sliderBound = sliderBoundOutside(target.config.defaultvalue, sliderBounds(target.config));
       if (sliderBound !== null) { target.config.defaultvalue = sliderBound; }
     }
+    if (hasOwn(field, "lifetime")) {
+      var lifetime = compileLifetime(field.lifetime);
+      if (lifetime) { target.config.lifetime = lifetime; } else { delete target.config.lifetime; }
+    }
     applyFieldLabel(target, field);
     applyFieldConditions(target, field);
   }
@@ -2414,6 +2428,45 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return name.charAt(0).toUpperCase() + name.substring(1);
   }
 
+  // The events that run a flow besides its buttons (C8Oforms flows[i].triggers): reduced { on, page } / { on, field },
+  // a plain event name, or the native { type, page } / { type, element }. Names are resolved by resolveAuthoringReferences.
+  var FLOW_TRIGGER_TYPES = ["app_open", "page_enter", "page_return", "page_leave", "value_change"];
+  var SET_VALUE_TYPES = ["text", "barcode", "datetime", "time", "slider", "radio", "select", "checkbox"];
+  var FLOW_TRIGGER_PAGE_TYPES = ["page_enter", "page_return", "page_leave"];
+  var FLOW_TRIGGER_ALIASES = { open: "app_open", opening: "app_open", app_open: "app_open", enter: "page_enter", arrival: "page_enter",
+    page_enter: "page_enter", "return": "page_return", back: "page_return", page_return: "page_return", leave: "page_leave",
+    departure: "page_leave", page_leave: "page_leave", change: "value_change", value_change: "value_change" };
+  function compileFlowTriggers(list) {
+    return ensureArray(list).map(function (trigger) {
+      var given = trigger && typeof trigger === "object" ? trigger : { on: trigger };
+      var name = trimmed(given.type || given.on).toLowerCase();
+      var type = hasOwn(FLOW_TRIGGER_ALIASES, name) ? FLOW_TRIGGER_ALIASES[name] : name;
+      var out = { type: type };
+      if (FLOW_TRIGGER_PAGE_TYPES.indexOf(type) >= 0) { out.page = given.page != null ? given.page : ""; }
+      if (type === "value_change") { out.element = given.element != null ? given.element : (given.field != null ? given.field : ""); }
+      return out;
+    });
+  }
+
+  // How long the value of a field is kept (C8Oforms config.lifetime): "application" (none, as before), "page", "session",
+  // { selection: "<grid, gallery or select name>" }, or the native { type, element }. Unknown values stay for validation.
+  var LIFETIME_LIST_TYPES = ["grid", "gallery", "select"];
+  var LIFETIME_SESSION_EXCLUDED = ["file", "img", "signature", "grid", "gallery"];
+  function compileLifetime(value) {
+    if (value == null || value === false) { return null; }
+    if (typeof value === "object" && !Array.isArray(value)) {
+      var list = hasOwn(value, "selection") ? value.selection : (hasOwn(value, "row") ? value.row : (hasOwn(value, "list") ? value.list : null));
+      if (list != null) { return { type: "selection", element: list }; }
+      var type = trimmed(value.type).toLowerCase();
+      if (type === "application" || type === "") { return null; }
+      var out = { type: type };
+      if (type === "selection") { out.element = value.element != null ? value.element : (value.field != null ? value.field : ""); }
+      return out;
+    }
+    var text = trimmed(value).toLowerCase();
+    return text === "" || text === "application" || text === "app" ? null : { type: text };
+  }
+
   function compileFlowElement(element, catalogByType) {
     if (!element || typeof element !== "object") {
       return null;
@@ -2478,6 +2531,24 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         scope = trimmed(out.config.targetElement).length ? "component" : (trimmed(out.config.targetPage).length ? "page" : "application");
       }
       out.config.scope = scope;
+      // keep these and reset the rest: names (or ids) of the components of the scope that keep their value
+      if (hasOwn(element, "except")) { out.config.except = ensureArray(element.except).slice(0); }
+    }
+    if (type === "set_value") {
+      // the field takes the value as if the respondent had entered it (C8Oforms performSetValue): value is a text
+      // ({{ }} or $$ tokens allowed), expression a JavaScript expression (formulas right)
+      out.cat = "action";
+      out.config = out.config || {};
+      if (hasOwn(element, "targetField")) { out.config.targetElement = element.targetField; }
+      else if (hasOwn(element, "field") && !hasOwn(out.config, "targetElement")) { out.config.targetElement = element.field; }
+      if (!hasOwn(out.config, "targetElement")) { out.config.targetElement = ""; }
+      if (!hasOwn(element, "sources")) {
+        var setExpression = hasOwn(element, "expression");
+        var setValue = setExpression ? trimmed(element.expression) : (hasOwn(element, "value") && element.value != null ? String(element.value) : "");
+        out.sources = { self: { enabled: true, vars: { selfVar: { str: setValue, type: setExpression ? "ts" : "text" } } } };
+      }
+      delete out.value;
+      delete out.expression;
     }
     if (type === "if_else" && hasOwn(element, "condition")) {
       var group = compileConditionGroup(element.condition);
@@ -2756,8 +2827,24 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         if (element.type === "reset_fields") {
           if (trimmed(config.targetPage).length) { config.targetPage = resolve(config.targetPage, doc.pages, "pageTechName"); }
           if (trimmed(config.targetElement).length) { config.targetElement = resolve(config.targetElement, doc.formulaire, "id"); }
+          if (Array.isArray(config.except)) { config.except = config.except.map(function (kept) { return resolve(kept, doc.formulaire, "id"); }); }
+        }
+        if (element.type === "set_value" && trimmed(config.targetElement).length) {
+          config.targetElement = resolve(config.targetElement, doc.formulaire, "id");
         }
       });
+      // the events of a flow name a page or a component
+      ensureArray(flow.triggers).forEach(function (trigger) {
+        if (!trigger || typeof trigger !== "object") { return; }
+        if (FLOW_TRIGGER_PAGE_TYPES.indexOf(trigger.type) >= 0 && trimmed(trigger.page).length) { trigger.page = resolve(trigger.page, doc.pages, "pageTechName"); }
+        if (trigger.type === "value_change" && trimmed(trigger.element).length) { trigger.element = resolve(trigger.element, doc.formulaire, "id"); }
+      });
+    });
+    // a field kept while the same row is chosen names its grid, gallery or select
+    var lifetimeLists = doc.formulaire.filter(function (item) { return item && LIFETIME_LIST_TYPES.indexOf(item.type) >= 0; });
+    doc.formulaire.forEach(function (item) {
+      var lifetime = item && item.config && item.config.lifetime;
+      if (lifetime && lifetime.type === "selection" && trimmed(lifetime.element).length) { lifetime.element = resolve(lifetime.element, lifetimeLists, "id"); }
     });
     // Reduced conditions name a field (or a formula); the viewer reads its id
     // and needs its component type to choose the comparison.
@@ -3108,7 +3195,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       if (!text.length) { return; }
       var what = (owner.type === "business_logic" ? "The formula " : "") + (owner.name || owner.id);
       if (BROWSER_STORAGE.test(text)) {
-        warning("browser_storage_state", what + " uses " + BROWSER_STORAGE.exec(text)[1] + ": that value stays in one browser on one device, other users and devices never see it, and clearing the browser loses it. Keep the state of the application (current game, round, a flag such as a new game) in Baserow: a save, then a source filtered on it. Keep it only when the user asked for a value kept on this device", path);
+        warning("browser_storage_state", what + " uses " + BROWSER_STORAGE.exec(text)[1] + ": that value stays in one browser on one device, other users and devices never see it, and clearing the browser loses it. Keep the state of the application (current game, round, a flag such as a new game) in Baserow: a save, then a source filtered on it. Keep it only when the user asked for a value kept on this device. A field kept after a reload of the page in the same tab (a filter, a draft) is lifetime: \"session\", without JavaScript", path);
       }
       if (!ROW_LIST_USE.test(text)) { return; }
       gridsRead(text).forEach(function (grid) {
@@ -3347,6 +3434,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         doc.flows.push(target);
       }
       if (trimmed(flowIn.name)) { target.name = trimmed(flowIn.name); }
+      if (hasOwn(flowIn, "triggers")) { target.triggers = compileFlowTriggers(flowIn.triggers); }
       var elements = ensureArray(flowIn.elements);
       for (var e = 0; e < elements.length; e++) {
         Array.prototype.push.apply(target.elements, compileFlowElements(elements[e], byType));
@@ -3700,6 +3788,25 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       if (stalePageIds.length) {
         warning("nested_page_mismatch", stalePageIds.length + " nested component(s) have a config.page other than the page of their root container (" + stalePageIds.slice(0, 5).join(", ") + (stalePageIds.length > 5 ? ", ..." : "") + "). The viewer shows them in the container, but loads their sources and resets them with the page they name: set their config.page to the container's page", "/formulaire");
       }
+      // how long the value of a field is kept (C8Oforms config.lifetime)
+      ensureArray(form.formulaire).forEach(function (item, fidx) {
+        var lifetime = item && item.config && item.config.lifetime;
+        if (lifetime == null) { return; }
+        var lpath = "/formulaire/" + fidx + "/config/lifetime";
+        if (typeof lifetime !== "object" || ["page", "selection", "session"].indexOf(lifetime.type) < 0) {
+          issue("invalid_lifetime", (item.name || item.id) + ": lifetime must be application (none), page, session or { selection: <grid, gallery or select name> }", lpath);
+          return;
+        }
+        if (lifetime.type === "selection") {
+          var list = ids[String(lifetime.element)];
+          if (!list || LIFETIME_LIST_TYPES.indexOf(list.item.type) < 0 || String(lifetime.element) === String(item.id)) {
+            incomplete("unknown_lifetime_list", (item.name || item.id) + ": a selection lifetime must name another existing grid, gallery or select", lpath + "/element");
+          }
+        }
+        if (lifetime.type === "session" && LIFETIME_SESSION_EXCLUDED.indexOf(item.type) >= 0) {
+          warning("session_lifetime_ignored", (item.name || item.id) + ": a " + item.type + " is not kept for the session (only simple values are); the viewer keeps it while the application is open", lpath);
+        }
+      });
       if (form.flows != null && !Array.isArray(form.flows)) {
         issue("invalid_flows", "flows must be an array", "/flows");
       }
@@ -3730,7 +3837,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           }
           elementIds[String(element.id)] = element;
           allFlowElementIds[String(element.id)] = true;
-          if (["business_logic", "toast", "submit", "if_else", "for_loop", "push_page", "push_app", "add_row_to_local_grid", "remove_row_from_local_grid", "refresh_grid", "reset_fields"].indexOf(element.type) < 0) {
+          if (["business_logic", "toast", "submit", "if_else", "for_loop", "push_page", "push_app", "add_row_to_local_grid", "remove_row_from_local_grid", "refresh_grid", "reset_fields", "set_value"].indexOf(element.type) < 0) {
             issue("unsupported_flow_element", "Unsupported flow element: " + element.type, path + "/type");
           }
           var config = element.config || {};
@@ -3756,6 +3863,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
               incomplete("unknown_reset_target", "reset_fields must target an existing page (its unique name in reduced JSON)", path + "/config/targetPage");
             } else if (config.scope === "component" && !ids[String(config.targetElement)]) {
               incomplete("unknown_reset_target", "reset_fields with scope component must target an existing component (its unique name in reduced JSON)", path + "/config/targetElement");
+            }
+            ensureArray(config.except).forEach(function (kept, kidx) {
+              if (!ids[String(kept)]) { incomplete("unknown_reset_except", "reset_fields except must list existing components (their unique names in reduced JSON)", path + "/config/except/" + kidx); }
+            });
+          }
+          if (element.type === "set_value") {
+            var setTarget = ids[String(config.targetElement)];
+            if (!setTarget || SET_VALUE_TYPES.indexOf(setTarget.item.type) < 0) {
+              incomplete("unknown_set_value_target", "set_value must target an existing text, barcode, date, time, slider, radio, select or checkbox field (its unique name in reduced JSON)", path + "/config/targetElement");
             }
           }
           if (element.type === "if_else") {
@@ -3794,6 +3910,49 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         // A flow that announces a success and empties the inputs without a submit loses the respondent's entry (23/10 on
         // test-nocode: an "Envoyer" button next to the questionnaire's own Envoyer button, the one that saves).
         var flowElements = ensureArray(flow.elements).filter(function (element) { return element && typeof element === "object"; });
+        // the events that run the flow besides its buttons (C8Oforms flows[i].triggers)
+        if (flow.triggers != null && !Array.isArray(flow.triggers)) {
+          issue("invalid_flow_triggers", "Flow triggers must be an array", "/flows/" + idx + "/triggers");
+        }
+        var watchedIds = [];
+        ensureArray(flow.triggers).forEach(function (trigger, tidx) {
+          var tpath = "/flows/" + idx + "/triggers/" + tidx;
+          var ttype = trigger && typeof trigger === "object" ? trigger.type : trigger;
+          if (id === "formulas" || id === "submit") {
+            issue("trigger_on_builtin_flow", "The " + id + " flow takes no trigger: the viewer ignores it. Put the steps in a flow of their own with this trigger", tpath);
+            return;
+          }
+          if (FLOW_TRIGGER_TYPES.indexOf(ttype) < 0) {
+            issue("unsupported_flow_trigger", "Unsupported flow trigger: " + ttype + " (app_open, page_enter, page_return, page_leave or value_change)", tpath + "/type");
+            return;
+          }
+          if (FLOW_TRIGGER_PAGE_TYPES.indexOf(ttype) >= 0 && !pageMap[String(trigger.page)]) {
+            incomplete("unknown_trigger_page", "A " + ttype + " trigger must name an existing, unambiguous page", tpath + "/page");
+          }
+          if (ttype === "value_change") {
+            if (!ids[String(trigger.element)]) {
+              incomplete("unknown_trigger_field", "A value_change trigger must name an existing field, grid or gallery", tpath + "/element");
+            } else {
+              watchedIds.push(String(trigger.element));
+            }
+          }
+        });
+        // a flow that changes the value it listens to is not run again by that change (the viewer skips a running flow)
+        var changesWatched = watchedIds.length > 0 && flowElements.some(function (element) {
+          var stepConfig = element.config || {};
+          if (element.type === "set_value") { return watchedIds.indexOf(String(stepConfig.targetElement)) >= 0; }
+          if (element.type !== "reset_fields") { return false; }
+          var kept = ensureArray(stepConfig.except).map(String);
+          return watchedIds.some(function (watched) {
+            if (kept.indexOf(watched) >= 0) { return false; }
+            var scope = stepConfig.scope || "application";
+            if (scope === "component") { return String(stepConfig.targetElement) === watched; }
+            return scope === "application" || String(((ids[watched].item || {}).config || {}).page) === String(stepConfig.targetPage);
+          });
+        });
+        if (changesWatched) {
+          warning("flow_trigger_loop", "This flow changes a value that triggers it: that change does not run it again (the viewer skips a flow already running). Keep it only if intended", "/flows/" + idx + "/triggers");
+        }
         var announcesSuccess = flowElements.some(function (element) { return element.type === "toast" && String((element.config || {}).color || "").toUpperCase() === TOAST_COLORS.success.toUpperCase(); });
         if (announcesSuccess && flowElements.some(function (element) { return element.type === "reset_fields"; }) && !flowElements.some(function (element) { return element.type === "submit"; })) {
           incomplete("success_without_save", "This flow shows a success message and empties the inputs, but nothing saves them: the entry is lost. A questionnaire (navigationMode buttons) saves its responses with the viewer's own Envoyer button on its last page: leave this button out. To save from a button, put a submit with saveTo or an action before the toast", "/flows/" + idx);
@@ -5376,6 +5535,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         delete mergePatch.variant;
         if (mergePatch.config) { delete mergePatch.config.variant; }
       }
+      // how long the value is kept goes to config.lifetime; "application" or null takes the setting off
+      if (hasOwn(mergePatch, "lifetime")) {
+        mergePatch.config = mergePatch.config && typeof mergePatch.config === "object" ? mergePatch.config : {};
+        mergePatch.config.lifetime = compileLifetime(mergePatch.lifetime);
+        delete mergePatch.lifetime;
+      }
       if (mergePatch.source != null) {
         // The reduced Baserow source replaces the component's source; applyReducedBaserow builds it after the edits.
         if (!mergePatch.source || typeof mergePatch.source !== "object" || Array.isArray(mergePatch.source)) { throw new Error(fieldFound.item.name + ": source must be an object { table, columns, ... }"); }
@@ -5496,6 +5661,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         var native = element && typeof element === "object" && element.id != null && element.config && typeof element.config === "object";
         return all.concat(native ? [element] : compileFlowElements(element, catalogByType));
       }, []);
+      if (hasOwn(flow, "triggers")) { flow.triggers = compileFlowTriggers(flow.triggers); }
       form.flows.splice(normalizeIndex(op.index, form.flows.length, form.flows.length), 0, flow);
       summary.push({ action: action, flowId: flow.id });
       return;
@@ -5503,6 +5669,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (action === "update_flow") {
       var flowFound = findFlow(form, op);
       var flowPatch = op.patch && typeof op.patch === "object" ? op.patch : op.flowData || (op.flow && typeof op.flow === "object" ? op.flow : {});
+      if (hasOwn(flowPatch, "triggers") && flowPatch.triggers != null) {
+        flowPatch = clone(flowPatch, {});
+        flowPatch.triggers = compileFlowTriggers(flowPatch.triggers);
+      }
       form.flows[flowFound.index] = applyMergePatch(flowFound.item, flowPatch);
       summary.push({ action: action, flowId: form.flows[flowFound.index].id });
       return;
@@ -5663,7 +5833,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       },
       conditions: "visibleIf, and disabledIf on a button: { field, operator, value }, { all: [...] } or { any: [...] } nested, or { never: true }. Operators: equals, different, greater, greaterequals, minus, minusequals, among_following and out_following (value is an array), contains, not_contains, is_filled and is_empty (no value). A grid is empty until a row is selected. A hidden component is not checked as mandatory.",
       defaults: "defaultFrom on text, slider, datetime, time, barcode: { source: \"user\", property: name|email|authenticatedUserID } (the respondent), { source: \"clock\", property: today|now }, { source: \"field\", field: \"<grid>\", column: \"Column\", mode: \"reactive\" } (the text of a column of the selected row, whatever its cell shape; path: [...] reads literal keys instead), { source: \"query\", parameter }, { source: \"expression\", expression: \"fields.qty * fields.price\", mode: \"reactive\" }, { source: \"literal\", value }; fallback replaces null. Section contextualDefaults: rules, and the editor's Default value tab.",
-      flows: "flows: [{ id, name (visible, in the user's language), elements: [...] }]; a button's flow is the flow id. Elements: push_page { targetPage: page name, or __c8o_back }, submit with saveTo or deleteFrom (Baserow, see baserow) or actions (section backendActions: an e-mail...), toast { message, color: success|danger|warning|info, duration }, reset_fields { scope: page|component|application, targetPage, targetField }, refresh_grid { targetGrid }, if_else { condition, then: [...], else: [...] }, add_row_to_local_grid { targetGrid, row }. Computed values: business_logic { name, expression } in the flow with id formulas, read as actions.<name>. A submit without an action saves nothing and is refused. A questionnaire (navigationMode buttons) ends with the viewer's own Envoyer button on its last page, which saves the responses: add no button of your own for that, and no page header repeating the form name (shown in the title card). Put reset_fields before the push_page that leaves the page; never test a submit's outcome with if_else (a failed submit stops the flow).",
+      flows: "flows: [{ id, name (visible, in the user's language), elements: [...] }]; a button's flow is the flow id. Elements: push_page { targetPage: page name, or __c8o_back }, submit with saveTo or deleteFrom (Baserow, see baserow) or actions (section backendActions: an e-mail...), toast { message, color: success|danger|warning|info, duration }, reset_fields { scope: page|component|application, targetPage, targetField }, refresh_grid { targetGrid }, if_else { condition, then: [...], else: [...] }, add_row_to_local_grid { targetGrid, row }. Computed values: business_logic { name, expression } in the flow with id formulas, read as actions.<name>. A submit without an action saves nothing and is refused. A questionnaire (navigationMode buttons) ends with the viewer's own Envoyer button on its last page, which saves the responses: add no button of your own for that, and no page header repeating the form name (shown in the title card). Put reset_fields before the push_page that leaves the page; never test a submit's outcome with if_else (a failed submit stops the flow). Triggers, set_value, lifetime: flowAuthoring.",
       baserow: {
         tables: "table is a table id or its path Workspace~>Base~>Table from nocode-baserow-catalog-list; the tools find the other half, encode the variables and resolve { field } and row references. Columns must be the table's real names.",
         dataView: "grid, chart, gallery, map: source: { table, columns: [...], hidden, filter, sort: \"Name,-Date\", distinct, groupBy, aggregations: \"count=Label,sum:Amount=Label\" }.",

@@ -1629,6 +1629,91 @@ test('reset_fields targets pages and components by name', () => {
   const bad = api().compile(conditionExample([], [{ id: 'resets', elements: [{ type: 'reset_fields', targetPage: 'Nowhere' }, { type: 'reset_fields', targetField: 'nothing' }] }]));
   assert.equal(bad.validation.issues.filter(i => i.code === 'unknown_reset_target').length, 2);
 });
+// Flows run by events (triggers), set_value, reset_fields except and how long a value is kept (C8Oforms 2.2).
+test('flow triggers name pages and fields, compiled to the events the viewer raises', () => {
+  const input = conditionExample([{ type: 'text', name: 'comment', id: 1900000000403, label: 'Comment' }], [
+    { id: 'on_main', name: 'On main', triggers: ['open', { on: 'page_enter', page: 'Main' }, { on: 'return', page: 'Main' }, { on: 'leave', page: 'Main' }, { on: 'change', field: 'contacts' }],
+      elements: [{ type: 'reset_fields', targetField: 'comment', except: ['status'] }, { type: 'set_value', targetField: 'comment', value: 'Ready' }] }
+  ]);
+  const r = api().compile(input);
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const flow = r.form.flows.find(f => f.id === 'on_main');
+  const page = r.form.pages[0].pageTechName;
+  assert.deepEqual(clone(flow.triggers), [{ type: 'app_open' }, { type: 'page_enter', page }, { type: 'page_return', page }, { type: 'page_leave', page },
+    { type: 'value_change', element: 1900000000400 }]);
+  assert.deepEqual(clone(flow.elements[0].config.except), [1900000000401]);
+  const set = flow.elements[1];
+  assert.deepEqual([set.type, set.cat, set.config.targetElement], ['set_value', 'action', 1900000000403]);
+  assert.deepEqual(clone(set.sources.self.vars.selfVar), { str: 'Ready', type: 'text' });
+  assert.ok(!r.validation.warnings.some(w => w.code === 'flow_trigger_loop'));
+});
+test('wrong triggers, set_value targets and except lists are reported', () => {
+  const bad = api().compile(conditionExample([], [
+    { id: 'formulas', name: 'Formulas', triggers: ['open'], elements: [] },
+    { id: 'events', name: 'Events', triggers: [{ on: 'page_enter', page: 'Nowhere' }, { on: 'change', field: 'nothing' }, { on: 'click' }, { type: 'value_change', element: 1900000000401 }],
+      elements: [{ type: 'set_value', targetField: 'contacts', value: 'x' }, { type: 'set_value', targetField: 'nothing', expression: 'fields.status' }, { type: 'reset_fields', scope: 'page', targetPage: 'Main', except: ['ghost'] }] }
+  ]));
+  const codes = list => clone(list.map(i => i.code)).sort();
+  assert.deepEqual(codes(bad.validation.issues).filter(c => /trigger|set_value|except/.test(c)),
+    ['trigger_on_builtin_flow', 'unknown_reset_except', 'unknown_set_value_target', 'unknown_set_value_target', 'unknown_trigger_field', 'unknown_trigger_page', 'unsupported_flow_trigger']);
+  const expression = bad.form.flows.find(f => f.id === 'events').elements[1].sources.self.vars.selfVar;
+  assert.deepEqual(clone(expression), { str: 'fields.status', type: 'ts' });
+  // the flow resets the page of the status it listens to: that change does not run it again
+  const events = bad.form.flows.findIndex(f => f.id === 'events');
+  assert.ok(bad.validation.warnings.some(w => w.code === 'flow_trigger_loop' && w.path === '/flows/' + events + '/triggers'));
+});
+test('lifetime keeps a value for its page, the row chosen in a list or the session, and is validated', () => {
+  const r = api().compile(conditionExample([
+    { type: 'text', name: 'total', label: 'Total', lifetime: 'page' },
+    { type: 'text', name: 'search', label: 'Search', lifetime: 'session' },
+    { type: 'text', name: 'detail', label: 'Detail', lifetime: { selection: 'contacts' } },
+    { type: 'text', name: 'plain', label: 'Plain', lifetime: 'application' }
+  ]));
+  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
+  const lifetime = name => clone(r.form.formulaire.find(f => f.name === name).config.lifetime || null);
+  assert.deepEqual([lifetime('total'), lifetime('search'), lifetime('detail'), lifetime('plain')],
+    [{ type: 'page' }, { type: 'session' }, { type: 'selection', element: 1900000000400 }, null]);
+  const bad = api().compile(conditionExample([
+    { type: 'text', name: 'forever', label: 'Forever', lifetime: 'forever' },
+    { type: 'text', name: 'lost', label: 'Lost', lifetime: { selection: 'status' } },
+    { type: 'file', name: 'scan', label: 'Scan', lifetime: 'session' }
+  ]));
+  assert.ok(bad.validation.issues.some(i => i.code === 'invalid_lifetime'));
+  assert.ok(bad.validation.issues.some(i => i.code === 'unknown_lifetime_list'));
+  assert.ok(bad.validation.warnings.some(w => w.code === 'session_lifetime_ignored'));
+});
+test('edits set a lifetime and the triggers of a flow in their reduced shapes', () => {
+  const h = creationHarness();
+  const created = h.client.create(example(), h.auth);
+  const id = created.form._id;
+  const edited = h.client.edit(id, [
+    { action: 'add_field', pageName: 'Requests', field: { type: 'text', name: 'note', label: 'Note', lifetime: { selection: 'requests' } } },
+    { action: 'add_flow', flow: { id: 'on_requests', name: 'On requests', triggers: [{ on: 'enter', page: 'Requests' }], elements: [{ type: 'reset_fields', targetField: 'note' }] } },
+    { action: 'update_flow', flowId: 'back', patch: { triggers: [{ on: 'change', field: 'requests' }] } }
+  ], h.auth);
+  assert.equal(edited.saved, true, JSON.stringify(edited.validation || edited.error));
+  const form = edited.form;
+  const requests = form.formulaire.find(f => f.name === 'requests');
+  assert.deepEqual(clone(form.formulaire.find(f => f.name === 'note').config.lifetime), { type: 'selection', element: requests.id });
+  assert.deepEqual(clone(form.flows.find(f => f.id === 'on_requests').triggers), [{ type: 'page_enter', page: form.pages[1].pageTechName }]);
+  assert.deepEqual(clone(form.flows.find(f => f.id === 'back').triggers), [{ type: 'value_change', element: requests.id }]);
+  const again = h.client.edit(id, [{ action: 'update_field', fieldName: 'note', patch: { lifetime: 'application' } }], h.auth);
+  assert.equal(again.saved, true, JSON.stringify(again.validation || again.error));
+  assert.equal(again.form.formulaire.find(f => f.name === 'note').config.lifetime, undefined);
+});
+test('the contract documents triggers, set_value, except and lifetime', () => {
+  const contract = api().contract({ sections: ['all'] }).authoringContract;
+  assert.equal(contract.contractVersion, '2026-11-12.flow-triggers-style-model-v25');
+  assert.ok(contract.flowAuthoring.elementTypes.includes('set_value'));
+  assert.ok(contract.flowAuthoring.triggers.shape && contract.flowAuthoring.triggers.loops && contract.flowAuthoring.setValue);
+  assert.match(contract.flowAuthoring.resetFields.shape, /except/);
+  assert.match(contract.flowAuthoring.valueLifetime, /session/);
+  // the core only points to them: it must stay small enough to be answered inline
+  assert.match(api().contract({}).quickReference.flows, /Triggers, set_value, lifetime: flowAuthoring/);
+  const r = api().compile(conditionExample([{ type: 'grid', name: 'interventions', sourceEnabled: false, columns: [{ name: 'Ref', type: 'text' }] },
+    { type: 'text', name: 'technicien', label: 'Technicien' }], [contract.flowAuthoring.triggers.example]));
+  assert.ok(!r.validation.issues.some(i => /trigger|except/.test(i.code)), JSON.stringify(r.validation.issues));
+});
 test('wide list grids are reported, hidden Baserow columns do not count', () => {
   const input = connectedExample();
   const grid = input.pages[1].fields[0];
