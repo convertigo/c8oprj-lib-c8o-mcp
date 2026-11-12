@@ -95,6 +95,15 @@ test('paths and checks: JSON array, objects or one per line, bullets dropped, bo
   assert.throws(() => api.parseList(['1', '2', '3'], 'paths', 2), /at most 2/);
 });
 
+test('a path that signs in without a sign-out gets the sign-out check, once', () => {
+  const api = load();
+  assert.match(api.signOutCheck(['Log in as rpca.demo / demo, open the list'], ['3 rows']), /^Sign-out \(added because a path signs in\): after the paths, sign out from the app's menu; the login page opens/);
+  assert.match(api.signOutCheck([{ name: 'RPCA', steps: 'Se connecter avec rpca.demo, déclarer un poste' }], []), /^Sign-out/);
+  assert.equal(api.signOutCheck(['Log in, then log out from the menu'], []), '', 'the caller already checks it');
+  assert.equal(api.signOutCheck(['Se connecter'], ['Après la déconnexion, la page de connexion s\'affiche']), '');
+  assert.equal(api.signOutCheck(['Open the list, filter on Lyon'], ['3 rows']), '', 'no sign-in, no sign-out check');
+});
+
 test('the browser is the conversation viewer on loopback only', () => {
   const api = load();
   assert.equal(api.normalizeCdpEndpoint('45991', ''), 'http://127.0.0.1:45991');
@@ -118,7 +127,7 @@ test('a verification runs the agent with the key in its environment only and ret
   assert.equal(start.config.model, 'mistral/mistral-large-4');
   assert.equal(start.config.reasoning, 'none');
   assert.deepEqual(plain(start.config.paths), ['Log in', 'Declare two posts']);
-  assert.deepEqual(plain(start.config.checks), ['Both À jour']);
+  assert.deepEqual(plain(start.config.checks), ['Both À jour', api.signOutCheck(['Log in'], [])], 'a path signs in: the way out is checked too');
   assert.equal(start.config.context, 'rpca.demo / demo');
   assert.equal(start.config.timeBudgetMs, 150000);
   assert.equal(start.config.lockFile, '/ws/subagents/.lock-x', 'the agent releases the browser lock itself');

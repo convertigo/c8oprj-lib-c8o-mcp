@@ -129,6 +129,19 @@ C8O.browserVerify = C8O.browserVerify || {};
 
   // subagent-run passes its inputs in `inputs` (url, paths, checks, hints); browser-verify passes them flat. Without
   // paths, the task itself is the path to walk.
+  // An app that signs users in must let them sign out (PCA eval 31/10: no generated app had a way out until a reviewer
+  // asked). When a path or a check signs in and none signs out, the verifier also checks the way out; "" otherwise.
+  var SIGN_OUT = /log ?out|sign ?out|d[ée]connect|d[ée]connex/i;
+  var SIGN_IN = /log ?in|sign ?in|se connecter|connecte|connexion|identifi/i;
+  api.signOutCheck = function (paths, checks) {
+    var text = paths.concat(checks).map(function (p) { return typeof p === "string" ? p : str(p.name) + " " + str(p.steps); }).join("\n");
+    if (SIGN_OUT.test(text) || !SIGN_IN.test(text)) {
+      return "";
+    }
+    return "Sign-out (added because a path signs in): after the paths, sign out from the app's menu; the login page opens, and going back " +
+      "or opening the address of a page of the signed-in app shows the login page again, not its data.";
+  };
+
   function verifierInputs(params) {
     var inputs = sa().objectArg(params.inputs);
     var pick = function (key) {
@@ -138,12 +151,17 @@ C8O.browserVerify = C8O.browserVerify || {};
     if (!paths.length && str(params.task).length) {
       paths = [str(params.task)];
     }
+    var checks = api.parseList(pick("checks"), "checks", MAX_CHECKS);
+    var signOut = api.signOutCheck(paths, checks);
+    if (signOut.length && checks.length < MAX_CHECKS) {
+      checks.push(signOut);
+    }
     return {
       url: str(pick("url")),
       project: str(pick("project")),
       viewport: api.parseViewport(pick("viewport")),
       paths: paths,
-      checks: api.parseList(pick("checks"), "checks", MAX_CHECKS),
+      checks: checks,
       hints: [str(pick("hints")), str(params.reportFormat).length ? "Report format asked: " + str(params.reportFormat) : ""]
         .filter(function (x) { return x.length; }).join("\n")
     };
