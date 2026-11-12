@@ -2236,6 +2236,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       revealWaitCapApplied: { type: "boolean" },
       stateOnly: { type: "boolean" },
       studioMode: { type: "boolean" },
+      webStudio: { type: "boolean", description: "True in the web Studio of a desktop Studio engine (the Electron Studio): no Eclipse editor; the development build is started through the engine, as from its Build view." },
+      webStudioBuild: nullableSchema(closedObjectSchema({
+        supported: { type: "boolean", description: "False when the engine cannot start the development build of its web Studio." },
+        started: { type: "boolean", description: "True when this call started the development build; false when one already serves the application." },
+        error: { type: "string" }
+      })),
       threadAlive: { type: "boolean" },
       timeoutSec: { type: "number" },
       elapsedMs: { type: "number" },

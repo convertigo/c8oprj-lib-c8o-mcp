@@ -95,3 +95,26 @@ test('NGX regeneration after an edit: the desktop Studio asks its builder, a ser
   // the Eclipse editor and the Eclipse build job keep Studio mode
   assert.match(read('js/databaseobject_studio.js'), /studioMode = Engine\.isStudioMode\(\) === true;/);
 });
+
+test('mobile-builder-open: the web Studio starts its development build through the engine, Eclipse keeps its editor', () => {
+  const source = read('js/tools_mobile_builder_open.js');
+  const desktop = source.match(/\n  function isDesktopWebStudio\(Engine, studioMode\) \{\n[\s\S]*?\n  \}\n/)[0];
+  const start = source.match(/\n  function startWebStudioDevBuild\(projectName, endpoint, restart\) \{\n[\s\S]*?\n  \}\n/)[0];
+  for (const kind of Object.keys(ENGINES)) {
+    const studioMode = kind === 'eclipse';
+    assert.equal(vm.runInNewContext(desktop + 'isDesktopWebStudio(Engine, studioMode);', { Engine: ENGINES[kind], studioMode }), kind === 'electron', kind);
+  }
+  const calls = [];
+  const engineWith = WsBuilder => ({ Packages: { com: { twinsoft: { convertigo: { engine: { admin: { services: { studio: { ngxbuilder: { WsBuilder } } } } } } } } } });
+  const run = (box, restart) => ({ ...vm.runInNewContext(start + 'startWebStudioDevBuild("App", "http://localhost:28081/convertigo", restart);', { ...box, restart }) });
+  assert.deepEqual(run(engineWith({ startDevBuild: (p, e, r) => { calls.push([p, e, r]); return true; } }), false), { supported: true, started: true, error: '' });
+  assert.deepEqual(calls, [['App', 'http://localhost:28081/convertigo', false]]);
+  assert.deepEqual(run(engineWith({ startDevBuild: () => false }), false), { supported: true, started: false, error: '' }, 'a build already serves the app');
+  assert.deepEqual(run(engineWith({ startDevBuild: () => { throw new Error('no build on this engine'); } }), true), { supported: true, started: false, error: 'no build on this engine' });
+  assert.deepEqual(run(engineWith({}), false), { supported: false, started: false, error: '' }, 'an engine without startDevBuild');
+  assert.match(source, /\} else if \(webStudio && stateOnlyValue !== true\) \{\n\s+webStudioBuild = startWebStudioDevBuild\(projectName, endpoint, forceRestartValue\);\n\s+launchRequested = webStudioBuild\.started === true;/);
+  assert.match(source, /if \(studioMode && stateOnlyValue !== true && !launchedFromEditor && !reusedExistingBuilder\) \{\n\s+MobileBuilder\.initBuilder\(projectRef\);\n\s+startBuildWithWsBuilder\(projectName, endpoint\);/, 'the Eclipse path is unchanged');
+  const schema = read('js/schema_overrides.js');
+  assert.match(schema, /webStudio: \{ type: "boolean"/);
+  assert.match(schema, /webStudioBuild: nullableSchema\(closedObjectSchema\(\{\n\s+supported: \{ type: "boolean"/);
+});

@@ -838,6 +838,42 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     return result;
   }
 
+  // The Electron Studio: a desktop Studio engine without Studio mode (Engine.isDesktopStudio, Convertigo 8.5). Its web
+  // Studio builds the NGX application through WsBuilder, without the Eclipse editor.
+  function isDesktopWebStudio(Engine, studioMode) {
+    if (studioMode === true) {
+      return false;
+    }
+    try {
+      return Engine.isDesktopStudio() === true;
+    } catch (_ignoreNoDesktopStudio) {
+      return false;
+    }
+  }
+
+  // Starts the development build of a project as the Build view of the web Studio does (WsBuilder.startDevBuild, an
+  // engine entry point without a client session; the open Build views follow it). An engine without it starts nothing.
+  // restart false: a development build that already serves the application is kept (started false).
+  function startWebStudioDevBuild(projectName, endpoint, restart) {
+    var WsBuilder = null;
+    try {
+      WsBuilder = Packages.com.twinsoft.convertigo.engine.admin.services.studio.ngxbuilder.WsBuilder;
+      if (typeof WsBuilder.startDevBuild !== "function") {
+        WsBuilder = null;
+      }
+    } catch (_ignoreEngineWithoutStartDevBuild) {
+      WsBuilder = null;
+    }
+    if (WsBuilder === null) {
+      return { supported: false, started: false, error: "" };
+    }
+    try {
+      return { supported: true, started: WsBuilder.startDevBuild(String(projectName), String(endpoint || ""), restart === true) === true, error: "" };
+    } catch (startError) {
+      return { supported: true, started: false, error: String(startError && startError.message ? startError.message : startError) };
+    }
+  }
+
   function startBuildWithWsBuilder(projectName, endpoint) {
     var WsBuilder = Packages.com.twinsoft.convertigo.engine.admin.services.studio.ngxbuilder.WsBuilder;
     var JSONObject = Packages.org.codehaus.jettison.json.JSONObject;
@@ -884,6 +920,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     }
     var startedAt = java.lang.System.currentTimeMillis();
     var studioMode = isStudioRuntime(Engine);
+    var webStudio = isDesktopWebStudio(Engine, studioMode);
+    var webStudioBuild = null;
 
     var endpoint = normalizeEndpoint(EnginePropertiesManager.getProperty(PropertyName.APPLICATION_SERVER_CONVERTIGO_URL));
     var projectRef = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(projectName);
@@ -927,6 +965,9 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       MobileBuilder.initBuilder(projectRef);
       startBuildWithWsBuilder(projectName, endpoint);
       launchRequested = true;
+    } else if (webStudio && stateOnlyValue !== true) {
+      webStudioBuild = startWebStudioDevBuild(projectName, endpoint, forceRestartValue);
+      launchRequested = webStudioBuild.started === true;
     }
     var launchState = readBuilderLaunchState(projectName);
     if (launchRequested === true) {
@@ -1335,7 +1376,17 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       message = message + " The viewer was on the Convertigo FlashUpdate launcher page and was sent to " + viewerLauncherHome +
         (ready ? "." : ": call mobile-builder-open with stateOnly true and wait true to read the application.");
     }
-    if (!studioMode) {
+    if (webStudio) {
+      message = message + (webStudioBuild === null
+        ? " Web Studio: the state of its development build was read; no build was started (stateOnly)."
+        : (webStudioBuild.supported !== true
+          ? " Web Studio: this engine cannot start the development build of its web Studio; start it from the Build view of the Studio."
+          : (webStudioBuild.error.length
+            ? " Web Studio: the development build could not be started: " + webStudioBuild.error
+            : (webStudioBuild.started === true
+              ? " Web Studio: the development build was started, as from the Build view of the Studio."
+              : " Web Studio: the development build already serves the application (forceRestart true starts it again)."))));
+    } else if (!studioMode) {
       message = message + " Studio mode is disabled; this tool is intended for Studio usage.";
     }
     var publicEditorResult = {
@@ -1367,6 +1418,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       revealWaitCapApplied: revealWaitCapApplied,
       stateOnly: stateOnlyValue,
       studioMode: studioMode === true,
+      webStudio: webStudio === true,
+      webStudioBuild: webStudioBuild,
       threadAlive: ready || status === "building" || status === "starting",
       timeoutSec: timeoutSecValue,
       elapsedMs: elapsedMs,
