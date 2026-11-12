@@ -138,6 +138,55 @@ var REVEAL_CAPABLE_SEQUENCES = {
   tools_nocode_form_update: true
 };
 
+// In reveal mode (the Reveal of the Assistant), the tools that build an app show what they created or changed, as
+// tree-apply and batch-call do: in the Eclipse Studio tree, or through the engine in the web Studio
+// (C8O.dbo.revealStudioTreeByQName). One QName per tool, from its answer; ngx-theme-apply answers none.
+function revealListOf(value) {
+  return value == null ? [] : (Array.isArray(value) ? value : [value]);
+}
+
+function revealLastOf(value) {
+  var values = revealListOf(value);
+  return values.length ? values[values.length - 1] : "";
+}
+
+var REVEAL_AFTER_CALL = {
+  tools_ngx_page_create: function (r) {
+    var pages = revealListOf(r.created).filter(function (q) { return /\.pg:[^.]+$/.test(String(q)); });
+    return pages.length ? pages[pages.length - 1] : r.page;
+  },
+  tools_business_sequence_create: function (r) { return r.qname || r.sequence; },
+  tools_facade_create: function (r) { return r.qname || r.sequence; },
+  tools_sql_transaction_create: function (r) { var t = revealLastOf(r.transactions); return t && (t.qname || t.requestable); },
+  tools_upsert_crud: function (r) { var targets = r.primaryTargets || {}; return revealLastOf(targets.flow) || targets.sql; },
+  tools_upsert_ngx_crud_kit: function (r) { return String(revealListOf(r.pageTargets)[0] || "").replace(/\.Content$/, ""); },
+  tools_databaseobject_rename: function (r) { return String(r.renamed) === "true" ? r.newQName : ""; },
+  tools_databaseobject_move: function (r) { return r.qname; },
+  tools_databaseobject_delete: function (r) { return r.parentQName; }
+};
+
+function revealAfterToolCall(sequenceName, toolResult) {
+  try {
+    if (managedRevealMode !== true || typeof REVEAL_AFTER_CALL[sequenceName] !== "function" || !toolResult || typeof toolResult !== "object") {
+      return null;
+    }
+    if (/^(error|failed|refused|invalid)$/i.test(String(toolResult.status || ""))) {
+      return null;
+    }
+    var qname = String(REVEAL_AFTER_CALL[sequenceName](toolResult) || "").trim();
+    if (!qname.length) {
+      return null;
+    }
+    if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.revealStudioTreeByQName !== "function") {
+      include("js/databaseobject_studio.js");
+    }
+    return C8O.dbo.revealStudioTreeByQName(qname, []);
+  } catch (_ignoreRevealAfterCall) {
+    // a reveal never fails the tool call
+    return null;
+  }
+}
+
 function getSchemaType(schema) {
   if (!schema || typeof schema !== "object") {
     return null;
