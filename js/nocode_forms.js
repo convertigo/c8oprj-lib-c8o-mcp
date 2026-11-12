@@ -876,7 +876,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-10-29.rich-labels-v23",
+      contractVersion: "2026-11-09.style-model-v24",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -902,6 +902,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         tag: { oneOf: ["string", "string[]"], optional: true },
         subTag: { oneOf: ["string", "string[]"], optional: true },
         appLike: { type: "boolean", optional: true, description: "When true, pages default to persisted tab navigation." },
+        navigationStyle: { type: "object", optional: true, styleModel: true, mapsTo: "navigation.style", description: "The look of the native navigation: see styleRendering.navigationStyle. set_root takes it too (a merge patch: null removes a key)." },
+        namedStyles: { type: "boolean", optional: true, styleModel: true, description: "At creation, the role spacing of an application becomes named styles of the application (config.styles, st_role_<role>) used by its components: one place to change the look of all the fields, sections or buttons." },
         navigationMode: { type: "string", enum: ["tabs", "buttons", "custom"], default: "Legacy fallback: tabs for multi-page forms, buttons for single-page forms. Explicitly choose custom for an application with home/action buttons." },
         config: {
           type: "object",
@@ -1094,11 +1096,30 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         verticalAlign: { type: "string", optional: true, enum: ["", "start", "center", "end", "stretch"], description: "Only for the children of a layout (their boxStyle or the layout's layoutChildrenStyle): aligns the child in its column; stretch (default) makes the columns of a row as tall as each other. Ignored elsewhere." },
         borderWidth: { type: "string", optional: true, legacy: true, description: "Legacy: read when border is empty, removed by the editor. Use border." },
         borderStyle: { type: "string", optional: true, legacy: true, description: "Legacy, see borderWidth." },
-        borderColor: { type: "string", optional: true, legacy: true, description: "Legacy, see borderWidth." }
+        borderColor: { type: "string", optional: true, legacy: true, description: "Legacy, see borderWidth. In a state (states.<state>.borderColor), the border color of that state." },
+        width: { type: "string", optional: true, styleModel: true, example: "50%", description: "Width of the part: a length or auto." },
+        maxWidth: { type: "string", optional: true, styleModel: true, example: "640px", description: "Maximum width: a length or none. With horizontalAlign, places a narrower block in its column." },
+        height: { type: "string", optional: true, styleModel: true, example: "auto", description: "Height: a length or auto. For the component part of a field, its minimum height (the field grows with its text)." },
+        minHeight: { type: "string", optional: true, styleModel: true, example: "120px", description: "Minimum height: tiles of the same height, a 44px touch field." },
+        boxShadow: { type: "string", optional: true, styleModel: true, enum: ["none", "sm", "md", "lg"], example: "sm", description: "A preset (none, sm, md, lg) or one or two shadows of 2 to 4 lengths and a color: 0 4px 12px rgba(15, 23, 42, 0.12)." },
+        opacity: { type: "string", optional: true, styleModel: true, example: "0.6", description: "0 to 1; mostly for states.disabled." },
+        fontSize: { type: "string", optional: true, styleModel: true, example: "15px", description: "Text size of the part; on a container also the size of the fields inside it." },
+        fontWeight: { type: "string", optional: true, styleModel: true, example: "600", description: "normal, bold or 100 to 900." },
+        lineHeight: { type: "string", optional: true, styleModel: true, example: "1.4", description: "normal, a number or a length." },
+        letterSpacing: { type: "string", optional: true, styleModel: true, example: "0.02em", description: "normal or a length." },
+        textTransform: { type: "string", optional: true, styleModel: true, enum: ["none", "uppercase", "lowercase", "capitalize"], description: "Case of the text; none keeps the label of a button as written (Ionic writes it in capitals)." },
+        textAlign: { type: "string", optional: true, styleModel: true, enum: ["start", "center", "end", "justify"] },
+        fontFamily: { type: "string", optional: true, styleModel: true, enum: ["system", "serif", "mono"], description: "A family of the list only: no font is loaded from elsewhere." },
+        horizontalAlign: { type: "string", optional: true, styleModel: true, enum: ["start", "center", "end", "stretch"], description: "Position of a block narrower than its column (width, maxWidth): automatic side margins." },
+        screens: { type: "object", optional: true, styleModel: true, fields: { tablet: "box style below 992px", phone: "box style below 768px" }, example: { padding: "24px", screens: { phone: { padding: "12px" } } }, description: "Values that change with the screen. A tablet value holds on a phone too unless the phone sets its own. No screens or states inside." },
+        states: { type: "object", optional: true, styleModel: true, fields: { hover: "pointer over the part", focus: "a field of the part being typed in", active: "pressed", disabled: "the component disabled (componentDisabled)" }, keys: ["backgroundColor", "textColor", "borderColor", "boxShadow", "opacity"], example: { states: { hover: { boxShadow: "md", borderColor: "#2563EB" } } }, description: "Values of a state: colors, border color, shadow and opacity only." }
       },
       styleRendering: {
         parts: { boxStyle: "the card around the component (its container)", questionBoxStyle: "the label (question) of the component; description, button and chart have none", componentBoxStyle: "the control: the ion-item of an input, the radio or checkbox list, the signature pad, the gallery; on a grid it is the refresh/deselect toolbar, not the table" },
-        ignoredKeys: "The viewer reads only the keys of styleObjectFields; any other key is ignored without error and refused at creation (unsupported_style_key): marginTop and other sides (use the margin/padding shorthand), color (use textColor), boxShadow, width, height, minHeight, opacity, fontSize, fontWeight, fontFamily, textAlign (put text styles in the HTML of a label or description).",
+        ignoredKeys: "The viewer reads only the keys of styleObjectFields; any other key is ignored without error and refused at creation (unsupported_style_key): marginTop and other sides (use the margin/padding shorthand), color (use textColor). The keys marked styleModel (sizes, shadow, opacity, typography, horizontalAlign, screens, states) and config.style need a C8Oforms with capabilities.styleModel; on another one they are refused (style_model_unavailable) and text styles go in the HTML of a label or description.",
+        styleModel: "With capabilities.styleModel (C8Oforms 2.2): each value of a styleModel key is checked against its grammar (invalid_style_value); nothing is written as a stylesheet. The closest level wins (component, its named style, the parent layoutChildrenStyle, the page, the application), then the most precise screen of that level: a component keeps its own value on a phone even when the application sets a phone value.",
+        namedStyles: "config.styles of the application (rootFields.config.styles): [{ id, name, boxStyle, questionBoxStyle, componentBoxStyle }], each part a box style (screens and states included). A component uses one by its id in config.style (a reduced field gives style at its root): above the application, the page and the parent, below its own box style. Change a style once instead of every component; the Layout panel lists them by name. namedStyles: true at creation turns the role spacing into named styles st_role_<role>.",
+        navigationStyle: "navigation.style (rootFields.navigationStyle): groups bar (backgroundColor, borderTop, borderBottom, boxShadow, padding, minHeight, gap, justify), tab (textColor, backgroundColor, fontSize, fontWeight, textTransform, letterSpacing, iconSize, iconPosition top|start, display both|icon|label, borderRadius, padding), selected (textColor, backgroundColor, fontWeight, indicator dot|underline|none, indicatorColor), hover (textColor, backgroundColor), focus (outlineColor), buttons (mainBackground, mainColor, secondaryBackground, secondaryColor, borderRadius, fontSize, fontWeight, textTransform), and screens.tablet / screens.phone of the same groups. Without it, the theme of the application colors the bar.",
         values: "CSS strings with units (16px, 1rem, 50%, calc(...)); !important is removed; a bare nonzero number is not a length. An empty string or a missing key keeps the default.",
         precedence: "From weakest to strongest: the application config.<part>, the page config.<part>, the parent's layoutChildrenStyle (default, then first, then last), the component's own style. Inside a layout, the container of a child takes the layoutChildrenStyle value first and the application/page/child boxStyle over it; inside a card, layoutChildrenStyle wins over the application and the page.",
         layoutChildrenStyle: "{ default, first, last }: each a box style for the container of the children, which may also hold questionBoxStyle and componentBoxStyle for their parts. In a layout first and last are the first and last child of each visual row (per device); in a card, the first and last child.",
@@ -1108,7 +1129,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         },
         globalStyles: "Avoid boxStyle on the application or a page: it applies to every top-level component, to root layouts and cards and to the children of layouts, so spacing and borders add up (global_box_style). The role defaults style components one by one.",
         textColor: "A text color (custom or auto) on a container is forced on what it contains: button labels and icons take it whatever the button color, inputs lose their light grey background, grids and galleries are tinted. Keep it for text-only blocks (a dark band of description) or color the text inside the HTML (container_text_color).",
-        perDevice: "Box styles are the same on every screen. Only the root config.<device>, the layout columns (cols, tablet, phoneL, phoneP), the gallery cards per line and the phone navigation change with the screen.",
+        perDevice: "Without capabilities.styleModel, box styles are the same on every screen: only the root config.<device>, the layout columns (cols, tablet, phoneL, phoneP), the gallery cards per line and the phone navigation change with the screen. With it, a box style and the navigation style also take screens.tablet (below 992px) and screens.phone (below 768px).",
         nesting: "A layout renders the simple components and nested layouts, not a card; a card (ion-card) renders the simple components, not a layout, a card or a map (unrendered_nesting). Group fields with a section or a layout.",
         mandatoryError: "A mandatory component left empty is painted light red (#ffebee, !important) whatever its backgroundColor.",
         editorCanvas: "The editor canvas does not draw box styles nor the root config.<device>: check them in the viewer or the preview."
@@ -1615,7 +1636,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // Reduced field keys that live in config: compile copies them there, and nocode-form-edit moves them there
   // when a patch gives them at the root of the field (the viewer reads config.<key>).
   var REDUCED_CONFIG_KEYS = ["defaultValue", "position", "display_format", "picker_format", "min_datetime", "max_datetime", "date_less_than_today", "date_more_than_today", "cancelText", "okText", "returned_value", "sourceEnabled", "AutoSizeColumns", "deselectOnSecondClick", "label_color", "icon", "iconPosition", "backgroundColor", "color", "expand", "fill", "shape", "size", "justify", "align", "checkMandatoryInCurrentPage"];
-  var REDUCED_STYLE_CONFIG_KEYS = ["componentDisabled", "boxStyle", "questionBoxStyle", "componentBoxStyle", "layoutChildrenStyle", "sticky"];
+  var REDUCED_STYLE_CONFIG_KEYS = ["componentDisabled", "boxStyle", "questionBoxStyle", "componentBoxStyle", "layoutChildrenStyle", "sticky", "style"];
   var BOX_STYLE_KEYS = ["margin", "padding", "backgroundColor", "textColor", "textColorMode", "border", "borderTop", "borderRight", "borderBottom", "borderLeft", "borderRadius", "verticalAlign", "borderWidth", "borderStyle", "borderColor"];
   var BOX_STYLE_SUBSTITUTES = {
     side: "one margin or padding shorthand, for example margin: '8px 0 16px 0'",
@@ -1628,6 +1649,156 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (key === "color") { return BOX_STYLE_SUBSTITUTES.color; }
     if (/^(font|lineHeight|textAlign|textTransform|textDecoration|letterSpacing|whiteSpace)/.test(key)) { return BOX_STYLE_SUBSTITUTES.font; }
     return BOX_STYLE_SUBSTITUTES.none;
+  }
+  // The style model of C8Oforms 2.2 (its viewer, editor and Layout panel): sizes, shadow, opacity, typography and the
+  // horizontal position of a block, variants by screen (screens.tablet below 992px, screens.phone below 768px) and
+  // states (states.hover, focus, active, disabled: colors, border color, shadow and opacity only), named styles of the
+  // application (config.styles, a component naming one in config.style) and the look of the navigation
+  // (navigation.style). A C8Oforms without it ignores these keys: they are refused on it (style_model_unavailable).
+  var BOX_STYLE_MODEL_KEYS = ["width", "maxWidth", "height", "minHeight", "boxShadow", "opacity", "fontSize", "fontWeight", "lineHeight", "letterSpacing", "textTransform", "textAlign", "fontFamily", "horizontalAlign"];
+  var BOX_STYLE_SCREENS = ["tablet", "phone"];
+  var BOX_STYLE_STATES = ["hover", "focus", "active", "disabled"];
+  var BOX_STYLE_STATE_KEYS = ["backgroundColor", "textColor", "borderColor", "boxShadow", "opacity"];
+  var BOX_STYLE_SHADOWS = ["none", "sm", "md", "lg"];
+  var STYLE_LENGTH_UNITS = ["px", "%", "em", "rem", "vh", "vw", "svh", "svw", "ch"];
+  var BOX_STYLE_MODEL_HINTS = {
+    width: "a length with its unit (16px, 50%, calc(100% - 24px)) or auto",
+    maxWidth: "a length with its unit or none",
+    height: "a length with its unit or auto (the minimum height of a field)",
+    minHeight: "a length with its unit or auto",
+    boxShadow: "none, sm, md, lg, or one or two shadows of 2 to 4 lengths and a color (0 4px 12px rgba(15, 23, 42, 0.12))",
+    opacity: "a number from 0 to 1",
+    fontSize: "a length with its unit (15px, 1.125rem)",
+    fontWeight: "normal, bold, or 100 to 900 by hundreds",
+    lineHeight: "normal, a number (1.4) or a length",
+    letterSpacing: "normal or a length (0.02em, -0.01em)",
+    textTransform: "none, uppercase, lowercase or capitalize",
+    textAlign: "start, center, end or justify",
+    fontFamily: "system, serif or mono (no font is loaded from elsewhere)",
+    horizontalAlign: "start, center, end or stretch (a block narrower than its column)"
+  };
+  var NAV_STYLE_GROUPS = {
+    bar: ["backgroundColor", "borderTop", "borderBottom", "boxShadow", "padding", "minHeight", "gap", "justify"],
+    tab: ["textColor", "backgroundColor", "fontSize", "fontWeight", "textTransform", "letterSpacing", "iconSize", "iconPosition", "display", "borderRadius", "padding"],
+    selected: ["textColor", "backgroundColor", "fontWeight", "indicator", "indicatorColor"],
+    hover: ["textColor", "backgroundColor"],
+    focus: ["outlineColor"],
+    buttons: ["mainBackground", "mainColor", "secondaryBackground", "secondaryColor", "borderRadius", "fontSize", "fontWeight", "textTransform"]
+  };
+  var NAV_STYLE_LISTS = { justify: ["start", "center", "end", "space-between", "space-around", "space-evenly"], iconPosition: ["top", "start"], display: ["both", "icon", "label"], indicator: ["dot", "underline", "none"] };
+  // The named styles of the role spacing (namedStyles: true at creation): one per role, editable in one place.
+  var ROLE_STYLE_NAMES = {
+    en: { field: "Field", text: "Text", dataView: "Data view", button: "Button", actions: "Actions", row: "Row", section: "Section" },
+    fr: { field: "Champ", text: "Texte", dataView: "Vue de données", button: "Bouton", actions: "Actions", row: "Ligne", section: "Section" }
+  };
+
+  // The CSS words of a value, a function such as rgb(1, 2, 3) or calc(1px + 2px) kept whole (splitViewerCssValue).
+  function splitStyleTokens(value, separator) {
+    var parts = [], current = "", depth = 0;
+    for (var i = 0; i < value.length; i++) {
+      var c = value.charAt(i);
+      if (c === "(") { depth++; } else if (c === ")") { depth = Math.max(0, depth - 1); }
+      var split = depth === 0 && (separator === "," ? c === "," : /\s/.test(c));
+      if (split) {
+        if (trimmed(current).length) { parts.push(trimmed(current)); }
+        current = "";
+      } else {
+        current += c;
+      }
+    }
+    if (trimmed(current).length) { parts.push(trimmed(current)); }
+    return parts;
+  }
+  // A CSS length as the viewer accepts it (isC8oCssLength): 0, a number with a unit, or calc(), min(), max(), clamp() of them.
+  function styleLength(value, negative) {
+    if (value === "0") { return true; }
+    var number = /^(-?)(\d+(\.\d+)?|\.\d+)(px|%|em|rem|vh|vw|svh|svw|ch)$/.exec(value);
+    if (number) { return negative === true || number[1] !== "-"; }
+    var fn = /^(calc|min|max|clamp)(\(.*\))$/.exec(value);
+    if (!fn) { return false; }
+    var inner = fn[2].replace(/(calc|min|max|clamp)\(/g, "(");
+    if (/[^0-9a-z%.+\-*\/(), ]/.test(inner)) { return false; }
+    var depth = 0;
+    for (var i = 0; i < inner.length; i++) {
+      if (inner.charAt(i) === "(") { depth++; }
+      else if (inner.charAt(i) === ")") { depth--; if (depth < 0) { return false; } }
+    }
+    return depth === 0 && (inner.match(/[a-z]+/g) || []).every(function (word) { return STYLE_LENGTH_UNITS.indexOf(word) >= 0; });
+  }
+  // A CSS color as the viewer accepts it (isC8oCssColor, getC8oStyleColorValue): no url(), no keyword of the text color.
+  function styleColor(value) {
+    var lower = trimmed(value).toLowerCase();
+    if (!lower.length || lower.length > 64 || ["auto", "none", "unset", "inherit", "initial", "revert", "default", "custom"].indexOf(lower) >= 0) { return false; }
+    return /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/.test(lower) ||
+      (/^(rgb|rgba|hsl|hsla)\([0-9a-z.,%\s\/+-]+\)$/.test(lower) && !/[a-ce-z]/.test(lower.substring(lower.indexOf("(")).replace(/deg/g, ""))) ||
+      /^var\(--[a-z0-9-]+\)$/.test(lower) || /^[a-z]{3,24}$/.test(lower);
+  }
+  function styleShadow(value) {
+    if (BOX_STYLE_SHADOWS.indexOf(value) >= 0) { return true; }
+    var layers = splitStyleTokens(value, ",");
+    if (!layers.length || layers.length > 2) { return false; }
+    return layers.every(function (layer) {
+      var lengths = 0, colors = 0, inset = 0;
+      var ok = splitStyleTokens(layer).every(function (token) {
+        if (token === "inset") { inset++; return true; }
+        if (styleLength(token, true)) { lengths++; return true; }
+        if (styleColor(token)) { colors++; return true; }
+        return false;
+      });
+      return ok && inset <= 1 && colors <= 1 && lengths >= 2 && lengths <= 4;
+    });
+  }
+  // The grammar of a key of the style model (getC8oStyleCssValue of the viewer): true when the viewer renders the value.
+  function styleModelValue(property, value) {
+    var lower = trimmed(String(value).replace(/\s*!important\s*/ig, "")).toLowerCase();
+    if (!lower.length || lower.length > 160) { return false; }
+    if (property === "width" || property === "height" || property === "minHeight") { return lower === "auto" || styleLength(lower); }
+    if (property === "maxWidth") { return lower === "none" || styleLength(lower); }
+    if (property === "fontSize") { return styleLength(lower); }
+    if (property === "letterSpacing") { return lower === "normal" || styleLength(lower, true); }
+    if (property === "lineHeight") { return lower === "normal" || /^\d+(\.\d+)?$/.test(lower) || styleLength(lower); }
+    if (property === "fontWeight") { return /^(normal|bold|[1-9]00)$/.test(lower); }
+    if (property === "textTransform") { return ["none", "uppercase", "lowercase", "capitalize"].indexOf(lower) >= 0; }
+    if (property === "textAlign") { return ["start", "center", "end", "justify", "left", "right"].indexOf(lower) >= 0; }
+    if (property === "horizontalAlign") { return ["start", "center", "end", "stretch"].indexOf(lower) >= 0; }
+    if (property === "fontFamily") { return ["system", "serif", "mono"].indexOf(lower) >= 0; }
+    if (property === "opacity") { return /^(0(\.\d+)?|1(\.0+)?|\.\d+)$/.test(lower); }
+    if (property === "boxShadow") { return styleShadow(lower); }
+    return false;
+  }
+  // The grammar of a key of the navigation style (getNavStyleCssValue of the viewer).
+  function navStyleValue(key, value) {
+    var text = trimmed(String(value).replace(/\s*!important\s*/ig, "")), lower = text.toLowerCase();
+    if (!text.length || text.length > 160) { return false; }
+    if (["backgroundColor", "textColor", "indicatorColor", "outlineColor", "mainBackground", "mainColor", "secondaryBackground", "secondaryColor"].indexOf(key) >= 0) { return styleColor(text); }
+    if (key === "borderTop" || key === "borderBottom") {
+      var widths = 0, styles = 0, colors = 0, tokens = splitStyleTokens(text);
+      var ok = tokens.length > 0 && tokens.length <= 3 && tokens.every(function (token) {
+        var t = token.toLowerCase();
+        if (["none", "solid", "dashed", "dotted", "double"].indexOf(t) >= 0) { styles++; return true; }
+        if (styleLength(t)) { widths++; return true; }
+        if (styleColor(token)) { colors++; return true; }
+        return false;
+      });
+      return ok && widths <= 1 && styles <= 1 && colors <= 1;
+    }
+    if (key === "padding") { var parts = splitStyleTokens(lower); return parts.length >= 1 && parts.length <= 4 && parts.every(function (part) { return styleLength(part); }); }
+    if (["minHeight", "gap", "iconSize", "borderRadius"].indexOf(key) >= 0) { return styleLength(lower); }
+    if (["fontSize", "letterSpacing", "fontWeight", "textTransform", "boxShadow"].indexOf(key) >= 0) { return styleModelValue(key, text); }
+    return hasOwn(NAV_STYLE_LISTS, key) && NAV_STYLE_LISTS[key].indexOf(lower) >= 0;
+  }
+  // The C8Oforms of the server renders the style model when its project has the Apparence settings of the navigation.
+  function styleModelSupported(projectName) {
+    try {
+      return new File(projectByName(projectName || "C8Oforms").getDirFile(), "_c8oProject/mobileSharedComponents/NavStyleEditor.yaml").isFile() === true;
+    } catch (e) {
+      return false;
+    }
+  }
+  // The named role styles of a form (st_role_<role>), reused when a component is added to it.
+  function roleNamedStyles(form) {
+    var styles = ensureArray(form && form.config && form.config.styles);
+    return styles.some(function (style) { return style && /^st_role_/.test(String(style.id)); }) ? { list: [], existing: styles, lang: form.lang } : null;
   }
   // The text color a box style gives, as the viewer resolves it
   // (getViewerResolvedTextColor): "" when none, "auto" for the computed one.
@@ -1676,11 +1847,24 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   // Fills only the empty values: prototype placeholders ("") and the button
   // wrapper defaults stay, a style the author wrote is never touched.
-  function applyRoleStyles(target, field, parentId) {
-    var role = ROLE_STYLES[styleRole(target.type, field, parentId)];
+  // named: { list, existing, lang } when the role spacing goes to named styles of the application (namedStyles: true at
+  // creation, or a form that already has them): the component uses the style of its role (config.style), its own box
+  // style keeping the values it has, over the named style, as they were kept over the role values.
+  function applyRoleStyles(target, field, parentId, named) {
+    var roleName = styleRole(target.type, field, parentId);
+    var role = ROLE_STYLES[roleName];
     if (!role) { return; }
     var config = target.config;
-    if (role.boxStyle && parentId == null && !explicitStyle(field, "boxStyle")) {
+    if (role.boxStyle && parentId == null && !explicitStyle(field, "boxStyle") && named && !trimmed(config.style).length) {
+      var id = "st_role_" + roleName;
+      var known = ensureArray(named.existing).concat(named.list).some(function (style) { return style && style.id === id; });
+      if (!known) {
+        var names = ROLE_STYLE_NAMES[String(named.lang || "").substring(0, 2)] || ROLE_STYLE_NAMES.en;
+        named.list.push({ id: id, name: names[roleName] || roleName, boxStyle: clone(role.boxStyle, {}) });
+      }
+      config.style = id;
+    }
+    else if (role.boxStyle && parentId == null && !explicitStyle(field, "boxStyle")) {
       config.boxStyle = config.boxStyle && typeof config.boxStyle === "object" ? config.boxStyle : {};
       Object.keys(role.boxStyle).forEach(function (key) { if (!trimmed(config.boxStyle[key]).length) { config.boxStyle[key] = role.boxStyle[key]; } });
     }
@@ -2702,7 +2886,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     if (opts.roleStyles === true || field.__role === "section" || field.__role === "row") {
       // A section and its rows are always styled: that is what they are for.
-      applyRoleStyles(out, field, parentId);
+      applyRoleStyles(out, field, parentId, opts.namedStyles);
     }
     if (type === "button" && !trimmed(field.flow).length) {
       out.flow = "flow_" + out.id;
@@ -3115,7 +3299,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     // Applications (custom or tab navigation) get role spacing; a linear
     // questionnaire keeps the card around each question.
-    var fieldOptions = { roleStyles: input.styleDefaults !== false && (input.navigationMode === "custom" || useTabMode), explicitMandatoryChecks: {} };
+    var namedRoles = input.namedStyles === true && styleModelSupported(projectName) ? { list: [], existing: ensureArray(doc.config.styles), lang: doc.lang } : null;
+    var fieldOptions = { roleStyles: input.styleDefaults !== false && (input.navigationMode === "custom" || useTabMode), explicitMandatoryChecks: {}, namedStyles: namedRoles };
+    if (hasOwn(input, "navigationStyle")) { doc.navigation = { style: clone(input.navigationStyle, input.navigationStyle) }; }
     for (var p = 0; p < pages.length; p++) {
       var page = pageDefaults(pages[p], p, useTabMode);
       if (input.navigationMode === "custom") {
@@ -3189,8 +3375,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var bindingCount = prepareNewBaserowBindings(doc);
     doc.chatSummary = input.chatSummary || "";
     doc.chatResponse = input.chatResponse || "";
+    if (namedRoles && namedRoles.list.length) { doc.config.styles = ensureArray(doc.config.styles).concat(namedRoles.list); }
     var completedSelects = completeSelectColumns(doc, null);
     var validation = validateForm(doc, { project: projectName, generation: true }).validation;
+    if (input.namedStyles === true && !namedRoles) {
+      validation.warnings.push({ code: "style_model_unavailable", message: "The C8Oforms of this server has no named styles: the role spacing is written on each component", path: "/namedStyles" });
+    }
     completedSelects.forEach(function (item) { validation.warnings.push(item); });
     validation.warningCount = validation.warnings.length;
     if (!doc.formulaire.length) {
@@ -3237,6 +3427,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     function warning(code, message, path) {
       warnings.push({ code: code, message: message, path: path || "" });
     }
+    var styleModel = styleModelSupported(opts.project || opts.projectName || "C8Oforms");
+    var namedStyleIds = {};
+    ensureArray(form && typeof form === "object" && form.config && form.config.styles).forEach(function (style) {
+      if (style && typeof style === "object" && style.id != null) { namedStyleIds[String(style.id)] = true; }
+    });
     function incomplete(code, message, path) {
       // New generations must be usable. Existing editor drafts remain editable.
       if (opts.generation === true || ensureArray(opts.strictBindingPaths).some(function (prefix) { return path.indexOf(prefix + "/") === 0 || path === prefix; })) { issue(code, message, path); }
@@ -3294,22 +3489,104 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
     }
     // parts: a layoutChildrenStyle scope also holds the questionBoxStyle and
-    // componentBoxStyle of the children, as the editor writes them.
-    function validateStyle(style, path, parts) {
+    // componentBoxStyle of the children, as the editor writes them. layer: "screen" or "state" inside a variant.
+    function styleModelMissing(path, what) {
+      incomplete("style_model_unavailable", "The C8Oforms of this server does not render " + what + " (screen variants, states, named styles, sizes, typography, navigation style come with C8Oforms 2.2): see capabilities.styleModel of nocode-form-contract-get", path);
+    }
+    function validateStyle(style, path, parts, layer) {
       if (style == null) { return; }
       if (typeof style !== "object" || Array.isArray(style)) { issue("invalid_style_object", "Style must be an object of CSS string values", path); return; }
       Object.keys(style).forEach(function (property) {
         var value = style[property];
         if (parts === true && (property === "questionBoxStyle" || property === "componentBoxStyle")) { validateStyle(value, path + "/" + property); return; }
-        if (BOX_STYLE_KEYS.indexOf(property) < 0) {
-          incomplete("unsupported_style_key", "The viewer ignores the box style key " + property + ". Use " + boxStyleSubstitute(property) + ". Box style keys: " + BOX_STYLE_KEYS.slice(0, 12).join(", "), path + "/" + property);
+        if (property === "screens" || property === "states") {
+          if (!styleModel) { styleModelMissing(path + "/" + property, property); return; }
+          if (layer) { issue("invalid_style_variant", "screens and states sit at the top of a box style, not inside a screen or a state", path + "/" + property); return; }
+          if (!value || typeof value !== "object" || Array.isArray(value)) { issue("invalid_style_object", property + " is an object of " + (property === "screens" ? BOX_STYLE_SCREENS : BOX_STYLE_STATES).join(", ") + " box styles", path + "/" + property); return; }
+          var names = property === "screens" ? BOX_STYLE_SCREENS : BOX_STYLE_STATES;
+          Object.keys(value).forEach(function (name) {
+            if (names.indexOf(name) < 0) { issue("invalid_style_variant", property + " are " + names.join(", ") + ", not " + name, path + "/" + property + "/" + name); return; }
+            validateStyle(value[name], path + "/" + property + "/" + name, false, property === "screens" ? "screen" : "state");
+          });
+          return;
+        }
+        if (layer === "state" && BOX_STYLE_STATE_KEYS.indexOf(property) < 0) {
+          incomplete("unsupported_state_key", "A state changes " + BOX_STYLE_STATE_KEYS.join(", ") + " only, not " + property, path + "/" + property);
+          return;
+        }
+        var modelKey = BOX_STYLE_MODEL_KEYS.indexOf(property) >= 0;
+        if (BOX_STYLE_KEYS.indexOf(property) < 0 && !modelKey) {
+          incomplete("unsupported_style_key", "The viewer ignores the box style key " + property + ". Use " + boxStyleSubstitute(property) + ". Box style keys: " + BOX_STYLE_KEYS.slice(0, 12).concat(styleModel ? BOX_STYLE_MODEL_KEYS : []).join(", "), path + "/" + property);
+          return;
+        }
+        if (modelKey && !styleModel) {
+          // ignored by the viewer of this server: unsupported, as before the style model
+          incomplete("unsupported_style_key", "The viewer of this server ignores the box style key " + property + " (C8Oforms 2.2 renders it: capabilities.styleModel). Use " + boxStyleSubstitute(property) + ". Box style keys: " + BOX_STYLE_KEYS.slice(0, 12).join(", "), path + "/" + property);
           return;
         }
         if (typeof value !== "string") { issue("invalid_style_value", "Use CSS strings including units (for example 16px); use an empty string to keep defaults", path + "/" + property); }
+        else if (modelKey && trimmed(value).length && !styleModelValue(property, value)) {
+          issue("invalid_style_value", property + " is " + BOX_STYLE_MODEL_HINTS[property] + "; the viewer ignores " + JSON.stringify(value), path + "/" + property);
+        }
+        else if (layer === "state" && ["backgroundColor", "textColor", "borderColor"].indexOf(property) >= 0 && trimmed(value).length && !styleColor(value)) {
+          issue("invalid_style_value", "The " + property + " of a state is a CSS color (#2563EB, rgb(), hsl(), var(--ion-color-primary)), not " + JSON.stringify(value), path + "/" + property);
+        }
         else if (/^(margin|padding)(Top|Right|Bottom|Left)?$|^border(Radius|Width)$/.test(property) && value.split(/\s+/).some(function (part) { return /^-?\d+(\.\d+)?$/.test(part) && Number(part) !== 0; })) {
           issue("missing_style_unit", "Nonzero CSS lengths require a unit, for example 16px", path + "/" + property);
         }
       });
+    }
+    // config.styles: the named styles of the application, { id, name, boxStyle, questionBoxStyle, componentBoxStyle }.
+    function validateNamedStyles(config, path) {
+      if (!config || typeof config !== "object" || config.styles == null) { return; }
+      if (!styleModel) { styleModelMissing(path + "/styles", "named styles"); return; }
+      if (!Array.isArray(config.styles)) { issue("invalid_named_styles", "config.styles is an array of { id, name, boxStyle, questionBoxStyle, componentBoxStyle }", path + "/styles"); return; }
+      var seen = {};
+      config.styles.forEach(function (style, index) {
+        var stylePath = path + "/styles/" + index;
+        if (!style || typeof style !== "object" || Array.isArray(style)) { issue("invalid_named_style", "A named style is an object { id, name, boxStyle, questionBoxStyle, componentBoxStyle }", stylePath); return; }
+        var id = trimmed(style.id);
+        if (!id.length) { issue("invalid_named_style", "A named style needs an id (config.style of the components names it)", stylePath + "/id"); }
+        else if (seen[id]) { issue("duplicate_named_style", "Two named styles have the id " + id, stylePath + "/id"); }
+        seen[id] = true;
+        if (!trimmed(style.name).length) { warning("unnamed_named_style", "Give the named style a name: the Layout panel lists the styles by name", stylePath + "/name"); }
+        Object.keys(style).forEach(function (key) {
+          if (["id", "name", "boxStyle", "questionBoxStyle", "componentBoxStyle"].indexOf(key) < 0) { warning("ignored_named_style_key", "A named style holds id, name, boxStyle, questionBoxStyle and componentBoxStyle; " + key + " is ignored", stylePath + "/" + key); }
+        });
+        ["boxStyle", "questionBoxStyle", "componentBoxStyle"].forEach(function (key) { validateStyle(style[key], stylePath + "/" + key); });
+      });
+    }
+    // navigation.style: the look of the bar, its tabs, their states and the navigation buttons, with screens.
+    function validateNavigationStyle(navigation, path) {
+      if (!navigation || typeof navigation !== "object" || navigation.style == null) { return; }
+      if (!styleModel) { styleModelMissing(path, "the navigation style"); return; }
+      var style = navigation.style;
+      if (typeof style !== "object" || Array.isArray(style)) { issue("invalid_navigation_style", "navigation.style is an object of the groups " + Object.keys(NAV_STYLE_GROUPS).join(", ") + " and screens", path); return; }
+      function groups(holder, holderPath, screen) {
+        Object.keys(holder).forEach(function (group) {
+          var groupPath = holderPath + "/" + group;
+          if (group === "screens" && !screen) {
+            if (!holder.screens || typeof holder.screens !== "object" || Array.isArray(holder.screens)) { issue("invalid_navigation_style", "screens is an object of tablet and phone", groupPath); return; }
+            Object.keys(holder.screens).forEach(function (name) {
+              if (BOX_STYLE_SCREENS.indexOf(name) < 0) { issue("invalid_style_variant", "screens are " + BOX_STYLE_SCREENS.join(", ") + ", not " + name, groupPath + "/" + name); return; }
+              if (holder.screens[name] && typeof holder.screens[name] === "object" && !Array.isArray(holder.screens[name])) { groups(holder.screens[name], groupPath + "/" + name, true); }
+              else { issue("invalid_navigation_style", "A screen of the navigation style is an object of groups", groupPath + "/" + name); }
+            });
+            return;
+          }
+          if (!hasOwn(NAV_STYLE_GROUPS, group)) { incomplete("unsupported_navigation_style_key", "The groups of the navigation style are " + Object.keys(NAV_STYLE_GROUPS).join(", ") + (screen ? "" : " and screens") + ", not " + group, groupPath); return; }
+          var values = holder[group];
+          if (!values || typeof values !== "object" || Array.isArray(values)) { issue("invalid_navigation_style", group + " is an object of " + NAV_STYLE_GROUPS[group].join(", "), groupPath); return; }
+          Object.keys(values).forEach(function (key) {
+            if (NAV_STYLE_GROUPS[group].indexOf(key) < 0) { incomplete("unsupported_navigation_style_key", group + " sets " + NAV_STYLE_GROUPS[group].join(", ") + ", not " + key, groupPath + "/" + key); return; }
+            if (typeof values[key] !== "string") { issue("invalid_navigation_style", "The values of the navigation style are CSS strings", groupPath + "/" + key); return; }
+            if (trimmed(values[key]).length && !navStyleValue(key, values[key])) {
+              issue("invalid_navigation_style", key + " of " + group + " is " + (hasOwn(NAV_STYLE_LISTS, key) ? NAV_STYLE_LISTS[key].join(", ") : /Color|Background$/.test(key) ? "a CSS color" : key === "borderTop" || key === "borderBottom" ? "a border: width, style and color" : hasOwn(BOX_STYLE_MODEL_HINTS, key) ? BOX_STYLE_MODEL_HINTS[key] : "a length with its unit") + "; the viewer ignores " + JSON.stringify(values[key]), groupPath + "/" + key);
+            }
+          });
+        });
+      }
+      groups(style, path, false);
     }
     if (!form || typeof form !== "object" || Array.isArray(form)) {
       issue("invalid_form", "Form must be a JSON object", "");
@@ -3625,6 +3902,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         ["boxStyle", "questionBoxStyle", "componentBoxStyle"].forEach(function (key) {
           validateStyle(config[key], path + "/config/" + key);
         });
+        if (config.style != null && trimmed(config.style).length) {
+          if (!styleModel) { styleModelMissing(path + "/config/style", "named styles"); }
+          else if (!namedStyleIds[String(config.style)]) { incomplete("unknown_named_style", "config.style names a style of the application (config.styles[].id); " + config.style + " is not one of them", path + "/config/style"); }
+        }
         if (config.sticky != null && ["always", "notOnPhone"].indexOf(config.sticky) < 0) {
           issue("invalid_sticky", "sticky is always or notOnPhone (or absent)", path + "/config/sticky");
         }
@@ -3673,6 +3954,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           warning("global_box_style", "The boxStyle of " + scope.name + " applies to every top-level component, to root layouts and cards and to the children of layouts, over their layoutChildrenStyle: spacing and borders add up. Style the components instead (role defaults)", scope.path + "/boxStyle");
         }
       });
+      validateNamedStyles(form.config, "/config");
+      validateNavigationStyle(form.navigation, "/navigation/style");
       validateContextDefaults(form, issue, warning);
       validateGeneratedLogic(form, warning);
       validateStickyPlacement(form, warning);
@@ -4877,6 +5160,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (hasOwn(op, "config")) {
       patch.config = mergeRootConfig(form.config || {}, op.config);
     }
+    if (hasOwn(op, "navigationStyle")) {
+      // a merge patch: a key set to null removes it, navigationStyle null removes the whole style
+      patch.navigation = { style: op.navigationStyle };
+    }
     if (hasOwn(op, "backgroundColor")) {
       patch.wallpaper = { enabled: true, index: 0, random: "assets/images/svg/imgplaceholder/placeholder0.svg", type: "color", link: null, color: String(op.backgroundColor) };
     }
@@ -5040,7 +5327,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var targetPage = ensureArray(form.pages).filter(function (candidate) { return candidate && candidate.pageTechName === pageTech; })[0];
       // Same spacing as at creation on an application page (tab or custom navigation).
       var applicationPage = !!targetPage && (boolLike(targetPage.enabledTab) || !boolLike(targetPage.enabledButtons));
-      var compiled = compileField(fieldDef, pageTech, catalogByType, form.formulaire, parentField ? parentField.id : null, { roleStyles: op.styleDefaults !== false && fieldDef.styleDefaults !== false && applicationPage });
+      var addedRoles = roleNamedStyles(form);
+      var compiled = compileField(fieldDef, pageTech, catalogByType, form.formulaire, parentField ? parentField.id : null, { roleStyles: op.styleDefaults !== false && fieldDef.styleDefaults !== false && applicationPage, namedStyles: addedRoles });
+      if (addedRoles && addedRoles.list.length) { form.config.styles = ensureArray(form.config.styles).concat(addedRoles.list); }
       if (parentField) {
         parentField.childrenRefs = ensureArray(parentField.childrenRefs);
         if (parentField.childrenRefs.indexOf(compiled.id) < 0) {
@@ -5456,6 +5745,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     parts.generationQuality.steps = "Ask sections:[\"generationSteps\"] for building in steps and the checks before delivery.";
     var asked = contractSectionList(opts.sections);
     var whole = opts.includeAllTypes === true || asked.indexOf("all") >= 0;
+    // what the C8Oforms of the server renders: styleModel, the keys and objects marked styleModel in the contract
+    var capabilities = { styleModel: styleModelSupported(opts.project || opts.projectName || "C8Oforms") };
     var sectionIndex = {};
     Object.keys(parts).forEach(function (key) {
       if (CONTRACT_INLINE_PARTS.indexOf(key) < 0) {
@@ -5479,11 +5770,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       return {
         status: "ok",
         contractVersion: authoring.contractVersion,
+        capabilities: capabilities,
         quickReference: parts.quickReference,
         types: types,
         aliases: parts.aliases,
         sectionIndex: sectionIndex,
-        moreSections: "Ask nocode-form-contract-get with sections:[...] for a section of sectionIndex the task needs, a few at a time: generationQuality before generating an application, styles for style recipes, componentAuthoring or editTool for a component or an operation this core does not show."
+        moreSections: "Ask nocode-form-contract-get with sections:[...] for a section of sectionIndex the task needs, a few at a time: generationQuality before generating an application, styles for style recipes, componentAuthoring or editTool for what this core does not show."
       };
     }
     var all = clone(authoring, {});
@@ -5492,6 +5784,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       status: "ok",
       project: opts.project || opts.projectName || "C8Oforms",
       allTypesPath: contract.file,
+      capabilities: capabilities,
       sectionIndex: sectionIndex,
       types: types,
       aliases: parts.aliases,
