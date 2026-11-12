@@ -892,7 +892,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return {
       format: "reduced-authoring-json",
       intent: "Generate this reduced JSON. The MCP tool compiles it to full C8Oforms JSON, validates it, and persists through C8Oforms APIs.",
-      contractVersion: "2026-11-12.flow-triggers-style-model-v25",
+      contractVersion: "2026-11-12.forms-2.2-v25",
       contextualDefaults: contextualDefaultsContract(),
       creationLifecycle: {
         baserow: "Supply the real discovered table path/id, columns, filters and action variables; omit form_id/source_id/source_owner. nocode-form-create compiles, saves, reads the assigned id, binds identities, saves again and verifies. Only form/source identity fields are managed: table selection, data mappings, ACLs and business data are not changed.",
@@ -5831,7 +5831,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // contract (not offered to agents).
   function quickReferenceContract() {
     return {
-      use: "Write reduced JSON: nocode-form-create, nocode-form-edit and nocode-form-compile compile it to C8Oforms JSON, validate it and save it. This core covers usual forms and applications; sectionIndex says which section to ask (sections:[...]) for details. Return each contract answer from its own call: one answer over about 16 KB is spilled to a file.",
+      use: "Write reduced JSON: nocode-form-create, nocode-form-edit and nocode-form-compile compile it to C8Oforms JSON, validate it and save it. This core covers usual forms and applications; sectionIndex says which section to ask for details. Return each contract answer from its own call: one answer over about 16 KB is spilled to a file.",
       form: "{ name, description, language: \"fr\", navigationMode: custom (an application: buttons and push_page flows) | buttons (a linear questionnaire) | tabs, titleDisplay: form|page|none, backgroundColor, thumbnailColor, thumbnailImage: { contentType, base64 } (below 512x512 px), pages: [...], flows: [...] }. Pass reduced as a JSON object, not a string. The tools write _id, _rev, formulaire, pageTechName, creator and ACLs: never give them.",
       page: "{ name (unique, the target of push_page), iconName: home|list|people|person|business|calendar|calendar-clear|document-text|receipt|settings|stats-chart|search, header: { title, subtitle } (title block first on the page), description (HTML block after the header), isNameDisplayed (false by default in custom and tabs navigation), fields: [...] }.",
       field: "Every component: { type, name (unique technical name, read as fields.<name>), label (question or button text), description (HTML question, wins over label), placeholder, mandatory, disabled, sticky: always|notOnPhone (stays at the top while the page scrolls), visibleIf, defaultFrom, boxStyle, config (merged onto the native config) }. Section componentAuthoring lists each component's options.",
@@ -5849,7 +5849,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       },
       conditions: "visibleIf, and disabledIf on a button: { field, operator, value }, { all: [...] } or { any: [...] } nested, or { never: true }. Operators: equals, different, greater, greaterequals, minus, minusequals, among_following and out_following (value is an array), contains, not_contains, is_filled and is_empty (no value). A grid is empty until a row is selected. A hidden component is not checked as mandatory.",
       defaults: "defaultFrom on text, slider, datetime, time, barcode: { source: \"user\", property: name|email|authenticatedUserID } (the respondent), { source: \"clock\", property: today|now }, { source: \"field\", field: \"<grid>\", column: \"Column\", mode: \"reactive\" } (the text of a column of the selected row, whatever its cell shape; path: [...] reads literal keys instead), { source: \"query\", parameter }, { source: \"expression\", expression: \"fields.qty * fields.price\", mode: \"reactive\" }, { source: \"literal\", value }; fallback replaces null. Section contextualDefaults: rules, and the editor's Default value tab.",
-      flows: "flows: [{ id, name (visible, in the user's language), elements: [...] }]; a button's flow is the flow id. Elements: push_page { targetPage: page name, or __c8o_back }, submit with saveTo or deleteFrom (Baserow, see baserow) or actions (section backendActions: an e-mail...), toast { message, color: success|danger|warning|info, duration }, reset_fields { scope: page|component|application, targetPage, targetField }, refresh_grid { targetGrid }, if_else { condition, then: [...], else: [...] }, add_row_to_local_grid { targetGrid, row }. Computed values: business_logic { name, expression } in the flow with id formulas, read as actions.<name>. A submit without an action saves nothing and is refused. A questionnaire (navigationMode buttons) ends with the viewer's own Envoyer button on its last page, which saves the responses: add no button of your own for that, and no page header repeating the form name (shown in the title card). Put reset_fields before the push_page that leaves the page; never test a submit's outcome with if_else (a failed submit stops the flow). Triggers, set_value, lifetime: flowAuthoring.",
+      flows: "flows: [{ id, name (visible, in the user's language), elements: [...] }]; a button's flow is the flow id. Elements: push_page { targetPage: page name, or __c8o_back }, submit with saveTo or deleteFrom (Baserow, see baserow) or actions (section backendActions: an e-mail...), toast { message, color: success|danger|warning|info, duration }, reset_fields { scope: page|component|application, targetPage, targetField }, refresh_grid { targetGrid }, if_else { condition, then: [...], else: [...] }, add_row_to_local_grid { targetGrid, row }. Computed values: business_logic { name, expression } in the flow with id formulas, read as actions.<name>. A submit without an action is refused. A questionnaire (navigationMode buttons) ends with the viewer's own Envoyer button on its last page, which saves the responses: add no button of your own for it, nor a page header repeating the form name (the title card shows it). Put reset_fields before the push_page that leaves the page; never test a submit's outcome with if_else (a failed submit stops the flow). Triggers, set_value, lifetime: flowAuthoring.",
       baserow: {
         tables: "table is a table id or its path Workspace~>Base~>Table from nocode-baserow-catalog-list; the tools find the other half, encode the variables and resolve { field } and row references. Columns must be the table's real names.",
         dataView: "grid, chart, gallery, map: source: { table, columns: [...], hidden, filter, sort: \"Name,-Date\", distinct, groupBy, aggregations: \"count=Label,sum:Amount=Label\" }.",
@@ -5880,7 +5880,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   // What each section holds, for the index of the core.
   var CONTRACT_SECTION_PURPOSES = {
-    generationQuality: "design rules of an application (headers, action bars, list and detail, empty states, toasts, data views): read before generating one",
+    generationQuality: "design rules of an application (headers, action bars, list and detail, empty states, toasts, data views): read it first",
     generationSteps: "building a large application in steps, checks before delivery",
     styles: "native style recipes, role spacing, mobile margins",
     componentAuthoring: "each component's fields and visual options",
@@ -5961,7 +5961,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         types: types,
         aliases: parts.aliases,
         sectionIndex: sectionIndex,
-        moreSections: "Ask nocode-form-contract-get with sections:[...] for a section of sectionIndex the task needs, a few at a time: generationQuality before generating an application, styles for style recipes, componentAuthoring or editTool for what this core does not show."
+        moreSections: "Ask nocode-form-contract-get with sections:[...] for a section of sectionIndex the task needs, a few at a time: generationQuality before generating an application, styles for style recipes, componentAuthoring or editTool for what this core omits."
       };
     }
     var all = clone(authoring, {});

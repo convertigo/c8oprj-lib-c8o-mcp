@@ -1703,7 +1703,7 @@ test('edits set a lifetime and the triggers of a flow in their reduced shapes', 
 });
 test('the contract documents triggers, set_value, except and lifetime', () => {
   const contract = api().contract({ sections: ['all'] }).authoringContract;
-  assert.equal(contract.contractVersion, '2026-11-12.flow-triggers-style-model-v25');
+  assert.equal(contract.contractVersion, '2026-11-12.forms-2.2-v25');
   assert.ok(contract.flowAuthoring.elementTypes.includes('set_value'));
   assert.ok(contract.flowAuthoring.triggers.shape && contract.flowAuthoring.triggers.loops && contract.flowAuthoring.setValue);
   assert.match(contract.flowAuthoring.resetFields.shape, /except/);
