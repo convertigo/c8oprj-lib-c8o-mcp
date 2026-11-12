@@ -33,6 +33,10 @@ C8O.subagentRun = C8O.subagentRun || {};
     if (!auth.authenticated || auth.kind === "nocode" || auth.scope !== "mcp:full") {
       throw new Error("A full Convertigo MCP bearer token is required");
     }
+    // a server with per-user Tigo keys starts no sub-agent, before any host is built (user_key_server_policy.js)
+    if (C8O.userKeyServerPolicy) {
+      C8O.userKeyServerPolicy.assertAllows("tools_subagent_run", contextObject);
+    }
     try {
       return api.run(params, C8O.constructorRunner.extendHost(C8O.browserVerify.javaHost(), contextObject, auth));
     } catch (error) {

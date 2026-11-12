@@ -462,6 +462,10 @@ C8O.browserVerify = C8O.browserVerify || {};
     if (!auth.authenticated || auth.kind === "nocode" || auth.scope !== "mcp:full") {
       throw new Error("A full Convertigo MCP bearer token is required");
     }
+    // a server with per-user Tigo keys starts no sub-agent, before any host is built (user_key_server_policy.js)
+    if (C8O.userKeyServerPolicy) {
+      C8O.userKeyServerPolicy.assertAllows("tools_browser_verify", contextObject);
+    }
     return api.run(params, api.javaHost());
   };
 })(C8O.browserVerify);
