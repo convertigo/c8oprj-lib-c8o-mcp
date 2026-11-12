@@ -2265,3 +2265,63 @@ include("js/sql_dialect.js");
     return normalizeQName(ancestor);
   };
 })();
+
+// The Mobile Builder writes the files of a library's shared component (agGrid, apxBarChart...) into an app when the app
+// project loads, not when a page starts using it: such a page failed to compile, "Could not resolve
+// ../../components/<library>.<component>/...", until the app was reloaded (Studio 8.4, 31/10; an agent placing a chart
+// by hand spent its last minutes on it). After a write that uses one whose folder the built app lacks, the app is saved
+// and reloaded; an app never built gets them all at its first build. payload: what was written (a tree, an operation,
+// batch calls), searched for sharedcomponent. Returns the sentence for the answer, or "".
+C8O.dbo.reloadForLibraryComponents = function (projectName, payload) {
+  var name = String(projectName || "").split(".")[0];
+  var used = {};
+  (function scan(value, depth) {
+    if (value == null || typeof value !== "object" || depth > 60) {
+      return;
+    }
+    Object.keys(value).forEach(function (key) {
+      var item = value[key];
+      if (key === "sharedcomponent" && (typeof item === "string" || (item && typeof item.value === "string"))) {
+        used[String(typeof item === "string" ? item : item.value)] = true;
+      } else {
+        scan(item, depth + 1);
+      }
+    });
+  })(payload, 0);
+  var qnames = Object.keys(used);
+  if (!name.length || !qnames.length) {
+    return "";
+  }
+  var project = null;
+  try {
+    project = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getOriginalProjectByName(name);
+  } catch (_noProject) {
+    project = null;
+  }
+  if (project == null) {
+    return "";
+  }
+  var sources = new java.io.File(String(project.getDirPath()), "_private/ionic/src/app");
+  if (!sources.isDirectory()) {
+    return "";
+  }
+  var missing = [];
+  qnames.forEach(function (qname) {
+    var parts = qname.split(".");
+    var component = parts[0] + "." + parts[parts.length - 1];
+    if (parts.length > 1 && parts[0] !== name && missing.indexOf(component) < 0 &&
+        !new java.io.File(sources, "components/" + component.toLowerCase()).isDirectory()) {
+      missing.push(component);
+    }
+  });
+  if (!missing.length) {
+    return "";
+  }
+  var errors = [];
+  C8O.dbo.saveProject(project, errors);
+  var reload = C8O.dbo.reloadProject(name, errors);
+  return reload.reloaded === true
+    ? name + " was reloaded so that the Mobile Builder writes the library components its pages now use (" + missing.join(", ") + ")."
+    : "Reload " + name + " with project-reload: the Mobile Builder writes the library components its pages now use (" + missing.join(", ") +
+      ") only when the app loads, and the build fails until then. " + reload.message;
+};

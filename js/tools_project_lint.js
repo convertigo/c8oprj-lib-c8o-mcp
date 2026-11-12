@@ -384,6 +384,239 @@ if (typeof include === "function") {
     }
   }
 
+  // LIB-* rules: work an agent did by hand that a marketplace library already does (agents hand-built CSV exports, admin
+  // grids, chart wrappers and logins, 31/10). Each library: what it gives, and what to use once the app references it.
+  C8O.lint.LIBRARIES = {
+    lib_csv_response: { gives: "a sequence (generate_csv) that answers plain text CSV from the rows of a sequence", use: "call its generate_csv sequence" },
+    lib_download_file: { gives: "a file download controlled by a sequence", use: "call its sequence" },
+    lib_ExtendedComponents_ui_ngx: { gives: "the agGrid shared component: sorting, filtering, paging, CSV and XLSX export",
+      use: "use its agGrid shared component (ngx-page-create kind list with list.grid:true)" },
+    libApexCharts: { gives: "ApexCharts chart shared components (bar, line, area, pie, donut, radar)", use: "use its chart shared components" },
+    lib_fill_odt_pdf: { gives: "Word, Excel, PowerPoint or OpenDocument templates filled and converted to PDF", use: "call its sequences" },
+    lib_MicrosoftExcel_ui_ngx: { gives: "Excel file import and export in an NGX app", use: "use its shared components and actions" },
+    lib_Leaflet: { gives: "Leaflet interactive maps", use: "use its map shared component" },
+    lib_FullCalendar: { gives: "the FullCalendar shared component (month, week, day and list views)", use: "use its calendar shared component" },
+    lib_UserManager: { gives: "accounts with password and OpenID/OAuth sign-on, sessions and roles", use: "call its sequences (SignIn, CreateAccount, ForgotPassword...)" },
+    lib_UserManager_ui_ngx: { gives: "login, sign-up and password reset screens over lib_UserManager", use: "use its screens" },
+    lib_OAuth: { gives: "sign-in through an external identity provider (OAuth / OpenID Connect)", use: "call its sequences" }
+  };
+  C8O.lint.CSV_LIBRARIES = ["lib_csv_response", "lib_download_file"];
+  C8O.lint.AUTH_LIBRARIES = ["lib_UserManager", "lib_UserManager_ui_ngx", "lib_OAuth"];
+
+  // The fix of a LIB-* finding: use the first of names the app already references (referenced: lower-cased project names),
+  // else import the first one and read what it offers.
+  C8O.lint.libraryFix = function (app, names, referenced) {
+    var refs = referenced || {};
+    for (var i = 0; i < names.length; i++) {
+      if (refs[names[i].toLowerCase()] === true) {
+        return "The app references " + names[i] + ": " + C8O.lint.LIBRARIES[names[i]].use + " instead; marketplace-describe({project:\"" +
+          names[i] + "\"}) gives their QNames.";
+      }
+    }
+    return "Import " + names[0] + ": marketplace-import({project:\"" + names[0] + "\", targetProject:\"" + app + "\"}), then marketplace-describe({project:\"" +
+      names[0] + "\"}) for its sequences and shared components" + (names.length > 1 ? "; " + names.slice(1).join(" or ") + " the same way." : ".");
+  };
+
+  // LIB-HANDMADE-CSV: code about CSV (the word, text/csv, .csv) that joins cells or rows itself: .join(";"), .join(","),
+  // .join("\t"), .join("\n"), .join(separator), "\r\n", + ";" +, + "\n", `${a};${b}`. The join found, "" otherwise;
+  // reading a CSV (split) or calling a library sequence joins nothing.
+  var CSV_JOINS = [
+    /\.join\s*\(\s*(["'`])(?:;|,|\||\t|\\t|\\r\\n|\\n)\1\s*\)/,
+    /\.join\s*\(\s*(?:sep|separator|delimiter|delim)\w*\s*\)/i,
+    /(["'`])\\r\\n\1/,
+    /\+\s*(["'`])[;,]\1\s*\+/,
+    /\+\s*(["'`])(?:\\r)?\\n\1/,
+    /\$\{[^}]*\}[;,]\$\{/
+  ];
+  C8O.lint.handmadeCsv = function (code) {
+    var text = String(code || "");
+    if (!/csv/i.test(text)) {
+      return "";
+    }
+    for (var i = 0; i < CSV_JOINS.length; i++) {
+      var match = CSV_JOINS[i].exec(text);
+      if (match) {
+        return match[0];
+      }
+    }
+    return "";
+  };
+
+  // LIB-HANDMADE-AUTH in SQL: a password column, as a whole identifier of the statement once literals, comments and
+  // {variables} are out: password, passwd, pwd, mot_de_passe, motdepasse, alone or with a hash, digest, salt or crypt part
+  // (password_hash, hashed_password, pwd_salt). password_reset_sent_at or password_changed_at are other columns.
+  var PASSWORD_COLUMN = /^(?:(?:hashed|encrypted|crypted)_?)?(?:password|passwd|pwd|mot_?de_?passe)(?:_?(?:hash|hashed|digest|salt|crypt|encrypted))?$/i;
+  C8O.lint.passwordColumn = function (sql) {
+    var text = String(sql || "").replace(/'(?:[^']|'')*'/g, " ").replace(/--[^\n]*/g, " ").replace(/\/\*[\s\S]*?\*\//g, " ")
+      .replace(/\{[^}]*\}/g, " ");
+    var tokens = text.match(/[A-Za-z_][\w$]*/g) || [];
+    for (var i = 0; i < tokens.length; i++) {
+      if (PASSWORD_COLUMN.test(tokens[i])) {
+        return tokens[i];
+      }
+    }
+    return "";
+  };
+
+  // LIB-HANDMADE-AUTH in code: a hash call (MessageDigest, DigestUtils, sha256, bcrypt, pbkdf2, argon2, scrypt, createHash,
+  // crypto.subtle) with a password word (passw, pwd, mot de passe) within 200 characters of it. The call found, or "".
+  var HASH_CALL = /MessageDigest|DigestUtils|sha-?(?:1|256|384|512)|bcrypt|pbkdf2|argon2|scrypt|createHash\s*\(|crypto\.subtle/ig;
+  var PASSWORD_WORD = /passw|pwd|mot_?de_?passe/i;
+  C8O.lint.passwordHashing = function (code) {
+    var text = String(code || "");
+    if (!PASSWORD_WORD.test(text)) {
+      return "";
+    }
+    HASH_CALL.lastIndex = 0;
+    var match;
+    while ((match = HASH_CALL.exec(text)) !== null) {
+      if (PASSWORD_WORD.test(text.substring(Math.max(0, match.index - 200), match.index + match[0].length + 200))) {
+        return match[0].replace(/\s*\($/, "");
+      }
+    }
+    return "";
+  };
+
+  // LIB-NPM-DUPLICATE: npm packages a library already wraps. rows: package_dependencies, [[package, version], ...].
+  // Returns [{package, library, also}].
+  var NPM_LIBRARIES = {
+    "ag-grid-community": "lib_ExtendedComponents_ui_ngx", "ag-grid-angular": "lib_ExtendedComponents_ui_ngx",
+    "apexcharts": "libApexCharts", "ng-apexcharts": "libApexCharts", "chart.js": "libApexCharts", "ng2-charts": "libApexCharts",
+    "echarts": "libApexCharts", "ngx-echarts": "libApexCharts", "@swimlane/ngx-charts": "libApexCharts",
+    "papaparse": "lib_csv_response", "json2csv": "lib_csv_response", "csv-stringify": "lib_csv_response",
+    "jspdf": "lib_fill_odt_pdf", "pdfmake": "lib_fill_odt_pdf", "docx": "lib_fill_odt_pdf",
+    "xlsx": "lib_MicrosoftExcel_ui_ngx", "exceljs": "lib_MicrosoftExcel_ui_ngx",
+    "leaflet": "lib_Leaflet"
+  };
+  C8O.lint.npmDuplicates = function (rows) {
+    var out = [];
+    (rows || []).forEach(function (row) {
+      var name = String((Array.isArray(row) ? row[0] : row) || "").trim().toLowerCase();
+      var library = Object.prototype.hasOwnProperty.call(NPM_LIBRARIES, name) ? NPM_LIBRARIES[name]
+        : (/^@fullcalendar\//.test(name) ? "lib_FullCalendar" : "");
+      if (library.length) {
+        out.push({ package: name, library: library,
+          also: library === "lib_csv_response" ? "the agGrid of lib_ExtendedComponents_ui_ngx also exports a list page's rows to CSV" : "" });
+      }
+    });
+    return out;
+  };
+
+  // The root locals a ForEach source lists: the first name of a Local source path ({"filter":"Local","model":{"path":
+  // "?.data?.items"}} lists data), each local.x of a script or computed source, or the bare member a script starts with.
+  C8O.lint.listRoots = function (source) {
+    var text = String(source || "").trim();
+    var roots = [];
+    var push = function (name) {
+      if (name && !/^(local|c8oPage|this|router|scope|global)$/.test(name) && roots.indexOf(name) < 0) {
+        roots.push(name);
+      }
+    };
+    if (/^\{/.test(text)) {
+      try {
+        var json = JSON.parse(text);
+        var path = json && json.filter === "Local" && json.model ? String(json.model.path || "") : "";
+        var first = /^[?.\s]*(?:\[\s*['"])?([A-Za-z_$][\w$]*)/.exec(path);
+        push(first && first[1]);
+      } catch (_notJson) {}
+      return roots;
+    }
+    text.replace(/\blocal\s*\??\.\s*([A-Za-z_$][\w$]*)/g, function (all, name) {
+      push(name);
+      return all;
+    });
+    if (!roots.length) {
+      var lead = /^(?:this\s*\??\.\s*)?([A-Za-z_$][\w$]*)/.exec(text);
+      push(lead && lead[1]);
+    }
+    return roots;
+  };
+
+  // A SetLocalAction (or any dynamic bean) property as text, from the YAML ("script:...") or the in-memory bean ({mode, value}).
+  C8O.lint.beanText = function (bean, key) {
+    var props = bean && bean.properties && typeof bean.properties === "object" ? bean.properties : (bean || {});
+    var value = props[key];
+    return value && typeof value === "object" ? String(value.value == null ? "" : value.value)
+      : (typeof value === "string" ? value.replace(/^(plain|script|source):/, "") : "");
+  };
+
+  // LIB-HANDMADE-GRID: a page (or shared component) that lists rows with a ForEach and sorts, filters or pages them itself.
+  // view: {lists: root locals of its ForEach sources, agGrid: it uses the agGrid, codes: [{where, text, sets}]} from its
+  // scriptContent, custom actions, SetLocalAction values (sets: the local set) and ForEach sources. Code counts when it sets
+  // or reads a listed local (local.items, this.items, get items()). A filter counts with a search in it (toLowerCase,
+  // includes, indexOf...) or a local named filter, search, query, term: removing a deleted row (items.filter(i => i.id !==
+  // id)) is no grid. Paging is .slice( with page words, or the slice pipe. Server filters (locals passed to a
+  // CallSequenceAction, as ngx-page-create builds them) are no code here. Returns {ops, where} or null.
+  var GRID_SORT = /\.sort\s*\(|\blocaleCompare\s*\(/;
+  var GRID_FILTER = /\.filter\s*\(/;
+  var GRID_SEARCH = /\.(?:toLowerCase|toLocaleLowerCase|toUpperCase|includes|indexOf|startsWith|endsWith|match)\s*\(|\.\s*\w*(?:filter|search|query|term|keyword|criteri)\w*\b(?!\s*\()/i;
+  var GRID_PAGE_WORDS = /\b(?:pageIndex|pageNumber|pageSize|pageCount|perPage|currentPage|rowsPerPage|itemsPerPage|pageStart)\b|\.\s*page\b(?!\s*\??\.)/;
+  C8O.lint.handmadeGrid = function (view) {
+    if (!view || view.agGrid === true || !view.lists || !view.lists.length) {
+      return null;
+    }
+    var reads = new RegExp("(?:\\blocal\\s*\\??\\.\\s*|\\bthis\\s*\\??\\.\\s*|\\bget\\s+)(?:" +
+      view.lists.map(function (n) { return String(n).replace(/\$/g, "\\$"); }).join("|") + ")\\b");
+    var ops = { sorts: false, filters: false, pages: false };
+    var where = [];
+    (view.codes || []).forEach(function (code) {
+      var text = String(code.text || "");
+      if (view.lists.indexOf(code.sets) < 0 && !reads.test(text)) {
+        return;
+      }
+      var sorts = GRID_SORT.test(text);
+      var filters = GRID_FILTER.test(text) && GRID_SEARCH.test(text);
+      var pages = (/\.slice\s*\(/.test(text) && GRID_PAGE_WORDS.test(text)) || /\|\s*slice\s*:/.test(text);
+      if (sorts || filters || pages) {
+        ops.sorts = ops.sorts || sorts;
+        ops.filters = ops.filters || filters;
+        ops.pages = ops.pages || pages;
+        if (where.indexOf(code.where) < 0) {
+          where.push(code.where);
+        }
+      }
+    });
+    var done = ["sorts", "filters", "pages"].filter(function (op) { return ops[op]; });
+    return done.length ? { ops: done, where: where } : null;
+  };
+
+  // The project's own scripts, js/**/*.js: [{path, text}]. A minified or large file is a vendored library, not app code.
+  C8O.lint.readProjectJs = function (project) {
+    var out = [];
+    try {
+      (function walk(dir, prefix, depth) {
+        var list = dir.isDirectory() ? dir.listFiles() : null;
+        for (var i = 0; list && i < list.length && out.length < 200; i++) {
+          var name = String(list[i].getName());
+          if (list[i].isDirectory()) {
+            if (depth < 3 && name !== "node_modules") {
+              walk(list[i], prefix + name + "/", depth + 1);
+            }
+          } else if (/\.js$/.test(name) && !/\.min\.js$/.test(name) && Number(list[i].length()) <= 262144) {
+            out.push({ path: prefix + name, text: String(new java.lang.String(java.nio.file.Files.readAllBytes(list[i].toPath()), "UTF-8")) });
+          }
+        }
+      })(new java.io.File(String(project.getDirPath()), "js"), "js/", 0);
+    } catch (_ignoreJs) {}
+    return out;
+  };
+
+  // The projects a project references, lower-cased: {lib_csv_response: true}. Only project references have a parser.
+  function referencedProjects(project) {
+    var out = {};
+    try {
+      var refs = project.getReferenceList();
+      for (var i = 0; i < refs.size(); i++) {
+        var parser = call(refs.get(i), "getParser");
+        var name = parser ? str(call(parser, "getProjectName")).trim() : "";
+        if (name.length) {
+          out[name.toLowerCase()] = true;
+        }
+      }
+    } catch (_noReferences) {}
+    return out;
+  }
+
   C8O.lint.run = function (projectName, options) {
     var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(String(projectName || ""));
@@ -410,6 +643,12 @@ if (typeof include === "function") {
     var i18n = C8O.lint.readI18n(project);
     var counts = { byRule: {}, bySeverity: { error: 0, warning: 0, info: 0 } };
     var scanned = 0;
+    // LIB-* rules: the libraries the app references already, and no rule sends a library to itself.
+    var appName = String(project.getName());
+    var referenced = referencedProjects(project);
+    var isOneOf = function (names) {
+      return names.some(function (n) { return n.toLowerCase() === appName.toLowerCase(); });
+    };
 
     function add(rule, severity, dbo, message, fix) {
       counts.byRule[rule] = (counts.byRule[rule] || 0) + 1;
@@ -417,6 +656,9 @@ if (typeof include === "function") {
       C8O.lint.keepFinding(findings, { rule: rule, severity: severity, qname: typeof dbo === "string" ? dbo : qnameOf(dbo), message: message, fix: fix },
         MAX_FINDINGS);
     }
+
+    var AUTH_LIBRARIES_TEXT = "lib_UserManager keeps accounts with password and OpenID/OAuth sign-on, lib_UserManager_ui_ngx gives " +
+      "its login, sign-up and reset screens, lib_OAuth signs in through an external identity provider.";
 
     function lintSql(dbo) {
       var query = str(call(dbo, "getSqlQuery"));
@@ -469,6 +711,48 @@ if (typeof include === "function") {
           "Quote the aliases: AS \"" + alias[1] + "\". A step that already reads ./row/" + folded + " then reads nothing: quote AS \"" +
           folded + "\" for it instead.");
       }
+      var passwordColumn = C8O.lint.passwordColumn(query);
+      if (passwordColumn.length && !isOneOf(C8O.lint.AUTH_LIBRARIES)) {
+        add("LIB-HANDMADE-AUTH", "warning", dbo, "The SQL reads or writes the password column " + passwordColumn + ": the app stores or checks " +
+          "passwords itself, so hashing, salts, reset and lockout are its own code. " + AUTH_LIBRARIES_TEXT,
+          C8O.lint.libraryFix(appName, C8O.lint.AUTH_LIBRARIES, referenced) + " Accounts live in the library; business data stays where it is.");
+      }
+    }
+
+    // Code of the project (a step, a custom action, a page script, js/*.js) that does what a library does: a CSV joined by
+    // hand, a password hashed. One finding per object and rule.
+    function lintLibraryCode(where, code) {
+      if (!code.length) {
+        return;
+      }
+      var join = C8O.lint.handmadeCsv(code);
+      if (join.length && !isOneOf(C8O.lint.CSV_LIBRARIES)) {
+        add("LIB-HANDMADE-CSV", "warning", where, "Code about CSV joins the cells or rows itself (" + join.substring(0, 40) + "): quoting, " +
+          "separators inside values and line ends are its own to get right. lib_csv_response gives " + C8O.lint.LIBRARIES.lib_csv_response.gives +
+          ", lib_download_file " + C8O.lint.LIBRARIES.lib_download_file.gives + "; the agGrid of lib_ExtendedComponents_ui_ngx exports a list " +
+          "page's rows to CSV itself (ngx-page-create kind list with list.grid:{csv:true}).",
+          C8O.lint.libraryFix(appName, C8O.lint.CSV_LIBRARIES, referenced));
+      }
+      var hash = C8O.lint.passwordHashing(code);
+      if (hash.length && !isOneOf(C8O.lint.AUTH_LIBRARIES)) {
+        add("LIB-HANDMADE-AUTH", "warning", where, "The code hashes a password (" + hash + " next to a password): the app stores or checks " +
+          "passwords itself, so hashing, salts, reset and lockout are its own code. " + AUTH_LIBRARIES_TEXT,
+          C8O.lint.libraryFix(appName, C8O.lint.AUTH_LIBRARIES, referenced) + " Accounts live in the library; business data stays where it is.");
+      }
+    }
+
+    // JavaScript in the SmartType properties of a step (JsonToXmlStep jsonObject, JsonFieldStep value...).
+    function stepSmartScripts(step) {
+      var out = [];
+      ["getJsonObject", "getValue", "getKey", "getHeaderValue"].forEach(function (getter) {
+        var smart = call(step, getter);
+        try {
+          if (smart && typeof smart.getMode === "function" && String(smart.getMode()) === "JS") {
+            out.push(str(smart.getExpression()));
+          }
+        } catch (_ignoreSmartType) {}
+      });
+      return out.join("\n");
     }
 
     function lintSequence(sequence) {
@@ -500,6 +784,8 @@ if (typeof include === "function") {
         if (condition.length) {
           expressions.push(condition);
         }
+        var smartScripts = stepSmartScripts(step);
+        lintLibraryCode(step, smartScripts.length ? expression + "\n" + smartScripts : expression);
         if (className === "TransactionStep") {
           var target = str(call(step, "getSourceTransaction"));
           var targetName = target.substring(target.lastIndexOf(".") + 1);
@@ -679,14 +965,81 @@ if (typeof include === "function") {
       }
     }
 
+    // What the LIB-* rules read of the NGX objects: the code of custom actions and page scripts (CSV, password hashing),
+    // the npm packages of custom actions, and per view (page or shared component) its ForEach lists, whether it uses the
+    // agGrid, and the code that may touch the list (LIB-HANDMADE-GRID, after the walk).
+    function noteLibraryUse(dbo, className, view) {
+      var name = String(dbo.getName());
+      if (className === "PageComponent" || className === "UICustomAction" || className === "UICustomAsyncAction") {
+        var code = str(call(dbo, className === "PageComponent" ? "getScriptContent" : "getActionValue"));
+        lintLibraryCode(dbo, code);
+        if (view && code.length) {
+          view.codes.push({ where: className === "PageComponent" ? "scriptContent" : name, text: code, sets: "" });
+        }
+      }
+      if (className === "UICustomAction" || className === "UICustomAsyncAction") {
+        var rows = null;
+        try {
+          rows = C8O.dbo._normalizeXMLVector(call(dbo, "getPackageDependencies"));
+        } catch (_ignoreDependencies) {}
+        var byLibrary = {};
+        C8O.lint.npmDuplicates(rows).forEach(function (d) {
+          if (!isOneOf([d.library])) {
+            (byLibrary[d.library] = byLibrary[d.library] || []).push(d);
+          }
+        });
+        Object.keys(byLibrary).forEach(function (library) {
+          var found = byLibrary[library];
+          add("LIB-NPM-DUPLICATE", "warning", dbo, "package_dependencies adds " + found.map(function (d) { return d.package; }).join(", ") +
+            ", which the library " + library + " already wraps: " + C8O.lint.LIBRARIES[library].gives + (found[0].also ? "; " + found[0].also : "") +
+            ". The app then maintains its own wrapper, with a version of the package that can clash with the library's.",
+            C8O.lint.libraryFix(appName, [library], referenced) + " Then take " + (found.length > 1 ? "these packages" : "the package") +
+            " out of package_dependencies.");
+        });
+      }
+      if (!view) {
+        return;
+      }
+      if (className === "UIControlDirective" && /^(ForEach|CdkVirtualFor|NewFor)$/.test(str(call(dbo, "getDirectiveName")))) {
+        var smart = call(dbo, "getSourceSmartType");
+        var source = str(smart);
+        var raw = "";
+        try {
+          raw = smart && typeof smart.getSmartValue === "function" ? str(smart.getSmartValue()) : "";
+        } catch (_ignoreRaw) {}
+        C8O.lint.listRoots(source).concat(C8O.lint.listRoots(raw)).forEach(function (root) {
+          if (view.lists.indexOf(root) < 0) {
+            view.lists.push(root);
+          }
+        });
+        view.codes.push({ where: name, text: source + " " + str(call(dbo, "getDirectiveExpression")), sets: "" });
+      } else if (className === "UIUseShared" && /\.agGrid$/.test(str(call(dbo, "getSharedComponentQName")))) {
+        view.agGrid = true;
+      } else if (className === "UIDynamicAction") {
+        var beanData = str(call(dbo, "getBeanData"));
+        if (beanData.indexOf("SetLocalAction") >= 0) {
+          try {
+            var bean = JSON.parse(beanData.replace(/^'|'$/g, ""));
+            if (String(bean.ionBean || bean.name) === "SetLocalAction") {
+              view.codes.push({ where: name, text: C8O.lint.beanText(bean, "Value"), sets: C8O.lint.beanText(bean, "Property").trim() });
+            }
+          } catch (_ignoreSetLocal) {}
+        }
+      }
+    }
+
     // Objects a reader of the project needs explained, kept without a comment; and the starter's own page.
     var uncommented = { sequence: [], transaction: [], connector: [], page: [] };
     var pages = [];
     var appStyles = [];
     var appComponent = null;
+    var views = [];
     var queue = [project];
+    // The page or shared component each queued object sits in.
+    var queueViews = [null];
     while (queue.length) {
       var dbo = queue.shift();
+      var view = queueViews.shift();
       scanned++;
       var className = simpleClassName(dbo);
       var docKind = className === "PageComponent" ? "page" : (/Connector$/.test(className) ? "connector" :
@@ -704,8 +1057,13 @@ if (typeof include === "function") {
       } else if (/Sequence$/.test(className) && className !== "Sequence") {
         lintSequence(dbo);
       }
+      if (className === "PageComponent" || className === "UISharedComponent") {
+        view = { dbo: dbo, lists: [], agGrid: false, codes: [] };
+        views.push(view);
+      }
       if (/^(UI|PageComponent)/.test(className)) {
         lintNgx(dbo, className);
+        noteLibraryUse(dbo, className, view);
       }
       if (className === "ApplicationComponent") {
         appComponent = dbo;
@@ -720,8 +1078,28 @@ if (typeof include === "function") {
       var next = C8O.dbo.getDirectChildren(dbo);
       for (var i = 0; i < next.length; i++) {
         queue.push(next[i]);
+        queueViews.push(view);
       }
     }
+
+    // A list sorted, filtered or paged by the page itself: one finding per page or shared component.
+    if (!isOneOf(["lib_ExtendedComponents_ui_ngx"])) {
+      views.forEach(function (v) {
+        var grid = C8O.lint.handmadeGrid(v);
+        if (grid) {
+          var ops = grid.ops.length > 1 ? grid.ops.slice(0, -1).join(", ") + " and " + grid.ops[grid.ops.length - 1] : grid.ops[0];
+          add("LIB-HANDMADE-GRID", "warning", v.dbo, "The " + (simpleClassName(v.dbo) === "PageComponent" ? "page" : "shared component") + " " + ops +
+            " its list (ForEach over " + v.lists.join(", ") + ") itself, in " + grid.where.slice(0, 4).join(", ") + (grid.where.length > 4 ? "..." : "") +
+            ": a hand-made data grid. The agGrid shared component of lib_ExtendedComponents_ui_ngx sorts, filters and pages, and exports to " +
+            "CSV and XLSX; ngx-page-create kind list with list.grid:true generates it.",
+            C8O.lint.libraryFix(appName, ["lib_ExtendedComponents_ui_ngx"], referenced));
+        }
+      });
+    }
+    // The project's own scripts (js/*.js): a CSV joined by hand, a password hashed.
+    C8O.lint.readProjectJs(project).forEach(function (file) {
+      lintLibraryCode(file.path, file.text);
+    });
 
     Object.keys(uncommented).forEach(function (kind) {
       var missing = uncommented[kind];

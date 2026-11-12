@@ -12,11 +12,11 @@ Output tokens are the main cost, far ahead of tool latency. Before writing trees
 - Keep the default compact responses of `batch-call` and `databaseobject-tree-apply`.
 
 ## Reuse inventory first
-Before the architecture, list what the specification needs and search for it: `marketplace-list({search:"<capability>"})` with English keywords for each capability, then `marketplace-describe({project})` on each candidate to read what it offers and how to call it; `palette-list` for native steps. A build that skipped this step rewrote SMTP sending, CSV export and admin grids by hand. A chosen library is imported with `marketplace-import({project:"<library>", targetProject:"<App>"})`, which adds the reference in the app; this is not a change to another project, even when the specification says to modify no project but the app. Candidates found in the marketplace descriptions:
+Before the architecture, list what the specification needs and search for it: `marketplace-list({search:"<capability>"})` for each capability (English or French words: it lists first the libraries that provide it), then `marketplace-describe({project})` on each candidate to read what it offers and how to call it; `palette-list` for native steps. A build that skipped this step rewrote SMTP sending, CSV export and admin grids by hand. A chosen library is imported with `marketplace-import({project:"<library>", targetProject:"<App>"})`, which adds the reference in the app; this is not a change to another project, even when the specification says to modify no project but the app. Candidates found in the marketplace descriptions:
 - authentication and SSO: `lib_UserManager` (user/password, OpenID/OAuth sign-ons), `lib_OAuth` (OAuth/OpenID, e.g. an Entra ID tenant), `lib_SAML`, `lib_LDAP`, `AuthStarter`, `lib_UserManager_ui_ngx` (ready screens); see `convertigo-authentication`
 - mail: the native `steps.SmtpStep`; `lib_Microsoft_Teams` for Outlook through Microsoft Graph
 - CSV and files: `lib_csv_response` (plain text CSV response), `lib_download_file` (download controlled by a sequence)
-- admin lists: `lib_ExtendedComponents_ui_ngx` (AG Grid with sorting, filtering and paging); charts: `libApexCharts`
+- admin lists: `lib_ExtendedComponents_ui_ngx` (AG Grid with sorting, filtering, paging and CSV export; `ngx-page-create` builds it on a list page with `list.grid`, and on its own for a table of 5 cells or more); charts: `libApexCharts`
 - documents: `lib_fill_odt_pdf` (fill Word/Excel/PowerPoint, PDF), `lib_JasperReports`
 If the specification limits dependencies, a marketplace library is still a standard Convertigo component: record the choice either way in the decision log.
 

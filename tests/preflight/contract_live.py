@@ -218,6 +218,7 @@ class Contract:
             ("log-view, text 'item' limit 300", "log-view", {"text": "item", "limit": 300}),
             ("marketplace-list, no argument", "marketplace-list", {}),
             ("marketplace-list, search without match", "marketplace-list", {"search": "email smtp", "limit": 10}),
+            ("marketplace-list, capability word", "marketplace-list", {"search": "tableau export csv", "limit": 10}),
             ("marketplace-list, detail full", "marketplace-list", {"detail": "full"}),
             ("marketplace-list, limit 200", "marketplace-list", {"limit": 200}),
             ("batch-call, 40 reads (compact)", "batch-call", {"calls": reads}),
@@ -243,6 +244,9 @@ class Contract:
         ]
         for label, tool, args in cases:
             a = self.m.call(tool, args, timeout=600)
+            # Their answers are schema-checked too: marketplace-list with a capability word answered capabilities as an
+            # array where its outputSchema said string, and every search failed in Vibe (31/10).
+            self.answers.append((label, tool, a))
             if a.is_error:
                 self.r.add("size", label, "WARN", f"call failed, size not measured: {_message(a)[:200]}")
                 continue

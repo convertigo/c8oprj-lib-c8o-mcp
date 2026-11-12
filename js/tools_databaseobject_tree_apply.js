@@ -386,6 +386,12 @@ if (treeApplyInputErrors.length > 0) {
     treeApplyResult.errors.push(treeApplyInputErrors[ei]);
   }
 }
+if (treeApplyResult && treeApplyResult.dryRun !== true && treeApplyResult.status !== "failed" && typeof C8O.dbo.reloadForLibraryComponents === "function") {
+  var treeApplyLibraryReload = C8O.dbo.reloadForLibraryComponents(targetInput, op);
+  if (treeApplyLibraryReload.length) {
+    treeApplyWarnings.push(treeApplyLibraryReload);
+  }
+}
 if (treeApplyWarnings.length > 0) {
   if (!treeApplyResult.warnings) {
     treeApplyResult.warnings = [];

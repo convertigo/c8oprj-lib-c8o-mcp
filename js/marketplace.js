@@ -407,6 +407,146 @@ C8O.marketplace._searchWords = function (search) {
   return words;
 };
 
+// What an app needs, in the words of a specification (English or French), and the libraries that provide it. The catalog
+// is in English with short descriptions: "table", "tableau", "liste", "graphique", "courriel" or "kanban" never reached
+// lib_ExtendedComponents_ui_ngx, libApexCharts or the mail step, and agents built those by hand (PCA eval, 31/10).
+// terms are extra catalog keywords searched with the words; libraries come first in the answer with how to use them.
+C8O.marketplace.CAPABILITIES = [
+  { capability: "data grid", terms: ["grid"],
+    words: ["table", "tableau", "liste", "list", "grid", "grille", "datagrid", "data grid", "aggrid", "ag-grid", "ag grid",
+      "admin list", "liste admin", "back-office", "backoffice", "tri", "sort", "sorting", "pagination", "paging", "filtres", "filters"],
+    libraries: [
+      { name: "lib_ExtendedComponents_ui_ngx", use: "agGrid shared component: sorting, filtering, paging, CSV and XLSX export. ngx-page-create builds it on a list page with list.grid." },
+      { name: "lib_TreeTable", use: "treeTable shared component for rows in a hierarchy (PrimeNG TreeTable)." }] },
+  { capability: "charts", terms: ["chart"],
+    words: ["chart", "graph", "graphique", "graphe", "diagramme", "courbe", "camembert", "histogramme", "histogram", "pie",
+      "bar chart", "line chart", "statistiques", "statistics", "dashboard", "tableau de bord", "kpi"],
+    libraries: [{ name: "libApexCharts", use: "ApexCharts shared components: bar, line, area, pie, donut, radar charts." }] },
+  { capability: "CSV export", terms: ["csv"],
+    words: ["csv", "export", "exporter", "exportation", "extraction", "extract"],
+    libraries: [
+      { name: "lib_csv_response", use: "A sequence that answers plain text CSV built from rows." },
+      { name: "lib_ExtendedComponents_ui_ngx", use: "The agGrid of a list page exports its rows to CSV or XLSX itself (list.grid.csv)." }] },
+  { capability: "Excel files", terms: ["excel"],
+    words: ["excel", "xlsx", "xls", "spreadsheet", "tableur", "classeur"],
+    libraries: [
+      { name: "lib_MicrosoftExcel_ui_ngx", use: "Excel file import and export in an NGX app." },
+      { name: "lib_ExtendedComponents_ui_ngx", use: "The agGrid exports its rows to XLSX (showXlsxDownload)." }] },
+  { capability: "PDF and Office documents", terms: ["pdf", "report"],
+    words: ["pdf", "document", "word", "docx", "odt", "rapport", "report", "facture", "invoice", "attestation", "certificat",
+      "certificate", "imprimer", "print", "impression", "publipostage", "mail merge"],
+    libraries: [
+      { name: "lib_fill_odt_pdf", use: "Fill Word, Excel, PowerPoint or OpenDocument templates and convert them to PDF." },
+      { name: "lib_JasperReports", use: "PDF reports from data with JasperReports templates." }] },
+  { capability: "file download and upload", terms: ["download", "upload"],
+    words: ["download", "telechargement", "telecharger", "fichier", "file", "files", "upload", "televersement", "televerser",
+      "piece jointe", "attachment", "depot", "stockage", "storage"],
+    libraries: [
+      { name: "lib_download_file", use: "A file download controlled by a sequence (any file the server reaches)." },
+      { name: "lib_FileStorage_ui_ngx", use: "Store, list and delete files in the server workspace from an NGX app." },
+      { name: "lib_ExtendedComponents_ui_ngx", use: "DropZoneComponent shared component for file upload." }] },
+  { capability: "mail", terms: ["mail"],
+    words: ["mail", "email", "e-mail", "courriel", "mel", "smtp", "relance", "reminder", "notification", "outlook", "imap"],
+    native: "Sending mail is the native step steps.SmtpStep (palette-list), not a library.",
+    libraries: [
+      { name: "lib_MailListener", use: "Reads an IMAP mailbox and routes each new mail with rules." },
+      { name: "lib_Microsoft_Teams", use: "Outlook mail, calendars and Teams meetings through Microsoft Graph." }] },
+  { capability: "authentication", terms: ["authentication"],
+    words: ["auth", "authentication", "authentification", "login", "logon", "connexion", "sign-in", "signin", "sign in",
+      "sign-up", "signup", "inscription", "sso", "oauth", "openid", "oidc", "password", "mot de passe", "account", "compte",
+      "user management", "gestion des utilisateurs", "utilisateurs", "users", "entra", "azure ad", "saml", "ldap",
+      "active directory", "franceconnect", "2fa", "mfa"],
+    libraries: [
+      { name: "lib_UserManager", use: "Accounts with password and OpenID/OAuth sign-on (Google, Microsoft, LinkedIn), sessions and roles." },
+      { name: "lib_UserManager_ui_ngx", use: "Ready NGX screens for login, sign-up and password reset over lib_UserManager." },
+      { name: "lib_OAuth", use: "OAuth / OpenID Connect with an external identity provider (Entra ID...)." },
+      { name: "lib_SAML", use: "SAML 2.0 single sign-on." },
+      { name: "lib_LDAP", use: "LDAP or Active Directory authentication and directory queries." },
+      { name: "lib_FranceConnect", use: "FranceConnect identity verification." }] },
+  { capability: "calendar and planning", terms: ["calendar", "planning"],
+    words: ["calendar", "calendrier", "agenda", "planning", "planner", "scheduler", "rendez-vous", "appointment", "booking",
+      "reservation", "gantt"],
+    libraries: [
+      { name: "lib_FullCalendar", use: "FullCalendar shared component: month, week, day and list views." },
+      { name: "lib_TuiPlanner", use: "Planning component with an agenda-like display." },
+      { name: "lib_ExtendedComponents_ui_ngx", use: "frappeGantt shared component for a Gantt chart." }] },
+  { capability: "maps and geocoding", terms: ["leaflet", "geocoding"],
+    words: ["map", "maps", "carte", "cartographie", "geolocation", "geolocalisation", "geocoding", "geocodage", "adresse",
+      "address", "gps", "openstreetmap", "leaflet"],
+    libraries: [
+      { name: "lib_Leaflet", use: "Leaflet interactive maps (OpenStreetMap)." },
+      { name: "lib_Geocoding_ui_ngx", use: "Geocoding and address lookup in an NGX app." }] },
+  { capability: "payment", terms: ["stripe"],
+    words: ["payment", "paiement", "payer", "pay", "checkout", "stripe", "carte bancaire", "credit card", "abonnement",
+      "subscription"],
+    libraries: [
+      { name: "lib_Stripe_ui_ngx", use: "Stripe payment UI for NGX apps." },
+      { name: "lib_Stripe", use: "Stripe API connector." }] },
+  { capability: "SMS and messaging", terms: ["sms"],
+    words: ["sms", "texto", "whatsapp", "viber"],
+    libraries: [{ name: "lib_Vonage", use: "SMS, WhatsApp, Viber and MMS through Vonage." }] },
+  { capability: "push notifications", terms: ["push"],
+    words: ["push", "fcm", "firebase"],
+    libraries: [
+      { name: "lib_PushManager_ui_ngx", use: "Firebase Cloud Messaging push notifications, client part for NGX." },
+      { name: "lib_PushManager", use: "Firebase Cloud Messaging push notifications, server part." }] },
+  { capability: "rich UI components", terms: [],
+    words: ["kanban", "qr", "qrcode", "qr code", "barcode", "code-barre", "code barre", "scan", "scanner", "wysiwyg",
+      "rich text", "texte riche", "editeur", "editor", "tinymce", "datepicker", "date picker", "slider", "tags",
+      "autocomplete", "drag", "drop", "glisser", "sortable", "image editor", "graph view", "graphe de relations"],
+    libraries: [{ name: "lib_ExtendedComponents_ui_ngx", use: "Shared components: kanbanBoard, QR code and barcode scan, tinyMce rich text, materialDatePicker, materialSlider, ngSelect, ngxTagInput, sortableJS, tuiImageEditor, cyGraph." }] },
+  { capability: "captcha", terms: ["captcha"],
+    words: ["captcha", "bot", "anti-robot", "antibot"],
+    libraries: [{ name: "lib_Captcha", use: "Self-hosted ALTCHA CAPTCHA with an NGX widget." }] },
+  { capability: "API keys and tokens", terms: ["jwt"],
+    words: ["jwt", "token", "jeton", "api key", "apikey", "cle api", "cle d'api"],
+    libraries: [
+      { name: "lib_JWT", use: "Create, sign and check HS256 JWTs." },
+      { name: "lib_ApiKeyManager", use: "Create and manage API keys that control access to API endpoints." }] }
+];
+
+// Lower case without accents, so "Téléchargement" and "telechargement" are the same word.
+C8O.marketplace._fold = function (text) {
+  return C8O.marketplace._trim(text).toLowerCase()
+    .replace(/[àâä]/g, "a").replace(/[éèêë]/g, "e").replace(/[îï]/g, "i").replace(/[ôö]/g, "o").replace(/[ùûü]/g, "u")
+    .replace(/ç/g, "c").replace(/[’']/g, "'");
+};
+
+// The capabilities a search names: a whole word of the search (or that word without its plural s or x) or a phrase of
+// several words. Each match keeps the words that triggered it.
+C8O.marketplace.capabilitiesOf = function (search) {
+  var text = " " + C8O.marketplace._fold(search).replace(/[\s,;+|/]+/g, " ") + " ";
+  var tokens = text.trim().split(" ");
+  var hasWord = function (word) {
+    if (word.indexOf(" ") >= 0) {
+      return text.indexOf(" " + word + " ") >= 0;
+    }
+    for (var t = 0; t < tokens.length; t++) {
+      var token = tokens[t];
+      if (token === word || ((/[sx]$/).test(token) && token.length > 3 && token.substring(0, token.length - 1) === word)) {
+        return true;
+      }
+    }
+    return false;
+  };
+  var found = [];
+  for (var c = 0; c < C8O.marketplace.CAPABILITIES.length; c++) {
+    var cap = C8O.marketplace.CAPABILITIES[c];
+    var matched = [];
+    for (var w = 0; w < cap.words.length; w++) {
+      var word = C8O.marketplace._fold(cap.words[w]);
+      if (hasWord(word) && matched.indexOf(word) < 0) {
+        matched.push(word);
+      }
+    }
+    if (matched.length) {
+      found.push({ capability: cap.capability, matchedWords: matched, terms: cap.terms.slice(), native: cap.native || "",
+        libraries: cap.libraries.map(function (l) { return { name: l.name, use: l.use }; }) });
+    }
+  }
+  return found;
+};
+
 // limit 200 answered 62 000 characters for the 101 entries of the catalog (preflight checks): a page also stops near
 // 20 000 characters of entries, with hasMore and nextCursor. The descriptions count as the 240 characters listed.
 C8O.marketplace._boundPage = function (result) {
@@ -439,9 +579,18 @@ C8O.marketplace._boundPage = function (result) {
 C8O.marketplace.list = function (options) {
   var opts = options || {};
   var search = C8O.marketplace._trim(opts.search);
+  var capabilities = search.length ? C8O.marketplace.capabilitiesOf(search) : [];
   var words = C8O.marketplace._searchWords(search);
+  // The catalog keywords of the capabilities named are searched too ("tableau" also searches "grid").
+  for (var ct = 0; ct < capabilities.length; ct++) {
+    for (var tt = 0; tt < capabilities[ct].terms.length && words.length < 8; tt++) {
+      if (words.indexOf(capabilities[ct].terms[tt]) < 0) {
+        words.push(capabilities[ct].terms[tt]);
+      }
+    }
+  }
   var result;
-  if (words.length > 1) {
+  if (words.length > 1 || capabilities.length) {
     var byKey = {};
     var hits = {};
     var order = [];
@@ -464,6 +613,9 @@ C8O.marketplace.list = function (options) {
       return hits[b] - hits[a] || order.indexOf(a) - order.indexOf(b);
     });
     var all = ranked.map(function (k) { return byKey[k]; });
+    if (capabilities.length) {
+      all = C8O.marketplace._leadWithCapabilityLibraries(all, capabilities, opts);
+    }
     var limitValue = C8O.marketplace._toInt(opts.limit, 20, 1, 200);
     var startIndex = Math.min(C8O.marketplace._toInt(opts.cursor, 0, 0, 1000000), all.length);
     var endIndex = Math.min(startIndex + limitValue, all.length);
@@ -479,12 +631,30 @@ C8O.marketplace.list = function (options) {
       nextCursor: endIndex < all.length ? String(endIndex) : "",
       entries: all.slice(startIndex, endIndex),
       pagesFetched: pages,
-      warnings: ["Searched each word on its own (" + words.join(", ") + "): the entries matching the most words come first."]
+      warnings: words.length > 1 ? ["Searched each word on its own (" + words.join(", ") + "): the entries matching the most words come first."] : []
     };
   } else {
     result = C8O.marketplace._listOne(opts);
     result.warnings = [];
   }
+  if (capabilities.some(function (cap) { return cap.libraries.length > 0; })) {
+    var named = capabilities.map(function (cap) { return cap.matchedWords.join(", ") + " -> " + cap.capability; });
+    result.warnings.push("Capability words: " + named.join("; ") + ". The libraries that provide them come first, with use; " +
+      "marketplace-describe gives how to call each one, marketplace-import adds it to your app. A library is a standard " +
+      "Convertigo component, not an external dependency.");
+  }
+  capabilities.forEach(function (cap) {
+    if (cap.native) {
+      result.warnings.push(cap.native);
+    }
+  });
+  result.capabilities = capabilities.map(function (cap) {
+    var out = { capability: cap.capability, words: cap.matchedWords, libraries: cap.libraries };
+    if (cap.native) {
+      out.native = cap.native;
+    }
+    return out;
+  });
   C8O.marketplace._boundPage(result);
   result.suggestions = [];
   if (search.length && !result.entries.length && !C8O.marketplace._trim(opts.cursor).length) {
@@ -515,6 +685,47 @@ C8O.marketplace.list = function (options) {
       "Browse the " + catalog.entries.length + " entries with marketplace-list without search (limit, cursor), or search one English keyword (csv, chart, grid, pdf, mail, auth, map).");
   }
   return result;
+};
+
+// The libraries of the capabilities named lead the list, each with its use, whether the words found them or not (taken
+// from the whole catalog then); a library the catalog no longer lists is dropped from capabilities.
+C8O.marketplace._leadWithCapabilityLibraries = function (entries, capabilities, opts) {
+  var byName = {};
+  for (var i = 0; i < entries.length; i++) {
+    byName[C8O.marketplace._trim(entries[i].name).toLowerCase()] = entries[i];
+  }
+  var catalog = null;
+  var lead = [];
+  var leadNames = {};
+  for (var c = 0; c < capabilities.length; c++) {
+    var kept = [];
+    for (var l = 0; l < capabilities[c].libraries.length; l++) {
+      var library = capabilities[c].libraries[l];
+      var key = library.name.toLowerCase();
+      var entry = byName[key];
+      if (!entry) {
+        if (catalog === null) {
+          catalog = {};
+          var all = C8O.marketplace._listOne({ topics: opts.topics, limit: 200, cursor: 0, maxPages: 10, cacheTtl: opts.cacheTtl, headers: opts.headers });
+          for (var a = 0; a < all.entries.length; a++) {
+            catalog[C8O.marketplace._trim(all.entries[a].name).toLowerCase()] = all.entries[a];
+          }
+        }
+        entry = catalog[key];
+      }
+      if (!entry) {
+        continue;
+      }
+      kept.push(library);
+      if (!leadNames[key]) {
+        leadNames[key] = true;
+        entry.use = library.use;
+        lead.push(entry);
+      }
+    }
+    capabilities[c].libraries = kept;
+  }
+  return lead.concat(entries.filter(function (e) { return !leadNames[C8O.marketplace._trim(e.name).toLowerCase()]; }));
 };
 
 // Partial match score of search words against the words of an entry: a word inside a token or a token of 4+ letters
@@ -758,6 +969,26 @@ C8O.marketplace.getProjectSharedCatalog = function (projectOrName) {
       } catch (_ignoreVars) {
         entry.variableCount = 0;
       }
+    }
+    // The inputs and events a page gives the component (UIUseVariable, UIControlEvent of that name): the readme of a
+    // library with many components is cut before most of them (lib_ExtendedComponents_ui_ngx: agGrid's 44 variables).
+    if (kind === "sharedComponent" && component.getAllChildren) {
+      try {
+        var children = component.getAllChildren();
+        var inputs = [];
+        var events = [];
+        for (var c = 0; c < children.size(); c++) {
+          var child = children.get(c);
+          var childClass = String(child.getClass().getName());
+          if (/\.UICompVariable$/.test(childClass)) {
+            inputs.push(String(child.getName()));
+          } else if (/\.UICompEvent$/.test(childClass)) {
+            events.push(String(child.getName()));
+          }
+        }
+        entry.variables = inputs;
+        entry.events = events;
+      } catch (_ignoreChildren) {}
     }
     return entry;
   }
@@ -1033,6 +1264,35 @@ C8O.marketplace.addReference = function (targetProjectName, libraryName, project
   out.referenceAdded = true;
   out.referenceName = name;
   return out;
+};
+
+// The Mobile Builder writes the shared components of a library into an NGX app only when the app project is loaded:
+// after a new reference, a page using one failed to compile ("Could not resolve ../../components/<library>.<component>/...")
+// until the app was reloaded (Studio 8.4, 31/10). The app is saved, then reloaded, so the next build has them.
+C8O.marketplace.reloadAfterNewReference = function (targetProjectName, libraryName) {
+  var target = C8O.marketplace.resolveProject(targetProjectName);
+  var hasApp = false;
+  try {
+    hasApp = target != null && target.getMobileApplication() != null && target.getMobileApplication().getApplicationComponent() != null;
+  } catch (_noApp) {
+    hasApp = false;
+  }
+  if (!hasApp) {
+    return { reloaded: false, message: "" };
+  }
+  if (typeof C8O.dbo.reloadProject !== "function") {
+    include("js/databaseobject.js");
+  }
+  var errors = [];
+  C8O.dbo.saveProject(target, errors);
+  var name = String(target.getName());
+  var result = C8O.dbo.reloadProject(name, errors);
+  return {
+    reloaded: result.reloaded === true,
+    message: result.reloaded === true
+      ? name + " was reloaded so that the Mobile Builder writes the shared components of " + libraryName + " into the app."
+      : "Reload " + name + " (project-reload) before building a page that uses a shared component of " + libraryName + ": " + result.message
+  };
 };
 
 C8O.marketplace.resolveEntry = function (options) {

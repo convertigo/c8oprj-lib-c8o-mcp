@@ -50,6 +50,7 @@ comment: |
     marketplaceListEntries = entries;
     marketplaceListSuggestions = C8O.marketplace.annotateEntries(listResult.suggestions || [], {});
     marketplaceListWarnings = listResult.warnings || [];
+    marketplaceListCapabilities = listResult.capabilities || [];
     marketplaceListTimestamp = java.lang.System.currentTimeMillis();'
 ↓result [steps.JsonObjectStep-1764301001002]: 
   key: 
@@ -505,6 +506,21 @@ comment: |
               - SmartType: 
                 - ↑mode: JS
                 - →→: 'entryItem && entryItem.status ? entryItem.status : ""'
+        ↓IfUse [steps.IfStep-1809000000001]: 
+          condition: entryItem != null && entryItem.use != null && String(entryItem.use).length > 0
+          ↓use [steps.JsonFieldStep-1809000000002]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: use
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: String(entryItem.use)
         ↓sharedComponentCount [steps.JsonFieldStep-17643010010411]: 
           key: 
             - xmlizable: 
@@ -921,6 +937,89 @@ comment: |
               - SmartType: 
                 - ↑mode: JS
                 - →→: 'item && item.actionArguments && item.actionArguments.library ? item.actionArguments.library : ""'
+  ↓IfCapabilities [steps.IfStep-1809000000003]: 
+    condition: marketplaceListCapabilities != null && marketplaceListCapabilities.length > 0
+    ↓capabilities [steps.JsonArrayStep-1809000000004]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: capabilities
+      ↓CapabilitiesIterator [steps.SimpleIteratorStep-1809000000005]: 
+        expression: marketplaceListCapabilities
+        ↓capability [steps.JsonObjectStep-1809000000006]: 
+          key: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+              - SmartType: 
+                - ↑mode: PLAIN
+                - →→: capability
+          ↓CaptureCapability [steps.SimpleStep-1809000000007]: 
+            expression: capabilityItem = item;
+          ↓name [steps.JsonFieldStep-1809000000008]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: capability
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: String(capabilityItem.capability)
+          ↓words [steps.JsonFieldStep-1809000000009]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: words
+            value: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: JS
+                  - →→: '(capabilityItem.words || []).join(", ")'
+          ↓libraries [steps.JsonArrayStep-1809000000010]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: libraries
+            ↓LibrariesIterator [steps.SimpleIteratorStep-1809000000011]: 
+              expression: capabilityItem.libraries || []
+              ↓library [steps.JsonFieldStep-1809000000012]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: library
+                value: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: JS
+                      - →→: 'item.name + ": " + item.use'
+          ↓IfNative [steps.IfStep-1809000000013]: 
+            condition: capabilityItem.native != null && String(capabilityItem.native).length > 0
+            ↓native [steps.JsonFieldStep-1809000000014]: 
+              key: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: PLAIN
+                    - →→: native
+              value: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: JS
+                    - →→: String(capabilityItem.native)
   ↓warnings [steps.JsonArrayStep-1772722301002]: 
     key: 
       - xmlizable: 

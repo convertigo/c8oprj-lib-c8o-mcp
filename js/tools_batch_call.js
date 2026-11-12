@@ -1238,6 +1238,21 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       }
     }
 
+    // Library components placed by the calls reach the build only once their app is loaded again.
+    if (status !== "failed" && typeof C8O.dbo.reloadForLibraryComponents === "function") {
+      var reloadedApps = {};
+      (mutationTouchedQNames || []).forEach(function (touched) {
+        var app = String(touched || "").split(".")[0];
+        if (app.length && !reloadedApps[app]) {
+          reloadedApps[app] = true;
+          var libraryReload = C8O.dbo.reloadForLibraryComponents(app, calls);
+          if (libraryReload.length) {
+            message = (message ? message + " " : "") + libraryReload;
+          }
+        }
+      });
+    }
+
     return {
       status: status,
       message: message,
