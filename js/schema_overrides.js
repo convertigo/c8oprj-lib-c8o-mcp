@@ -1944,6 +1944,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
 
   function subagentRunOutputSchema() {
     return closedObjectSchema({
+      execution: nullableObjectSchema({}),
       status: { type: "string", enum: ["finished", "running"], description: "running: call subagent-run again with runId alone to wait for the report." },
       runId: { type: "string" },
       profile: { type: "string" },
