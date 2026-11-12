@@ -1788,3 +1788,57 @@ test('a list wider than a native table gets the grid; without the library it is 
     /list\.columns: 9 cells in a row: a native table shows 8 at most on a wide screen and the AG Grid cannot be had: lib_ExtendedComponents_ui_ngx could not be imported/);
   assert.equal(off.ops.length, before, 'nothing created');
 });
+
+// --- logout page --------------------------------------------------------------------------------
+
+test('a logout page sits in the menu, ends the session with noAutoLogin, then opens the login page as root', () => {
+  const world = makeWorld();
+  const logout = find(world.project, 'App.auth_logout');
+  bean('logout', 'com.twinsoft.convertigo.beans.steps.SimpleStep', logout).getExpression = () => 'context.removeAuthenticatedUser();';
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'Deconnexion', kind: 'logout', title: 'Se déconnecter', sequence: 'auth_logout',
+    logout: { page: 'Login', message: 'Déconnexion en cours…' } });
+  const op = world.ops.filter(o => o.type === 'create' && o.name === 'Deconnexion')[0];
+  assert.equal(op.properties.inAutoMenu, true, 'in the menu: a way out from every page');
+  assert.equal(op.properties.icon, 'log-out');
+  assert.match(op.properties.comment, /^Logout page "Se déconnecter": ends the session with App\.auth_logout \(noAutoLogin\), then opens Login\./);
+  const nodes = nodesOf(world, 'Deconnexion');
+  assert.equal(nodes.SigningOut.children[1].properties.textValue.value, 'Déconnexion en cours…');
+  const events = op.children.filter(c => c.name === 'PageEvent')[0].children;
+  const call = events[events.length - 1];
+  assert.equal(call.name, 'Logout');
+  assert.deepEqual(plain(call.properties), { requestable: { mode: 'PLAIN', value: 'App.auth_logout' }, noAutoLogin: { mode: 'PLAIN', value: 'true' },
+    cacheTtl: { mode: 'PLAIN', value: '0' } }, 'without noAutoLogin the SDK replays the last login at once');
+  assert.deepEqual(plain(call.children.map(c => c.name)), ['IfKo', 'ToLogin']);
+  assert.equal(call.children[0].children[0].properties.message.value, "stack['Logout'].out?.errors?.[0]?.message || 'Error'");
+  assert.deepEqual(plain(call.children[1].properties.page), { mode: 'PLAIN', value: 'Login' });
+  assert.match(call.children[1].className, /RootPageAction$/);
+  assert.ok(!events.some(c => c.name === 'Load' || c.name === 'Loaded'), 'no data call');
+  assert.deepEqual(plain(out.calls), ['App.auth_logout at page enter (noAutoLogin), then Login as root']);
+  assert.doesNotMatch(out.warnings.join(' '), /does not end the session|English default/);
+});
+
+test('a logout page needs the logout sequence and the login page; a sequence that does not end the session is named', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'Sortie', kind: 'logout', title: 'Quitter', sequence: 'auth_logout', authRedirect: 'Login' });
+  assert.match(out.warnings.join(' '), /sequence auth_logout does not end the session: no RemoveAuthenticatedUserStep, RemoveSessionStep or context\.removeAuthenticatedUser\(\)/);
+  assert.match(out.warnings.join(' '), /English default texts were used for logout\.message "Signing out\.\.\."/);
+  const events = world.ops.filter(o => o.type === 'create' && o.name === 'Sortie')[0].children.filter(c => c.name === 'PageEvent')[0].children;
+  assert.deepEqual(plain(events[events.length - 1].children[1].properties.page), { mode: 'PLAIN', value: 'Login' }, 'authRedirect gives the login page');
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Sortie2', kind: 'logout', title: 'Quitter' }),
+    /sequence is required for a logout page: the business sequence that ends the session \(business-sequence-create with session:\{logout:true\}\)[\s\S]*logout\.page is required/);
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Sortie3', kind: 'logout', sequence: 'auth_logout', logout: { page: 'Sortie3' } }),
+    /logout\.page must be the login page, not the logout page itself/);
+});
+
+test('a logout sequence that calls the one ending the session is recognized', () => {
+  const world = makeWorld();
+  const core = bean('session_end', JAVA['sequences.GenericSequence'], world.project);
+  bean('RemoveUser', 'com.twinsoft.convertigo.beans.steps.RemoveAuthenticatedUserStep', core);
+  const wrapper = find(world.project, 'App.auth_logout');
+  bean('callEnd', 'com.twinsoft.convertigo.beans.steps.SequenceStep', wrapper).getSourceSequence = () => 'App.session_end';
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'Sortie', kind: 'logout', title: 'Quitter', sequence: 'auth_logout', logout: { page: 'Login', message: 'Au revoir' } });
+  assert.doesNotMatch(out.warnings.join(' '), /does not end the session/);
+});

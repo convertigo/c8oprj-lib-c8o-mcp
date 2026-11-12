@@ -1,5 +1,5 @@
 /*
- * ngx-page-create: a list, detail, form or dashboard page built with the patterns of the "Basic presentation"
+ * ngx-page-create: a list, detail, form, dashboard or logout page built with the patterns of the "Basic presentation"
  * section of convertigo_frontend_ngx and the NGX pages of convertigo_recipe_multipage_app: page-enter event
  * with locals and a CallSequenceAction of the data business sequence, lost-session redirect, record and label/value
  * lists, KPI cards, table lists, empty states, UIForm with Form SmartSources, toast and navigation, and the AppLayout style.
@@ -13,7 +13,8 @@ include("js/tools_generators_ngx_theme.js");
   var H = G._;
   var str = H.str, isObj = H.isObj, parseJson = H.parseJson, list = H.list, IDENT = H.IDENT, jsString = H.jsString,
     upperFirst = H.upperFirst, lowerFirst = H.lowerFirst, qnameOf = H.qnameOf, childNamed = H.childNamed, invalid = H.invalid,
-    projectOf = H.projectOf, variableNames = H.variableNames, batchErrors = H.batchErrors, batchWarnings = H.batchWarnings, Session = H.Session;
+    projectOf = H.projectOf, variableNames = H.variableNames, batchErrors = H.batchErrors, batchWarnings = H.batchWarnings, Session = H.Session,
+    lookup = H.lookup;
 
   // --- NGX page ----------------------------------------------------------------------------------
 
@@ -324,6 +325,54 @@ include("js/tools_generators_ngx_theme.js");
     return seq ? variableNames(seq) : null;
   }
 
+  // Whether a sequence ends the user's session: a RemoveAuthenticatedUserStep or a RemoveSessionStep, the same call in a
+  // JavaScript step, or a call of a sequence that does (a library's logout), two calls deep.
+  function endsSession(seq, depth) {
+    var stack = [seq];
+    while (stack.length) {
+      var all = null;
+      try {
+        all = stack.shift().getAllChildren();
+      } catch (_noChildren) {
+        all = null;
+      }
+      for (var i = 0; all && i < all.size(); i++) {
+        var child = all.get(i);
+        var className = "";
+        try {
+          className = String(child.getClass().getName());
+        } catch (_noClass) {}
+        if (/\.(RemoveAuthenticatedUserStep|RemoveSessionStep)$/.test(className)) {
+          return true;
+        }
+        var expression = "";
+        try {
+          expression = str(child.getExpression());
+        } catch (_noExpression) {}
+        if (/removeAuthenticatedUser\s*\(/.test(expression)) {
+          return true;
+        }
+        var target = "";
+        try {
+          target = str(child.getSourceSequence());
+        } catch (_noTarget) {}
+        if (target.length && (depth || 0) < 2) {
+          var called = null;
+          try {
+            called = lookup(target);
+          } catch (_noLookup) {}
+          if (called && endsSession(called, (depth || 0) + 1)) {
+            return true;
+          }
+        }
+        if (/\.steps\./.test(className)) {
+          stack.push(child);
+        }
+      }
+    }
+    return false;
+  }
+
   function callVariable(name, value) {
     return { className: "ngx.components.UIControlVariable#UIControlVariable", name: name, properties: { varValue: value } };
   }
@@ -473,7 +522,7 @@ include("js/tools_generators_ngx_theme.js");
       return fallback;
     };
     var spec = parseJson(args.spec, "spec", "object") || {};
-    ["name", "title", "kind", "sequence", "facade", "authRedirect", "root", "inMenu", "params", "vars", "filters", "list", "detail", "form", "dashboard", "actions", "heading",
+    ["name", "title", "kind", "sequence", "facade", "authRedirect", "root", "inMenu", "params", "vars", "filters", "list", "detail", "form", "dashboard", "logout", "actions", "heading",
       "authCodes", "segment", "icon", "filterLabel", "locals", "home", "comment", "theme"].forEach(function (k) {
       if (spec[k] === undefined && args[k] !== undefined && args[k] !== null && str(args[k]) !== "") {
         var raw = args[k];
@@ -498,8 +547,8 @@ include("js/tools_generators_ngx_theme.js");
     } else if (childNamed(app, name)) {
       errors.push("page " + name + " already exists: delete it first, or pick another name.");
     }
-    if (["list", "detail", "form", "dashboard"].indexOf(kind) < 0) {
-      errors.push("kind must be list, detail, form or dashboard.");
+    if (["list", "detail", "form", "dashboard", "logout"].indexOf(kind) < 0) {
+      errors.push("kind must be list, detail, form, dashboard or logout.");
     }
     // sequence: the business sequence the page calls at page enter (facade is its former name).
     var facade = str(spec.sequence) || str(spec.facade);
@@ -509,6 +558,9 @@ include("js/tools_generators_ngx_theme.js");
       if (facadeVars === null) {
         errors.push("sequence " + facade + " is not a sequence of " + projectName + ": create it first (business-sequence-create).");
       }
+    } else if (kind === "logout") {
+      errors.push("sequence is required for a logout page: the business sequence that ends the session (business-sequence-create with " +
+        "session:{logout:true}).");
     } else if (kind !== "form" && !(kind === "detail" && !(isObj(spec.detail) && list(spec.detail.fields).length))) {
       errors.push("sequence is required for a " + kind + " page: the business sequence the page calls at page enter " +
         "(a page with only a heading and buttons, such as a login or home page, is a detail page without sequence nor detail).");
@@ -663,6 +715,19 @@ include("js/tools_generators_ngx_theme.js");
         props.cacheTtl = { mode: "PLAIN", value: String(cacheTtl) };
       }
       return nxAction("CallSequenceAction", name, props, children);
+    }
+
+    // The logout call at page enter: every variable of the sequence passed, a refused logout said in a toast, and the login
+    // page opened as root in any case, so the user is never left on a page of the signed-in app.
+    function logoutCall(loginPage) {
+      var children = dataCallVariables();
+      var callError = "stack['Logout'].out?.errors?.[0]?.message || 'Error'";
+      children.push(nxAction("IfAction", "IfKo", { condition: { mode: "SCRIPT", value: "!out?.success" } }, [
+        nxAction("ToastAction", "ToastKo", { message: { mode: "SCRIPT", value: callError }, IonColor: { mode: "PLAIN", value: "danger" },
+          duration: { mode: "PLAIN", value: "4000" } })]));
+      children.push(navAction("ToLogin", { page: loginPage, kind: "root" }));
+      return nxAction("CallSequenceAction", "Logout", { requestable: { mode: "PLAIN", value: projectName + "." + facade },
+        noAutoLogin: { mode: "PLAIN", value: "true" }, cacheTtl: { mode: "PLAIN", value: "0" } }, children);
     }
 
     if (authRedirect.length && !childNamed(app, authRedirect)) {
@@ -1151,6 +1216,7 @@ include("js/tools_generators_ngx_theme.js");
       content.push(titleNode);
     }
     var formPlan = null;
+    var logoutPlan = null;
     if (kind === "list") {
       var listSpec = isObj(spec.list) ? spec.list : null;
       if (!listSpec) {
@@ -1377,6 +1443,26 @@ include("js/tools_generators_ngx_theme.js");
           }
         });
       }
+    } else if (kind === "logout") {
+      // An app that signs users in needs a way out from every page: no generated app had one until a reviewer asked (PCA
+      // eval 31/10). The logout page sits in the menu; entering it calls the business sequence that ends the session, with
+      // noAutoLogin (else the SDK replays the last login at once), then opens the login page as root.
+      var logoutSpec = isObj(spec.logout) ? spec.logout : {};
+      var loginPage = str(logoutSpec.page) || authRedirect;
+      if (!loginPage.length) {
+        errors.push("logout.page is required: the login page opened as root once the session is ended (authRedirect gives it too).");
+      } else if (loginPage === name) {
+        errors.push("logout.page must be the login page, not the logout page itself.");
+      } else if (!childNamed(app, loginPage)) {
+        warnings.push("logout.page " + loginPage + " is not a page of " + projectName + " yet: create it before the build.");
+      }
+      if (facadeVars !== null && facade.length && !endsSession(childNamed(projectDbo, facade))) {
+        warnings.push("sequence " + facade + " does not end the session: no RemoveAuthenticatedUserStep, RemoveSessionStep or " +
+          "context.removeAuthenticatedUser() in it nor in the sequences it calls. Give the logout business sequence " +
+          "(business-sequence-create with session:{logout:true}), or check that this one ends the session.");
+      }
+      logoutPlan = { page: loginPage };
+      content.push(nx("Paragraph", "SigningOut", {}, [cls("app-empty"), txt(textOr(logoutSpec.message, "Signing out...", "logout.message"))]));
     }
     var actions = actionButtons(list(spec.actions), "actions");
     if (actions) {
@@ -1388,7 +1474,9 @@ include("js/tools_generators_ngx_theme.js");
     });
     // Last: siblings start in tree order and a SetLocalAction sets its local when it starts, so the call reads the
     // params, filters and locals just set (run 13a F-06 took it for a race; checked live: push, deep link, re-entry).
-    if (facade.length) {
+    if (logoutPlan) {
+      pageEventChildren.push(logoutCall(logoutPlan.page));
+    } else if (facade.length) {
       pageEventChildren.push(dataCall("Load"));
     } else {
       pageEventChildren.push(setLocal("Loaded", "loading", "false"));
@@ -1436,10 +1524,12 @@ include("js/tools_generators_ngx_theme.js");
     // (usage tests 29/10, an app built with this tool).
     var segment = str(spec.segment) || (name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase()
       .replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "page");
-    // In the menu by default: list and dashboard pages, which need no parameter; forms and details open from a page.
-    var inMenu = spec.inMenu === undefined ? (kind === "list" || kind === "dashboard") : (spec.inMenu === true || String(spec.inMenu) === "true");
+    // In the menu by default: list and dashboard pages, which need no parameter, and the logout page; forms and details open
+    // from a page.
+    var inMenu = spec.inMenu === undefined ? (kind === "list" || kind === "dashboard" || kind === "logout") : (spec.inMenu === true || String(spec.inMenu) === "true");
     var pageProps = { title: title, segment: segment, inAutoMenu: inMenu,
-      comment: str(spec.comment) || (upperFirst(kind) + " page \"" + title + "\"" + (facade.length ? ", data from " + projectName + "." + facade : "") +
+      comment: str(spec.comment) || (upperFirst(kind) + " page \"" + title + "\"" + (logoutPlan ? ": ends the session with " + projectName + "." + facade +
+        " (noAutoLogin), then opens " + logoutPlan.page : (facade.length ? ", data from " + projectName + "." + facade : "")) +
         (formPlan ? ", submits " + projectName + "." + formPlan.submit : "") + ". Generated by ngx-page-create.") };
     // The menu shows an icon per page: the one given (its base name, the menu adds -outline or -sharp), else one for the kind.
     var givenIcon = str(spec.icon).trim();
@@ -1449,7 +1539,7 @@ include("js/tools_generators_ngx_theme.js");
         : "icon " + givenIcon + " is not an ionicons name (lower-case words joined by dashes, such as people or calendar): the icon of a " + kind + " page is used.");
     }
     if (!icon.length && inMenu) {
-      icon = { list: "list", dashboard: "grid", form: "create", detail: "document-text" }[kind];
+      icon = { list: "list", dashboard: "grid", form: "create", detail: "document-text", logout: "log-out" }[kind];
     }
     if (icon.length) {
       pageProps.icon = icon;
@@ -1632,7 +1722,8 @@ include("js/tools_generators_ngx_theme.js");
         : (hadTheme ? "AppTheme kept" : "none"),
       rootPage: rootPage,
       locals: Object.keys(locals),
-      calls: (facade.length ? [projectName + "." + facade + " at page enter" + (filters.length ? " and on the filter button" : "")] : [])
+      calls: (logoutPlan ? [projectName + "." + facade + " at page enter (noAutoLogin), then " + logoutPlan.page + " as root"]
+        : (facade.length ? [projectName + "." + facade + " at page enter" + (filters.length ? " and on the filter button" : "")] : []))
         .concat(formPlan ? [projectName + "." + formPlan.submit + " on submit (" + formPlan.identifier + ")"] : []),
       saved: finish.saved,
       mobileBuilder: finish.mobileBuilder,
