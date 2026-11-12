@@ -449,6 +449,29 @@ include("js/tools_generators_ngx_theme.js");
     return out;
   }
 
+  // The logout page this tool built (its page event calls, as Logout, a sequence with noAutoLogin): a new menu page is
+  // created before it, so the way out stays the last entry of the menu.
+  function generatedLogoutPage(app) {
+    var pages = appPages(app);
+    for (var i = 0; i < pages.length; i++) {
+      var event = childNamed(pages[i], "PageEvent");
+      var logoutCall = event ? childNamed(event, "Logout") : null;
+      // beanData is {ionBean, noAutoLogin: "plain:true"} in the YAML and {name, properties: {noAutoLogin: {mode, value}}} in
+      // memory.
+      var bean = null;
+      try {
+        bean = logoutCall ? JSON.parse(str(logoutCall.getBeanData()).replace(/^'|'$/g, "")) : null;
+      } catch (_noBeanData) {}
+      var props = bean && bean.properties && typeof bean.properties === "object" ? bean.properties : (bean || {});
+      var flag = props.noAutoLogin;
+      var value = flag && typeof flag === "object" ? flag.value : (typeof flag === "string" ? flag.replace(/^plain:/i, "") : flag);
+      if (bean && /CallSequenceAction/.test(String(bean.ionBean || bean.name)) && String(value) === "true") {
+        return pages[i];
+      }
+    }
+    return null;
+  }
+
   function isRootPage(page) {
     try {
       return page.isRoot === true || String(page.isRoot) === "true";
@@ -1609,7 +1632,8 @@ include("js/tools_generators_ngx_theme.js");
         styleStatus = "completed with " + missing.map(function (r) { return r[0]; }).join(", ");
       }
     }
-    var page = session.create(appQName, pageNode);
+    var logoutPage = inMenu && kind !== "logout" ? generatedLogoutPage(app) : null;
+    var page = session.create(appQName, pageNode, logoutPage ? qnameOf(logoutPage) : null);
     var pageQName = qnameOf(page);
     if (formPlan) {
       // The Form SmartSource needs the priority of the created UIForm: wire the submit chain now.

@@ -129,6 +129,15 @@ function find(rootBean, qname) {
 
 function buildTree(parent, node) {
   const created = bean(node.name, JAVA[node.className] || node.className, parent, Object.assign({}, node.properties));
+  // The engine gives an action's properties as beanData: {"ionBean":"CallSequenceAction","requestable":"plain:App.x"}.
+  const action = /UIDynamicAction#(\w+)$/.exec(String(node.className));
+  if (action) {
+    created.getBeanData = () => JSON.stringify(Object.keys(node.properties || {}).reduce((data, k) => {
+      const v = node.properties[k];
+      data[k] = v && typeof v === 'object' ? String(v.mode).toLowerCase() + ':' + v.value : v;
+      return data;
+    }, { ionBean: action[1] }));
+  }
   if (/SqlTransaction/.test(created.javaClass)) {
     const sql = String((node.properties || {}).sqlQuery || '');
     const names = [];
@@ -177,7 +186,14 @@ function load(world) {
               if (world.failOn === op.name) {
                 return { status: 'failed', summary: { failedOps: 1 }, errors: [], operations: [{ errors: [{ message: 'boom on ' + op.name }] }], warnings: [] };
               }
-              buildTree(find(world.project, op.related), op);
+              if (op.mode === 'before') {
+                const sibling = find(world.project, op.related);
+                const made = buildTree(sibling.parent, op);
+                sibling.parent.children.splice(sibling.parent.children.indexOf(made), 1);
+                sibling.parent.children.splice(sibling.parent.children.indexOf(sibling), 0, made);
+              } else {
+                buildTree(find(world.project, op.related), op);
+              }
             }
             if (op.type === 'setProperties') {
               Object.assign(find(world.project, op.qname).props, op.properties);
@@ -1841,4 +1857,24 @@ test('a logout sequence that calls the one ending the session is recognized', ()
   const G = load(world);
   const out = G.ngxPageCreate({ project: 'App', name: 'Sortie', kind: 'logout', title: 'Quitter', sequence: 'auth_logout', logout: { page: 'Login', message: 'Au revoir' } });
   assert.doesNotMatch(out.warnings.join(' '), /does not end the session/);
+});
+
+test('a menu page created after the logout page goes before it: the way out stays the last menu entry', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'Sortie', kind: 'logout', title: 'Se déconnecter', sequence: 'auth_logout', logout: { page: 'Login', message: 'Au revoir' } });
+  G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', title: 'Postes', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  G.ngxPageCreate({ project: 'App', name: 'PosteForm', kind: 'form', sequence: 'poste_list', form: { submit: 'declaration_declare', submitLabel: 'OK', cancelLabel: 'Annuler',
+    success: { message: 'OK' }, fields: [{ name: 'commentaire', label: 'Commentaire' }] } });
+  const pages = find(world.project, 'App.Application.NgxApp').children.filter(c => /PageComponent/.test(c.javaClass)).map(c => c.name);
+  assert.deepEqual(pages.slice(-3), ['Plist', 'Sortie', 'PosteForm'], 'the menu page before the logout page; a page out of the menu stays at the end');
+  const op = world.ops.filter(o => o.type === 'create' && o.name === 'Plist')[0];
+  assert.deepEqual([op.mode, op.related], ['before', 'App.Application.NgxApp.Sortie']);
+  // In the engine's memory the action's beanData is {name, properties: {noAutoLogin: {mode, value}}}.
+  const logoutCall = find(world.project, 'App.Application.NgxApp.Sortie.PageEvent.Logout');
+  logoutCall.getBeanData = () => JSON.stringify({ name: 'CallSequenceAction', properties: { requestable: { mode: 'plain', value: 'App.auth_logout' },
+    noAutoLogin: { mode: 'plain', value: true } } });
+  G.ngxPageCreate({ project: 'App', name: 'Dash', kind: 'dashboard', title: 'Bord', sequence: 'poste_list', dashboard: { kpis: [{ label: 'A', field: 'a' }] } });
+  const after = find(world.project, 'App.Application.NgxApp').children.filter(c => /PageComponent/.test(c.javaClass)).map(c => c.name);
+  assert.deepEqual(after.slice(-4), ['Plist', 'Dash', 'Sortie', 'PosteForm']);
 });

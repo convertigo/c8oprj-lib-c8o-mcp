@@ -229,8 +229,9 @@ C8O.generators = C8O.generators || {};
     this.warnings = [];
   }
 
-  Session.prototype.create = function (parentQName, node) {
-    var op = { type: "create", opId: "gen_" + this.created.length, related: parentQName, mode: "inside",
+  // beforeQName, optional: the child of parentQName the new object is created before (default: after the last one).
+  Session.prototype.create = function (parentQName, node, beforeQName) {
+    var op = { type: "create", opId: "gen_" + this.created.length, related: beforeQName || parentQName, mode: beforeQName ? "before" : "inside",
       className: node.className, name: node.name };
     if (node.properties !== undefined) {
       op.properties = node.properties;
