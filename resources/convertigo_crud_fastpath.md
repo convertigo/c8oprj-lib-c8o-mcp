@@ -50,6 +50,8 @@ Default assumptions for the fast path:
   - shared actions + global state + shared components already wired
 - if no explicit seed profile is provided, use `seed.profile=realistic`
 - if the user wants explicit business demo rows, use `seed.data`
+- in `seed.data`, the foreign keys of one row agree with each other: a deal's contact works for the deal's company, an order line's product is one the order's supplier sells. Check each row against the rows it points to.
+- To read data (check rows, find an id, count), call what exists with `requestable-execute`: the list and count transactions of the connector (`<project>.<connector>.list_<entity>`, `count_<entity>`) or the list business sequence (with `authenticatedUser` when it requires a session). Do not create and delete probe transactions to read data: each one is a project change, saved and rebuilt (22 of them in one CRM turn). When nothing returns the value you need, create one read transaction `q_<what>` the app keeps.
 - treat `dashboard` as a legacy single-page fallback
 - for the CRM demo profile, prefer `ui.variant=master-detail`, `seed.profile=crm`, `seed.rowsPerEntity=20`, and relation `Contact.CompanyId -> Company.Id`
 - for a low-detail CRUD request, the first acceptable delivery point is the first green scaffold plus seeded demo data; refinement comes only if the user asked for it
@@ -61,7 +63,7 @@ Default assumptions for the fast path:
 
 ## Deterministic rail
 1. For a new UI project, import `template_ngxBuilderIonic` explicitly with `marketplace-import` and the exact requested project name.
-2. Open the app immediately with `mobile-builder-open(wait=false)` so the viewer starts asynchronously while backend work continues. Keep the returned live dev URL if it is already available. Prefer `viewerHomeUrl` or `viewerBaseUrl`; reserve `.../DisplayObjects/mobile/home` for production builds.
+2. Open the app immediately with `mobile-builder-open(wait=false)` so the viewer starts asynchronously while backend work continues. Keep the returned live dev URL if it is already available. Open `viewerHomeUrl` (never `viewerBaseUrl`, which can serve the update page); reserve `.../DisplayObjects/mobile/home` for production builds.
 3. Call `upsert-crud` with a complete `spec`.
 4. Call `crud-proof` for backend evidence.
 5. If backend proof is green and the task includes UI, call `upsert-ngx-crud-kit` with `stage=bootstrap`.

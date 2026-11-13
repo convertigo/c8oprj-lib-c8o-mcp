@@ -942,9 +942,10 @@ C8O.crudBackend = C8O.crudBackend || {};
         labelField = ctx.normalizedIdentifier(relation.toField || "id");
       }
       joinLines.push("LEFT JOIN " + targetEntity.name + " " + joinAlias + " ON " + baseAlias + "." + relation.fromField + " = " + joinAlias + "." + relation.toField);
-      // A person is named by its first and last names together ("Jane Doe"), unless the relation gives its label field.
-      var person = !(relation.ui && relation.ui.labelFieldGiven === true) && C8O.crudSpec && typeof C8O.crudSpec.personNameFields === "function"
-        ? C8O.crudSpec.personNameFields(ctx, targetEntity) : null;
+      // A person is shown by its first and last names together ("Jane Doe") in lists and details. ui.relationFields
+      // optionLabelField sets the options of the relation's select only: an agent gave "email" there and the deal detail
+      // showed the contact's email (PipelineCrm2, 13/11).
+      var person = C8O.crudSpec && typeof C8O.crudSpec.personNameFields === "function" ? C8O.crudSpec.personNameFields(ctx, targetEntity) : null;
       var labelSql = person ? personLabelSql(spec, joinAlias, person) : joinAlias + "." + labelField;
       selectSegments.push(labelSql + " AS " + sqlOutputAlias(ctx, relationLabelAlias(ctx, relation)));
     }

@@ -62,6 +62,20 @@ test('the SQL label of a relation to a person composes the first and last names,
   assert.match(sqlFor('mariadb'), /TRIM\(CONCAT\(COALESCE\(rel_1\.first_name, ''\), ' ', COALESCE\(rel_1\.last_name, ''\)\)\) AS "CONTACT_ID__LABEL"/);
   assert.match(sqlFor('sqlserver'), /LTRIM\(RTRIM\(COALESCE\(rel_1\.first_name, ''\) \+ ' ' \+ COALESCE\(rel_1\.last_name, ''\)\)\) AS "CONTACT_ID__LABEL"/);
   assert.doesNotMatch(sqlFor('hsqldb'), /rel_1\.title AS/);
-  // The label field the spec gives stays the label.
-  assert.match(sqlFor('hsqldb', { optionLabelField: 'title', labelFieldGiven: true }), /rel_1\.title AS "CONTACT_ID__LABEL"/);
+  // optionLabelField is the label of the select's options: a person is still shown by its names (PipelineCrm2, 13/11).
+  assert.match(sqlFor('hsqldb', { optionLabelField: 'email', labelFieldGiven: true }), /TRIM\(COALESCE\(rel_1\.first_name, ''\) \|\| ' ' \|\| COALESCE\(rel_1\.last_name, ''\)\) AS "CONTACT_ID__LABEL"/);
+});
+
+test('the label field a relation gives stays the label of a record that is not a person', () => {
+  const C8O = load();
+  const companies = entity('companies', 'name', 'domain');
+  const deals = { name: 'deals', singular: 'deal', primaryField: { column: 'id' },
+    fields: fields('title', 'company_id').map(f => (f.column === 'company_id' ? Object.assign({}, f, { references: { entity: 'companies', field: 'id' } }) : f)) };
+  const ctx = { ensureArray: v => (Array.isArray(v) ? v : v == null ? [] : [v]), trimmed: v => String(v == null ? '' : v).trim(), normalizedIdentifier: ident,
+    pluralize: name => (/s$/.test(name) ? name : name + 's'), crmRelationContext: () => null,
+    findEntityByName: (entities, name) => entities.find(e => e.name === ident(name) || e.name === ident(name) + 's') || null,
+    preferredRelationLabelField: e => C8O.crudSpec.preferredRelationLabelField({ ensureArray: v => v || [], normalizedIdentifier: ident }, e) };
+  const spec = { database: { driver: { id: 'hsqldb' } }, entities: [companies, deals],
+    relations: [{ type: 'many-to-one', fromEntity: 'deals', fromField: 'company_id', toEntity: 'companies', toField: 'id', ui: { optionLabelField: 'domain', labelFieldGiven: true } }] };
+  assert.match(C8O.crudBackend.buildCrudSql(ctx, spec, deals, 'list'), /rel_1\.domain AS "COMPANY_ID__LABEL"/);
 });

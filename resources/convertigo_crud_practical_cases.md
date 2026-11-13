@@ -5,7 +5,7 @@ Always validate on a fresh disposable project instead of a project already pollu
 
 ## HSQLDB starter NGX
 1. Import `template_ngxBuilderIonic` with `marketplace-import` and the exact disposable project name.
-2. Open the live dev app immediately with `mobile-builder-open(wait=false)` and keep `viewerHomeUrl` or `viewerBaseUrl` if already available.
+2. Open the live dev app immediately with `mobile-builder-open(wait=false)` and keep `viewerHomeUrl` if already available (never `viewerBaseUrl`, which can serve the update page).
 3. Call `upsert-crud` with `sequence=true`, `ui=false`.
 4. Call `crud-proof` with backend proof requestables such as:
    - `init_schema`

@@ -279,6 +279,11 @@ C8O.browserVerify = C8O.browserVerify || {};
           checks: (report.checks || []).map(mapShot),
           network: report.network || [],
           visualDefects: (report.visualDefects || []).map(mapShot),
+          // Found by the script on each page, without the model: overflowing texts, generic titles, console errors,
+          // failed requests.
+          autoDefects: (report.autoDefects || []).slice(0, 40).map(function (d) {
+            return { kind: str(d.kind), description: str(d.description), location: str(d.location) };
+          }),
           designSuggestions: (report.designSuggestions || []).map(mapShot),
           screenshots: (output.screenshots || []).map(function (s) {
             return { name: str(s.name), path: rel(s.file), url: str(s.url) };
@@ -319,6 +324,7 @@ C8O.browserVerify = C8O.browserVerify || {};
       summary: report.summary,
       checks: report.checks,
       visualDefects: report.visualDefects,
+      autoDefects: report.autoDefects || [],
       designSuggestions: report.designSuggestions || [],
       screenshots: report.screenshots,
       reportFile: result.reportFile,

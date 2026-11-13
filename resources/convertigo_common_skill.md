@@ -171,7 +171,7 @@ Every model step pays the whole conversation again: a build driven in one contex
 ## Viewer and mobile builder rule
 
 - Starting the viewer is the agent's decision, not the user's. As soon as frontend work is known to be part of the task, call `mobile-builder-open` with `wait=false` so the viewer starts while you keep mutating.
-- In dev, `mobile-builder-open` serves the live app from the viewer root. Prefer `viewerHomeUrl`, or fall back to `viewerBaseUrl`. In prod the application URL is `.../DisplayObjects/mobile/home`; do not open `DisplayObjects/mobile/...` against the live HMR viewer.
+- In dev, `mobile-builder-open` serves the live app from the viewer root. Open `viewerHomeUrl`, never `viewerBaseUrl`: on some engines the base URL serves the update page, which reloads every second. In prod the application URL is `.../DisplayObjects/mobile/home`; do not open `DisplayObjects/mobile/...` against the live HMR viewer.
 - Do not issue a state-only call before the first asynchronous launch. If the launch reports a Node download, npm install, or cold Angular build, finish useful mutations and make one waited call with `stateOnly:true, wait:true, timeoutSec:180` instead of repeated 30-second polls. Never wait with shell `sleep` or PowerShell delays.
 - If a state-only call returns `status:"stopped"`, do not poll again: call `mobile-builder-open(stateOnly=false, wait=false)` once, continue other work, then poll readiness.
 - Use browser control only after `mobile-builder-open` reports both `browserDebugPortMatched:true` and `browserControlReady:true`. A `browserControlTargetUrl` of `about:blank` means the loader is still building.

@@ -665,3 +665,22 @@ test('in the Electron Studio the sub-agent drives the agent browser of convertig
   assert.equal(api.studioAgentBrowserPort(() => '80'), 0);
   assert.match(readSource('js/tools_browser_verify.js'), /var agentBrowserPort = api\.studioAgentBrowserPort\(\);\n\s*if \(agentBrowserPort > 0\) \{\n\s*return "http:\/\/127\.0\.0\.1:" \+ agentBrowserPort;/);
 });
+
+test('autoDefects: the page scans, then the console errors and the failed requests of the run, without the model (PipelineCrm2 13/11)', () => {
+  const state = {
+    autoDefects: [{ key: 'k', kind: 'overflow', description: 'Text "791 500,00 $US" overflows its box (202 px in 138 px).', location: 'span in div.app-kpi on http://h/dashboard' }],
+    runtimeErrors: ['TypeError: x is undefined', 'TypeError: x is undefined'],
+    failedRequests: [{ url: 'http://h/convertigo/projects/App/.json', why: 'HTTP 500' }]
+  };
+  assert.deepEqual(plain(agent.autoDefectsOf(state)), [
+    { kind: 'overflow', description: 'Text "791 500,00 $US" overflows its box (202 px in 138 px).', location: 'span in div.app-kpi on http://h/dashboard' },
+    { kind: 'console-error', description: 'TypeError: x is undefined', location: 'browser console' },
+    { kind: 'failed-request', description: 'HTTP 500: http://h/convertigo/projects/App/.json', location: 'http://h/convertigo/projects/App/.json' }]);
+  assert.equal(typeof agent.autoScan, 'function');
+  const api = load({ ok: true });
+  const result = api.runner.toResult({ report: { verdict: 'passed', checks: [], autoDefects: [{ kind: 'generic-title', description: 'Generic title "Section 2"', location: 'h3' }] }, usage: {} },
+    { runId: 'r', profile: 'verifier' }, '/ws');
+  assert.deepEqual(plain(result.report.autoDefects), [{ kind: 'generic-title', description: 'Generic title "Section 2"', location: 'h3' }]);
+  assert.deepEqual(plain(api.flatten(result).autoDefects), [{ kind: 'generic-title', description: 'Generic title "Section 2"', location: 'h3' }]);
+  assert.match(readSource('js/schema_overrides.js'), /autoDefects: \{\n\s*type: "array",\n\s*description: "Defects the script found on each page seen, without the model/);
+});

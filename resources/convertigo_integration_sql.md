@@ -12,6 +12,9 @@ Read this when a feature needs SQL connectors or SQL transactions behind a Conve
 ## Read this after the recipe
 If the task is a standard CRUD-style path, read `convertigo/recipe-sql-crud@1` first. Use this handbook when driver subtleties, parameter handling, transaction semantics, or validation rules go beyond the golden path.
 
+## Reading data while you build
+To read data (check rows, find an id, count), call what exists with `requestable-execute`: the list and count transactions of the connector (`<project>.<connector>.list_<entity>`, `count_<entity>`) or the list business sequence (with `authenticatedUser` when it requires a session). Do not create and delete probe transactions to read data: each one is a project change, saved and rebuilt (22 of them in one CRM turn). When nothing returns the value you need, create one read transaction `q_<what>` the app keeps.
+
 ## SQL in Convertigo: what stays stable vs what varies
 
 ### What should stay stable

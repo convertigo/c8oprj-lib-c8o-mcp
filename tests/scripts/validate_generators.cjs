@@ -977,7 +977,7 @@ test('an existing AppLayout is completed with the missing rules only', () => {
   const nodes = {};
   walk(creates(world, 'ngx.components.PageComponent#PageComponent')[0], n => { nodes[n.name] = n; });
   // A KPI is shown with the grouping of the user's language (1458500 -> 1 458 500), a text as it is.
-  assert.match(nodes.Value.children[1].properties.textValue.value, /^\(\(\(local\?\.data\?\.compteurs\?\.actifs \?\? 0\)\) == null .*\.toLocaleString\(\[\], \{maximumFractionDigits: 2\}\)\)$/);
+  assert.match(nodes.Value.children[1].properties.textValue.value, /^\(\(\(local\?\.data\?\.compteurs\?\.actifs \?\? 0\)\) == null .*\.toLocaleString\('en', \{maximumFractionDigits: 2\}\)\)$/);
   assert.equal(nodes.S1IfRecord.properties.directiveExpression, 'local?.data?.job');
 });
 
@@ -1630,7 +1630,7 @@ test('list, KPI and option paths are read in the data of the answer, whatever ba
     sections: [{ heading: 'Liste', items: 'out.data.items', item: 'p', title: 'numeroPoste', empty: 'Aucun' }, { heading: 'Job', record: 'local?.data?.job', fields: [{ label: 'Date', field: 'date' }] }] } });
   const nodes = nodesOf(world, 'Dash');
   // A KPI is shown with the grouping of the user's language (1458500 -> 1 458 500), a text as it is.
-  assert.match(nodes.Value.children[1].properties.textValue.value, /^\(\(\(local\?\.data\?\.compteurs\?\.postes \?\? 0\)\) == null .*\.toLocaleString\(\[\], \{maximumFractionDigits: 2\}\)\)$/);
+  assert.match(nodes.Value.children[1].properties.textValue.value, /^\(\(\(local\?\.data\?\.compteurs\?\.postes \?\? 0\)\) == null .*\.toLocaleString\('en', \{maximumFractionDigits: 2\}\)\)$/);
   assert.deepEqual(plain(nodes.S1ForEach.properties.directiveSource), { mode: 'SOURCE', local: 'data.items' });
   assert.equal(nodes.S2IfRecord.properties.directiveExpression, 'local?.data?.job');
   assert.deepEqual(plain(out.bindings), { 'dashboard.kpis[0].field': 'local?.data?.compteurs?.postes', 'dashboard.kpis[1].field': 'local?.data?.compteurs?.actifs',
@@ -2026,8 +2026,8 @@ test('amounts are shown with the grouping of the user\'s language: format, or a 
     list: { item: 'p', title: 'numeroPoste', titleLabel: 'Poste', empty: 'Aucun', note: { field: 'budget', suffix: ' €' },
       columns: [{ label: 'Prix', field: 'price', format: 'currency:EUR' }, { label: 'Code postal', field: 'zip' }] } });
   const text = JSON.stringify(world.ops.filter(op => op.type === 'create' && op.name === 'Plist')[0]);
-  assert.match(text, /\(\(p\?\.budget\) \* 1\)\.toLocaleString\(\[\], \{maximumFractionDigits: 2\}\)\) \+ ' €'/);
-  assert.match(text, /\(\(p\?\.price\) \* 1\)\.toLocaleString\(\[\], \{style: 'currency', currency: 'EUR'\}\)/);
+  assert.match(text, /\(\(p\?\.budget\) \* 1\)\.toLocaleString\('en', \{maximumFractionDigits: 2\}\)\) \+ ' €'/);
+  assert.match(text, /\(\(p\?\.price\) \* 1\)\.toLocaleString\('en', \(\(p\?\.price\) \* 1\) % 1 === 0 \? \{style: 'currency', currency: 'EUR', maximumFractionDigits: 0\} : \{style: 'currency', currency: 'EUR'\}\)/);
   assert.match(text, /\(p\?\.zip \?\? ''\)/);
   assert.doesNotMatch(text, /p\?\.zip\) \* 1/);
 });
@@ -2051,4 +2051,37 @@ test('the page content is centered on a wide screen, and an AppLayout written be
   assert.match(out.style, /^AppLayout completed with .*ion-content\.app-page/);
   const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
   assert.match(css, /ion-content\.app-page \{ max-width: none; margin: 0; --app-page-gutter: max\(var\(--app-space-4, 16px\), calc\(\(100% - 1120px\) \/ 2\)\); --padding-start: var\(--app-page-gutter\); --padding-end: var\(--app-page-gutter\);/);
+});
+
+test('numbers follow the language of the app, kept in AppLayout; a form page is centered; a KPI value fits its card (PipelineCrm2 13/11)', () => {
+  const world = makeWorld();
+  const G = load(world);
+  let out = G.ngxPageCreate({ project: 'App', name: 'Dash', kind: 'dashboard', sequence: 'poste_list', locale: 'en-US',
+    dashboard: { kpis: [{ label: 'Open pipeline', field: 'counters.open', format: 'currency:USD' }] } });
+  let css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
+  assert.match(css, /^\/\* app-locale: en-US \*\/\n/);
+  assert.match(css, /\.app-kpis \.app-kpi \{ min-width: 0; container-type: inline-size; \}/);
+  const dash = JSON.stringify(world.ops.filter(op => op.type === 'create' && op.name === 'Dash')[0]);
+  assert.match(dash, /toLocaleString\('en-US', \(\(\(local\?\.data\?\.counters\?\.open \?\? 0\)\) \* 1\) % 1 === 0 \? \{style: 'currency', currency: 'USD', maximumFractionDigits: 0\}/);
+  assert.doesNotMatch(out.warnings.join(' '), /locale/);
+  // The next page without locale keeps the app's language.
+  out = G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', note: 'amount', empty: 'None' } });
+  assert.match(JSON.stringify(world.ops.filter(op => op.type === 'create' && op.name === 'Plist')[0]), /toLocaleString\('en-US', \{maximumFractionDigits: 2\}\)/);
+  assert.doesNotMatch(out.warnings.join(' '), /locale/);
+  // A form page centers its title and form.
+  G.ngxPageCreate({ project: 'App', name: 'LoginForm', kind: 'form', form: { submit: 'declaration_declare', submitLabel: 'OK', cancel: false, success: { message: 'OK' }, fields: [{ name: 'commentaire', label: 'Note' }] } });
+  const login = world.ops.filter(op => op.type === 'create' && op.name === 'LoginForm')[0];
+  assert.match(JSON.stringify(login), /"attrValue":\{"mode":"PLAIN","value":"app-page app-page-form"\}/);
+  css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
+  assert.match(css, /\.app-page-form \.app-form, \.app-page-form \.app-title, \.app-page-form \.app-error \{ max-width: 720px; margin-inline: auto; \}/);
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Bad', kind: 'list', sequence: 'poste_list', locale: 'english',
+    list: { item: 'p', title: 'numeroPoste', empty: 'None' } }), /locale must be a language code such as en, fr or en-US/);
+});
+
+test('without a locale given or kept, the numbers are English and the answer says so', () => {
+  const world = makeWorld();
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'Dash', kind: 'dashboard', sequence: 'poste_list', dashboard: { kpis: [{ label: 'N', field: 'n' }] } });
+  assert.match(out.warnings[0], /locale "en" \(the numbers\)/);
+  assert.doesNotMatch(find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent, /app-locale/, 'a default is not kept: the next page says it again');
 });

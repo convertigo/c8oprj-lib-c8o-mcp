@@ -735,6 +735,71 @@ function layoutScan() {
   return { viewport: { width: vw, height: vh }, scanned: items.length, issues: hidden.slice(0, limit).concat(others).slice(0, limit) };
 }
 
+
+// Automatic checks of each page the verifier sees, reported without the model (autoDefects): a text that overflows the box
+// it sits in (a KPI value wider than its card, PipelineCrm2 13/11), a generic title left by a generator or a template
+// ("Section 2"). The console errors and the failed requests of the run are added at the end.
+function autoScan() {
+  var out = [];
+  var GENERIC = /^(section|sous-section|title|titre|heading|en-t[eê]te|header|item|[eé]l[eé]ment|untitled|sans titre|new section|nouvelle section|card|carte|block|bloc|tab|onglet|label|libell[eé]|text|texte|lorem ipsum.*)\s*(#|n°|no\.?)?\s*\d*$/i;
+  function visible(el) {
+    var style = getComputedStyle(el);
+    if (style.visibility === "hidden" || style.display === "none" || Number(style.opacity) === 0) {
+      return false;
+    }
+    var r = el.getBoundingClientRect();
+    return r.width > 1 && r.height > 1;
+  }
+  function boxed(el) {
+    var style = getComputedStyle(el);
+    var bg = style.backgroundColor;
+    return (bg && bg !== "transparent" && !/rgba\([^)]*,\s*0\)$/.test(bg)) || parseFloat(style.borderLeftWidth) > 0 ||
+      style.overflowX !== "visible" || /^(ion-card|ion-item|td|th|button|ion-button)$/i.test(el.tagName);
+  }
+  function where(el) {
+    var cls = typeof el.className === "string" ? el.className.split(/\s+/).filter(function (c) { return c && !/^class\d+/.test(c); }).slice(0, 2).join(".") : "";
+    return el.tagName.toLowerCase() + (cls ? "." + cls : "");
+  }
+  var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
+  var node = walker.currentNode, scanned = 0;
+  while (node && scanned < 6000 && out.length < 20) {
+    scanned++;
+    var el = node;
+    node = walker.nextNode();
+    if (!visible(el)) {
+      continue;
+    }
+    var own = "";
+    for (var c = el.firstChild; c; c = c.nextSibling) {
+      if (c.nodeType === 3) {
+        own += c.nodeValue;
+      }
+    }
+    own = own.replace(/\s+/g, " ").trim();
+    if (!own.length) {
+      continue;
+    }
+    if (/^(h[1-6]|ion-title|ion-card-title|ion-list-header)$/i.test(el.tagName) || /(^|\s)app-(title|section)(\s|$)/.test(String(el.className))) {
+      if (GENERIC.test(own)) {
+        out.push({ kind: "generic-title", description: "Generic title \"" + own.substring(0, 60) + "\": a placeholder, not the name of what the section shows.", location: where(el) });
+      }
+    }
+    var r = el.getBoundingClientRect();
+    for (var box = el.parentElement, depth = 0; box && depth < 6; box = box.parentElement, depth++) {
+      if (!boxed(box)) {
+        continue;
+      }
+      var b = box.getBoundingClientRect();
+      if (r.right > b.right + 2 || r.left < b.left - 2 || (el.scrollWidth > el.clientWidth + 2 && getComputedStyle(el).overflowX !== "visible")) {
+        out.push({ kind: "overflow", description: "Text \"" + own.substring(0, 60) + "\" overflows its box (" + Math.round(r.width) + " px in " + Math.round(b.width) + " px).",
+          location: where(el) + " in " + where(box) });
+      }
+      break;
+    }
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Tool execution
 
@@ -1221,6 +1286,52 @@ function missingBusinessActions(config, trace) {
 // ---------------------------------------------------------------------------------------------------------------
 // Loop
 
+function noteFailedRequest(state, url, why) {
+  if (/favicon\.ico|\.map(\?|$)|sockjs-node|\/ws(\?|$)/.test(String(url)) || state.failedRequests.length >= 20) {
+    return;
+  }
+  var short = String(url).replace(/[?#].*$/, "");
+  if (!state.failedRequests.some(function (f) { return f.url === short && f.why === why; })) {
+    state.failedRequests.push({ url: short, why: why });
+  }
+}
+
+// The defects of the page now on screen, once per kind, text and URL.
+async function recordAutoDefects(state) {
+  var found = [];
+  try {
+    found = await state.page.evaluate(autoScan);
+  } catch (_scanFailed) {
+    return;
+  }
+  var url = String(state.page.url()).replace(/[?#].*$/, "");
+  (Array.isArray(found) ? found : []).forEach(function (d) {
+    var key = d.kind + "|" + d.description + "|" + url;
+    if (state.autoDefects.length < 30 && !state.autoDefects.some(function (x) { return x.key === key; })) {
+      state.autoDefects.push({ key: key, kind: d.kind, description: d.description, location: d.location + " on " + url });
+    }
+  });
+}
+
+// autoDefects of the report: the page scans, then the console errors and the failed requests of the run.
+function autoDefectsOf(state) {
+  var list = state.autoDefects.map(function (d) { return { kind: d.kind, description: d.description, location: d.location }; });
+  var errors = [];
+  (state.runtimeErrors || []).forEach(function (e) {
+    var text = cut(String(e), 300);
+    if (errors.indexOf(text) < 0) {
+      errors.push(text);
+    }
+  });
+  errors.slice(0, 10).forEach(function (text) {
+    list.push({ kind: "console-error", description: text, location: "browser console" });
+  });
+  (state.failedRequests || []).slice(0, 10).forEach(function (f) {
+    list.push({ kind: "failed-request", description: f.why + ": " + f.url, location: f.url });
+  });
+  return list;
+}
+
 async function run(rawConfig, deps) {
   var config = normalizeConfig(rawConfig);
   var started = Date.now();
@@ -1232,11 +1343,19 @@ async function run(rawConfig, deps) {
   var gateway = createGateway(config, key, deps.fetch || fetch);
   var browserState = await openBrowser(config, deps.playwright);
   try {
-  var state = { page: browserState.page, screenshots: [], runtimeErrors: [], consoleMessages: [], network: [], networkTasks: [], requests: new WeakMap() };
+  var state = { page: browserState.page, screenshots: [], runtimeErrors: [], consoleMessages: [], network: [], networkTasks: [], requests: new WeakMap(),
+    autoDefects: [], failedRequests: [] };
+  // Every request that failed or answered an error status, whatever its kind (an image, a script, an API call).
+  if (typeof state.page.on === "function") state.page.on("requestfailed", function (request) {
+    noteFailedRequest(state, request.url(), (request.failure && request.failure() && request.failure().errorText) || "failed");
+  });
   if (typeof state.page.on === "function") state.page.on("request", function(request) {
     state.requests.set(request, state.activeActionId || "");
   });
   if (typeof state.page.on === "function") state.page.on("response", function(response) {
+    if (response.status() >= 400) {
+      noteFailedRequest(state, response.url(), "HTTP " + response.status());
+    }
     var request = typeof response.request === "function" ? response.request() : null;
     var action = request && state.requests.has(request) ? state.requests.get(request) : state.activeActionId || state.lastActionId || "";
     var task = (async function() {
@@ -1391,6 +1510,7 @@ async function run(rawConfig, deps) {
         toolMessage._snapshot = true;
       }
       messages.push(toolMessage);
+      await recordAutoDefects(state);
       if (report) break;
     }
   }
@@ -1399,7 +1519,7 @@ async function run(rawConfig, deps) {
     report = normalizeReport({ verdict: "partial", summary: "The verification agent did not send a report within its budget.", checks: [] }, config, state.screenshots);
   }
   var result = {
-    report: Object.assign(report, {consoleMessages: state.consoleMessages}),
+    report: Object.assign(report, {consoleMessages: state.consoleMessages, autoDefects: autoDefectsOf(state)}),
     consoleMessages: state.consoleMessages,
     screenshots: state.screenshots.map(function (s) { return { name: s.name, file: s.file, url: s.url }; }),
     finalUrl: state.page.url(),
@@ -1498,6 +1618,8 @@ module.exports = {
   normalizeReport: normalizeReport,
   compactHistory: compactHistory,
   layoutScan: layoutScan,
+  autoScan: autoScan,
+  autoDefectsOf: autoDefectsOf,
   createTools: createTools,
   locate: locate,
   run: run,

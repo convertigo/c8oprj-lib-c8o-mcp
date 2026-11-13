@@ -51,7 +51,14 @@ include("js/sequence_response.js");
     [".app-kpi-icon", ".app-kpi-icon { grid-area: icon; width: 44px; height: 44px; padding: 11px; box-sizing: border-box; font-size: 22px; border-radius: var(--app-radius, 10px); " +
       "color: var(--app-accent, var(--ion-color-primary)); background: rgba(var(--app-accent-rgb, var(--ion-color-primary-rgb)), 0.12); }"],
     [".app-kpi-value", ".app-kpi-value { grid-area: value; display: block; font-size: var(--app-font-size-2xl, 28px); font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }"],
-    [".app-kpi-label", ".app-kpi-label { grid-area: label; display: block; margin-top: var(--app-space-1, 4px); font-size: var(--app-font-size-sm, 14px); color: " + MUTED + "; }"]
+    [".app-kpi-label", ".app-kpi-label { grid-area: label; display: block; margin-top: var(--app-space-1, 4px); font-size: var(--app-font-size-sm, 14px); color: " + MUTED + "; }"],
+    // A long value ("$791,500") overflowed its card: the card's value column may shrink and the value takes a size that
+    // fits the card (container units), wrapping only as a last resort. Added to an AppLayout written before too.
+    [".app-kpis .app-kpi-value", ".app-kpis .app-kpi { min-width: 0; container-type: inline-size; } .app-kpis .app-kpi.app-kpi-iconed { grid-template-columns: auto minmax(0, 1fr); } " +
+      ".app-kpis .app-kpi-value { min-width: 0; font-size: min(var(--app-font-size-2xl, 28px), 11cqi); overflow-wrap: anywhere; }"],
+    // A form page (a login) centers its title and its form in the page: on a wide screen the form stood at the left of
+    // the content (PipelineCrm2, 13/11).
+    [".app-page-form .app-form", ".app-page-form .app-form, .app-page-form .app-title, .app-page-form .app-error { max-width: 720px; margin-inline: auto; }"]
   ].concat(ACCENTS.map(function (c) {
     return [".app-accent-" + c, ".app-accent-" + c + " { --app-accent: var(--ion-color-" + c + "); --app-accent-rgb: var(--ion-color-" + c + "-rgb); }"];
   })).concat([
@@ -282,6 +289,10 @@ include("js/sequence_response.js");
   // in the CRM's amounts (PipelineCrm 12/11), now 1 458 500 in French, 1,458,500 in English. A value that is not a number
   // (a code, a text) is shown as it is. format: number (up to 2 decimals), integer, amount (2 decimals), percent, or
   // currency:<ISO code> (currency:EUR).
+  // The language of the app's numbers (ngx-page-create locale, kept in AppLayout): a French browser showed "791 500,00 $US"
+  // in an English app (PipelineCrm2, 13/11), the numbers following the browser instead of the app.
+  var NUMBER_LOCALE = "en";
+  var LOCALE_MARK = /\/\*\s*app-locale:\s*([A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,4})?)\s*\*\//;
   var NUMBER_FORMATS = { number: "{maximumFractionDigits: 2}", integer: "{maximumFractionDigits: 0}",
     amount: "{minimumFractionDigits: 2, maximumFractionDigits: 2}", percent: "{style: 'percent', maximumFractionDigits: 1}" };
   // A field named as an amount gets the number format when the spec gives none.
@@ -301,7 +312,12 @@ include("js/sequence_response.js");
       return "(" + value + " ?? '')";
     }
     var n = "((" + value + ") * 1)";
-    return "((" + value + ") == null || (" + value + ") === '' || " + n + " !== " + n + " ? (" + value + " ?? '') : " + n + ".toLocaleString([], " + options + "))";
+    // An amount in a currency shows no useless decimals: $791,500, but $1,250.50.
+    if (/style: 'currency'/.test(options)) {
+      options = n + " % 1 === 0 ? " + options.replace(/\}$/, ", maximumFractionDigits: 0}") + " : " + options;
+    }
+    return "((" + value + ") == null || (" + value + ") === '' || " + n + " !== " + n + " ? (" + value + " ?? '') : " + n + ".toLocaleString(" + jsString(NUMBER_LOCALE) +
+      ", " + options + "))";
   }
 
   G.numberFormatOf = function (f) {
@@ -587,10 +603,10 @@ include("js/sequence_response.js");
     };
     var spec = parseJson(args.spec, "spec", "object") || {};
     ["name", "title", "kind", "sequence", "facade", "authRedirect", "root", "inMenu", "params", "vars", "filters", "list", "detail", "form", "dashboard", "logout", "actions", "heading",
-      "authCodes", "segment", "icon", "filterLabel", "locals", "home", "comment", "theme"].forEach(function (k) {
+      "authCodes", "segment", "icon", "filterLabel", "locals", "home", "comment", "theme", "locale"].forEach(function (k) {
       if (spec[k] === undefined && args[k] !== undefined && args[k] !== null && str(args[k]) !== "") {
         var raw = args[k];
-        spec[k] = (["name", "title", "kind", "sequence", "facade", "authRedirect", "heading", "segment", "icon", "filterLabel"].indexOf(k) >= 0) ? str(raw) : parseJson(raw, k, "string");
+        spec[k] = (["name", "title", "kind", "sequence", "facade", "authRedirect", "heading", "segment", "icon", "filterLabel", "locale"].indexOf(k) >= 0) ? str(raw) : parseJson(raw, k, "string");
       }
     });
     var app = null;
@@ -603,6 +619,22 @@ include("js/sequence_response.js");
       invalid(tool, [projectName + " has no NGX application (start from template_ngxBuilderIonic with marketplace-import)."]);
     }
     var appQName = qnameOf(app);
+    // locale: the language of the app's numbers. Given once, it is kept in AppLayout for the next pages; never given, the
+    // numbers are English and the answer says so.
+    var layoutCss = "";
+    try {
+      var layoutStyle = childNamed(app, "AppLayout");
+      layoutCss = layoutStyle ? String(layoutStyle.getStyleContent().getString()) : "";
+    } catch (_noLayoutCss) {
+      layoutCss = "";
+    }
+    var keptLocale = (LOCALE_MARK.exec(layoutCss) || [])[1] || "";
+    var givenLocale = str(spec.locale);
+    if (givenLocale.length && !/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,4})?$/.test(givenLocale)) {
+      errors.push("locale must be a language code such as en, fr or en-US (the language of the app's numbers).");
+      givenLocale = "";
+    }
+    NUMBER_LOCALE = givenLocale || keptLocale || "en";
     var name = str(spec.name);
     var kind = str(spec.kind);
     var title = str(spec.title) || name;
@@ -1364,7 +1396,7 @@ include("js/sequence_response.js");
       })));
     }
 
-    var content = [cls("app-page")];
+    var content = [cls(kind === "form" ? "app-page app-page-form" : "app-page")];
     var headingText = spec.heading !== undefined ? str(spec.heading) : title;
     if (headingText.length) {
       var titleNode = heading("Title", 2, headingText);
@@ -1755,6 +1787,10 @@ include("js/sequence_response.js");
       ]
     };
 
+    if (!givenLocale.length && !keptLocale.length && JSON.stringify(pageNode).indexOf(".toLocaleString(") >= 0) {
+      defaulted.push("locale \"en\" (the numbers)");
+    }
+    var localeMark = "/* app-locale: " + NUMBER_LOCALE + " */";
     var session = new Session(tool, projectDbo);
     // AppLayout: created when missing, completed with the rules this page uses.
     var style = childNamed(app, "AppLayout");
@@ -1766,7 +1802,7 @@ include("js/sequence_response.js");
     });
     if (!style) {
       session.create(appQName, { className: "ngx.components.UIStyle#UIStyle", name: "AppLayout",
-        properties: { styleContent: APP_LAYOUT_RULES.map(function (r) { return r[1]; }).join("\n") + "\n" } });
+        properties: { styleContent: (givenLocale.length ? localeMark + "\n" : "") + APP_LAYOUT_RULES.map(function (r) { return r[1]; }).join("\n") + "\n" } });
       styleStatus = "created";
     } else {
       var css = "";
@@ -1776,14 +1812,17 @@ include("js/sequence_response.js");
         css = "";
       }
       var missing = neededRules.filter(function (r) { return css.indexOf(r[0] + " ") < 0 && css.indexOf(r[0] + "{") < 0; });
-      if (missing.length) {
-        var updated = css.replace(/\s*$/, "\n") + missing.map(function (r) { return r[1]; }).join("\n") + "\n";
+      var relocale = givenLocale.length && keptLocale !== givenLocale;
+      if (missing.length || relocale) {
+        var base = relocale ? (LOCALE_MARK.test(css) ? css.replace(LOCALE_MARK, localeMark) : localeMark + "\n" + css) : css;
+        var updated = base.replace(/\s*$/, "\n") + missing.map(function (r) { return r[1]; }).join("\n") + (missing.length ? "\n" : "");
         var res = C8O.dbo.batchApply({ target: qnameOf(style), operations: [{ type: "setProperties", qname: qnameOf(style), properties: { styleContent: updated } }],
           onError: "stop", autoSave: false, triggerMobileBuilder: false });
         if (!res || res.status === "failed") {
           invalid(tool, ["AppLayout could not be completed: " + batchErrors(res).join(" | ")]);
         }
-        styleStatus = "completed with " + missing.map(function (r) { return r[0]; }).join(", ");
+        styleStatus = missing.length ? "completed with " + missing.map(function (r) { return r[0]; }).join(", ") + (relocale ? " and locale " + givenLocale : "")
+          : "locale " + givenLocale;
       }
     }
     var logoutPage = inMenu && kind !== "logout" ? generatedLogoutPage(app) : null;
