@@ -11,6 +11,7 @@ if (typeof include === "function") {
 
   var MAX_FINDINGS = 300;
   // Ionic and action properties that hold text shown to the user.
+  var CONTROL_BEANS = /^(Input|Textarea|TextArea|Select|Searchbar|DateTime|Datetime|InputOtp)$/;
   var TEXT_PROPERTIES = /^(Label|label|placeholder|Placeholder|message|Message|header|Header|subHeader|SubHeader|title|Title|text|Text|cancelText|okText|buttonText|ButtonText|helperText|errorText|HelperText|ErrorText|closeButtonText)$/;
   var NON_RENDERING = /UIAttribute|UIControlEvent|UIStyle|UIControlVariable|UIDynamicAction|UIDynamicAttr|UICustomAction|UIEventSubscriber|UIPageEvent/;
 
@@ -372,6 +373,26 @@ if (typeof include === "function") {
 
   // Whether a CallSequence action sets noAutoLogin: {noAutoLogin: "plain:true"} in the YAML, {noAutoLogin: {mode, value}}
   // in memory.
+  // The code of a CallSequenceAction's own actions (StoreData, IfOk, IfKo...): the scripts that read its answer as out.
+  C8O.lint.callCode = function (dbo) {
+    var texts = [];
+    var kids = [];
+    try {
+      kids = C8O.dbo.getDirectChildren(dbo) || [];
+    } catch (_noKids) {
+      kids = [];
+    }
+    for (var i = 0; i < kids.length; i++) {
+      try {
+        var data = typeof kids[i].getBeanData === "function" ? String(kids[i].getBeanData()) : "";
+        if (data.length) {
+          texts.push(data);
+        }
+      } catch (_noBeanData) {}
+    }
+    return texts.join("\n");
+  };
+
   C8O.lint.noAutoLoginOf = function (bean) {
     var props = bean && bean.properties && typeof bean.properties === "object" ? bean.properties : (bean || {});
     var v = props.noAutoLogin;
@@ -437,6 +458,81 @@ if (typeof include === "function") {
           "the SDK replays the last login as soon as the session ends, so the user is signed in again without knowing it.",
           fix: "Set noAutoLogin to true on this CallSequenceAction (ngx-page-create kind logout does)." });
       }
+    });
+    return out;
+  };
+
+  // Form controls whose label, placeholder or helper text is plain text in an app that translates its texts (UIText i18n,
+  // i18n files): one finding per control.
+  C8O.lint.controlLabelFindings = function (i18nTextCount, i18nFiles, labels) {
+    var out = [];
+    if (!i18nTextCount || !(i18nFiles || []).length) {
+      return out;
+    }
+    var seen = [];
+    (labels || []).forEach(function (l) {
+      if (seen.indexOf(l.dbo) >= 0) {
+        return;
+      }
+      seen.push(l.dbo);
+      var key = String(l.text).replace(/\s+/g, "_");
+      out.push({ rule: "NGX-I18N-LABEL", dbo: l.dbo, message: "The " + l.property + " \"" + String(l.text).substring(0, 60) + "\" of this control is plain text while the " +
+        "app translates its texts (i18n): an attribute is not translated, so it stays \"" + String(l.text).substring(0, 60) + "\" in every language.",
+        fix: "Set " + l.property + " to the script '" + key.replace(/'/g, "\\'") + "' | translate (mode SCRIPT) and add the key " + key + " to each of " +
+          (i18nFiles || []).map(function (f) { return f + ".json"; }).join(", ") + " (DisplayObjects/mobile/assets/i18n), as for the texts." });
+    });
+    return out;
+  };
+
+  // What a page reads of a call's answer against what the called sequence answers (js/sequence_response.js). calls are
+  // [{dbo, target, texts}], texts the code of the call's own actions (StoreData, IfOk...); sequenceOf(target) gives the
+  // sequence. A list page that tested out?.success on an upsert-crud facade, which answers {rows}, kept no data and showed
+  // "Error" over an answer with rows (PipelineCrm, 12/11): the agent proved each sequence and never saw the page.
+  C8O.lint.responseFindings = function (calls, sequenceOf, SR) {
+    var out = [];
+    if (!SR || typeof SR.of !== "function") {
+      return out;
+    }
+    var ENVELOPE = ["success", "data", "errors", "meta"];
+    calls.forEach(function (c) {
+      var text = String(c.texts || "");
+      if (!text.length || SR.readsEitherShape(text)) {
+        return;
+      }
+      var seq = null;
+      try {
+        seq = sequenceOf(c.target);
+      } catch (_noSequence) {
+        seq = null;
+      }
+      var resp = seq ? SR.of(seq) : null;
+      if (!resp || resp.shape === "unknown") {
+        return;
+      }
+      var reads = SR.readKeys(text);
+      // Code that reads both out.error and an envelope key handles either answer (the login of upsert-ngx-crud-kit).
+      if (reads.indexOf("error") >= 0 && reads.some(function (k) { return ENVELOPE.indexOf(k) >= 0; })) {
+        return;
+      }
+      var absent = reads.filter(function (k) { return k !== "error" && resp.keys.indexOf(k) < 0; });
+      if (!absent.length) {
+        return;
+      }
+      var envelopeRead = absent.filter(function (k) { return ENVELOPE.indexOf(k) >= 0; });
+      if (resp.shape === "plain" && envelopeRead.length) {
+        out.push({ rule: "NGX-RESPONSE-CONTRACT", severity: "error", dbo: c.dbo, message: "The action reads out." + envelopeRead.join(", out.") + " of " + c.target +
+          ", which answers " + SR.describe(resp) + ", its data itself, without the {success, data, errors} envelope of a business sequence: the test " +
+          "never passes, so the page keeps no data and shows its error (\"Error\") although the call answered.",
+          fix: "Read the answer itself: data = out != null && out?.error == null ? out : null, error = out?.error?.message, success = out?.error == null " +
+            "(the paths then start with " + resp.keys.filter(function (k) { return k !== "error"; }).join(" or ") + "). Or delete the page and create it " +
+            "again with ngx-page-create, which writes the tests for what the sequence answers." });
+        return;
+      }
+      out.push({ rule: "NGX-RESPONSE-CONTRACT", severity: "warning", dbo: c.dbo, message: "The action reads out." + absent.join(", out.") + " of " + c.target +
+        ", which answers " + SR.describe(resp) + ": " + (absent.length > 1 ? "these keys are" : "this key is") + " never in its answer" +
+        (resp.shape === "envelope" ? " (a business sequence's data is in out.data)" : "") + ".",
+        fix: resp.shape === "envelope" ? "Read out?.data?." + absent[0] + " (the paths of a page are read in the data of a business sequence)."
+          : "Read one of its keys: " + resp.keys.join(", ") + "." });
     });
     return out;
   };
@@ -987,6 +1083,9 @@ if (typeof include === "function") {
       }
       if (className === "UIText") {
         var text = smartText(call(dbo, "getTextSmartType") || call(dbo, "getTextValue"));
+        if (call(dbo, "isI18n") === true) {
+          i18nTextCount++;
+        }
         if (call(dbo, "isI18n") === true && text.length) {
           var i18nKey = text.replace(/\s+/g, "_");
           var missingIn = [];
@@ -1044,7 +1143,7 @@ if (typeof include === "function") {
             // a server (PCA eval 30/10: the "run the reminder check" button of the admin dashboard called the Private job).
             var callTarget = className === "UIDynamicAction" ? C8O.lint.callTargetOf(bean) : "";
             if (callTarget.length) {
-              ngxCalls.push({ dbo: dbo, target: callTarget, noAutoLogin: C8O.lint.noAutoLoginOf(bean) });
+              ngxCalls.push({ dbo: dbo, target: callTarget, noAutoLogin: C8O.lint.noAutoLoginOf(bean), texts: C8O.lint.callCode(dbo) });
               try {
                 var calledProject = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(callTarget.split(".")[0]);
                 var called = calledProject ? calledProject.getSequenceByName(callTarget.split(".")[1]) : null;
@@ -1063,6 +1162,19 @@ if (typeof include === "function") {
               if (typeof plain === "string" && plain.trim().toLowerCase() !== C8O.dbo._NGX_NOT_SET) {
                 collectText(plain, dbo, "PLAIN");
               }
+            }
+            // The label of a form control is an attribute, not a text: i18n does not reach it, so an app that translates its
+            // texts showed its input labels in English to a French user (PipelineCrm 12/11). Reported after the walk, when
+            // the app translates texts.
+            if (className === "UIDynamicElement" && CONTROL_BEANS.test(String(bean.ionBean || bean.name || ""))) {
+              ["Label", "Placeholder", "HelperText"].forEach(function (pk) {
+                var pv = elementProps[pk];
+                var plainLabel = pv && typeof pv === "object" ? (String(pv.mode).toLowerCase() === "plain" ? pv.value : null)
+                  : (typeof pv === "string" && /^plain:/.test(pv) ? pv.substring(6) : null);
+                if (typeof plainLabel === "string" && /[A-Za-z\u00C0-\u024F]{2}/.test(plainLabel) && plainLabel.trim().toLowerCase() !== C8O.dbo._NGX_NOT_SET) {
+                  plainControlLabels.push({ dbo: dbo, property: pk, text: plainLabel });
+                }
+              });
             }
             // An element's properties are written in the template (Disabled, Checked, Value...): a Disabled with
             // c8oPage.navParams failed the build (run 13b F-10). An action's properties run in the page class.
@@ -1184,6 +1296,9 @@ if (typeof include === "function") {
     var pages = [];
     // The CallSequence actions of the app's pages and shared components: [{dbo, target, noAutoLogin}].
     var ngxCalls = [];
+    // Texts the app translates (UIText i18n) and the plain labels of its form controls.
+    var i18nTextCount = 0;
+    var plainControlLabels = [];
     var appStyles = [];
     var appComponent = null;
     var views = [];
@@ -1292,6 +1407,18 @@ if (typeof include === "function") {
       add("NGX-NO-ROOT-PAGE", "error", pages[0], "No page of the application is its root page (isRoot): the app opens on no route " +
         "(\"Cannot match any routes\").", "Set isRoot on the entry page: databaseobject-tree-apply {properties:{isRoot:true}} on it.");
     }
+
+    C8O.lint.controlLabelFindings(i18nTextCount, i18n.files, plainControlLabels).forEach(function (f) {
+      add(f.rule, "warning", f.dbo, f.message, f.fix);
+    });
+
+    C8O.lint.responseFindings(ngxCalls, function (target) {
+      var parts = String(target).split(".");
+      var owner = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(parts[0]);
+      return owner && parts.length === 2 ? owner.getSequenceByName(parts[1]) : null;
+    }, C8O.sequenceResponse).forEach(function (f) {
+      add(f.rule, f.severity, f.dbo, f.message, f.fix);
+    });
 
     var auditModel = null;
     try {

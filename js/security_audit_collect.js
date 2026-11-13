@@ -51,6 +51,9 @@ C8O.securityAudit = C8O.securityAudit || {};
   var PASSWORD_CRYPTO_JS = /OpenBSDBCrypt|BCrypt|Argon2|PBKDF2|SCrypt|SecretKeyFactory|MessageDigest|DigestUtils|Mac\s*\.\s*getInstance/;
   var REMOVE_USER_JS = /removeAuthenticatedUser\s*\(/;
   var SET_USER_JS = /setAuthenticatedUser\s*\(/;
+  // A check of the user's role: a role compared or looked up in a list (the auth step of business-sequence-create, an
+  // IfStep on me.role), or a role API.
+  var ROLE_CHECK_JS = /hasRole\s*\(|isUserInRole\s*\(|\broles?\b[^;\n]{0,120}?(indexOf|includes|===|!==|==|!=)|(indexOf|includes)\s*\([^)]{0,80}\broles?\b/i;
   // Statements that change data; string literals and comments are left out before the test.
   var SQL_WRITE = /\b(INSERT\s+INTO|UPDATE\s+[\w."`\[\]]+\s+SET|DELETE\s+FROM|MERGE\s+INTO|REPLACE\s+INTO|TRUNCATE|DROP\s+(?:TABLE|SCHEMA|VIEW|INDEX)|CREATE\s+(?:TABLE|SCHEMA|VIEW|INDEX)|ALTER\s+TABLE)\b/gi;
   // CouchDB / FullSync transactions that write (a POST that only queries, like _find, does not).
@@ -140,7 +143,8 @@ C8O.securityAudit = C8O.securityAudit || {};
       managesPassword: PASSWORD_CRYPTO_JS.test(text) && PASSWORD_JS.test(text),
       removesUser: REMOVE_USER_JS.test(text),
       setsUser: SET_USER_JS.test(text),
-      endsSession: END_SESSION_JS.test(text)
+      endsSession: END_SESSION_JS.test(text),
+      checksRole: ROLE_CHECK_JS.test(text)
     };
   };
 
@@ -349,6 +353,9 @@ C8O.securityAudit = C8O.securityAudit || {};
       step.kind = "removeUser";
     } else if (className === "RemoveSessionStep") {
       step.kind = "endSession";
+    } else if (/^If/.test(className) && has(dbo, "getCondition") && ROLE_CHECK_JS.test(str(call(dbo, "getCondition", "")))) {
+      step.kind = "condition";
+      step.signals = { checksRole: true };
     } else if (has(dbo, "getSourceSequence")) {
       step.kind = "call";
       step.target = str(call(dbo, "getSourceSequence", ""));

@@ -561,28 +561,54 @@ C8O.crudSpec = C8O.crudSpec || {};
     return {};
   }
 
+  // The field that names a record of an entity where another one points to it (the label of a relation). A person is
+  // named by its name, never by its title: contacts with first_name, last_name and title were shown by their job title
+  // ("Chief Executive Officer") in the deals (PipelineCrm 12/11), title coming first and first_name never matching
+  // "firstname". The names are compared without underscores; a person's first and last names are composed in the SQL
+  // label (personNameFields).
+  var LABEL_TIERS = [
+    ["displayname", "fullname", "name", "nom", "label", "libelle", "nomcommun", "commonname", "companyname", "raisonsociale", "username"],
+    ["lastname", "surname", "familyname", "nomdefamille", "nomfamille", "firstname", "prenom", "givenname", "nomscientifique", "scientificname"],
+    ["title", "titre", "subject", "sujet", "reference", "code"],
+    ["email", "city", "ville", "industry", "secteur", "category", "categorie", "venue", "badge"]
+  ];
+  var FIRST_NAMES = ["firstname", "prenom", "givenname"];
+  var LAST_NAMES = ["lastname", "surname", "familyname", "nomdefamille", "nomfamille"];
+
+  function labelToken(ctx, field) {
+    return ctx.normalizedIdentifier(field && (field.column || field.name) || "").replace(/_/g, "");
+  }
+
+  function fieldByTokens(ctx, entity, tokens) {
+    for (var i = 0; i < tokens.length; i++) {
+      var found = C8O.crudSpec.findField(ctx, entity, function (field) {
+        return field && field.primary !== true && !field.references && labelToken(ctx, field) === tokens[i];
+      });
+      if (found) {
+        return found;
+      }
+    }
+    return null;
+  }
+
+  // {first, last} when the entity is a person with a first and a last name (and no display name of its own), else null.
+  function personNameFields(ctx, entity) {
+    if (!entity || fieldByTokens(ctx, entity, LABEL_TIERS[0])) {
+      return null;
+    }
+    var first = fieldByTokens(ctx, entity, FIRST_NAMES);
+    var last = fieldByTokens(ctx, entity, LAST_NAMES);
+    return first && last ? { first: first, last: last } : null;
+  }
+
   function preferredRelationLabelField(ctx, entity) {
     if (!entity) {
       return null;
     }
-    var preferred = [
-      ["displayname", "display_name", "name", "nom", "nomcommun", "commonname", "title", "titre"],
-      ["firstname", "prenom", "lastname", "surname", "nomscientifique", "scientificname"],
-      ["email", "city", "ville", "industry", "secteur", "category", "categorie", "venue", "badge"]
-    ];
-    for (var p = 0; p < preferred.length; p++) {
-      for (var i = 0; i < preferred[p].length; i++) {
-        var expected = ctx.normalizedIdentifier(preferred[p][i]);
-        var preferredField = C8O.crudSpec.findField(ctx, entity, function (field) {
-          if (!field || field.primary === true) {
-            return false;
-          }
-          var token = ctx.normalizedIdentifier(field.column || field.name);
-          return token === expected;
-        });
-        if (preferredField) {
-          return preferredField;
-        }
+    for (var p = 0; p < LABEL_TIERS.length; p++) {
+      var preferredField = fieldByTokens(ctx, entity, LABEL_TIERS[p]);
+      if (preferredField) {
+        return preferredField;
       }
     }
     var uniqueField = C8O.crudSpec.findField(ctx, entity, function (field) {
@@ -726,6 +752,8 @@ C8O.crudSpec = C8O.crudSpec || {};
       relation.ui.control = "select";
     }
     relation.ui.optionLabelField = labelField || relation.toField;
+    // Given by the spec: the SQL label is that field, never a composed person name.
+    relation.ui.labelFieldGiven = ctx.normalizedIdentifier(relationUi.optionLabelField || "") !== "unnamed" && ctx.trimmed(relationUi.optionLabelField || "").length > 0;
     relation.ui.optionValueField = ctx.normalizedIdentifier(relationUi.optionValueField || relation.toField || "id");
     relation.ui.placeholder = ctx.trimmed(relationUi.placeholder || ("Select " + (relation.label || fromEntity.singular || "value")));
     return relation;
@@ -899,4 +927,5 @@ C8O.crudSpec = C8O.crudSpec || {};
   C8O.crudSpec.relationLabelAlias = relationLabelAlias;
   C8O.crudSpec.entityRelationUiConfig = entityRelationUiConfig;
   C8O.crudSpec.preferredRelationLabelField = preferredRelationLabelField;
+  C8O.crudSpec.personNameFields = personNameFields;
 })();

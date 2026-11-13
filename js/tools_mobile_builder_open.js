@@ -872,6 +872,54 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     return result;
   }
 
+  // The agent browser of the Electron Studio: a dedicated browser process, one page, about:blank until the agent navigates
+  // it. Its CDP port is the system property convertigo.studio.cdp.port, which only the Electron Studio sets (the Eclipse
+  // Studio keeps its JxBrowser viewer and the port of each conversation), also while that process is not running: it is
+  // ready only when /json/version answers. 0 without the property.
+  function studioAgentBrowserPort() {
+    var raw = "";
+    try {
+      raw = trim(java.lang.System.getProperty("convertigo.studio.cdp.port"));
+    } catch (_ignoreNoProperty) {
+      raw = "";
+    }
+    var port = /^\d+$/.test(raw) ? parseInt(raw, 10) : 0;
+    return port >= 1024 && port <= 65535 ? port : 0;
+  }
+
+  // {browserDebugUrl, browserDevToolsJsonUrl, browserRemoteDebuggingPort, live, target}: the agent browser on its port;
+  // live when /json/version answers, target the page /json/list gives.
+  function readStudioAgentBrowser(port) {
+    var base = "http://127.0.0.1:" + port;
+    var version = parseJsonText(readUrlText(base + "/json/version", 1500));
+    var live = !!(version && typeof version === "object" && (version.Browser || version["Protocol-Version"] || version.webSocketDebuggerUrl));
+    return {
+      browserDebugUrl: base,
+      browserDevToolsJsonUrl: base + "/json",
+      browserRemoteDebuggingPort: port,
+      live: live,
+      target: live ? readDevToolsTarget(base + "/json/list", "") : null
+    };
+  }
+
+  // The application on the engine: its origin and the path of the development build (devBuildState.url, the same path
+  // on the development server and on the engine). The agent browser is signed in on the engine, not on the development
+  // server (localUrl).
+  function engineApplicationUrl(endpoint, path) {
+    var p = trim(path);
+    if (!p.length) {
+      return "";
+    }
+    if (/^https?:\/\//i.test(p)) {
+      return p;
+    }
+    var origin = /^(https?:\/\/[^\/]+)/i.exec(trim(endpoint));
+    if (!origin) {
+      return "";
+    }
+    return p.charAt(0) === "/" ? origin[1] + p : trim(endpoint).replace(/\/+$/, "") + "/" + p;
+  }
+
   // The Electron Studio: a desktop Studio engine without Studio mode (Engine.isDesktopStudio, Convertigo 8.5). Its web
   // Studio builds the NGX application through WsBuilder, without the Eclipse editor.
   function isDesktopWebStudio(Engine, studioMode) {
@@ -1454,7 +1502,16 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       viewerUrl = nodeUrl;
     }
     var viewerBaseUrl = deriveViewerBaseUrl(viewerUrl, nodeUrl);
-    if (webStudioDevBuild !== null && webStudioDevBuild.state === "serving" && webStudioDevBuild.localUrl.length) {
+    // The agent browser of the Electron Studio (none in the Eclipse Studio).
+    var agentBrowserPort = studioMode ? 0 : studioAgentBrowserPort();
+    var agentBrowser = agentBrowserPort > 0 ? readStudioAgentBrowser(agentBrowserPort) : null;
+    var engineAppUrl = webStudioDevBuild !== null && webStudioDevBuild.state === "serving" ? engineApplicationUrl(endpoint, webStudioDevBuild.url) : "";
+    if (agentBrowser !== null && engineAppUrl.length) {
+      // The URL the agent browser opens: the application on the engine, where it is signed in as the Studio; never the
+      // development server (localUrl).
+      viewerBaseUrl = engineAppUrl;
+      viewerUrl = engineAppUrl;
+    } else if (webStudioDevBuild !== null && webStudioDevBuild.state === "serving" && webStudioDevBuild.localUrl.length) {
       // the application on the development server of the web Studio, as its engine serves it
       viewerBaseUrl = webStudioDevBuild.localUrl;
     }
@@ -1470,6 +1527,18 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     var browserDebugPortMatched = browserDebugPortValue <= 0 || browserRemoteDebuggingPort === browserDebugPortValue;
     var browserControlReady = browserDebugPortMatched && isBrowserControlReady(editorState, browserState, viewerBaseUrl);
     var browserControlUrl = browserControlTargetUrl(editorState, browserState);
+    if (agentBrowser !== null) {
+      // The port of the property is the one the agent host attaches to: the port a conversation asked has no effect in the
+      // Electron Studio, so it counts as matched. Ready once the browser answers: the agent navigates its page itself.
+      browserDebugUrl = agentBrowser.browserDebugUrl;
+      browserDevToolsJsonUrl = agentBrowser.browserDevToolsJsonUrl;
+      browserRemoteDebuggingPort = agentBrowser.browserRemoteDebuggingPort;
+      browserDevToolsTarget = agentBrowser.target;
+      browserDevToolsWebSocketUrl = agentBrowser.target && agentBrowser.target.webSocketDebuggerUrl ? agentBrowser.target.webSocketDebuggerUrl : "";
+      browserDebugPortMatched = true;
+      browserControlReady = agentBrowser.live === true;
+      browserControlUrl = agentBrowser.target && agentBrowser.target.url ? agentBrowser.target.url : "";
+    }
     var viewerReady = readinessDecision && readinessDecision.viewerReady === true;
     var compileState = readinessDecision && readinessDecision.compileState ? readinessDecision.compileState : "unknown";
     var readyReason = readinessDecision && readinessDecision.readyReason ? readinessDecision.readyReason : "";
@@ -1618,6 +1687,13 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       browserControlTargetUrl: browserControlUrl,
       browserControlHint: status === "stopped"
         ? "No builder runtime is active. Call mobile-builder-open once with stateOnly=false and wait=false, continue other work, then poll readiness."
+        : agentBrowser !== null
+        ? (agentBrowser.live !== true
+          ? "The agent browser of the Electron Studio does not answer on " + agentBrowser.browserDebugUrl + " yet (the Studio starts it, and restarts it within 10 s " +
+            "when it stops): call mobile-builder-open again with stateOnly=true before using the Playwright tools."
+          : "Use the Playwright tools on the agent browser of the Electron Studio: one existing page" + (browserControlUrl.length ? " (now on " + browserControlUrl + ")" : "") +
+            ". Navigate that page to viewerHomeUrl once status is ready, then snapshot, click and evaluate on it. Do not open a new tab or page (not " +
+            "supported), never close it or the browser, and do not run ad hoc Node or CDP scripts. If the tools are unavailable, report the configuration problem.")
         : (browserDebugUrl.length
         ? (!browserDebugPortMatched
           ? "Studio JxBrowser is not using the managed CDP port yet. Retry mobile-builder-open after the Studio classes are updated; do not use Playwright until browserDebugPortMatched is true."

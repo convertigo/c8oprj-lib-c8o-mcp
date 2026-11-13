@@ -7,6 +7,7 @@ const vm = require("vm");
 const assert = require("assert");
 
 const source = fs.readFileSync(path.join(__dirname, "..", "..", "js", "tools_project_lint.js"), "utf8");
+const responseSource = fs.readFileSync(path.join(__dirname, "..", "..", "js", "sequence_response.js"), "utf8");
 const context = { C8O: {} };
 vm.createContext(context);
 vm.runInContext(source, context);
@@ -286,6 +287,7 @@ function runLint(project, files, securityAudit) {
     JSON
   };
   vm.createContext(sandbox);
+  vm.runInContext(responseSource, sandbox, { filename: "sequence_response.js" });
   vm.runInContext(source, sandbox, { filename: "tools_project_lint.js" });
   return plain(sandbox.C8O.lint.run(project.getName(), { checkTexts: false }));
 }
@@ -452,4 +454,60 @@ test("TEXT-REVIEW: a text already reviewed with the same model and language is n
   clock += 8 * 24 * 3600 * 1000;
   lint(["Version"]);
   assert.strictEqual(posts.length, 4);
+});
+
+// --- what a page reads of a call's answer (PipelineCrm 12/11: out?.success on an upsert-crud facade, "Error" over its rows) --
+
+test("NGX-RESPONSE-CONTRACT: a page that tests the envelope of a business sequence on a facade answering its data itself", () => {
+  const step = (cls, name, key, children, mode) => fakeBean("steps." + cls, name, { getKey: () => smart(mode || "PLAIN", key), isOutput: () => true }, children);
+  const facade = fakeBean("sequences.GenericSequence", "crm_list_deals", {}, [
+    fakeBean("steps.TransactionStep", "CallCrm_list_deals", { isOutput: () => false }),
+    step("JsonArrayStep", "Rows", "rows", [fakeBean("steps.IteratorStep", "RowsIterator", {}, [step("JsonObjectStep", "Item", "")])])]);
+  const business = fakeBean("sequences.GenericSequence", "crm_dashboard", {}, ["success", "data", "errors", "meta"].map(k => step("JsonToXmlStep", "out" + k, k)));
+  const computed = fakeBean("sequences.GenericSequence", "crm_computed", {}, [step("JsonToXmlStep", "Out", "k", [], "JS")]);
+  const ifAction = (name, condition) => fakeBean("ngx.components.UIDynamicAction", name, { getBeanData: () => JSON.stringify({ name: "IfAction",
+    properties: { condition: { mode: "script", value: condition } } }) });
+  const call = (name, target, kids) => fakeBean("ngx.components.UIDynamicAction", name, { getBeanData: () => JSON.stringify({ name: "CallSequenceAction",
+    properties: { requestable: { mode: "plain", value: target } } }) }, kids);
+  const envelopeReads = () => [setLocal("StoreData", "data", "out?.success ? (out?.data ?? null) : null"),
+    setLocal("StoreError", "error", "out?.success ? null : (out?.errors?.[0]?.message || 'Error')")];
+  const app = fakeBean("ngx.components.ApplicationComponent", "Application", {}, [
+    ngxPage("Deals", [call("Load", "App.crm_list_deals", envelopeReads())], true),
+    ngxPage("DealsOk", [call("Load", "App.crm_list_deals", [setLocal("StoreData", "data", "out != null && out?.error == null ? out : null"),
+      setLocal("StoreError", "error", "out != null && out?.error == null ? null : (out?.error?.message || 'Error')")])]),
+    ngxPage("Dashboard", [call("Load", "App.crm_dashboard", envelopeReads().concat([setLocal("Count", "n", "out?.rows?.length")]))]),
+    ngxPage("Computed", [call("Load", "App.crm_computed", envelopeReads())]),
+    ngxPage("Either", [call("Load", "App.crm_list_deals", [ifAction("IfOk", "!out?.error && !(out?.errors && out.errors.length) && out?.success !== false")])]),
+    ngxPage("Tolerant", [call("Load", "App.crm_list_deals", [setLocal("StoreData", "data",
+      "(out?.success === true || (out != null && out?.success === undefined && out?.error == null)) ? (out?.success === true ? (out?.data ?? null) : out) : null")])])
+  ]);
+  const sequences = { crm_list_deals: facade, crm_dashboard: business, crm_computed: computed };
+  const project = named(fakeBean("core.Project", "App", { getDirPath: () => "/p", getReferenceList: () => ({ size: () => 0, get: () => null }),
+    getSequenceByName: n => sequences[n] || null }, [facade, business, computed, fakeBean("mobile.MobileApplication", "MobileApplication", {}, [app])]));
+  const found = runLint(project, {}).findings.filter(f => f.rule === "NGX-RESPONSE-CONTRACT");
+  assert.deepStrictEqual(found.map(f => [f.severity, f.qname]), [
+    ["error", "App.MobileApplication.Application.Deals.Load"],
+    ["warning", "App.MobileApplication.Application.Dashboard.Load"]]);
+  assert.match(found[0].message, /^The action reads out\.success, out\.data, out\.errors of App\.crm_list_deals, which answers \{rows\}, its data itself/);
+  assert.match(found[0].message, /shows its error \("Error"\) although the call answered/);
+  assert.match(found[0].fix, /^Read the answer itself: data = out != null && out\?\.error == null \? out : null.*the paths then start with rows\).*ngx-page-create/);
+  assert.match(found[1].message, /reads out\.rows of App\.crm_dashboard, which answers \{success, data, errors, meta\}: this key is never in its answer \(a business sequence's data is in out\.data\)/);
+  assert.strictEqual(found[1].fix, "Read out?.data?.rows (the paths of a page are read in the data of a business sequence).");
+});
+
+test("NGX-I18N-LABEL: the plain label of a form control in an app that translates its texts", () => {
+  const input = (name, label) => fakeBean("ngx.components.UIDynamicElement", name, { getBeanData: () => JSON.stringify({ name: "Input",
+    properties: { Label: { mode: "plain", value: label }, Type: { mode: "plain", value: "email" } } }) });
+  const scripted = fakeBean("ngx.components.UIDynamicElement", "InPassword", { getBeanData: () => JSON.stringify({ name: "Input",
+    properties: { Label: { mode: "script", value: "'Password' | translate" } } }) });
+  const i18nText = fakeBean("ngx.components.UIText", "Title", { isI18n: () => true, getTextSmartType: () => smart("PLAIN", "Sign_in") });
+  const app = (texts) => named(fakeBean("core.Project", "App", { getDirPath: () => "/p", getReferenceList: () => ({ size: () => 0, get: () => null }) },
+    [fakeBean("mobile.MobileApplication", "MobileApplication", {}, [fakeBean("ngx.components.ApplicationComponent", "Application", {}, [
+      ngxPage("Login", texts.concat([input("InUser", "Email"), scripted]), true)])])]));
+  const files = { "DisplayObjects/mobile/assets/i18n/en.json": "{\"Sign_in\": \"Sign in\"}", "DisplayObjects/mobile/assets/i18n/fr.json": "{\"Sign_in\": \"Se connecter\"}" };
+  const found = runLint(app([i18nText]), files).findings.filter(f => f.rule === "NGX-I18N-LABEL");
+  assert.deepStrictEqual(found.map(f => f.qname), ["App.MobileApplication.Application.Login.InUser"]);
+  assert.match(found[0].message, /^The Label "Email" of this control is plain text while the app translates its texts \(i18n\)/);
+  assert.match(found[0].fix, /^Set Label to the script 'Email' \| translate \(mode SCRIPT\) and add the key Email to each of en\.json, fr\.json/);
+  assert.deepStrictEqual(runLint(app([]), files).findings.filter(f => f.rule === "NGX-I18N-LABEL"), [], "an app that does not translate its texts");
 });

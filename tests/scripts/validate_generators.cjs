@@ -15,7 +15,8 @@ const sources = {
   'js/sql_dialect.js': fs.readFileSync(path.join(root, 'js/sql_dialect.js'), 'utf8'),
   'js/tools_generators.js': fs.readFileSync(path.join(root, 'js/tools_generators.js'), 'utf8'),
   'js/tools_generators_ngx_theme.js': fs.readFileSync(path.join(root, 'js/tools_generators_ngx_theme.js'), 'utf8'),
-  'js/tools_generators_ngx.js': fs.readFileSync(path.join(root, 'js/tools_generators_ngx.js'), 'utf8')
+  'js/tools_generators_ngx.js': fs.readFileSync(path.join(root, 'js/tools_generators_ngx.js'), 'utf8'),
+  'js/sequence_response.js': fs.readFileSync(path.join(root, 'js/sequence_response.js'), 'utf8')
 };
 
 // --- fake beans ---------------------------------------------------------------------------------
@@ -53,6 +54,38 @@ const JAVA = {
   'sequences.GenericSequence': 'com.twinsoft.convertigo.beans.sequences.GenericSequence'
 };
 
+// The output steps of a sequence's answer: a step with a key SmartType (PLAIN unless mode is given).
+function outputStep(parent, name, cls, key, mode) {
+  const node = bean(name, 'com.twinsoft.convertigo.beans.steps.' + cls, parent);
+  node.getKey = () => ({ getMode: () => mode || 'PLAIN', getExpression: () => key });
+  node.isOutput = () => true;
+  node.isEnabled = () => true;
+  return node;
+}
+// A business sequence's answer: {success, data, errors, meta} (business-sequence-create).
+function envelopeSteps(seq) {
+  ['success', 'data', 'errors', 'meta'].forEach(k => outputStep(seq, 'out' + k, 'JsonToXmlStep', k));
+}
+// An upsert-crud facade's answer: {rows}, {row} or {message} with the write check's error step.
+function crudFacade(project, name, verb, vars) {
+  const seq = bean(name, JAVA['sequences.GenericSequence'], project);
+  (vars || []).forEach(v => bean(v, JAVA['variables.RequestableVariable'], seq));
+  bean('Call' + name, 'com.twinsoft.convertigo.beans.steps.TransactionStep', seq).isOutput = () => false;
+  if (verb === 'list') {
+    const rows = outputStep(seq, 'Rows', 'JsonArrayStep', 'rows');
+    const item = outputStep(bean('RowsIterator', 'com.twinsoft.convertigo.beans.steps.IteratorStep', rows), 'Item', 'JsonObjectStep', '');
+    outputStep(item, 'Name', 'JsonFieldStep', 'name');
+  } else if (verb === 'read') {
+    outputStep(outputStep(seq, 'Row', 'JsonObjectStep', 'row'), 'Name', 'JsonFieldStep', 'name');
+  } else {
+    const check = bean('IfWriteFailed', 'com.twinsoft.convertigo.beans.steps.IfStep', seq);
+    check.isOutput = () => false;
+    bean('WriteError', 'com.twinsoft.convertigo.beans.steps.XMLErrorStep', check);
+    outputStep(seq, 'Message', 'JsonFieldStep', 'message');
+  }
+  return seq;
+}
+
 function makeWorld(options) {
   const opts = options || {};
   const project = bean('App', 'com.twinsoft.convertigo.beans.core.Project');
@@ -85,9 +118,11 @@ function makeWorld(options) {
   }
   const seq = bean('poste_list', JAVA['sequences.GenericSequence'], project);
   ['recherche', 'statut', 'rpcaId'].forEach(v => bean(v, JAVA['variables.RequestableVariable'], seq));
+  envelopeSteps(seq);
   const submit = bean('declaration_declare', JAVA['sequences.GenericSequence'], project);
   ['posteIds', 'dateEffective', 'commentaire', 'source'].forEach(v => bean(v, JAVA['variables.RequestableVariable'], submit));
-  bean('auth_logout', JAVA['sequences.GenericSequence'], project);
+  envelopeSteps(submit);
+  envelopeSteps(bean('auth_logout', JAVA['sequences.GenericSequence'], project));
   const demo = bean('auth_loginDemo', JAVA['sequences.GenericSequence'], project);
   bean('profile', JAVA['variables.RequestableVariable'], demo);
   // Other sources: an HTTP connector, a local sequence, a referenced library and a loaded but unreferenced one.
@@ -937,10 +972,12 @@ test('an existing AppLayout is completed with the missing rules only', () => {
     dashboard: { kpis: [{ label: 'Actifs', field: 'compteurs.actifs' }], sections: [{ heading: 'Job', record: 'job', fields: [{ label: 'Date', field: 'date' }] }] } });
   assert.match(out.style, /^AppLayout completed with .*\.app-kpis/);
   const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
-  assert.equal(css.split('.app-page').length, 2, 'existing rule kept, not duplicated');
+  assert.equal(css.split(/(?:^|\n)\.app-page \{/).length, 2, 'existing rule kept, not duplicated');
+  assert.equal(css.split('ion-content.app-page {').length, 2, 'the centering rule added once');
   const nodes = {};
   walk(creates(world, 'ngx.components.PageComponent#PageComponent')[0], n => { nodes[n.name] = n; });
-  assert.equal(nodes.Value.children[1].properties.textValue.value, '(local?.data?.compteurs?.actifs ?? 0)');
+  // A KPI is shown with the grouping of the user's language (1458500 -> 1 458 500), a text as it is.
+  assert.match(nodes.Value.children[1].properties.textValue.value, /^\(\(\(local\?\.data\?\.compteurs\?\.actifs \?\? 0\)\) == null .*\.toLocaleString\(\[\], \{maximumFractionDigits: 2\}\)\)$/);
   assert.equal(nodes.S1IfRecord.properties.directiveExpression, 'local?.data?.job');
 });
 
@@ -1592,7 +1629,8 @@ test('list, KPI and option paths are read in the data of the answer, whatever ba
     kpis: [{ label: 'Postes', field: 'data.compteurs.postes' }, { label: 'Actifs', field: 'compteurs.actifs' }],
     sections: [{ heading: 'Liste', items: 'out.data.items', item: 'p', title: 'numeroPoste', empty: 'Aucun' }, { heading: 'Job', record: 'local?.data?.job', fields: [{ label: 'Date', field: 'date' }] }] } });
   const nodes = nodesOf(world, 'Dash');
-  assert.equal(nodes.Value.children[1].properties.textValue.value, '(local?.data?.compteurs?.postes ?? 0)');
+  // A KPI is shown with the grouping of the user's language (1458500 -> 1 458 500), a text as it is.
+  assert.match(nodes.Value.children[1].properties.textValue.value, /^\(\(\(local\?\.data\?\.compteurs\?\.postes \?\? 0\)\) == null .*\.toLocaleString\(\[\], \{maximumFractionDigits: 2\}\)\)$/);
   assert.deepEqual(plain(nodes.S1ForEach.properties.directiveSource), { mode: 'SOURCE', local: 'data.items' });
   assert.equal(nodes.S2IfRecord.properties.directiveExpression, 'local?.data?.job');
   assert.deepEqual(plain(out.bindings), { 'dashboard.kpis[0].field': 'local?.data?.compteurs?.postes', 'dashboard.kpis[1].field': 'local?.data?.compteurs?.actifs',
@@ -1897,4 +1935,120 @@ test('a bare name in the data or vars of a page action reads the page param or l
   load(world2).ngxPageCreate({ project: 'App', name: 'Welcome2', title: 'S', kind: 'detail', params: ['profile'],
     actions: [{ label: 'Admin', sequence: 'auth_loginDemo', vars: { profile: 'profile' }, page: 'Login', kind: 'root' }] });
   assert.match(JSON.stringify(creates(world2)), /"name":"profile".{0,200}c8oPage\.local\.profile/);
+});
+
+// --- what the called sequence answers (PipelineCrm 12/11: a list page on an upsert-crud facade showed "Error") -------------
+
+function crmWorld() {
+  const world = makeWorld();
+  crudFacade(world.project, 'crm_list_deals', 'list', ['search']);
+  crudFacade(world.project, 'crm_read_deal', 'read', ['id']);
+  crudFacade(world.project, 'crm_create_deal', 'create', ['name']);
+  crudFacade(world.project, 'crm_delete_deal', 'delete', ['id']);
+  return world;
+}
+const pageNodes = (world, pageName) => {
+  const nodes = {};
+  walk(world.ops.filter(op => op.type === 'create' && op.name === pageName)[0], n => { if (n.name) nodes[n.name] = n; });
+  world.ops.filter(op => op.type === 'create' && op.related && op.related.indexOf('.' + pageName + '.') > 0).forEach(op => walk(op, n => { if (n.name) nodes[n.name] = n; }));
+  return nodes;
+};
+
+test('a list page on an upsert-crud facade reads its {rows} answer itself, not a {success, data} envelope', () => {
+  const world = crmWorld();
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'Deals', title: 'Deals', kind: 'list', sequence: 'crm_list_deals', authRedirect: 'Login',
+    list: { item: 'deal', title: 'name', empty: 'Aucun' }, filterLabel: 'Filtrer' });
+  const nodes = pageNodes(world, 'Deals');
+  assert.equal(nodes.StoreData.properties.Value.value, 'out != null && out?.error == null ? out : null');
+  assert.equal(nodes.StoreError.properties.Value.value, "out != null && out?.error == null ? null : (out?.error?.message || 'Error')");
+  assert.doesNotMatch(JSON.stringify(nodes.Load), /out\?\.success/);
+  assert.match(nodes.IfSessionLost.properties.condition.value, /^!\(out != null && out\?\.error == null\) && \(\['UNAUTHENTICATED'\]\.indexOf\(out\?\.error\?\.code\)/);
+  assert.deepEqual(plain(nodes.RecForEach.properties.directiveSource), { mode: 'SOURCE', local: 'data.rows' }, 'the facade\'s one list is the default items');
+  assert.match(out.answers.crm_list_deals, /^crm_list_deals answers \{rows\}, its data itself \(no \{success, data\} envelope\)/);
+  // A path that is not a key of the answer is refused before anything is created.
+  const before = world.ops.length;
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Deals2', kind: 'list', sequence: 'crm_list_deals',
+    list: { items: 'items', item: 'deal', title: 'name', empty: 'Aucun' } }), /list\.items "items": crm_list_deals answers \{rows\}, its data itself .*the path starts with "rows"/);
+  assert.equal(world.ops.length, before);
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Deals3', kind: 'list', sequence: 'crm_read_deal',
+    list: { item: 'deal', title: 'name', empty: 'Aucun' } }), /list\.items is required: crm_read_deal answers \{row\}, which holds no list/);
+});
+
+test('a detail page on a read facade reads {row}, a form and an action on write facades test {message} and {error}', () => {
+  const world = crmWorld();
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'DealDetail', kind: 'detail', sequence: 'crm_read_deal', params: ['id'],
+    detail: { fields: [{ label: 'Nom', field: 'name' }] },
+    actions: [{ label: 'Supprimer', sequence: 'crm_delete_deal', vars: { id: 'id' }, page: 'Deals', kind: 'root' }] });
+  const detail = pageNodes(world, 'DealDetail');
+  assert.equal(detail.IfRecord.properties.directiveExpression, 'local?.data?.row', 'the facade\'s one record is the default record');
+  assert.equal(detail.IfOk.properties.condition.value, '(out != null && out?.error == null)');
+  assert.equal(detail.IfKo.properties.condition.value, '!(out != null && out?.error == null)');
+  assert.equal(detail.StoreCallError.properties.Value.value, "stack['Call'].out?.error?.message || 'Error'");
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'DealDetail2', kind: 'detail', sequence: 'crm_read_deal',
+    detail: { record: 'data.deal', fields: [{ label: 'Nom', field: 'name' }] } }), /detail\.record "data\.deal": crm_read_deal answers \{row\}/);
+  const out = G.ngxPageCreate({ project: 'App', name: 'DealForm', kind: 'form',
+    form: { submit: 'crm_create_deal', submitLabel: 'Créer', cancelLabel: 'Annuler', success: { message: 'Créé', page: 'Deals', kind: 'root' },
+      fields: [{ name: 'name', label: 'Nom' }] } });
+  const form = pageNodes(world, 'DealForm');
+  assert.equal(form.IfOk.properties.condition.value, '(out != null && out?.error == null)');
+  assert.equal(form.ToastKo.properties.message.value, "stack['Submit'].out?.error?.message || 'Error'");
+  assert.match(out.answers.crm_create_deal, /^crm_create_deal answers \{error, message\}/);
+});
+
+test('a business sequence keeps the envelope tests; an answer its steps do not say is read either way', () => {
+  const world = makeWorld();
+  const odd = bean('odd_answer', JAVA['sequences.GenericSequence'], world.project);
+  outputStep(odd, 'Out', 'JsonToXmlStep', 'computedKey', 'JS');
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'Postes', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  const env = pageNodes(world, 'Postes');
+  assert.equal(env.StoreData.properties.Value.value, 'out?.success ? (out?.data ?? null) : null');
+  assert.match(out.answers.poste_list, /answers \{success, data, errors, meta\}: the page keeps out\.data in local\.data/);
+  G.ngxPageCreate({ project: 'App', name: 'Odd', kind: 'list', sequence: 'odd_answer', list: { items: 'things', item: 'p', title: 'x', empty: 'Aucun' } });
+  const odd2 = pageNodes(world, 'Odd');
+  assert.match(odd2.StoreData.properties.Value.value, /out\?\.success === true \? \(out\?\.data \?\? null\) : out/);
+  assert.match(odd2.StoreError.properties.Value.value, /out\?\.errors\?\.\[0\]\?\.message \|\| out\?\.error\?\.message \|\| 'Error'/);
+});
+
+test('amounts are shown with the grouping of the user\'s language: format, or a field named as an amount', () => {
+  const world = makeWorld();
+  const G = load(world);
+  assert.equal(G.numberFormatOf({ field: 'amount' }), 'number');
+  assert.equal(G.numberFormatOf({ field: 'counters.openPipelineValue' }), 'number');
+  assert.equal(G.numberFormatOf({ field: 'MONTANT_HT' }), 'number');
+  assert.equal(G.numberFormatOf({ field: 'zipCode' }), '');
+  assert.equal(G.numberFormatOf({ field: 'year' }), '');
+  assert.equal(G.numberFormatOf({ field: 'price', format: 'none' }), '', 'an unknown format leaves the value as it is');
+  assert.equal(G.numberFormatOf({ field: 'qty', format: 'currency:eur' }), 'currency:eur');
+  G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list',
+    list: { item: 'p', title: 'numeroPoste', titleLabel: 'Poste', empty: 'Aucun', note: { field: 'budget', suffix: ' €' },
+      columns: [{ label: 'Prix', field: 'price', format: 'currency:EUR' }, { label: 'Code postal', field: 'zip' }] } });
+  const text = JSON.stringify(world.ops.filter(op => op.type === 'create' && op.name === 'Plist')[0]);
+  assert.match(text, /\(\(p\?\.budget\) \* 1\)\.toLocaleString\(\[\], \{maximumFractionDigits: 2\}\)\) \+ ' €'/);
+  assert.match(text, /\(\(p\?\.price\) \* 1\)\.toLocaleString\(\[\], \{style: 'currency', currency: 'EUR'\}\)/);
+  assert.match(text, /\(p\?\.zip \?\? ''\)/);
+  assert.doesNotMatch(text, /p\?\.zip\) \* 1/);
+});
+
+test('the home page and the root page show no back arrow to themselves (PipelineCrm 12/11)', () => {
+  const world = makeWorld();
+  world.appComp.children.find(c => c.name === 'Login').isRoot = true;
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'Dash', kind: 'dashboard', sequence: 'poste_list', home: 'Dash', dashboard: { kpis: [{ label: 'N', field: 'n' }] } });
+  find(world.project, 'App.Application.NgxApp.Dash').getSegment = () => 'dash';
+  G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', home: 'Dash', list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  const back = page => { let b = null; walk(world.ops.filter(op => op.type === 'create' && op.name === page)[0], n => { if (n.name === 'Back') b = n; }); return b; };
+  assert.deepEqual(plain(back('Dash').properties), {}, 'no defaultHref on its own home');
+  assert.deepEqual(plain(back('Plist').properties), { DefaultHref: { mode: 'PLAIN', value: '/dash' } });
+});
+
+test('the page content is centered on a wide screen, and an AppLayout written before gets the rule (PipelineCrm 12/11)', () => {
+  const world = makeWorld({ style: '.app-page { max-width: 1120px; margin: 0 auto; }\n' });
+  const G = load(world);
+  const out = G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  assert.match(out.style, /^AppLayout completed with .*ion-content\.app-page/);
+  const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
+  assert.match(css, /ion-content\.app-page \{ max-width: none; margin: 0; --app-page-gutter: max\(var\(--app-space-4, 16px\), calc\(\(100% - 1120px\) \/ 2\)\); --padding-start: var\(--app-page-gutter\); --padding-end: var\(--app-page-gutter\);/);
 });

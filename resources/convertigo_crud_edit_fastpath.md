@@ -42,6 +42,17 @@ If those conditions do not hold, fall back to `convertigo://resources/convertigo
 - A row you create to check a change (`requestable-execute`, a browser proof) lands among the user's rows: delete it by
   its id as soon as its check is done, before the next step, and say in the answer if one is left.
 
+## Running upsert-crud again
+- Run it again to change the spec: an entity, a field, a relation, a label. It is not the way to repair one object nor
+  to clean the rows a test created: delete those rows by their id with the delete business sequence, and fix an object
+  with `databaseobject-tree-apply` or `sql-transaction-create`.
+- A run keeps as it is a transaction or business sequence changed since the previous run (by hand or by another tool):
+  it writes nothing in it and names it in `warnings` (status `partial`). It does not create again an `auth_login` or
+  `auth_logout` deleted since. To have one written again from the spec, losing what was changed in it, send the same
+  call with `spec.overwrite: ["<name>"]` (`true` for all of them).
+- An app's own steps placed before the call of a business sequence are not a change: they stay, and the rest of the
+  business sequence follows the spec.
+
 ## A field with a fixed set of values
 Give the kit `ui.fieldOptions.<field>` (values, or `{value, label}` items, for example
 `{"priorite": [{"value": "basse", "label": "Basse"}, {"value": "normale", "label": "Normale"}]}`): its form shows a

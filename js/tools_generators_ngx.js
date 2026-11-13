@@ -7,6 +7,7 @@
  * Uses the validation and all-or-nothing helpers of js/tools_generators.js.
  */
 include("js/tools_generators_ngx_theme.js");
+include("js/sequence_response.js");
 
 (function () {
   var G = C8O.generators;
@@ -34,6 +35,10 @@ include("js/tools_generators_ngx_theme.js");
   var MUTED = "var(--app-muted, var(--ion-color-medium, #64748b))";
   var APP_LAYOUT_RULES = [
     [".app-page", ".app-page { max-width: 1120px; margin: 0 auto; padding: var(--app-space-5, 24px) var(--app-space-4, 16px) var(--app-space-6, 32px); }"],
+    // ion-content is not centered by its margins: the pages filled the left 1120 px of a wide screen (PipelineCrm 12/11). Its
+    // content is centered by its own padding, and an AppLayout written before gets this rule with its next page.
+    ["ion-content.app-page", "ion-content.app-page { max-width: none; margin: 0; --app-page-gutter: max(var(--app-space-4, 16px), calc((100% - 1120px) / 2)); " +
+      "--padding-start: var(--app-page-gutter); --padding-end: var(--app-page-gutter); --padding-top: var(--app-space-5, 24px); --padding-bottom: var(--app-space-6, 32px); }"],
     [".app-title", ".app-title { margin: 0 0 var(--app-space-4, 16px); font-size: var(--app-font-size-2xl, 28px); font-weight: var(--app-heading-weight, 650); letter-spacing: -0.02em; line-height: 1.2; }"],
     [".app-section", ".app-section { margin: var(--app-space-6, 32px) 0 var(--app-space-3, 12px); font-size: var(--app-font-size-lg, 18px); font-weight: var(--app-heading-weight, 650); }"],
     [".app-filters", ".app-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--app-space-3, 12px); align-items: end; " +
@@ -273,7 +278,41 @@ include("js/tools_generators_ngx_theme.js");
     return "local?." + str(path).replace(/^\.+/, "").split(".").join("?.");
   }
 
-  // Display value of a record field: optional labels map (status codes) as a ternary chain.
+  // A number shown with the grouping and decimals of the user's language: 1458500 read 1458500 and 185000.00 read 185000.00
+  // in the CRM's amounts (PipelineCrm 12/11), now 1 458 500 in French, 1,458,500 in English. A value that is not a number
+  // (a code, a text) is shown as it is. format: number (up to 2 decimals), integer, amount (2 decimals), percent, or
+  // currency:<ISO code> (currency:EUR).
+  var NUMBER_FORMATS = { number: "{maximumFractionDigits: 2}", integer: "{maximumFractionDigits: 0}",
+    amount: "{minimumFractionDigits: 2, maximumFractionDigits: 2}", percent: "{style: 'percent', maximumFractionDigits: 1}" };
+  // A field named as an amount gets the number format when the spec gives none.
+  var AMOUNT_WORDS = /(^|[._])(amount|montant|price|prix|cost|cout|revenue|revenu|turnover|budget|salary|salaire|total|totals|value|valeur|sum|somme|balance|solde)([._]|$)|(amount|price|value|total|revenue|budget|cost)$/i;
+
+  function numberOptions(format) {
+    var m = /^currency:([A-Za-z]{3})$/.exec(str(format));
+    if (m) {
+      return "{style: 'currency', currency: '" + m[1].toUpperCase() + "'}";
+    }
+    return NUMBER_FORMATS[str(format)] || null;
+  }
+
+  function numberExpr(value, format) {
+    var options = numberOptions(format);
+    if (!options) {
+      return "(" + value + " ?? '')";
+    }
+    var n = "((" + value + ") * 1)";
+    return "((" + value + ") == null || (" + value + ") === '' || " + n + " !== " + n + " ? (" + value + " ?? '') : " + n + ".toLocaleString([], " + options + "))";
+  }
+
+  G.numberFormatOf = function (f) {
+    if (str(f.format).length) {
+      return numberOptions(f.format) ? str(f.format) : "";
+    }
+    var path = str(f.field);
+    return /^[A-Za-z_][\w.]*$/.test(path) && AMOUNT_WORDS.test(path.split(".").pop().replace(/([a-z])([A-Z])/g, "$1_$2")) ? "number" : "";
+  };
+
+  // Display value of a record field: optional labels map (status codes) as a ternary chain, else the number format.
   function valueExpr(base, spec) {
     var f = isObj(spec) ? spec : { field: spec };
     var value = base(f.field);
@@ -287,10 +326,12 @@ include("js/tools_generators_ngx_theme.js");
     // Prefix and suffix keep their spaces ("Due " + date).
     var prefix = f.prefix != null ? String(f.prefix) : "";
     var suffix = f.suffix != null ? String(f.suffix) : "";
+    var format = G.numberFormatOf(f);
+    var shown = format.length ? numberExpr(value, format) : "(" + value + " ?? '')";
     if (prefix.length || suffix.length) {
-      return jsString(prefix) + " + (" + value + " ?? '') + " + jsString(suffix);
+      return jsString(prefix) + " + " + shown + " + " + jsString(suffix);
     }
-    return "(" + value + " ?? '')";
+    return shown;
   }
 
   function colorExpr(value, colors) {
@@ -588,6 +629,50 @@ include("js/tools_generators_ngx_theme.js");
       errors.push("sequence is required for a " + kind + " page: the business sequence the page calls at page enter " +
         "(a page with only a heading and buttons, such as a login or home page, is a detail page without sequence nor detail).");
     }
+    // What a called sequence answers (js/sequence_response.js): the page's tests and data paths follow it. An upsert-crud
+    // facade answers its data itself ({rows}, {row}, {message}): tested with out?.success like a business sequence's
+    // envelope, a list page kept no data and showed "Error" over an answer with rows (PipelineCrm, 12/11).
+    var SR = C8O.sequenceResponse && typeof C8O.sequenceResponse.of === "function" ? C8O.sequenceResponse : null;
+    function responseOf(seqName) {
+      var seq = str(seqName).length ? childNamed(projectDbo, str(seqName)) : null;
+      if (!SR) {
+        return { shape: "envelope", keys: [], arrays: [], objects: [] };
+      }
+      return seq ? SR.of(seq) : { shape: "unknown", keys: [], arrays: [], objects: [] };
+    }
+    function answerOf(resp) {
+      if (SR) {
+        return SR.expressions(resp ? resp.shape : "unknown");
+      }
+      return { ok: "out?.success", data: "out?.success ? (out?.data ?? null) : null", error: "out?.success ? null : (out?.errors?.[0]?.message || 'Error')",
+        errorOf: function (base) { return base + "?.errors?.[0]?.message || 'Error'"; }, authCode: "out?.errors?.[0]?.code" };
+    }
+    function answerText(seqName, resp) {
+      if (!SR || !resp) {
+        return undefined;
+      }
+      return seqName + " answers " + SR.describe(resp) + (resp.shape === "envelope" ? ": the page keeps out.data in local.data, its paths are read there"
+        : resp.shape === "plain" ? ", its data itself (no {success, data} envelope): the page keeps the whole answer in local.data, its paths start with a key of it"
+        : ": the page keeps out.data when the answer is an envelope {success, data}, else the whole answer, in local.data");
+    }
+    var response = facade.length && facadeVars !== null ? responseOf(facade) : null;
+    var answer = answerOf(response);
+    var answers = {};
+    if (response && answerText(facade, response)) {
+      answers[facade] = answerText(facade, response);
+    }
+    // A path of a plain answer starts with one of its keys: there is no data envelope to read in.
+    function plainKeyCheck(path, label, resp, seqName) {
+      if (!resp || resp.shape !== "plain") {
+        return;
+      }
+      var first = str(path).replace(/\?\./g, ".").replace(/^\.+/, "").replace(/^(?:c8oPage\.)?(?:local\.|out\.)?data\./, "").split(/[.\[]/)[0];
+      if (first.length && resp.keys.indexOf(first) < 0) {
+        var keys = resp.keys.filter(function (k) { return k !== "error"; });
+        errors.push(label + " \"" + str(path) + "\": " + (seqName || facade) + " answers " + SR.describe(resp) + ", its data itself (no {success, data} envelope): " +
+          "the path starts with " + (keys.length ? keys.map(function (k) { return "\"" + k + "\""; }).join(" or ") : "one of its keys") + ".");
+      }
+    }
     // theme: the tokens of ngx-theme-apply, written to AppTheme with this page (checked before anything is created).
     var themeSpec = spec.theme;
     if (themeSpec !== undefined) {
@@ -660,7 +745,12 @@ include("js/tools_generators_ngx_theme.js");
         return;
       }
       if (facadeVars && facadeVars.indexOf(str(f.name)) < 0) {
-        errors.push("filters[" + i + "].name " + f.name + " is not a variable of " + facade + " (" + facadeVars.join(", ") + ").");
+        // A filter is a variable of the sequence: the list facades of upsert-crud take none, and three CRM list pages were
+        // refused on "is not a variable of crm_list_companies ()" before the agent edited the facades by hand (12/11).
+        errors.push("filters[" + i + "].name " + f.name + " is not a variable of " + facade + " (" + (facadeVars.length ? facadeVars.join(", ") :
+          "it takes none, so it answers every row and cannot filter") + "). A filter is a variable the sequence filters on: use one of its variables, " +
+          "or let the page filter the rows it shows with list.grid: true (every column of the AG Grid has a filter), or call a business sequence " +
+          "that takes the filter (business-sequence-create reading the list transaction with a WHERE on that variable).");
       }
       var localName = "filter" + upperFirst(str(f.name));
       locals[localName] = "c8oPage.local?." + localName + " ?? " + (f.value !== undefined ? jsString(String(f.value)) : "''");
@@ -718,15 +808,16 @@ include("js/tools_generators_ngx_theme.js");
       });
     }
 
-    function authBranch(name) {
-      var cond = "!out?.success && (" + JSON.stringify(authCodes).replace(/"/g, "'") + ".indexOf(out?.errors?.[0]?.code) >= 0 || JSON.stringify(out ?? '').indexOf('Authentication required') >= 0)";
+    function authBranch(name, ans) {
+      var a = ans || answer;
+      var cond = "!" + a.ok + " && (" + JSON.stringify(authCodes).replace(/"/g, "'") + ".indexOf(" + a.authCode + ") >= 0 || JSON.stringify(out ?? '').indexOf('Authentication required') >= 0)";
       return nxAction("IfAction", name, { condition: { mode: "SCRIPT", value: cond } }, [navAction("GoEntry", { page: authRedirect, kind: "root" })]);
     }
 
     function dataCall(name, cacheTtl) {
       var children = dataCallVariables();
-      children.push(setLocal("StoreData", "data", "out?.success ? (out?.data ?? null) : null"));
-      children.push(setLocal("StoreError", "error", "out?.success ? null : (out?.errors?.[0]?.message || 'Error')"));
+      children.push(setLocal("StoreData", "data", answer.data));
+      children.push(setLocal("StoreError", "error", answer.error));
       var stopLoading = setLocal("StopLoading", "loading", "false");
       stopLoading.children = [refreshView()];
       children.push(stopLoading);
@@ -744,8 +835,8 @@ include("js/tools_generators_ngx_theme.js");
     // page opened as root in any case, so the user is never left on a page of the signed-in app.
     function logoutCall(loginPage) {
       var children = dataCallVariables();
-      var callError = "stack['Logout'].out?.errors?.[0]?.message || 'Error'";
-      children.push(nxAction("IfAction", "IfKo", { condition: { mode: "SCRIPT", value: "!out?.success" } }, [
+      var callError = answer.errorOf("stack['Logout'].out");
+      children.push(nxAction("IfAction", "IfKo", { condition: { mode: "SCRIPT", value: "!" + answer.ok } }, [
         nxAction("ToastAction", "ToastKo", { message: { mode: "SCRIPT", value: callError }, IonColor: { mode: "PLAIN", value: "danger" },
           duration: { mode: "PLAIN", value: "4000" } })]));
       children.push(navAction("ToLogin", { page: loginPage, kind: "root" }));
@@ -765,7 +856,18 @@ include("js/tools_generators_ngx_theme.js");
         return [];
       }
       var item = str(spec2.item || "row");
-      var itemsPath = "data." + dataPath(spec2.items || "items", label + ".items");
+      // A plain answer with one list ({rows} of an upsert-crud facade) gives the path when the spec leaves it out.
+      var givenItems = spec2.items;
+      if ((givenItems === undefined || givenItems === null || str(givenItems) === "") && response && response.shape === "plain") {
+        if (response.arrays.length === 1) {
+          givenItems = response.arrays[0];
+        } else {
+          errors.push(label + ".items is required: " + facade + " answers " + SR.describe(response) + (response.arrays.length ? ", give the list to show"
+            : ", which holds no list: a list needs a sequence that answers one (the list facade of upsert-crud answers {rows})") + ".");
+        }
+      }
+      plainKeyCheck(givenItems || "items", label + ".items", response);
+      var itemsPath = "data." + dataPath(givenItems || "items", label + ".items");
       if (!IDENT.test(item)) {
         errors.push(label + ".item must be an identifier.");
       }
@@ -1224,13 +1326,19 @@ include("js/tools_generators_ngx_theme.js");
                 ": ...}. data is what the next page receives in navParams.");
             }
           }
-          // The navigation waits for the sequence's success, as the form submit does; a failure shows its first error.
-          var callError = "stack['Call'].out?.errors?.[0]?.message || 'Error'";
+          // The navigation waits for the sequence's success, as the form submit does; a failure shows its first error. The
+          // tests follow what the sequence answers: a delete facade of upsert-crud answers {message}, not {success}.
+          var actionResponse = responseOf(a.sequence);
+          var actionAnswer = answerOf(actionResponse);
+          if (answerText(str(a.sequence), actionResponse)) {
+            answers[str(a.sequence)] = answerText(str(a.sequence), actionResponse);
+          }
+          var callError = actionAnswer.errorOf("stack['Call'].out");
           var okChildren = str(a.page).length ? [navAction("Go", { page: a.page, kind: a.kind || "root", data: pageExpressions(withSelection(a.data), label + "[" + i + "].data") })] : [];
           if (okChildren.length) {
-            callChildren.push(nxAction("IfAction", "IfOk", { condition: { mode: "SCRIPT", value: "out?.success" } }, okChildren));
+            callChildren.push(nxAction("IfAction", "IfOk", { condition: { mode: "SCRIPT", value: actionAnswer.ok } }, okChildren));
           }
-          callChildren.push(nxAction("IfAction", "IfKo", { condition: { mode: "SCRIPT", value: "!out?.success" } }, [
+          callChildren.push(nxAction("IfAction", "IfKo", { condition: { mode: "SCRIPT", value: "!" + actionAnswer.ok } }, [
             setLocal("StoreCallError", "error", callError),
             nxAction("ToastAction", "ToastKo", { message: { mode: "SCRIPT", value: callError }, IonColor: { mode: "PLAIN", value: "danger" },
               duration: { mode: "PLAIN", value: "4000" } })]));
@@ -1288,7 +1396,21 @@ include("js/tools_generators_ngx_theme.js");
         errors.push("detail is required for a detail page with a sequence: {record?, fields:[{label, field}]}.");
       } else {
         content.push(ifDirective("IfError", "!!local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
-        var base = "data" + (str(detail.record).length ? "." + dataPath(detail.record, "detail.record") : "");
+        // A plain answer with one record ({row} of an upsert-crud read facade) gives the record when the spec leaves it out.
+        var record = detail.record;
+        if (!str(record).length && response && response.shape === "plain" && response.objects.length === 1) {
+          record = response.objects[0];
+        }
+        if (str(record).length) {
+          plainKeyCheck(record, "detail.record", response);
+        } else {
+          list(detail.fields).forEach(function (f, fi) {
+            if (isObj(f) && str(f.field).length) {
+              plainKeyCheck(f.field, "detail.fields[" + fi + "].field", response);
+            }
+          });
+        }
+        var base = "data" + (str(record).length ? "." + dataPath(record, "detail.record") : "");
         var lv = labelValueList("Fields", detail.fields, base, "detail.fields");
         if (lv) {
           content.push(ifDirective("IfRecord", localPath(base), [lv]));
@@ -1310,6 +1432,7 @@ include("js/tools_generators_ngx_theme.js");
             }
             // A card per counter: an icon in a tinted square and an accent color (left border and icon). Not given, the
             // label says them: "En retard" is danger with an alert icon, "À jour" success with a check; icon "none" has none.
+            plainKeyCheck(k.field, "dashboard.kpis[" + i + "].field", response);
             var said = G.statusColor(str(k.label) || str(k.field), "");
             var kpiColor = str(k.color) || said || "primary";
             if (ACCENTS.indexOf(kpiColor) < 0) {
@@ -1322,7 +1445,8 @@ include("js/tools_generators_ngx_theme.js");
               kpiChildren.push(nx("Icon", "Icon", { IconName: { mode: "PLAIN", value: kpiIcon } }, [cls("app-kpi-icon")]));
             }
             return nx("DivTag", uniqueName("Kpi" + pascal(k.field.split(".").pop()), usedKpis), {}, kpiChildren.concat([
-              nx("SpanTag", "Value", {}, [cls("app-kpi-value"), expr("(" + localPath("data." + dataPath(k.field, "dashboard.kpis[" + i + "].field")) + " ?? 0)")]),
+              nx("SpanTag", "Value", {}, [cls("app-kpi-value"), expr(numberExpr("(" + localPath("data." + dataPath(k.field, "dashboard.kpis[" + i + "].field")) + " ?? 0)",
+                str(k.format).length && numberOptions(k.format) ? str(k.format) : "number"))]),
               nx("SpanTag", "Label", {}, [cls("app-kpi-label"), txt(str(k.label) || k.field)])]));
           }))));
         }
@@ -1334,6 +1458,7 @@ include("js/tools_generators_ngx_theme.js");
           var prefix = "S" + (i + 1);
           content.push(nx("Heading3", prefix + "Title", {}, [cls("app-section"), txt(str(s.heading || s.label) || ("Section " + (i + 1)))]));
           if (Array.isArray(s.fields)) {
+            plainKeyCheck(s.record, "dashboard.sections[" + i + "].record", response);
             var sbase = "data." + dataPath(s.record, "dashboard.sections[" + i + "].record");
             var slv = labelValueList(prefix + "Fields", s.fields, sbase, "dashboard.sections[" + i + "].fields");
             if (slv) {
@@ -1605,7 +1730,11 @@ include("js/tools_generators_ngx_theme.js");
         homeSegment = homePage ? str(homePage.getSegment()) : (home === name ? segment : "");
       } catch (_noSegment) {}
     }
-    var backProps = homeSegment.length ? { DefaultHref: { mode: "PLAIN", value: "/" + homeSegment.replace(/^\//, "") } } : {};
+    // defaultHref shows the back button even without history: on the home page itself, or on the root page, it showed a back
+    // arrow to the page itself after the login opened it as root (PipelineCrm 12/11). The back button of those pages only
+    // shows when a page was pushed over them.
+    var isOwnHome = home === name || makeRoot;
+    var backProps = homeSegment.length && !isOwnHome ? { DefaultHref: { mode: "PLAIN", value: "/" + homeSegment.replace(/^\//, "") } } : {};
     var headerChildren = [
       nx("ButtonSet", "Start", { SetPosition: { mode: "PLAIN", value: "start" } }, [nx("MenuButton", "Menu", {}), nx("BackButton", "Back", backProps)]),
       nx("BarTitle", "BarTitle", {}, [txt(title)])
@@ -1689,17 +1818,23 @@ include("js/tools_generators_ngx_theme.js");
       } else if (str(formPlan.success.kind) === "pop") {
         ok.push(navAction("Next", { kind: "pop" }));
       }
-      submitChildren.push(nxAction("IfAction", "IfOk", { condition: { mode: "SCRIPT", value: "out?.success" } }, ok));
+      // The tests follow what the submit sequence answers: a create or update facade of upsert-crud answers {message}.
+      var submitResponse = responseOf(formPlan.submit);
+      var submitAnswer = answerOf(submitResponse);
+      if (answerText(formPlan.submit, submitResponse)) {
+        answers[formPlan.submit] = answerText(formPlan.submit, submitResponse);
+      }
+      submitChildren.push(nxAction("IfAction", "IfOk", { condition: { mode: "SCRIPT", value: submitAnswer.ok } }, ok));
       // Under an IfAction, out is the If's own result: the call's response is stack["Submit"].out.
-      var submitError = "stack['Submit'].out?.errors?.[0]?.message || 'Error'";
+      var submitError = submitAnswer.errorOf("stack['Submit'].out");
       var storeSubmitError = setLocal("StoreSubmitError", "error", submitError);
       storeSubmitError.children = [refreshView()];
       var koChildren = [storeSubmitError,
         nxAction("ToastAction", "ToastKo", { message: { mode: "SCRIPT", value: submitError }, IonColor: { mode: "PLAIN", value: "danger" },
           duration: { mode: "PLAIN", value: "4000" } })];
-      submitChildren.push(nxAction("IfAction", "IfKo", { condition: { mode: "SCRIPT", value: "!out?.success" } }, koChildren));
+      submitChildren.push(nxAction("IfAction", "IfKo", { condition: { mode: "SCRIPT", value: "!" + submitAnswer.ok } }, koChildren));
       if (authRedirect.length) {
-        submitChildren.push(authBranch("IfSubmitSessionLost"));
+        submitChildren.push(authBranch("IfSubmitSessionLost", submitAnswer));
       }
       var submitEvent = controlEvent("EventonSubmit", "onSubmit", [nxAction("CallSequenceAction", "Submit", {
         requestable: { mode: "PLAIN", value: projectName + "." + formPlan.submit }, cacheTtl: { mode: "PLAIN", value: "0" } }, submitChildren)]);
@@ -1779,6 +1914,7 @@ include("js/tools_generators_ngx_theme.js");
       menuLabel: menuLabel,
       badgeColors: Object.keys(derivedColors).length ? derivedColors : undefined,
       bindings: Object.keys(bindings).length ? bindings : undefined,
+      answers: Object.keys(answers).length ? answers : undefined,
       library: gridLibrary && !gridLibrary.error ? { name: gridLibrary.library, status: gridLibrary.status, sharedComponent: gridLibrary.sharedComponent } : undefined,
       listRendering: gridPlans.length && !(gridLibrary && gridLibrary.error)
         ? gridPlans.map(function (gp) { return gp.label + ": AG Grid of " + GRID_LIBRARY + " (" + (gp.mode === "asked" ? "grid asked" : gp.cells + " cells") +

@@ -901,6 +901,21 @@ C8O.crudBackend = C8O.crudBackend || {};
     return "list_" + childPlural + "_by_" + suffix;
   }
 
+  // "first last" in the SQL of the database: CONCAT on MariaDB/MySQL (|| is OR there), + on SQL Server, || elsewhere; an
+  // empty part leaves no extra space.
+  function personLabelSql(spec, alias, person) {
+    var driver = String(spec && spec.database && spec.database.driver && spec.database.driver.id || "").toLowerCase();
+    var first = "COALESCE(" + alias + "." + (person.first.column || person.first.name) + ", '')";
+    var last = "COALESCE(" + alias + "." + (person.last.column || person.last.name) + ", '')";
+    if (driver === "mariadb" || driver === "mysql") {
+      return "TRIM(CONCAT(" + first + ", ' ', " + last + "))";
+    }
+    if (driver === "sqlserver") {
+      return "LTRIM(RTRIM(" + first + " + ' ' + " + last + "))";
+    }
+    return "TRIM(" + first + " || ' ' || " + last + ")";
+  }
+
   function buildJoinedSelectSql(ctx, spec, entity, options) {
     var currentOptions = options || {};
     var baseAlias = currentOptions.baseAlias || "base";
@@ -927,7 +942,11 @@ C8O.crudBackend = C8O.crudBackend || {};
         labelField = ctx.normalizedIdentifier(relation.toField || "id");
       }
       joinLines.push("LEFT JOIN " + targetEntity.name + " " + joinAlias + " ON " + baseAlias + "." + relation.fromField + " = " + joinAlias + "." + relation.toField);
-      selectSegments.push(joinAlias + "." + labelField + " AS " + sqlOutputAlias(ctx, relationLabelAlias(ctx, relation)));
+      // A person is named by its first and last names together ("Jane Doe"), unless the relation gives its label field.
+      var person = !(relation.ui && relation.ui.labelFieldGiven === true) && C8O.crudSpec && typeof C8O.crudSpec.personNameFields === "function"
+        ? C8O.crudSpec.personNameFields(ctx, targetEntity) : null;
+      var labelSql = person ? personLabelSql(spec, joinAlias, person) : joinAlias + "." + labelField;
+      selectSegments.push(labelSql + " AS " + sqlOutputAlias(ctx, relationLabelAlias(ctx, relation)));
     }
     var lines = [
       "SELECT " + selectSegments.join(", "),
@@ -1523,8 +1542,245 @@ C8O.crudBackend = C8O.crudBackend || {};
     return best;
   };
 
+  // --- hand edits ---------------------------------------------------------------------------------------------------
+  // Each run rewrote the transactions and business sequences upsert-crud generates, undoing what had been changed since:
+  // in PipelineCrm (12/11) a run repeated with the same spec dropped the search filter added to a list transaction and to
+  // its business sequence, which then failed on the variable it set; another made the app's own auth_logout (a business
+  // sequence) a skeleton again and created again the auth_login skeleton the app had deleted. Each run now records a
+  // fingerprint of the objects it wrote (_private/upsert-crud-state.json: in the workspace, never exported). The next run
+  // keeps as it is an object whose fingerprint changed, and does not create again an auth skeleton deleted since, and
+  // says so in the warnings; spec.overwrite names the objects to write again (true: all of them).
+  var EDIT_STATE_FILE = "_private/upsert-crud-state.json";
+  var FINGERPRINT_GETTERS = ["getSqlQuery", "getAutoCommit", "getAccessibility", "isAuthenticatedContextRequired", "isEnabled", "isOutput",
+    "getExpression", "getCondition", "getSourceTransaction", "getSourceSequence", "getSourceDefinition", "getKey", "getValue", "getJsonObject",
+    "getVariableName", "getType", "getUserid", "getCode", "getMessage", "getValueOrNull"];
+
+  function fingerprintText(value) {
+    if (value === null || value === undefined) {
+      return "";
+    }
+    try {
+      if (typeof value.getMode === "function") {
+        var mode = String(value.getMode());
+        if (mode === "SOURCE" && typeof value.getSourceDefinition === "function") {
+          return mode + ":" + fingerprintText(value.getSourceDefinition());
+        }
+        return mode + ":" + String(typeof value.getExpression === "function" ? value.getExpression() : "");
+      }
+      if (typeof value.size === "function" && typeof value.get === "function") {
+        var parts = [];
+        for (var i = 0; i < value.size(); i++) {
+          parts.push(fingerprintText(value.get(i)));
+        }
+        return "[" + parts.join(",") + "]";
+      }
+    } catch (_ignoreValue) {}
+    var text = String(value);
+    // A Java object without a value of its own prints its identity, which changes from one engine to the next.
+    return /@[0-9a-f]{4,}$/.test(text) ? "" : text;
+  }
+
+  function childrenForFingerprint(dbo) {
+    var out = [];
+    try {
+      var all = dbo.getAllChildren();
+      for (var i = 0; all && i < all.size(); i++) {
+        out.push(all.get(i));
+      }
+    } catch (_noChildren) {}
+    return out;
+  }
+
+  // What upsert-crud writes of an object and of its children, as one hash: class, name, and the values of the properties
+  // it sets (SQL, security, expressions, keys and sources), not the comments. The steps an app puts before the call of a
+  // business sequence are its own (upsert-crud keeps them): they are not part of it, the required-field checks are.
+  function ownSteps(sequenceNode, kids) {
+    var callAt = -1;
+    for (var i = 0; i < kids.length; i++) {
+      var kidClass = "";
+      try {
+        kidClass = String(kids[i].getClass().getName());
+      } catch (_noKidClass) {}
+      if (/\.TransactionStep$/.test(kidClass)) {
+        callAt = i;
+        break;
+      }
+    }
+    if (callAt < 0) {
+      return kids;
+    }
+    return kids.filter(function (kid, index) {
+      var kidName = String(kid.getName ? kid.getName() : "");
+      var isStep = false;
+      try {
+        isStep = /\.steps\./.test(String(kid.getClass().getName()));
+      } catch (_noStepClass) {}
+      return index >= callAt || !isStep || /^Require_/.test(kidName);
+    });
+  }
+
+  C8O.crudBackend.fingerprint = function (dbo) {
+    var lines = [];
+    (function walk(node, depth) {
+      var className = "";
+      try {
+        className = String(node.getClass().getName());
+      } catch (_noClass) {}
+      lines.push(depth + " " + className.substring(className.lastIndexOf(".") + 1) + " " + String(node.getName ? node.getName() : ""));
+      for (var g = 0; g < FINGERPRINT_GETTERS.length; g++) {
+        var getter = FINGERPRINT_GETTERS[g];
+        try {
+          if (typeof node[getter] === "function") {
+            var text = fingerprintText(node[getter]());
+            if (text.length) {
+              lines.push(depth + "  " + getter + "=" + text);
+            }
+          }
+        } catch (_ignoreGetter) {}
+      }
+      var kids = childrenForFingerprint(node);
+      if (/Sequence$/.test(className)) {
+        kids = ownSteps(node, kids);
+      }
+      for (var k = 0; k < kids.length; k++) {
+        walk(kids[k], depth + 1);
+      }
+    })(dbo, 0);
+    var hash = 0x811c9dc5;
+    var all = lines.join("\n");
+    for (var i = 0; i < all.length; i++) {
+      hash ^= all.charCodeAt(i);
+      hash = (hash + ((hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24))) >>> 0;
+    }
+    return ("0000000" + hash.toString(16)).slice(-8) + "-" + all.length;
+  };
+
+  function qnameForState(dbo) {
+    try {
+      return String(dbo.getQName());
+    } catch (_noQName) {
+      return String(dbo.getName());
+    }
+  }
+
+  function readEditState(project) {
+    try {
+      var file = new java.io.File(String(project.getDirPath()), EDIT_STATE_FILE);
+      if (file.isFile()) {
+        var state = JSON.parse(String(new java.lang.String(java.nio.file.Files.readAllBytes(file.toPath()), "UTF-8")));
+        if (state && typeof state.objects === "object" && state.objects !== null) {
+          return state;
+        }
+      }
+    } catch (_noState) {}
+    return { version: 1, objects: {} };
+  }
+
+  function overwriteNames(ctx, rawSpec) {
+    var spec = rawSpec;
+    if (typeof spec === "string" || (spec && typeof spec.getClass === "function")) {
+      try {
+        spec = JSON.parse(String(spec));
+      } catch (_notJson) {
+        spec = null;
+      }
+    }
+    var given = spec && typeof spec === "object" ? spec.overwrite : undefined;
+    if (given === true || String(given) === "true" || String(given) === "all") {
+      return { all: true, names: {} };
+    }
+    var names = {};
+    ctx.ensureArray(given).forEach(function (n) {
+      var name = ctx.trimmed(n);
+      if (name.length) {
+        names[name] = true;
+      }
+    });
+    return { all: false, names: names };
+  }
+
+  C8O.crudBackend.editGuard = function (ctx, project, rawSpec, result) {
+    var state = readEditState(project);
+    var overwrite = overwriteNames(ctx, rawSpec);
+    var written = [];
+    var kept = {};
+    var asked = function (dbo, name) {
+      var qname = dbo ? qnameForState(dbo) : "";
+      return overwrite.all || overwrite.names[name] === true || (qname.length && overwrite.names[qname] === true) ||
+        (qname.length && overwrite.names[qname.split(".").pop()] === true);
+    };
+    var guard = {
+      // The object to keep as it is (changed since the last run), else null: upsert-crud writes it.
+      changed: function (parent, className, name) {
+        var existing = ctx.findChild(parent, name, className);
+        if (!existing) {
+          return null;
+        }
+        var qname = qnameForState(existing);
+        var before = state.objects[qname];
+        if (!before || asked(existing, name)) {
+          return null;
+        }
+        if (C8O.crudBackend.fingerprint(existing) === before) {
+          return null;
+        }
+        kept[qname] = before;
+        ctx.addWarning(result, "upsert-crud kept " + qname + " as it is: it was changed since the last upsert-crud run (by hand or by another tool), " +
+          "so this run wrote nothing in it and it may no longer match the spec. Keep it, or send the same call with spec.overwrite: [\"" + name +
+          "\"] to write it again from the spec (what was changed in it is then lost).");
+        return existing;
+      },
+      // Whether an object upsert-crud wrote before was deleted since: the app removed it on purpose.
+      deleted: function (parent, className, name) {
+        var qname = qnameForState(parent) + "." + name;
+        if (!state.objects[qname] || ctx.findChild(parent, name, className) || asked(null, name)) {
+          return false;
+        }
+        kept[qname] = state.objects[qname];
+        ctx.addWarning(result, "upsert-crud did not create " + name + " again: it was deleted since the last upsert-crud run. Send the same call with " +
+          "spec.overwrite: [\"" + name + "\"] to create it again.");
+        return true;
+      },
+      wrote: function (dbo) {
+        if (dbo) {
+          written.push(dbo);
+        }
+        return dbo;
+      },
+      // After every write of the run: the fingerprints of the objects written, the former ones of the objects kept (a
+      // kept object stays reported until spec.overwrite names it).
+      save: function () {
+        var objects = {};
+        Object.keys(kept).forEach(function (q) { objects[q] = kept[q]; });
+        written.forEach(function (dbo) {
+          var qname = qnameForState(dbo);
+          if (!kept[qname]) {
+            objects[qname] = C8O.crudBackend.fingerprint(dbo);
+          }
+        });
+        try {
+          var file = new java.io.File(String(project.getDirPath()), EDIT_STATE_FILE);
+          file.getParentFile().mkdirs();
+          java.nio.file.Files.write(file.toPath(), new java.lang.String(JSON.stringify({ version: 1, objects: objects }, null, 1)).getBytes("UTF-8"));
+        } catch (saveError) {
+          ctx.addWarning(result, "upsert-crud could not record what it wrote (" + EDIT_STATE_FILE + "): " + saveError + ". The next run cannot tell the " +
+            "objects changed by hand since.");
+        }
+        return objects;
+      }
+    };
+    return guard;
+  };
+
   C8O.crudBackend.ensureSqlTransaction = function (ctx, connector, name, sqlQuery, autoCommit, result, options) {
+    var keptTx = name !== "init_schema" && ctx.editGuard ? ctx.editGuard.changed(connector, "transactions.SqlTransaction", name) : null;
+    if (keptTx) {
+      return keptTx;
+    }
     var tx = ctx.ensureChild(connector, "transactions.SqlTransaction", name, result);
+    if (ctx.editGuard && name !== "init_schema") {
+      ctx.editGuard.wrote(tx);
+    }
     var currentOptions = options || {};
     safeComment(tx, currentOptions.comment || "");
     tx.setSqlQuery(String(sqlQuery || ""));
@@ -1597,7 +1853,14 @@ C8O.crudBackend = C8O.crudBackend || {};
   };
 
   C8O.crudBackend.ensurePublicSequence = function (ctx, project, sequenceName, sourceTransaction, variableEntries, result, options) {
+    var keptSequence = ctx.editGuard ? ctx.editGuard.changed(project, "sequences.GenericSequence", sequenceName) : null;
+    if (keptSequence) {
+      return keptSequence;
+    }
     var sequence = ctx.ensureChild(project, "sequences.GenericSequence", sequenceName, result);
+    if (ctx.editGuard) {
+      ctx.editGuard.wrote(sequence);
+    }
     var currentOptions = options || {};
     applySequenceSecurity(ctx, sequence, currentOptions.accessibility || "Hidden", currentOptions.authenticatedContextRequired == null ? true : currentOptions.authenticatedContextRequired, result);
     safeComment(sequence, currentOptions.comment || "");
@@ -1681,7 +1944,17 @@ C8O.crudBackend = C8O.crudBackend || {};
   }
 
   C8O.crudBackend.ensureAuthLoginSequence = function (ctx, project, result) {
+    if (ctx.editGuard && ctx.editGuard.deleted(project, "sequences.GenericSequence", "auth_login")) {
+      return null;
+    }
+    var keptLogin = ctx.editGuard ? ctx.editGuard.changed(project, "sequences.GenericSequence", "auth_login") : null;
+    if (keptLogin) {
+      return keptLogin;
+    }
     var sequence = ctx.ensureChild(project, "sequences.GenericSequence", "auth_login", result);
+    if (ctx.editGuard) {
+      ctx.editGuard.wrote(sequence);
+    }
     applySequenceSecurity(ctx, sequence, "Hidden", false, result);
     safeComment(sequence, authSequenceComment("login"));
     C8O.crudBackend.ensureRequestableVariables(ctx, sequence, [
@@ -1714,7 +1987,17 @@ C8O.crudBackend = C8O.crudBackend || {};
   };
 
   C8O.crudBackend.ensureAuthLogoutSequence = function (ctx, project, result) {
+    if (ctx.editGuard && ctx.editGuard.deleted(project, "sequences.GenericSequence", "auth_logout")) {
+      return null;
+    }
+    var keptLogout = ctx.editGuard ? ctx.editGuard.changed(project, "sequences.GenericSequence", "auth_logout") : null;
+    if (keptLogout) {
+      return keptLogout;
+    }
     var sequence = ctx.ensureChild(project, "sequences.GenericSequence", "auth_logout", result);
+    if (ctx.editGuard) {
+      ctx.editGuard.wrote(sequence);
+    }
     applySequenceSecurity(ctx, sequence, "Hidden", false, result);
     safeComment(sequence, authSequenceComment("logout"));
     var removeStep = ctx.ensureChild(sequence, "steps.SimpleStep", "RemoveAuthenticatedUser", result);
@@ -1764,6 +2047,7 @@ C8O.crudBackend = C8O.crudBackend || {};
       };
     }
     var project = ctx.ensureProject(spec, result);
+    ctx.editGuard = C8O.crudBackend.editGuard(ctx, project, options.spec, result);
     var createdBeforeConnector = result.created.length;
     var connector = C8O.crudBackend.ensureConnector(ctx, project, spec, result);
     var connectorExisted = result.created.length === createdBeforeConnector;
@@ -1793,11 +2077,17 @@ C8O.crudBackend = C8O.crudBackend || {};
     if (result.sequence) {
       var authLoginSequence = C8O.crudBackend.ensureAuthLoginSequence(ctx, project, result);
       var authLogoutSequence = C8O.crudBackend.ensureAuthLogoutSequence(ctx, project, result);
-      result.primaryTargets.flow.push(authLoginSequence.getFullQName ? String(authLoginSequence.getFullQName()) : authSequenceQName(spec.project, "auth_login"));
-      result.primaryTargets.flow.push(authLogoutSequence.getFullQName ? String(authLogoutSequence.getFullQName()) : authSequenceQName(spec.project, "auth_logout"));
+      var authQName = function (dbo, name) {
+        return dbo ? (dbo.getFullQName ? String(dbo.getFullQName()) : authSequenceQName(spec.project, name)) : "";
+      };
+      [[authLoginSequence, "auth_login"], [authLogoutSequence, "auth_logout"]].forEach(function (pair) {
+        if (pair[0]) {
+          result.primaryTargets.flow.push(authQName(pair[0], pair[1]));
+        }
+      });
       result.runtimeEvidence.auth = {
-        loginRequestable: authLoginSequence.getFullQName ? String(authLoginSequence.getFullQName()) : authSequenceQName(spec.project, "auth_login"),
-        logoutRequestable: authLogoutSequence.getFullQName ? String(authLogoutSequence.getFullQName()) : authSequenceQName(spec.project, "auth_logout")
+        loginRequestable: authQName(authLoginSequence, "auth_login"),
+        logoutRequestable: authQName(authLogoutSequence, "auth_logout")
       };
     }
 
@@ -1975,6 +2265,14 @@ C8O.crudBackend = C8O.crudBackend || {};
     ensureDefaultTransaction(connector, defaultTransaction, result);
     prunePlaceholderVoidConnector(ctx, project, spec.database.connector, result);
 
+    if (result.sequence) {
+      // Said here so that an answer about the app's access rules does not call them role-checked (PipelineCrm 12/11).
+      result.runtimeEvidence.access = "The business sequences of upsert-crud require a signed-in user (Hidden, authenticatedContextRequired) " +
+        "and check no role: any signed-in user can list, read, create, update and delete. Where a role is needed, put its check before " +
+        "the call of the transaction (an IfStep with an XMLErrorStep): upsert-crud keeps it. project-security-audit lists in access which " +
+        "sequences check a role.";
+    }
+    ctx.editGuard.save();
     var saveResult = ctx.saveProject(project, []);
     result.runtimeEvidence.projectSave = ctx.summarizeSaveResult(saveResult, result);
     result.runtimeEvidence.studioRefresh = ctx.refreshStudioProjectTree(project, result, "studioRefresh");

@@ -841,6 +841,45 @@ C8O.securityAudit = C8O.securityAudit || {};
     });
   };
 
+  // Who can call each sequence of the project: anyone (anonymous), any signed-in user (signedInOnly: authenticated
+  // context, no role check found), a role checked inside or in a sequence it calls (roleChecked), or nobody from outside
+  // (Private). An agent reported every sequence of a CRM as "role-checked" while 4 of 27 checked a role, the others
+  // requiring a session only (PipelineCrm 12/11): the report says it.
+  api.accessSummary = function (model) {
+    var project = String((model.project && model.project.name) || "");
+    var roleOwners = {};
+    (model.steps || []).forEach(function (st) {
+      if (st.enabled !== false && st.signals && st.signals.checksRole === true) {
+        roleOwners[st.owner] = true;
+      }
+    });
+    var byQName = {};
+    (model.requestables || []).forEach(function (r) { byQName[r.qname] = r; });
+    var short = function (qname) { return String(qname).replace(/^.*[.:]/, ""); };
+    var access = { roleChecked: [], signedInOnly: [], anonymous: [], private: [] };
+    (model.requestables || []).forEach(function (r) {
+      if (r.kind !== "sequence" || (project.length && String(r.qname).indexOf(project + ".") !== 0)) {
+        return;
+      }
+      var name = short(r.qname);
+      if (r.accessibility === "Private") {
+        access.private.push(name);
+      } else if (!r.authenticatedContextRequired) {
+        access.anonymous.push(name);
+      } else if (roleOwners[r.qname] || (r.calls || []).some(function (t) {
+        return Object.keys(roleOwners).some(function (o) { return short(o) === short(t) && (byQName[o] || {}).kind === "sequence"; });
+      })) {
+        access.roleChecked.push(name);
+      } else {
+        access.signedInOnly.push(name);
+      }
+    });
+    Object.keys(access).forEach(function (k) { access[k] = access[k].sort().slice(0, 60); });
+    access.note = "signedInOnly: any signed-in user calls them, whatever their role (authenticatedContextRequired, no role check found " +
+      "in them nor in a sequence they call). Describe the access of the app from these lists: only roleChecked sequences check a role.";
+    return access;
+  };
+
   api.buildReport = function (model, options) {
     var opts = options || {};
     var minRank = api.severityRank(opts.minSeverity || "low");
@@ -868,6 +907,7 @@ C8O.securityAudit = C8O.securityAudit || {};
       categories: scored.categories,
       rules: api.notableRules(rules.checks, opts),
       findings: listed.slice(0, limit),
+      access: api.accessSummary(model),
       coverage: {
         requestables: (model.requestables || []).length,
         steps: (model.steps || []).length,

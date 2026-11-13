@@ -127,6 +127,50 @@ C8O.browserVerify = C8O.browserVerify || {};
     return { width: 1280, height: 800 };
   };
 
+  // The facts for the sub-agent as text: a text as it is, {name: value} facts and lists one per line. An agent sent
+  // {demoAccount, expectedKpis, note} and the call was refused before it started (PipelineCrm 12/11).
+  api.hintsText = function (value) {
+    if (value === null || value === undefined) {
+      return "";
+    }
+    var data = value;
+    if (typeof value !== "object" || (typeof value.getClass === "function")) {
+      var text = str(value).trim();
+      if (!/^[\[{]/.test(text)) {
+        return text;
+      }
+      try {
+        data = JSON.parse(text);
+      } catch (_notJson) {
+        return text;
+      }
+    }
+    var lines = [];
+    (function walk(v, prefix) {
+      if (Array.isArray(v)) {
+        v.forEach(function (x) { walk(x, prefix); });
+      } else if (v !== null && typeof v === "object") {
+        Object.keys(v).forEach(function (k) { walk(v[k], prefix.length ? prefix + "." + k : k); });
+      } else if (str(v).length) {
+        lines.push(prefix.length ? prefix + ": " + str(v) : str(v));
+      }
+    })(data, "");
+    return lines.join("\n");
+  };
+
+  // The agent browser of the Electron Studio: its CDP port in the system property convertigo.studio.cdp.port (only the
+  // Electron Studio sets it). It is the one browser the sub-agent can drive there, whatever port the conversation asked.
+  api.studioAgentBrowserPort = function (readProperty) {
+    var raw = "";
+    try {
+      raw = str(readProperty ? readProperty("convertigo.studio.cdp.port") : java.lang.System.getProperty("convertigo.studio.cdp.port"));
+    } catch (_noProperty) {
+      raw = "";
+    }
+    var port = /^\d+$/.test(raw.trim()) ? parseInt(raw.trim(), 10) : 0;
+    return port >= 1024 && port <= 65535 ? port : 0;
+  };
+
   // subagent-run passes its inputs in `inputs` (url, paths, checks, hints); browser-verify passes them flat. Without
   // paths, the task itself is the path to walk.
   function verifierInputs(params) {
@@ -144,7 +188,7 @@ C8O.browserVerify = C8O.browserVerify || {};
       viewport: api.parseViewport(pick("viewport")),
       paths: paths,
       checks: api.parseList(pick("checks"), "checks", MAX_CHECKS),
-      hints: [str(pick("hints")), str(params.reportFormat).length ? "Report format asked: " + str(params.reportFormat) : ""]
+      hints: [api.hintsText(pick("hints")), str(params.reportFormat).length ? "Report format asked: " + str(params.reportFormat) : ""]
         .filter(function (x) { return x.length; }).join("\n")
     };
   }
@@ -324,6 +368,10 @@ C8O.browserVerify = C8O.browserVerify || {};
     // The managed agent hosts send their conversation's viewer debug port in X-Convertigo-Viewer-Debug-Port; the MCP
     // router passes it as browserDebugPort. An explicit cdpEndpoint (loopback only) is the fallback.
     host.cdpEndpoint = function (params) {
+      var agentBrowserPort = api.studioAgentBrowserPort();
+      if (agentBrowserPort > 0) {
+        return "http://127.0.0.1:" + agentBrowserPort;
+      }
       return api.normalizeCdpEndpoint(params.browserDebugPort, params.cdpEndpoint);
     };
     // A port can be held twice, on 127.0.0.1 and on [::1], by a stale browser and by the live viewer: the address

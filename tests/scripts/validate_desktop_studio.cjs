@@ -209,3 +209,42 @@ test('mobile-builder-open joins the generated line a compile error names, to fin
   assert.match(source, /String\(file\.getPath\(\)\)\.indexOf\(String\(root\.getPath\(\)\) \+ java\.io\.File\.separator\) !== 0/, 'only a file inside _private/ionic');
   assert.match(read('js/schema_overrides.js'), /generatedLine: \{ type: "string" \}/);
 });
+
+// The agent browser of the Electron Studio (contract of 12/11): a dedicated browser whose CDP port is the system property
+// convertigo.studio.cdp.port, which the Eclipse Studio never sets. mobile-builder-open answered browserControlReady false
+// and no debug URL there, so the agent of the PipelineCrm turn never saw the "Error" banner of its list pages.
+test('mobile-builder-open: the agent browser of the Electron Studio, on the application served by the engine', () => {
+  const source = read('js/tools_mobile_builder_open.js');
+  const fn = name => source.match(new RegExp('\\n  function ' + name + '\\([^)]*\\) \\{\\n[\\s\\S]*?\\n  \\}\\n'))[0];
+  const helpers = { trim: v => String(v ?? '').trim() };
+  const portOf = value => vm.runInNewContext(fn('studioAgentBrowserPort') + 'studioAgentBrowserPort();',
+    Object.assign({ java: { lang: { System: { getProperty: () => value } } } }, helpers));
+  assert.equal(portOf('30080'), 30080);
+  assert.equal(portOf(null), 0, 'the Eclipse Studio sets no property');
+  assert.equal(portOf('nope'), 0);
+  assert.equal(portOf('99999'), 0);
+  const engineUrl = (endpoint, p) => vm.runInNewContext(fn('engineApplicationUrl') + 'engineApplicationUrl(e, p);', Object.assign({ e: endpoint, p }, helpers));
+  assert.equal(engineUrl('http://localhost:28080/convertigo', '/convertigo/projects/PipelineCrm/DisplayObjects/dev44295/'),
+    'http://localhost:28080/convertigo/projects/PipelineCrm/DisplayObjects/dev44295/');
+  assert.equal(engineUrl('http://localhost:28080/convertigo/', 'projects/X/DisplayObjects/dev1/'), 'http://localhost:28080/convertigo/projects/X/DisplayObjects/dev1/');
+  assert.equal(engineUrl('http://localhost:28080/convertigo', ''), '');
+  const browserAt = answers => JSON.parse(JSON.stringify(vm.runInNewContext(fn('devToolsTargetSummary') + fn('readDevToolsTarget') + fn('readStudioAgentBrowser') +
+    'readStudioAgentBrowser(30080);', Object.assign({
+      readUrlText: url => answers[url] || '',
+      parseJsonText: text => { try { return text ? JSON.parse(text) : null; } catch (_e) { return null; } },
+      normalizeEndpoint: v => String(v || '').replace(/\/+$/, '')
+    }, helpers))));
+  const down = browserAt({});
+  assert.equal(down.live, false, 'the property is set while the browser process does not run');
+  assert.equal(down.browserDebugUrl, 'http://127.0.0.1:30080');
+  const up = browserAt({ 'http://127.0.0.1:30080/json/version': '{"Browser":"Chrome/142","Protocol-Version":"1.3"}',
+    'http://127.0.0.1:30080/json/list': '[{"id":"P1","type":"page","url":"about:blank","title":""}]' });
+  assert.equal(up.live, true);
+  assert.equal(up.browserDevToolsJsonUrl, 'http://127.0.0.1:30080/json');
+  assert.equal(up.target.url, 'about:blank');
+  // Wired only outside the Eclipse Studio; the port of the property counts as matched; the engine URL replaces localUrl.
+  assert.match(source, /var agentBrowserPort = studioMode \? 0 : studioAgentBrowserPort\(\);/);
+  assert.match(source, /if \(agentBrowser !== null && engineAppUrl\.length\) \{[\s\S]{0,300}viewerBaseUrl = engineAppUrl;\n\s+viewerUrl = engineAppUrl;/);
+  assert.match(source, /browserDebugPortMatched = true;\n\s+browserControlReady = agentBrowser\.live === true;/);
+  assert.match(source, /Navigate that page to viewerHomeUrl once status is ready/);
+});

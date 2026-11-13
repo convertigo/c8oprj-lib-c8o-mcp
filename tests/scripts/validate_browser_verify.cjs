@@ -642,3 +642,26 @@ test('Flow gateway verification ensures dev before starting and adopts its curre
   assert.throws(()=>api.run({browserDebugPort:45991,paths:['x'],inputs:{project:'App',url:'http://localhost:28080/convertigo/gw/stale/'}},dead.h),/visualiseur arrêté/);
   assert.equal(dead.seen.starts.length,0);
 });
+
+const readSource = file => fs.readFileSync(path.join(root, file), 'utf8');
+
+test('hints may be a text, {name: value} facts or a list: they reach the sub-agent one per line (PipelineCrm 12/11)', () => {
+  const api = load({ ok: true });
+  assert.equal(api.hintsText('Demo: admin / x'), 'Demo: admin / x');
+  assert.equal(api.hintsText({ demoAccount: 'admin@crm.test / Demo1!', expected: { companies: 12, contacts: 30 } }),
+    'demoAccount: admin@crm.test / Demo1!\nexpected.companies: 12\nexpected.contacts: 30');
+  assert.equal(api.hintsText('{"note":"the build widget may cover the page"}'), 'note: the build widget may cover the page');
+  assert.equal(api.hintsText(['one', 'two']), 'one\ntwo');
+  assert.equal(api.hintsText(null), '');
+  const schema = readSource('js/schema_overrides.js');
+  assert.match(schema, /hints: \{\n\s*description: "Facts the sub-agent needs.*\n\s*oneOf: \[\{ type: "string" \}, \{ type: "object", additionalProperties: true \}, \{ type: "array", items: \{\} \}\]/);
+});
+
+test('in the Electron Studio the sub-agent drives the agent browser of convertigo.studio.cdp.port', () => {
+  const api = load({ ok: true });
+  assert.equal(api.studioAgentBrowserPort(() => '30080'), 30080);
+  assert.equal(api.studioAgentBrowserPort(() => null), 0, 'the Eclipse Studio sets no property');
+  assert.equal(api.studioAgentBrowserPort(() => 'abc'), 0);
+  assert.equal(api.studioAgentBrowserPort(() => '80'), 0);
+  assert.match(readSource('js/tools_browser_verify.js'), /var agentBrowserPort = api\.studioAgentBrowserPort\(\);\n\s*if \(agentBrowserPort > 0\) \{\n\s*return "http:\/\/127\.0\.0\.1:" \+ agentBrowserPort;/);
+});
