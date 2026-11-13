@@ -204,6 +204,19 @@ comment: |
         - SmartType: 
           - ↑mode: PLAIN
           - →→: findings
+  ↓access [steps.JsonToXmlStep-1794700000101]: 
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: auditResult.access
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: access
   ↓coverage [steps.JsonToXmlStep-1790616258230]: 
     jsonObject: 
       - xmlizable: 

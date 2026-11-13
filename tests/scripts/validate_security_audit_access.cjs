@@ -46,5 +46,7 @@ test('access: role checked, signed in only, anonymous and private sequences of t
   assert.deepEqual(access.private, ['check_admin']);
   assert.match(access.note, /only roleChecked sequences check a role/);
   assert.match(read('js/security_audit_rules.js'), /access: api\.accessSummary\(model\),/);
+  // The tool's sequence writes each key of the report: access too.
+  assert.match(read('_c8oProject/sequences/tools_project_security_audit.yaml'), /↓access \[steps\.JsonToXmlStep-\d+\]: \n[\s\S]{0,260}auditResult\.access\n[\s\S]{0,260}→→: access\n/);
   assert.match(read('js/security_audit_collect.js'), /\} else if \(\/\^If\/\.test\(className\) && has\(dbo, "getCondition"\) && ROLE_CHECK_JS\.test/);
 });
