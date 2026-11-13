@@ -112,7 +112,7 @@ C8O.uiReveal = C8O.uiReveal || {};
       return missing;
     }
     if (C8O.dbo && typeof C8O.dbo.revealStudioTreeByQName === "function") {
-      return C8O.dbo.revealStudioTreeByQName(target, options && options.errors);
+      return C8O.dbo.revealStudioTreeByQName(target, options && options.errors, options && options.details);
     }
     var unsupported = base("studio-tree-reveal", target);
     unsupported.status = "unsupported";

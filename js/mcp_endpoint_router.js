@@ -166,6 +166,43 @@ var REVEAL_AFTER_CALL = {
   tools_databaseobject_delete: function (r) { return r.parentQName; }
 };
 
+// What the call did, for the activity of the web Studio (StudioReveal.revealChange): the kind of change, the QName before
+// a rename, a move or a delete, and the other objects the same call created or changed. An older engine ignores it.
+function revealObjectName(qname) {
+  return String(qname || "").split(".").pop().replace(/^[a-z]+:/, "");
+}
+
+function revealQNamesOf(values) {
+  return revealListOf(values).map(function (v) { return String(v && typeof v === "object" ? (v.qname || v.requestable || "") : (v || "")); })
+    .filter(function (q) { return q.length > 0; });
+}
+
+var REVEAL_DETAILS_AFTER_CALL = {
+  tools_ngx_page_create: function (r, q) { return { change: "created", summary: "Created the page " + revealObjectName(q), touched: revealQNamesOf(r.created) }; },
+  tools_business_sequence_create: function (r, q) { return { change: "created", summary: "Created the sequence " + revealObjectName(q) }; },
+  tools_facade_create: function (r, q) { return { change: "created", summary: "Created the sequence " + revealObjectName(q) }; },
+  tools_sql_transaction_create: function (r, q) {
+    var all = revealQNamesOf(r.transactions);
+    return { change: "created", summary: all.length > 1 ? "Created " + all.length + " transactions" : "Created the transaction " + revealObjectName(q), touched: all };
+  },
+  tools_upsert_crud: function (r) {
+    var targets = r.primaryTargets || {};
+    return { change: "changed", summary: "Built the data access", touched: revealQNamesOf([].concat(revealListOf(targets.sql), revealListOf(targets.flow), revealListOf(targets.ui))) };
+  },
+  tools_upsert_ngx_crud_kit: function (r) {
+    return { change: "changed", summary: "Built the data pages", touched: revealQNamesOf(r.pageTargets).map(function (q) { return q.replace(/\.Content$/, ""); }) };
+  },
+  tools_databaseobject_rename: function (r) {
+    return { change: "renamed", previous: r.qname, summary: "Renamed " + (r.oldName || revealObjectName(r.qname)) + " to " + (r.newName || revealObjectName(r.newQName)) };
+  },
+  tools_databaseobject_move: function (r) {
+    var q = String(r.qname || ""), from = String(r.fromParent || ""), to = String(r.toParent || "");
+    var previous = from.length && to.length && from !== to && q.indexOf(to + ".") === 0 ? from + q.substring(to.length) : "";
+    return { change: "moved", previous: previous, summary: (r.reordered === true ? "Reordered " : "Moved ") + (r.name || revealObjectName(q)) };
+  },
+  tools_databaseobject_delete: function (r) { return { change: "deleted", previous: r.qname, summary: "Deleted " + (r.name || revealObjectName(r.qname)) }; }
+};
+
 function revealAfterToolCall(sequenceName, toolResult) {
   try {
     if (managedRevealMode !== true || typeof REVEAL_AFTER_CALL[sequenceName] !== "function" || !toolResult || typeof toolResult !== "object") {
@@ -178,10 +215,19 @@ function revealAfterToolCall(sequenceName, toolResult) {
     if (!qname.length) {
       return null;
     }
+    var details = null;
+    try {
+      details = typeof REVEAL_DETAILS_AFTER_CALL[sequenceName] === "function" ? REVEAL_DETAILS_AFTER_CALL[sequenceName](toolResult, qname) : null;
+      if (details) {
+        details.tool = sequenceName.replace(/^tools_/, "").replace(/_/g, "-");
+      }
+    } catch (_ignoreRevealDetails) {
+      details = null;
+    }
     if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.revealStudioTreeByQName !== "function") {
       include("js/databaseobject_studio.js");
     }
-    return C8O.dbo.revealStudioTreeByQName(qname, []);
+    return C8O.dbo.revealStudioTreeByQName(qname, [], details);
   } catch (_ignoreRevealAfterCall) {
     // a reveal never fails the tool call
     return null;

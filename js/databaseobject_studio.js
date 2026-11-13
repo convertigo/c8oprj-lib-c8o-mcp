@@ -213,7 +213,54 @@ C8O.dbo.webStudioReveal = function () {
   }
 };
 
-C8O.dbo.revealStudioTreeByQName = function (targetQName, errors) {
+// What the agent did to the revealed object, for the activity of the web Studio (StudioReveal.revealChange, Convertigo
+// 8.5): change (created, changed, renamed, moved, deleted, opened), previous (the QName before a rename or a move, or the
+// object deleted), tool, summary, touched (the other objects of the same call). All optional; null when none is usable.
+var WEB_STUDIO_REVEAL_CHANGES = { created: true, changed: true, renamed: true, moved: true, deleted: true, opened: true };
+
+C8O.dbo.webStudioRevealDetails = function (details, revealedQName) {
+  if (!details || typeof details !== "object") {
+    return null;
+  }
+  var text = function (value, max) {
+    var s = value == null ? "" : String(value).replace(/\s+/g, " ").trim();
+    return s.length > max ? s.substring(0, max) : s;
+  };
+  var out = {};
+  var change = text(details.change, 20).toLowerCase();
+  if (WEB_STUDIO_REVEAL_CHANGES[change] === true) {
+    out.change = change;
+  }
+  var previous = text(details.previous, 500);
+  if (previous.length && previous !== text(revealedQName, 500)) {
+    out.previous = previous;
+  }
+  var tool = text(details.tool, 80);
+  if (tool.length) {
+    out.tool = tool;
+  }
+  var summary = text(details.summary, 200);
+  if (summary.length) {
+    out.summary = summary;
+  }
+  var touched = [];
+  var seen = {};
+  seen[text(revealedQName, 500)] = true;
+  var list = Array.isArray(details.touched) ? details.touched : [];
+  for (var i = 0; i < list.length && touched.length < 50; i++) {
+    var q = text(list[i], 500);
+    if (q.length && seen[q] !== true) {
+      seen[q] = true;
+      touched.push(q);
+    }
+  }
+  if (touched.length) {
+    out.touched = touched;
+  }
+  return Object.keys(out).length ? out : null;
+};
+
+C8O.dbo.revealStudioTreeByQName = function (targetQName, errors, details) {
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var System = java.lang.System;
 
@@ -247,8 +294,15 @@ C8O.dbo.revealStudioTreeByQName = function (targetQName, errors) {
     var webReveal = requestedQName.length ? C8O.dbo.webStudioReveal() : null;
     if (webReveal !== null) {
       var published = null;
+      var change = C8O.dbo.webStudioRevealDetails(details, requestedQName);
       try {
-        published = JSON.parse(String(webReveal.reveal(requestedQName)));
+        // an engine with revealChange is told what changed; an older one keeps reveal (the web Studio infers it)
+        published = JSON.parse(String(change !== null && typeof webReveal.revealChange === "function"
+          ? webReveal.revealChange(requestedQName, JSON.stringify(change))
+          : webReveal.reveal(requestedQName)));
+        if (change !== null && change.change && typeof webReveal.revealChange === "function") {
+          result.change = change.change;
+        }
       } catch (webRevealError) {
         published = { status: "error", message: String(webRevealError && webRevealError.message ? webRevealError.message : webRevealError) };
       }

@@ -465,10 +465,35 @@ function treeApplyRevealQName(result, fallbackQName) {
   return asTrimmed(fallbackQName || targetInput);
 }
 
+// For the activity of the web Studio: created when the revealed object is one this call created, else changed; the
+// other touched objects light up with it.
+function treeApplyRevealDetails(result, qname) {
+  var created = false;
+  var operations = result && result.operations ? result.operations : [];
+  for (var oi = 0; oi < operations.length && !created; oi++) {
+    var op = operations[oi] || {};
+    created = asTrimmed(op.createdQName) === qname;
+    var applied = op.applied || [];
+    for (var ai = 0; ai < applied.length && !created; ai++) {
+      created = asTrimmed(applied[ai] && applied[ai].createdQName) === qname;
+    }
+  }
+  var touched = result && result.touchedQNames ? result.touchedQNames : [];
+  var name = String(qname).split(".").pop().replace(/^[a-z]+:/, "");
+  return {
+    change: created ? "created" : "changed",
+    tool: "databaseobject-tree-apply",
+    summary: (created ? "Created " : "Changed ") + name + (touched.length > 1 ? " (" + touched.length + " objects)" : ""),
+    touched: touched
+  };
+}
+
 if (treeApplyResult && C8O.uiReveal && C8O.uiReveal.enabled(revealInput, false) === true && treeApplyResult.dryRun !== true) {
-  treeApplyResult.reveal = C8O.uiReveal.databaseObject(treeApplyRevealQName(treeApplyResult, treeApplyRefreshQName), {
+  var treeApplyRevealTarget = treeApplyRevealQName(treeApplyResult, treeApplyRefreshQName);
+  treeApplyResult.reveal = C8O.uiReveal.databaseObject(treeApplyRevealTarget, {
     reveal: true,
-    errors: treeApplyResult.errors
+    errors: treeApplyResult.errors,
+    details: treeApplyRevealDetails(treeApplyResult, treeApplyRevealTarget)
   });
 }
 

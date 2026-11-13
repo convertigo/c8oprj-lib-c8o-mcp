@@ -1221,9 +1221,18 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
 
       if (revealRequested && mutationTouchedQNames.length > 0) {
         try {
+          // The last touched object leads; the web Studio lights all the others of the batch with it (a page edited
+          // next to a sequence comment is seen, not only the sequence).
+          var batchRevealTarget = mutationTouchedQNames[mutationTouchedQNames.length - 1];
           mutationFinalize.reveal = C8O.dbo.revealStudioTreeByQName(
-            mutationTouchedQNames[mutationTouchedQNames.length - 1],
-            mutationFinalize.errors
+            batchRevealTarget,
+            mutationFinalize.errors,
+            {
+              change: "changed",
+              tool: "batch-call",
+              summary: "Changed " + mutationTouchedQNames.length + " object" + (mutationTouchedQNames.length > 1 ? "s" : ""),
+              touched: mutationTouchedQNames
+            }
           );
         } catch (revealError) {
           mutationFinalize.errors.push({ code: "reveal_error", message: String(revealError) });
