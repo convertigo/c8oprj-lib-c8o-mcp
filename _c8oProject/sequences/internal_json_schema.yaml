@@ -139,7 +139,8 @@ responseExpiryDate: absolute,600
     var responseSource = extractPayloadNode(responseModel, responsePayloadName);
     if (responseSource == null) { responseSource = responseModel; }
     if (responseSource && responseSource.response) { responseSource = responseSource.response; }
-    if (responseSource && responseSource.result) { responseSource = responseSource.result; }
+    /* mcp_endpoint answers the content of a top-level result as the tool result: the schema describes that content. A result built at run time (a JsonToXmlStep of a JavaScript value) has an empty text as sample and the schema said {result: string}: agents read out.result and failed on it (CRM 13/11). Such a content is any object. */
+    if (responseSource && typeof responseSource === "object" && Object.prototype.hasOwnProperty.call(responseSource, "result")) { responseSource = (responseSource.result && typeof responseSource.result === "object" && !Array.isArray(responseSource.result)) ? responseSource.result : {}; }
     var normalizedResponse = normalizeNode(responseSource);
     schemaJson = buildSchemaNode(normalizedResponse);
     if (typeof C8O !== "undefined" && C8O.schemaOverrides && typeof C8O.schemaOverrides.applyOutput === "function") {
