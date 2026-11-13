@@ -127,6 +127,7 @@ var SYSTEM_PROMPT = [
   "- Walk each path once, exactly as written. Never repeat an action that changes data (save, declare, delete, submit...) to get a better result: the first outcome is the result. Retry only an action that did not happen (the tool returned an error), once, another way.",
   "- A figure or text in a check, and in the summary, is the one read on the page that check is about: name that page, and never carry a value read on another page (an admin dashboard's counts are not the home page's).",
   "- Read the result right after the action that should produce it, and quote it exactly. A check passes only on evidence you saw: the exact text or value read, or what a screenshot shows. Anything different from what the path or check expects is a failure, even if it looks minor.",
+  "- With the tool calls of each turn, write one short sentence, in the language of the paths, saying what you check now and why (for example: The deal must show the new stage; I open its detail). The user follows it live. Nothing more: no plan, no summary.",
   "- Be fast: a few tool calls per path; several independent tool calls may go in one turn. The page snapshot (accessibility tree) comes back after each click, navigation, key press and scroll. Use evaluate only for a value no other tool gives.",
   "- To see what lies below the screen, use scroll, then screenshot. Ionic apps scroll inside ion-content, not the body: a body with overflow hidden and a document as high as the screen are normal, never a defect; a full-page screenshot does not show such content.",
   "- Targets: copy role \"name\" from the snapshot. For a button in one row use row \"exact distinguishing row text\" button \"Save\", or within: row \"text\" with target: button \"Save\". Never substitute a page-wide first button for a failed row target.",
@@ -1430,6 +1431,7 @@ async function run(rawConfig, deps) {
     var message = choice.message || {};
     var calls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
     var assistant = { role: "assistant", content: typeof message.content === "string" ? message.content : "" };
+    logThought(config, turns, message);
     if (calls.length) {
       assistant.tool_calls = calls.map(function (c) {
         return { id: c.id, type: "function", "function": { name: c["function"].name, arguments: c["function"].arguments || "{}" } };
@@ -1549,6 +1551,49 @@ function activityText(name, args, outcome) {
   return (failed ? "! " : "") + name + (target ? " " + cut(target, 80) : "") + (failed ? " — " + cut(str(outcome.text).substring(7), 100) : "");
 }
 
+// What the model says it is doing at a turn (its text beside the tool calls) and its reasoning when the gateway returns
+// one (reasoning_content, reasoning, or thinking parts of a content array), as one activity line of kind "thought": Tigo
+// shows the latest one live, like the main agent's reasoning, and the calling agent sees its text in a running answer.
+function messageThought(message) {
+  var text = "";
+  var reasoning = [];
+  var partText = function (value) {
+    if (typeof value === "string") {
+      return value;
+    }
+    return Array.isArray(value) ? value.map(function (p) { return p && typeof p.text === "string" ? p.text : (typeof p === "string" ? p : ""); }).join("") : "";
+  };
+  if (typeof message.content === "string") {
+    text = message.content;
+  } else if (Array.isArray(message.content)) {
+    message.content.forEach(function (part) {
+      if (part && part.type === "text" && typeof part.text === "string") {
+        text += part.text;
+      } else if (part && part.type === "thinking") {
+        reasoning.push(partText(part.thinking));
+      }
+    });
+  }
+  ["reasoning_content", "reasoning", "thinking"].forEach(function (key) {
+    if (typeof message[key] === "string" && str(message[key]).length) {
+      reasoning.push(message[key]);
+    }
+  });
+  return { text: str(text), reasoning: str(reasoning.join("\n\n")) };
+}
+
+function logThought(config, turn, message) {
+  var thought = messageThought(message || {});
+  if (!thought.text.length && !thought.reasoning.length) {
+    return;
+  }
+  var entry = { id: "T" + turn, kind: "thought", at: Date.now(), turn: turn, text: cut(thought.text || thought.reasoning, 600) };
+  if (thought.reasoning.length) {
+    entry.reasoning = cut(thought.reasoning, 1500);
+  }
+  logActivity(config, entry);
+}
+
 function logActivity(config, entry) {
   try {
     fs.appendFileSync(path.join(config.outDir, "activity.jsonl"), JSON.stringify(entry) + "\n");
@@ -1624,7 +1669,8 @@ module.exports = {
   locate: locate,
   run: run,
   TOOLS: TOOLS,
-  SYSTEM_PROMPT: SYSTEM_PROMPT
+  SYSTEM_PROMPT: SYSTEM_PROMPT,
+  messageThought: messageThought
 };
 
 if (require.main === module) {

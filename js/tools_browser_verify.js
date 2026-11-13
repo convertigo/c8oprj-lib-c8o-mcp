@@ -312,8 +312,9 @@ C8O.browserVerify = C8O.browserVerify || {};
         verificationId: result.runId,
         elapsedMs: result.elapsedMs,
         activity: result.activity,
-        message: "The verification is still running. Call browser-verify again with this verificationId (and nothing " +
-          "else) to wait for its report; do not start another verification meanwhile."
+        message: "The verification is still running (a call waits at most " + sa().CALL_LIMIT_SEC + " s). Call browser-verify " +
+          "again with this verificationId (and nothing else) to wait for its report: that call waits for you, so never poll " +
+          "the run folder with shell commands or sleeps, and do not start another verification meanwhile."
       };
     }
     var report = result.report || {};

@@ -44,14 +44,21 @@ C8O.subagents = C8O.subagents || {};
 (function (api) {
   var GATEWAY_URL = "https://llm.convertigo.com/v1";
   var KEY_ENV = "CONVERTIGO_LLM_API_KEY";
-  var DEFAULT_WAIT_SEC = 50;
+  var DEFAULT_WAIT_SEC = 45;
   var MAX_WAIT_SEC = 280;
+  // Vibe and Codex stop an MCP tool call after 60 s (mcp_timeout). In the PipelineCrm3 run of 13/11 every browser-verify
+  // call died at 60.2 s: the 50 s wait came on top of the run's preparation, and a longer waitSec never answered at all,
+  // so the agent recovered the runId from the folder and polled it with sleeps for minutes. A call now answers within
+  // CALL_LIMIT_SEC of its own start, preparation included, whatever waitSec asks: "running" with the runId and the latest
+  // activity, and the next call waits again.
+  var CALL_LIMIT_SEC = 45;
   var LOCK_GRACE_MS = 90 * 1000;
   var RUN_ID = /^(verify|build|sa)-\d{8}-\d{6}-[0-9a-f]{8}$/;
   var ACTIVITY_SHOWN = 6;
 
   api.GATEWAY_URL = GATEWAY_URL;
   api.RUN_ID = RUN_ID;
+  api.CALL_LIMIT_SEC = CALL_LIMIT_SEC;
 
   // Defaults; agents/convertigo/subagent-profiles.json may override model and limits per profile.
   api.PROFILES = {
@@ -216,18 +223,33 @@ C8O.subagents = C8O.subagents || {};
     };
   };
 
+  // The latest steps of a running sub-agent for the calling agent: its actions and what it says it is doing (kind
+  // "thought"), without the successful network lines nor the model's reasoning text (Tigo shows those to the user).
   function activityOf(run) {
-    var lines = run.activity || [];
-    return lines.slice(Math.max(0, lines.length - ACTIVITY_SHOWN));
+    var lines = (run.activity || []).filter(function (entry) {
+      return entry && !(/^N\d+$/.test(str(entry.id)) && /: HTTP [23]\d\d$/.test(str(entry.text)));
+    });
+    return lines.slice(Math.max(0, lines.length - ACTIVITY_SHOWN)).map(function (entry) {
+      // Only the fields of its output schema (subagentActivitySchema), each with its declared type.
+      var shown = { at: Number(entry.at) || 0, turn: Number(entry.turn) || 0, text: str(entry.text).substring(0, 300) };
+      if (str(entry.id).length) {
+        shown.id = str(entry.id);
+      }
+      if (entry.kind === "thought") {
+        shown.kind = "thought";
+      }
+      return shown;
+    });
   }
 
-  // Waits up to waitSec for the run's report. toResult(output, run, root) shapes a finished run's answer.
-  api.collect = function (runId, waitSec, host, runners) {
+  // Waits up to waitSec for the run's report, and never past CALL_LIMIT_SEC after the call started (callStartedAt).
+  // toResult(output, run, root) shapes a finished run's answer.
+  api.collect = function (runId, waitSec, host, runners, callStartedAt) {
     var run = host.readRun(runId);
     if (!run.exists) {
       throw new Error("Unknown runId " + runId + ": start a sub-agent with a profile and a task first.");
     }
-    var deadline = host.now() + waitSec * 1000;
+    var deadline = Math.min(host.now() + waitSec * 1000, (Number(callStartedAt) || host.now()) + CALL_LIMIT_SEC * 1000);
     var runner = runners[run.runner];
     while (true) {
       var output = api.parseOutput(run.output);
@@ -252,7 +274,9 @@ C8O.subagents = C8O.subagents || {};
           elapsedMs: Math.max(0, host.now() - run.startedAt),
           activity: activityOf(run),
           // A constructor of one side of a project (pack flow) lets the other side run at the same time.
-          message: "The sub-agent is still working. Call the same tool again with this runId alone to wait for its report; " +
+          message: "The sub-agent is still working (a call waits at most " + CALL_LIMIT_SEC + " s). Call the same tool again " +
+            "with this runId alone to wait for its report: that call waits for you, so never poll the run folder with shell " +
+            "commands or sleeps; " +
             (str(run.scope).length
               ? "do not start another constructor on the " + str(run.scope) + " of this project meanwhile."
               : "do not start another sub-agent on the same browser or project meanwhile.")
@@ -273,13 +297,14 @@ C8O.subagents = C8O.subagents || {};
     if (C8O.userKeyServerPolicy) {
       C8O.userKeyServerPolicy.assertAllows(options.usageTool === "browser-verify" ? "tools_browser_verify" : "tools_subagent_run");
     }
+    var callStartedAt = host.now();
     var waitSec = api.normalizeWaitSec(params.waitSec);
     var resume = str(params.runId);
     if (resume.length) {
       if (!RUN_ID.test(resume)) {
         throw new Error("runId must be the id a previous call returned.");
       }
-      return api.collect(resume, waitSec, host, runners);
+      return api.collect(resume, waitSec, host, runners, callStartedAt);
     }
     var profile = api.resolveProfile(options.profile || params.profile, params, host.readSettings());
     var runner = runners[profile.runner];
@@ -298,8 +323,16 @@ C8O.subagents = C8O.subagents || {};
     config.callId = run.runId;
     config.profile = profile.name;
     config.usageTool = options.usageTool || "subagent-run";
-    // The runner removes the lock when it exits; a lock older than its budget is stale.
-    config.lockFile = host.lock(prepared.lockKey, run.runId, profile.limits.timeBudgetSec * 1000);
+    // The runner removes the lock when it exits; a lock older than its budget is stale. A refused lock (another run is
+    // busy) leaves no empty run folder behind: an agent that listed the folders took one for a run and got Unknown runId.
+    try {
+      config.lockFile = host.lock(prepared.lockKey, run.runId, profile.limits.timeBudgetSec * 1000);
+    } catch (lockError) {
+      if (typeof host.discardRun === "function") {
+        try { host.discardRun(run); } catch (_keepFolder) {}
+      }
+      throw lockError;
+    }
     var env = {};
     env[KEY_ENV] = key;
     for (var name in prepared.env || {}) {
@@ -326,7 +359,7 @@ C8O.subagents = C8O.subagents || {};
       host.unlock(config.lockFile);
       throw e;
     }
-    return api.collect(run.runId, waitSec, host, runners);
+    return api.collect(run.runId, waitSec, host, runners, callStartedAt);
   };
 
   // The tools that write a project. While a constructor builds a project, the MCP router refuses their calls on that
@@ -452,6 +485,14 @@ C8O.subagents = C8O.subagents || {};
         var dir = new File(runsRoot, runId);
         dir.mkdirs();
         return { runId: runId, outDir: String(dir.getPath()) };
+      },
+      // The folder of a run that could not start (lock refused), while still empty.
+      discardRun: function (run) {
+        var dir = new File(String(run && run.outDir || ""));
+        var files = dir.isDirectory() ? dir.listFiles() : null;
+        if (files !== null && files.length === 0 && RUN_ID.test(String(dir.getName()))) {
+          dir["delete"]();
+        }
       },
       // One run at a time per lock key (the browser of a verifier, the project of a constructor). The lock names the
       // running sub-agent; the runner deletes it when it exits, and it expires after the run's budget.

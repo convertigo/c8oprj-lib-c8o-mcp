@@ -155,19 +155,63 @@ test('a verification longer than waitSec answers running, and its id collects th
   const first = api.run({ browserDebugPort: '45991', paths: 'Log in' }, h);
   assert.equal(first.status, 'running');
   assert.equal(first.verificationId, RUN);
-  assert.equal(first.elapsedMs, 50000, 'the default wait fits under a one-minute host limit');
+  assert.equal(first.elapsedMs, 45000, 'a call answers within 45 s, under the one-minute tool limit of Vibe and Codex');
   assert.equal(first.usage, undefined, 'no usage before the report: it is counted once, with the report');
   assert.deepEqual(plain(first.activity).map(a => a.text), ['navigate http://localhost:4200/home', 'click button "Login"'], 'a running answer shows the latest steps');
   assert.match(first.message, /verificationId/);
-  const second = api.run({ verificationId: first.verificationId }, h);
-  assert.equal(second.status, 'running');
-  assert.equal(second.elapsedMs, 100000);
+  assert.match(first.message, /never poll the run folder/);
+  const second = api.run({ verificationId: first.verificationId, waitSec: 270 }, h);
+  assert.equal(second.status, 'running', 'a long waitSec still answers within the call limit');
+  assert.equal(second.elapsedMs, 90000);
   const third = api.run({ verificationId: first.verificationId, waitSec: '30' }, h);
   assert.equal(third.status, 'finished');
   assert.equal(third.verdict, 'failed');
   assert.equal(seen.starts.length, 1, 'collecting never starts another agent');
   assert.throws(() => api.run({ verificationId: '../../etc/passwd' }, h), /runId must be the id/);
   assert.throws(() => api.run({ verificationId: 'verify-20261017-000000-00000000' }, h), /Unknown runId/);
+});
+
+test('the 45 s limit counts from the start of the call, the preparation of the run included', () => {
+  const api = load();
+  const r = host({}, 600000);
+  const probe = r.h.probe;
+  r.h.probe = (...args) => { r.h.sleep(20000); return probe(...args); };
+  const first = api.run({ browserDebugPort: '45991', paths: 'Log in' }, r.h);
+  assert.equal(first.status, 'running');
+  assert.equal(first.elapsedMs, 25000, 'a 20 s preparation leaves 25 s of wait, the call answering at 45 s');
+});
+
+test('a running answer shows the steps and what the sub-agent says, not the successful network lines nor its reasoning', () => {
+  const api = load();
+  const r = host({}, 600000);
+  const readRun = r.h.readRun;
+  r.h.readRun = id => Object.assign(readRun(id), { activity: [
+    { id: 'N1', at: 1, turn: 0, text: 'Network /convertigo/projects/X/.json: HTTP 200' },
+    { id: 'T1', kind: 'thought', at: 2, turn: 1, text: 'I open the deals list to check the new stage.', reasoning: 'Long hidden reasoning '.repeat(50) },
+    { id: 'A1', at: 3, turn: 1, text: 'navigate http://localhost:4200/deals' },
+    { id: 'N2', at: 4, turn: 1, text: 'Network /convertigo/projects/X/.json: HTTP 500' }
+  ] });
+  const first = api.run({ browserDebugPort: '45991', paths: 'Deals' }, r.h);
+  assert.deepEqual(plain(first.activity).map(a => a.id), ['T1', 'A1', 'N2']);
+  assert.equal(plain(first.activity)[0].kind, 'thought');
+  assert.ok(!JSON.stringify(first.activity).includes('hidden reasoning'));
+});
+
+test('a refused lock leaves no empty run folder, so no agent takes it for a run', () => {
+  const api = load();
+  const discarded = [];
+  const r = host({ lock: () => { throw new Error('A sub-agent is already running on http://127.0.0.1:45991.'); }, discardRun: run => discarded.push(run.runId) });
+  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x' }, r.h), /already running/);
+  assert.deepEqual(discarded, [RUN]);
+});
+
+test('the sub-agent says what it checks at each turn: its text and its reasoning, whatever shape the gateway gives', () => {
+  assert.match(agent.SYSTEM_PROMPT, /one short sentence[^\n]*what you check now and why/);
+  assert.deepEqual(agent.messageThought({ content: 'I open the deals list.' }), { text: 'I open the deals list.', reasoning: '' });
+  assert.deepEqual(agent.messageThought({ content: '', reasoning_content: 'The stage column is next.' }), { text: '', reasoning: 'The stage column is next.' });
+  assert.deepEqual(agent.messageThought({ content: [{ type: 'thinking', thinking: [{ type: 'text', text: 'Check the banner.' }] }, { type: 'text', text: 'I sign in.' }] }),
+    { text: 'I sign in.', reasoning: 'Check the banner.' });
+  assert.deepEqual(agent.messageThought({ content: null }), { text: '', reasoning: '' });
 });
 
 test('an unpriced verification keeps its cost unknown, never 0', () => {
@@ -239,6 +283,9 @@ test('subagent-run: a task to a profile, a nested report, the same run store and
   assert.deepEqual(plain(config.checks), ['3 posts']);
   assert.match(config.context, /Report format asked: one line per post/);
   assert.equal(config.usageTool, 'subagent-run');
+  assert.match(first.message, /never poll the run folder/);
+  const again = C8O.subagentRun.run({ runId: first.runId, waitSec: 280 }, h);
+  assert.equal(again.status, 'running', 'waitSec 280 is held to the 45 s call limit');
   const done = C8O.subagentRun.run({ runId: first.runId, waitSec: 280 }, h);
   assert.equal(done.status, 'finished');
   assert.equal(done.report.verdict, 'failed');
@@ -392,7 +439,7 @@ test('agent loop: drives the viewer page, shows its screenshots to the model, re
   const log = [];
   const sent = [];
   const script = [
-    completion([{ id: 'a1', type: 'function', function: { name: 'navigate', arguments: '{"url":"http://localhost:4200/home"}' } }]),
+    Object.assign(completion([{ id: 'a1', type: 'function', function: { name: 'navigate', arguments: '{"url":"http://localhost:4200/home"}' } }]), {}),
     completion([
       { id: 'a2', type: 'function', function: { name: 'click', arguments: '{"target":"button \\"Declarer\\""}' } },
       { id: 'a3', type: 'function', function: { name: 'screenshot', arguments: '{"name":"After declare"}' } }
@@ -403,9 +450,16 @@ test('agent loop: drives the viewer page, shows its screenshots to the model, re
       visualDefects: [{ severity: 'minor', description: 'Declarer lacks its accent', screenshot: 'after-declare' }]
     }) } }])
   ];
+  script[0].choices[0].message.content = 'I open the home page to find the posts.';
+  script[0].choices[0].message.reasoning_content = 'The posts are on the home page.';
   const fetch = async (url, init) => { sent.push(JSON.parse(init.body)); return fakeResponse(200, script.shift(), 0.001); };
   const result = await agent.run({ cdpEndpoint: 'http://127.0.0.1:45991', outDir, paths: ['Declare two posts'], url: 'http://localhost:4200/home' },
     { key: KEY, playwright: fakePlaywright(log), fetch });
+  // What it says and thinks is an activity line of kind thought, before the steps of its turn; a turn without text adds none.
+  const activity = fs.readFileSync(path.join(outDir, 'activity.jsonl'), 'utf8').trim().split('\n').map(l => JSON.parse(l));
+  const thoughts = activity.filter(a => a.kind === 'thought');
+  assert.deepEqual(thoughts.map(t => [t.id, t.text, t.reasoning]), [['T1', 'I open the home page to find the posts.', 'The posts are on the home page.']]);
+  assert.ok(activity.findIndex(a => a.kind === 'thought') < activity.findIndex(a => /^navigate /.test(a.text)));
 
   assert.equal(log[0], 'cdp http://127.0.0.1:45991');
   assert.ok(log.includes('role button Declarer'), 'snapshot notation targets become role locators');
@@ -683,4 +737,43 @@ test('autoDefects: the page scans, then the console errors and the failed reques
   assert.deepEqual(plain(result.report.autoDefects), [{ kind: 'generic-title', description: 'Generic title "Section 2"', location: 'h3' }]);
   assert.deepEqual(plain(api.flatten(result).autoDefects), [{ kind: 'generic-title', description: 'Generic title "Section 2"', location: 'h3' }]);
   assert.match(readSource('js/schema_overrides.js'), /autoDefects: \{\n\s*type: "array",\n\s*description: "Defects the script found on each page seen, without the model/);
+});
+
+// A strict MCP client (Vibe) refuses a structured result that its tool's output schema does not allow, and the agent
+// only sees a failed call: since 0.3.0-beta.1 the proof fields of every check (evidenceRefs, actionRefs, observedText,
+// expectedErrorCode) were missing from the closed schema, so no finished browser-verify ever reached a Vibe agent
+// (PipelineCrm3 run 13/11). The finished answer of a report as the sub-agent normalizes it must fit the schema.
+function schemaErrors(value, s, at, errors) {
+  if (!s || s.oneOf || s.anyOf) return errors;
+  const types = Array.isArray(s.type) ? s.type : (s.type ? [s.type] : []);
+  const t = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
+  if (types.length && !types.includes(t) && !(t === 'number' && types.includes('integer'))) errors.push(at + ': ' + t);
+  if (s.enum && !s.enum.includes(value)) errors.push(at + ': ' + JSON.stringify(value) + ' not in enum');
+  if (t === 'object') {
+    for (const k of Object.keys(value)) {
+      if (s.properties && s.properties[k]) schemaErrors(value[k], s.properties[k], at + '.' + k, errors);
+      else if (s.additionalProperties === false) errors.push(at + ': undeclared ' + k);
+    }
+  }
+  if (t === 'array' && s.items) value.forEach((v, i) => schemaErrors(v, s.items, at + '[' + i + ']', errors));
+  return errors;
+}
+
+test('a finished browser-verify answer fits its closed output schema, proof fields included', () => {
+  const overrides = { C8O: {}, include() {} };
+  vm.runInNewContext(readSource('js/schema_overrides.js'), overrides);
+  const schema = plain(overrides.C8O.schemaOverrides.decorateOutput('tools_browser_verify', overrides.C8O.schemaOverrides.applyOutput('tools_browser_verify', null, null, null)));
+  const trace = [{ id: 'A1', tool: 'navigate', result: 'Navigated. heading "Prêts de matériel"' }];
+  const report = agent.normalizeReport({ verdict: 'passed', summary: 'Le titre est visible.',
+    checks: [{ id: 'C1', check: 'Titre visible', status: 'passed', evidence: 'heading', evidenceRefs: ['A1'], actionRefs: [], observedText: 'heading "Prêts de matériel"' }],
+    visualDefects: [], designSuggestions: [{ aspect: 'density', suggestion: 'Air the table.', location: 'list' }] },
+    { checks: ['Titre visible'], paths: [{ name: 'Path 1', steps: 'x' }], url: '' }, [], {}, trace, []);
+  assert.deepEqual(Object.keys(plain(report.checks[0])).filter(k => ['evidenceRefs', 'actionRefs', 'observedText', 'expectedErrorCode'].includes(k)).sort(),
+    ['actionRefs', 'evidenceRefs', 'expectedErrorCode', 'observedText'], 'the sub-agent writes the proof fields');
+  const api = load({ ok: true });
+  const output = { ok: true, report: report, usage: { tool: 'browser-verify', callId: 'v1', runId: RUN, profile: 'verifier', model: 'mistral/mistral-large-4', requests: 2, cost: 0.01, currency: 'USD' },
+    turns: 2, toolCalls: 1, durationMs: 9000, stopReason: 'finished', screenshots: [], finalUrl: 'http://h/list', reportFile: '/ws/subagents/' + RUN + '/report.json' };
+  const answer = plain(api.flatten(Object.assign({ status: 'finished', runId: RUN }, api.runner.toResult(output, { runId: RUN, profile: 'verifier', outDir: '/ws/subagents/' + RUN }, '/ws'))));
+  assert.deepEqual(schemaErrors(answer, schema, '$', []), []);
+  assert.deepEqual(schemaErrors(plain(api.flatten({ status: 'running', runId: RUN, elapsedMs: 45000, activity: [{ id: 'T1', kind: 'thought', at: 1, turn: 1, text: 'I open the list.' }] })), schema, '$', []), []);
 });

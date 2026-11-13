@@ -1937,8 +1937,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
   function subagentActivitySchema() {
     return {
       type: "array",
-      description: "The latest steps of the sub-agent.",
-      items: closedObjectSchema({ at: { type: "number" }, turn: { type: "number" }, text: { type: "string" } })
+      description: "The latest steps of the sub-agent, and what it says it checks (kind thought).",
+      // The activity lines carry their journal id (A... steps, N... network, T... thoughts): undeclared, a strict client
+      // refused every running answer as a failed call.
+      items: closedObjectSchema({ id: { type: "string" }, kind: { type: "string", enum: ["thought"] }, at: { type: "number" }, turn: { type: "number" }, text: { type: "string" } })
     };
   }
 
@@ -1981,6 +1983,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           check: { type: "string" },
           status: { type: "string", enum: ["passed", "failed", "not_checked"] },
           evidence: { type: "string", description: "What the sub-agent saw: exact text, value, or screenshot finding." },
+          // The proof fields every check of the verifier carries since 0.3.0-beta.1: undeclared in this closed schema, a
+          // strict client (Vibe) refused every finished answer as a failed call (PipelineCrm3 run, 13/11).
+          evidenceRefs: stringArraySchema(),
+          actionRefs: stringArraySchema(),
+          observedText: { type: "string", description: "Exact excerpt of the cited observation." },
+          expectedErrorCode: { type: "string", description: "The Flow refusal code a check expected, else empty." },
           screenshot: shot
         })
       },
@@ -2545,7 +2553,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           maxSteps: { type: "integer", description: "Model turns of the sub-agent; default and bounds per profile (verifier 40, 6 to 80; constructor 120, 10 to 400)." },
           timeBudgetSec: { type: "integer", description: "Time budget in seconds; default and bounds per profile (verifier 150, 30 to 540; constructor 900, 60 to 3600)." },
           maxCostUsd: { type: "number", description: "Cost budget in USD; default and bounds per profile (verifier 0.5; constructor 1.5)." },
-          waitSec: { type: "integer", minimum: 5, maximum: 280, default: 50, description: "Seconds this call waits for the report; keep the default, it fits every agent host." },
+          waitSec: { type: "integer", minimum: 5, maximum: 280, default: 45, description: "Seconds this call waits for the report; keep the default. A call answers within 45 s of its start whatever this asks (agent hosts stop a tool call at 60 s): a run still going answers status running with its runId." },
           runId: { type: "string", description: "To collect a running sub-agent: the runId of a status running answer, alone." },
           cdpEndpoint: { type: "string", description: "Verifier, only when the agent host sends no viewer debug port: the loopback CDP endpoint of the Studio browser." }
         },
@@ -2579,8 +2587,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           maxSteps: { type: "integer", minimum: 6, maximum: 80, default: 40 },
           timeBudgetSec: { type: "integer", minimum: 30, maximum: 540, default: 150, description: "Default 150, or 40 per path when that is more. The sub-agent reports what it has when it runs out." },
           cdpEndpoint: { type: "string", description: "Only when the agent host sends no viewer debug port: the loopback CDP endpoint of the Studio browser (browserDebugUrl of mobile-builder-open). In the Electron Studio the sub-agent always drives its agent browser." },
-          waitSec: { type: "integer", minimum: 5, maximum: 280, default: 50, description: "Seconds this call waits for the report. A verification still running then answers status running with its verificationId; keep the default, it fits every agent host." },
-          verificationId: { type: "string", description: "To collect a running verification: the verificationId of a status running answer, alone (no paths). The call waits up to waitSec again." }
+          waitSec: { type: "integer", minimum: 5, maximum: 280, default: 45, description: "Seconds this call waits for the report; keep the default. A call answers within 45 s of its start whatever this asks (agent hosts stop a tool call at 60 s): a verification still running answers status running with its verificationId." },
+          verificationId: { type: "string", description: "To collect a running verification: the verificationId of a status running answer, alone (no paths). The call waits again, at most 45 s: call it again until status finished, never poll the run folder or sleep." }
         },
         additionalProperties: false
       };
