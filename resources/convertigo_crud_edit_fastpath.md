@@ -104,11 +104,11 @@ required-field messages in French with `ui.language: "fr"` in the spec.
 9. Save with `project-save` if a final save is still needed.
 10. Stop after the first final green proof.
 
-## Pages from an older CRUD UI generator
-A page, shared component or shared action whose comment says `Managed by upsert-ngx-crud-kit` comes from a CRUD UI
-generator that is retired: never call it. Such an object is the app's own now. To change such a page, delete it and
-create it again with `ngx-page-create`, or patch it with `databaseobject-tree-apply` like any other object. Then remove
-the shared components nothing uses any more: `project-lint` reports them (NGX-UNUSED-SHARED-COMPONENT).
+## Pages of an older project
+An older project may hold pages, shared components and shared actions made by a CRUD UI generator that no longer exists
+(their comment says `Managed by upsert-ngx-crud-kit`). They are ordinary objects of the app: change one with
+`databaseobject-tree-apply`, or delete the page and create it again with `ngx-page-create`. Then remove the shared
+components nothing uses any more: `project-lint` reports them (NGX-UNUSED-SHARED-COMPONENT).
 
 ## What to avoid on this rail
 - Do not reread the whole CRUD documentation set if the CRUD rail is already established in the thread.

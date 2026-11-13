@@ -334,7 +334,7 @@ def check_call_order(events):
     )
     workflow["backendProof"] = require_event(
         events,
-        lambda event: event["server"] == "convertigo" and event["name"] == "crud-proof" and not bool((event["args"] or {}).get("expectUiShell")),
+        lambda event: event["server"] == "convertigo" and event["name"] == "crud-proof",
         "Run never called backend crud-proof.",
     )
     page_events = [

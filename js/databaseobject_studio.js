@@ -4,7 +4,7 @@ if (typeof C8O === "undefined") {
 
 C8O.dbo = C8O.dbo || {};
 
-// One JVM-wide lock for the project writes of the MCP (every batch: tree-apply, batch-call, generators, CRUD kit,
+// One JVM-wide lock for the project writes of the MCP (every batch: tree-apply, batch-call, generators, upsert-crud,
 // marketplace), its deletes, renames and moves, and the Project Explorer reloads it asks. An agent ran four deletes in
 // parallel: their reloads overlapped and failed with a NullPointerException in copyDatabaseObject, the Studio opened
 // modal error dialogs, and every engine request waited for the UI thread until someone clicked them (usage tests

@@ -97,7 +97,7 @@ test('in reveal mode, the building tools show what they created or changed (one 
   assert.deepEqual(run('tools_business_sequence_create', { status: 'ok', sequence: 'Shop.orders_list', qname: 'Shop.sq:orders_list' }), ['Shop.sq:orders_list']);
   assert.deepEqual(run('tools_sql_transaction_create', { status: 'ok', transactions: [{ qname: 'Shop.cn:db.tr:a' }, { qname: 'Shop.cn:db.tr:b' }] }), ['Shop.cn:db.tr:b']);
   assert.deepEqual(run('tools_upsert_crud', { status: 'ok', primaryTargets: { sql: 'Shop.cn:appdb', flow: ['Shop.sq:auth_login', 'Shop.sq:crm_list'] } }), ['Shop.sq:crm_list']);
-  assert.deepEqual(run('tools_upsert_ngx_crud_kit', { status: 'ok', pageTargets: ['Shop.Application.NgxApp.Home.Content', 'Shop.Application.NgxApp.Login.Content'] }), ['Shop.Application.NgxApp.Home']);
+  assert.deepEqual(run('tools_upsert_ngx_crud_kit', { status: 'ok', pageTargets: ['Shop.Application.NgxApp.Home.Content'] }), [], 'a removed tool');
   assert.deepEqual(run('tools_databaseobject_rename', { renamed: true, newQName: 'Shop.sq:orders2' }), ['Shop.sq:orders2']);
   assert.deepEqual(run('tools_databaseobject_rename', { renamed: false, newQName: 'Shop.sq:orders' }), [], 'a failed rename');
   assert.deepEqual(run('tools_databaseobject_move', { moved: true, qname: 'Shop.sq:x.st:y' }), ['Shop.sq:x.st:y']);

@@ -121,7 +121,7 @@ test('delete, rename and move mutate the project under the lock', () => {
 });
 
 // Two tree-apply calls in parallel under the same NGX directive left a null in its children list (r50, 30/10): every
-// batch (tree-apply, batch-call, generators, CRUD kit, marketplace) now mutates the project under the same lock.
+// batch (tree-apply, batch-call, generators, upsert-crud, marketplace) now mutates the project under the same lock.
 test('every batch of writes runs under the lock', () => {
   const source = read('js/databaseobject_batch.js');
   assert.match(source, /C8O\.dbo\.batchApply = function \(args\) \{\n    return C8O\.dbo\.withStudioLock\(function \(\) \{\n      return batchApplyUnlocked\(args\);\n    \}, \"a batch of writes under \" \+ asTrimmed\(\(args \|\| \{\}\)\.target \|\| \"the project\"\)\);\n  \};/);

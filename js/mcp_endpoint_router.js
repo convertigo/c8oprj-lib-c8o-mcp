@@ -23,6 +23,7 @@ include("js/nocode_tool_policy.js");
 include("js/gateway_tool_policy.js");
 include("js/user_key_server_policy.js");
 include("js/mcp_repeated_failures.js");
+include("js/retired_tools.js");
 var paramsJson = "{}";
 try {
   paramsJson = JSON.stringify(paramsObject);
@@ -170,7 +171,6 @@ var REVEAL_AFTER_CALL = {
   tools_facade_create: function (r) { return r.qname || r.sequence; },
   tools_sql_transaction_create: function (r) { var t = revealLastOf(r.transactions); return t && (t.qname || t.requestable); },
   tools_upsert_crud: function (r) { var targets = r.primaryTargets || {}; return revealLastOf(targets.flow) || targets.sql; },
-  tools_upsert_ngx_crud_kit: function (r) { return String(revealListOf(r.pageTargets)[0] || "").replace(/\.Content$/, ""); },
   tools_databaseobject_rename: function (r) { return String(r.renamed) === "true" ? r.newQName : ""; },
   tools_databaseobject_move: function (r) { return r.qname; },
   tools_databaseobject_delete: function (r) { return r.parentQName; },
@@ -205,10 +205,7 @@ var REVEAL_DETAILS_AFTER_CALL = {
   },
   tools_upsert_crud: function (r) {
     var targets = r.primaryTargets || {};
-    return { change: "changed", summary: "Built the data access", touched: revealQNamesOf([].concat(revealListOf(targets.sql), revealListOf(targets.flow), revealListOf(targets.ui))) };
-  },
-  tools_upsert_ngx_crud_kit: function (r) {
-    return { change: "changed", summary: "Built the data pages", touched: revealQNamesOf(r.pageTargets).map(function (q) { return q.replace(/\.Content$/, ""); }) };
+    return { change: "changed", summary: "Built the data access", touched: revealQNamesOf([].concat(revealListOf(targets.sql), revealListOf(targets.flow))) };
   },
   tools_databaseobject_rename: function (r) {
     return { change: "renamed", previous: r.qname, summary: "Renamed " + (r.oldName || revealObjectName(r.qname)) + " to " + (r.newName || revealObjectName(r.newQName)) };
@@ -798,6 +795,14 @@ if (methodName === "initialize") {
   var RENAMED_TOOL_SEQUENCES = { tools_facade_create: "tools_business_sequence_create" };
   if (!mappingError && RENAMED_TOOL_SEQUENCES[targetSequence]) {
     targetSequence = RENAMED_TOOL_SEQUENCES[targetSequence];
+  }
+  // A removed tool answers what replaces it (js/retired_tools.js), not "Unknown tool".
+  var retiredRefusal = !mappingError && C8O.retiredToolRefusal ? C8O.retiredToolRefusal(targetSequence) : "";
+  if (retiredRefusal.length) {
+    mappingError = {
+      status: "404", code: "-32601", message: retiredRefusal,
+      data: { name: toolNameRaw, sequence: targetSequence, replacement: C8O.retiredTools[targetSequence] }
+    };
   }
   if (!mappingError) {
     if (String(toolNameRaw || "").trim().toLowerCase() === "requestable-execute") {

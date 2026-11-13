@@ -104,7 +104,7 @@ Do not:
 - `sequences.missing` is empty when business sequences are expected
 - proof requestables report `ok=true`
 
-Do not pass `expectUiShell` to `crud-proof`: its UI checks look for the pages of an older UI generator. The pages are proven by `project-lint` without error and a `browser-verify` verdict `passed`.
+`crud-proof` checks the backend only. The pages are proven by `project-lint` without error and a `browser-verify` verdict `passed`.
 
 ## Example proof requestables
 For the default `Contact` / `Company` fast path:

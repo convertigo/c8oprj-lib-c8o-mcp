@@ -277,7 +277,7 @@ C8O.crudBackend = C8O.crudBackend || {};
     return ctx.normalizedIdentifier(fieldName || "").toUpperCase();
   }
 
-  // An alias the kit writes is quoted as its sequences read it (rawSqlOutputKey), so every database answers that name
+  // An alias upsert-crud writes is quoted as its sequences read it (rawSqlOutputKey), so every database answers that name
   // and project-lint has no unquoted alias to report: an agent quoted AS "total" after that warning and the counters
   // read nothing (usage tests 30/10).
   function sqlOutputAlias(ctx, name) {
@@ -1878,9 +1878,9 @@ C8O.crudBackend = C8O.crudBackend || {};
     return sequence;
   };
 
-  // A required field left empty was saved as '' (NOT NULL takes it): the kit form submits whatever its validity, and a
+  // A required field left empty was saved as '' (NOT NULL takes it): a page form can submit whatever its validity, and a
   // verifier saved an empty row (usage tests 29/10). Each required field gets a Require_<column> step before the call:
-  // an IfStep on an empty value holding the error the kit form shows (XMLErrorStep) and a ReturnStep, so nothing is
+  // an IfStep on an empty value holding the error the form shows (XMLErrorStep) and a ReturnStep, so nothing is
   // written. A field no longer required loses its step; the app's own steps before the call stay.
   C8O.crudBackend.ensureRequiredChecks = function (ctx, sequence, txStep, entity, spec, result) {
     var french = spec && spec.ui && String(spec.ui.language || "").toLowerCase() === "fr";
@@ -2023,16 +2023,14 @@ C8O.crudBackend = C8O.crudBackend || {};
       connectorQname: "",
       primaryTargets: {
         sql: "",
-        flow: [],
-        ui: []
+        flow: []
       },
       created: [],
       deleted: [],
       updated: [],
       runtimeEvidence: {},
       warnings: [],
-      sequence: ctx.toBoolean(options.sequence, true),
-      uiEnabled: ctx.toBoolean(options.ui, false)
+      sequence: ctx.toBoolean(options.sequence, true)
     };
 
     var spec = ctx.normalizeSpec(options.spec);
@@ -2349,37 +2347,6 @@ C8O.crudBackend = C8O.crudBackend || {};
           requestable: spec.project + "." + spec.facade.prefix + "_" + relationListName(ctx, spec, relation)
         };
       });
-    }
-
-    if (result.uiEnabled) {
-      var uiResult = ctx.upsertNgxCrudKit({
-        project: spec.project,
-        entities: spec.entities,
-        variant: spec.ui.variant,
-        stage: "bootstrap",
-        facadePrefix: spec.facade.prefix,
-        entryPage: spec.ui.entryPage,
-        language: spec.ui.language,
-        runtimeEvidence: result.runtimeEvidence
-      });
-      result.runtimeEvidence.ui = {
-        status: uiResult.status,
-        pageTargets: uiResult.pageTargets || [],
-        shellVisible: uiResult.runtimeEvidence ? uiResult.runtimeEvidence.shellVisible === true : false,
-        starterDominant: uiResult.runtimeEvidence ? uiResult.runtimeEvidence.starterDominant === true : null
-      };
-      result.primaryTargets.ui = uiResult.pageTargets || [];
-      if (uiResult.status !== "success") {
-        result.status = "partial";
-      }
-      if (uiResult.runtimeEvidence && uiResult.runtimeEvidence.projectSave) {
-        result.runtimeEvidence.uiProjectSave = uiResult.runtimeEvidence.projectSave;
-      }
-      if (uiResult.warnings && uiResult.warnings.length) {
-        for (var w = 0; w < uiResult.warnings.length; w++) {
-          ctx.addWarning(result, uiResult.warnings[w]);
-        }
-      }
     }
 
     result.status = result.warnings.length ? "partial" : "success";

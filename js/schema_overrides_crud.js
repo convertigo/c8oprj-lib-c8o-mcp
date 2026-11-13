@@ -16,7 +16,7 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
       properties: {
         spec: {
           type: "object",
-          description: "Structured CRUD specification including project, database, business sequence settings (spec key facade), entities, optional relations and seed (the pages are built with ngx-page-create). Required fields (fields[].required) are checked by the create and update business sequences, with messages in spec.ui.language (\"fr\" for French), and an app's own steps placed before the call of a business sequence are kept. On a database whose tables hold rows, the rows are kept and a field added to an entity becomes a new column, filled with its `default` (fields[].default); seed.reset:true resets the tables to the demo rows. A run keeps as it is a transaction or business sequence changed since the previous run (by hand or by another tool) and says so; spec.overwrite names the ones to write again. Run it again to change the spec (an entity, a field, a relation), not to repair an object or to clean test rows. Use the exact requested project name when it is valid; do not append prefixes or dates. If no seed profile is supplied, the default is realistic demo data. Entity entries may also define singular, plural, routeSegment, and displayLabel overrides when English inflection is not correct. Declare obvious many-to-one relations through spec.relations[] when possible; field.references remains supported for compatibility. Entity UI entries may optionally define ui.listFields, ui.detailFields, ui.formFields, ui.fieldLabels, ui.actionLabel, ui.relationFields (optionLabelField is the label of the relation select's options; lists and details show a related person by first and last name), ui.fieldOptions (fixed values shown as a select) and ui.fieldDefaults so the generic entity-pages CRUD UI shows better visible fields and relation controls without patching managed shared components. `seed.data` may provide explicit demo rows keyed by entity name; when omitted, the tool falls back to synthetic rows from seed.profile/seed.rowsPerEntity. For the CRM fast path, prefer a contacts/companies spec with a Contact.CompanyId relation and ui.variant=master-detail.",
+          description: "Structured CRUD specification including project, database, business sequence settings (spec key facade), entities, optional relations and seed (the pages are built with ngx-page-create). Required fields (fields[].required) are checked by the create and update business sequences, with messages in spec.ui.language (\"fr\" for French), and an app's own steps placed before the call of a business sequence are kept. On a database whose tables hold rows, the rows are kept and a field added to an entity becomes a new column, filled with its `default` (fields[].default); seed.reset:true resets the tables to the demo rows. A run keeps as it is a transaction or business sequence changed since the previous run (by hand or by another tool) and says so; spec.overwrite names the ones to write again. Run it again to change the spec (an entity, a field, a relation), not to repair an object or to clean test rows. Use the exact requested project name when it is valid; do not append prefixes or dates. If no seed profile is supplied, the default is realistic demo data. Entity entries may also define singular, plural, and displayLabel overrides when English inflection is not correct. Declare obvious many-to-one relations through spec.relations[] when possible; field.references remains supported for compatibility. An entity may set ui.relationFields.<field>.optionLabelField: the field of the related entity its relation list returns as the label (by default its name field; a related person is named by first and last name). `seed.data` may provide explicit demo rows keyed by entity name; when omitted, the tool falls back to synthetic rows from seed.profile/seed.rowsPerEntity. For a CRM, prefer a contacts/companies spec with a Contact.CompanyId relation.",
           properties: {
             database: {
               type: "object",
@@ -48,13 +48,11 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
         project: { type: "string", description: "Existing project technical name." },
         connector: { type: "string", description: "Optional SQL connector name. Defaults to the normalized CRUD connector if omitted." },
         facadePrefix: { type: "string", description: "Optional CRUD business sequence prefix. Defaults to crud." },
-        entryPage: { type: "string", description: "Visible entry page name. Defaults to Home." },
         mode: {
           type: "string",
           enum: ["hsqldb", "postgresql", "mariadb", "mysql", "sqlserver", "oracle"],
           description: "Optional driver family hint used when no connector is provided yet."
         },
-        variant: { type: "string", description: "Optional UI variant hint used when checking visible CRUD shell coverage." },
         profile: { type: "string", description: "Optional CRUD profile hint, for example crm." }
       },
       required: ["project"],
@@ -69,60 +67,17 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
         project: { type: "string", description: "Existing project technical name." },
         connector: { type: "string", description: "Optional SQL connector name. Defaults to the normalized CRUD connector if omitted." },
         facadePrefix: { type: "string", description: "Optional CRUD business sequence prefix. Defaults to crud." },
-        entryPage: { type: "string", description: "Visible entry page name. Defaults to Home." },
         mode: {
           type: "string",
           enum: ["hsqldb", "postgresql", "mariadb", "mysql", "sqlserver", "oracle"],
           description: "Optional driver family hint used when no connector is provided yet."
         },
-        variant: { type: "string", description: "Optional UI variant hint used when checking visible CRUD shell coverage." },
         profile: { type: "string", description: "Optional CRUD profile hint, for example crm." },
-        expectUiShell: h().booleanFlagSchema(false, "Set true to require visible shell evidence and starter replacement on the entry page."),
-        viewerUrl: { type: "string", description: "Optional viewer URL returned by mobile-builder-open. In dev this should be the live viewer root or home URL, not a DisplayObjects/mobile production path. When provided with expectUiShell=true, crud-proof also probes the served mobile viewer bundle." },
         proofRequestables: {
           description: "Requestables to execute as proof. Accepts a JSON array string, an array of strings, or a comma-separated string.",
           oneOf: [
             { type: "string" },
             { type: "array", items: { type: "string" } },
-            { type: "object", additionalProperties: true }
-          ]
-        }
-      },
-      required: ["project"],
-      additionalProperties: false
-    };
-  }
-
-  function upsertNgxCrudKitInputSchema() {
-    return {
-      type: "object",
-      properties: {
-        project: { type: "string", description: "Existing NGX project technical name." },
-        entities: {
-          description: "Entity list as an object/array or JSON string. Used to label deterministic CRUD cards and sections. Entity entries may optionally define ui.listFields, ui.detailFields, ui.formFields, ui.fieldLabels, ui.actionLabel, and ui.relationFields so the generic entity-pages UI shows better visible fields and relation controls without direct edits on managed CRUD-kit components. Relation controls default to select; set ui.relationFields.<field>.control=autocomplete to opt into the local autocomplete variant. ui.actionLabel is the label of the edit form's save button (default \"Save <singular>\"), not of the button that opens a new record. A field with a fixed set of values becomes a select with ui.fieldOptions.<field> (an array of values, or of {value, label}); the create form starts from ui.fieldDefaults.<field>, else from the column default of the table. ui.listFilters filters the list: [{field, label, options} (a select; options default to the field's ui.fieldOptions), {search: [fields], label} (a text searched in those fields)].",
-          oneOf: [
-            { type: "string" },
-            { type: "array", items: { type: "object", additionalProperties: true } },
-            { type: "object", additionalProperties: true }
-          ]
-        },
-        variant: { type: "string", description: "UI variant, for example entity-pages, dashboard, list-form, or master-detail. entity-pages is the recommended generic CRUD UI; dashboard is the legacy single-page fallback; the CRM rail uses master-detail." },
-        stage: {
-          type: "string",
-          enum: ["bootstrap", "final"],
-          description: "UI assembly stage. bootstrap shows a visible work-in-progress shell early so the mobile builder can open against a real shell; final removes the bootstrap marker after proof."
-        },
-        facadePrefix: { type: "string", description: "CRUD business sequence prefix used for shell labels and future wiring." },
-        entryPage: { type: "string", description: "Visible entry page name. Defaults to Home." },
-        auth: {
-          description: "Sign-in of the pages: demo (default, the login page signs in as demo) or form, as a string or {mode: \"form\", sequence: \"auth_login\", userVariable: \"username\", passwordVariable: \"password\"}. With form the login page asks a user name and a password and calls that login sequence of the project (the generated auth_login, or the app's own once it checks the password); a page opened without a session goes to it. The sequence refuses with an error element (or success false and errors), whose message the form shows.",
-          oneOf: [{ type: "string" }, { type: "object", additionalProperties: true }]
-        },
-        language: { type: "string", enum: ["en", "fr"], description: "Language of the texts the kit writes (default en): pass the user's language. With fr the buttons, titles, states and messages are French; rerunning stage final with fr translates pages the kit wrote in English." },
-        runtimeEvidence: {
-          description: "Optional runtime evidence object or JSON string used to surface live counts in the shell.",
-          oneOf: [
-            { type: "string" },
             { type: "object", additionalProperties: true }
           ]
         }
@@ -167,28 +122,6 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
         facadeHiddenAuthenticatedPresent: h().stringArraySchema(),
         insecureFacadeSequences: h().stringArraySchema()
       }),
-      ui: h().openObjectSchema({
-        starterDominant: { oneOf: [{ type: "boolean" }, { type: "null" }] },
-        visibleShellPresent: { type: "boolean" },
-        liveBindingPresent: { type: "boolean" },
-        statefulActionsPresent: { type: "boolean" },
-        pageBootstrapPresent: { type: "boolean" },
-        targetQName: { type: "string" },
-        authBootstrapPresent: { type: "boolean" },
-        viewerProbe: h().openObjectSchema({
-          attempted: { type: "boolean" },
-          ok: { type: "boolean" },
-          url: { type: "string" },
-          finalUrl: { type: "string" },
-          statusCode: { type: "number" },
-          htmlOk: { type: "boolean" },
-          bundleCount: { type: "number" },
-          scriptUrls: h().stringArraySchema(),
-          markersFound: h().stringArraySchema(),
-          missingMarkers: h().stringArraySchema(),
-          message: { type: "string" }
-        })
-      }),
       missing: h().stringArraySchema(),
       warnings: h().stringArraySchema()
     });
@@ -223,8 +156,6 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
       project: { type: "string" },
       driverFamily: { type: "string" },
       connectorQname: { type: "string" },
-      entryPage: { type: "string" },
-      expectUiShell: { type: "boolean" },
       transactions: h().openObjectSchema({
         present: h().stringArraySchema(),
         missing: h().stringArraySchema()
@@ -253,49 +184,6 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
         facadeHiddenAuthenticatedPresent: h().stringArraySchema(),
         insecureFacadeSequences: h().stringArraySchema()
       }),
-      ui: h().openObjectSchema({
-        starterDominant: { oneOf: [{ type: "boolean" }, { type: "null" }] },
-        visibleShellPresent: { type: "boolean" },
-        liveBindingPresent: { type: "boolean" },
-        statefulActionsPresent: { type: "boolean" },
-        pageBootstrapPresent: { type: "boolean" },
-        workInProgressVisible: { oneOf: [{ type: "boolean" }, { type: "null" }] },
-        targetQName: { type: "string" },
-        authBootstrapPresent: { type: "boolean" },
-        builderProbe: h().openObjectSchema({
-          status: { type: "string" },
-          message: { type: "string" },
-          viewerUrl: { type: "string" },
-          viewerBaseUrl: { type: "string" },
-          viewerHomeUrl: { type: "string" },
-          browser: h().openObjectSchema({
-            currentUrl: { type: "string" },
-            locationHref: { type: "string" },
-            title: { type: "string" },
-            statusText: { type: "string" },
-            errorText: { type: "string" },
-            bodyTextSample: { type: "string" },
-            progress: { type: "number" }
-          }),
-          compileErrors: {
-            type: "array",
-            items: h().mobileBuilderCompileErrorSchema()
-          }
-        }),
-        viewerProbe: h().openObjectSchema({
-          attempted: { type: "boolean" },
-          ok: { type: "boolean" },
-          url: { type: "string" },
-          finalUrl: { type: "string" },
-          statusCode: { type: "number" },
-          htmlOk: { type: "boolean" },
-          bundleCount: { type: "number" },
-          scriptUrls: h().stringArraySchema(),
-          markersFound: h().stringArraySchema(),
-          missingMarkers: h().stringArraySchema(),
-          message: { type: "string" }
-        })
-      }),
       requestables: {
         type: "array",
         items: requestableProofOutputSchema()
@@ -313,17 +201,6 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
     });
   }
 
-  function upsertNgxCrudKitOutputSchema() {
-    return h().closedObjectSchema({
-      status: { type: "string" },
-      project: { type: "string" },
-      sharedComponents: h().stringArraySchema(),
-      pageTargets: h().stringArraySchema(),
-      runtimeEvidence: h().openObjectSchema({}),
-      warnings: h().stringArraySchema()
-    });
-  }
-
   function upsertCrudOutputSchema() {
     return h().closedObjectSchema({
       status: { type: "string" },
@@ -331,11 +208,9 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
       driverFamily: { type: "string" },
       connectorQname: { type: "string" },
       sequence: { type: "boolean" },
-      uiEnabled: { type: "boolean" },
       primaryTargets: h().openObjectSchema({
         sql: { type: "string" },
-        flow: h().stringArraySchema(),
-        ui: h().stringArraySchema()
+        flow: h().stringArraySchema()
       }),
       createdCount: { type: "number" },
       updatedCount: { type: "number" },
@@ -359,9 +234,6 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
     if (seq === "tools_crud_proof") {
       return crudProofInputSchema();
     }
-    if (seq === "tools_upsert_ngx_crud_kit") {
-      return upsertNgxCrudKitInputSchema();
-    }
     return null;
   };
 
@@ -375,9 +247,6 @@ C8O.schemaOverridesCrud = C8O.schemaOverridesCrud || {};
     }
     if (seq === "tools_crud_proof") {
       return crudProofOutputSchema();
-    }
-    if (seq === "tools_upsert_ngx_crud_kit") {
-      return upsertNgxCrudKitOutputSchema();
     }
     return null;
   };

@@ -3,9 +3,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-// The CRUD kit templates of this project name __PROJECT_NAME__ in their sources (the app they are cloned into). A Studio
-// save turned that placeholder into a reference of lib_ConvertigoMCP itself (commit e51f583, 20/03), shipped up to
-// 0.3.0-beta.22 and shown under References as "__PROJECT_NAME__ ! broken project !" in every Studio (13/11).
+// The CRUD kit templates this project held (since removed) named __PROJECT_NAME__ in their sources (the app they were
+// cloned into). A Studio save turned that placeholder into a reference of lib_ConvertigoMCP itself (commit e51f583,
+// 20/03), shipped up to 0.3.0-beta.22 and shown under References as "__PROJECT_NAME__ ! broken project !" (13/11).
 
 const root = path.resolve(__dirname, '../..');
 

@@ -14,7 +14,6 @@
   version: 0.3.0-beta.23
   ↓marketplace [connectors.HttpConnector]: 🗏 connectors/marketplace.yaml
   ↓rag [connectors.HttpConnector]: 🗏 connectors/rag.yaml
-  ↓_refreshCrudUiTemplates [sequences.GenericSequence]: 🗏 sequences/_refreshCrudUiTemplates.yaml
   ↓_refreshMaintainerDocs [sequences.GenericSequence]: 🗏 sequences/_refreshMaintainerDocs.yaml
   ↓_setupClaude [sequences.GenericSequence]: 🗏 sequences/_setupClaude.yaml
   ↓_setupCodex [sequences.GenericSequence]: 🗏 sequences/_setupCodex.yaml
@@ -104,7 +103,6 @@
   ↓tools_tags_get [sequences.GenericSequence]: 🗏 sequences/tools_tags_get.yaml
   ↓tools_tigo_resources [sequences.GenericSequence]: 🗏 sequences/tools_tigo_resources.yaml
   ↓tools_upsert_crud [sequences.GenericSequence]: 🗏 sequences/tools_upsert_crud.yaml
-  ↓tools_upsert_ngx_crud_kit [sequences.GenericSequence]: 🗏 sequences/tools_upsert_ngx_crud_kit.yaml
   ↓project1 [references.ProjectSchemaReference]: 
     projectName: mobilebuilder_tpl_8_4_0_ngx_legacy=https://github.com/convertigo/c8oprj-mobilebuilder-tpl/archive/8ca383ae844129df72bd3436a7869bfdc0a69d5c.zip
   ↓UrlMapper [core.UrlMapper]: 🗏 urlMapper.yaml

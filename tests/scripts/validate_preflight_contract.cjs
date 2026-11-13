@@ -619,10 +619,25 @@ function outputSchemaOf(sequence) {
 }
 
 test('crud-proof: its output schema takes the answer a Studio gives, crm included (usage tests 29/10)', () => {
-  // Answer of crud-proof {project, connector, expectUiShell, viewerUrl} on the Atelier app (MCP 0.2.29-beta.5): the
-  // closed schema had no crm, Vibe failed the call 3 times with mcp_transport_failed and the agent lost the proof.
+  // Answer of crud-proof {project, connector} on the Atelier app (MCP 0.2.29-beta.5, without the UI shell checks of the
+  // removed CRUD kit): the closed schema had no crm, Vibe failed the call 3 times with mcp_transport_failed and the agent
+  // lost the proof.
   const answer = JSON.parse(read('tests/fixtures/crud/crud_proof_answer_atelier.json'));
-  assert.deepEqual(schemaErrors(outputSchemaOf('tools_crud_proof'), answer), []);
+  const schema = outputSchemaOf('tools_crud_proof');
+  assert.deepEqual(schemaErrors(schema, answer), []);
+  // what the tool no longer answers is no longer declared
+  for (const removed of ['ui', 'entryPage', 'expectUiShell']) {
+    assert.deepEqual(schemaErrors(schema, { ...answer, [removed]: {} }), ['$.' + removed + ' is not declared and the object is closed'], removed);
+  }
+  // every field the sequence answers is declared: a closed schema refuses the others (strict clients lose the answer)
+  for (const [sequence, file] of [['tools_crud_proof', 'tools_crud_proof'], ['tools_crud_status', 'tools_crud_status'], ['tools_upsert_crud', 'tools_upsert_crud']]) {
+    const yaml = read('_c8oProject/sequences/' + file + '.yaml');
+    const keys = [...yaml.matchAll(/^  ↓[A-Za-z]+ \[steps\.(?:JsonFieldStep|JsonToXmlStep)-\d+\]: \n(?:    [^\n]*\n)*?\s+- →→: ([A-Za-z]+)\n/gm)].map(m => m[1]);
+    const declared = Object.keys(outputSchemaOf(sequence).properties);
+    assert.ok(keys.length > 5, sequence);
+    assert.deepEqual(keys.filter(k => !declared.includes(k)), [], sequence);
+    assert.ok(!keys.includes('ui') && !keys.includes('uiEnabled'), sequence);
+  }
   assert.deepEqual(schemaErrors({ type: 'object', additionalProperties: false, properties: {} }, { crm: {} }),
     ['$.crm is not declared and the object is closed'], 'the checker sees an undeclared property');
 });

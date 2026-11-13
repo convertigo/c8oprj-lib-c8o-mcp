@@ -232,12 +232,11 @@ Exception: `scripts/run_fastpath_repeatability.py` is the dedicated repeatabilit
 - `scripts/validate_mobile_builder_compile_error.py`: Deliberately injects a broken page script through MCP and verifies that `mobile-builder-open` returns `compile_error` plus structured compile diagnostics without waiting for a blind timeout.
 - `scripts/validate_nested_xmlvector.js`: Verifies that XMLVector properties preserve nested rows such as NGX application package dependencies and TypeScript imports while flat SmartType source vectors remain unchanged.
 - `scripts/validate_tree_apply_input.js`: Verifies that tree mutations reject NGX identifiers that would generate invalid Angular/TypeScript reference names.
-- `scripts/validate_crud_name_overrides.py`: Verifies `singular` / `plural` / `routeSegment` / `displayLabel` overrides on the generic CRUD fast path.
 - `bin/codex`: Wrapper used by default by `run_prompt.sh`. It pins the npm package version in one place through `CODEX_NPM_VERSION` (default `0.111.0`) and avoids depending on the machine-wide `codex`.
 - `run_prompt.sh`: Helper to run Codex CLI from the repository root (`bash tests/run_prompt.sh [prompt_file] [run_label] [role_prompt_name]`). When the third argument is set, the script fetches the role prompt from MCP first and injects it into the Codex run.
 - `scripts/report_codex_run.py`: Converts one raw Codex CLI log into `report.json` plus `summary.md`.
 - `scripts/run_fastpath_repeatability.py`: Dedicated sequential campaign runner for the mono-agent CRUD fast path. By default it runs `3 x HSQLDB`, `3 x PostgreSQL`, and `3 x MariaDB` through `codex exec`.
-- `scripts/validate_fresh_session_fastpath.py`: Runs one `codex exec` from an empty workspace, then parses `raw.log` plus the Codex session trace to assert the discovery order, the `marketplace-import -> viewer -> CRUD` flow, the absence of generated-artifact repair attempts, and the final `crud-proof(viewerUrl)`.
+- `scripts/validate_fresh_session_fastpath.py`: Runs one `codex exec` from an empty workspace, then parses `raw.log` plus the Codex session trace to assert the discovery order, the `marketplace-import -> viewer -> CRUD` flow, the absence of generated-artifact repair attempts, and the backend `crud-proof` before the `ngx-page-create` pages, `project-lint` and `browser-verify`.
 - `scripts/run_campaign.py`: Runs one benchmark campaign for a frozen MCP candidate.
 - `scripts/score_campaign.py`: Scores one benchmark campaign and writes aggregate findings.
 - `scripts/compare_campaigns.py`: Compares a baseline campaign aggregate against a replayed candidate campaign and emits a verdict.

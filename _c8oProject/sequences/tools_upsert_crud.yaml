@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Create or update deterministic CRUD scaffolding
-  Upserts a Convertigo SQL CRUD scaffold from a structured spec and can optionally expose public sequences and a visible NGX shell. Use the exact requested project name when it is valid; do not invent prefixes or date suffixes. If no seed profile is supplied, the default seed is realistic demo data. Entity specs may also define singular, plural, routeSegment, and displayLabel overrides when English inflection is not correct. On an app whose tables already hold rows it keeps them (no reset, no demo seed) and adds the columns the spec adds, filled with fields[].default; seed.reset:true resets the tables to the demo rows.
+  Upserts a Convertigo SQL CRUD scaffold from a structured spec (connector, transactions, business sequences, seed); the pages are built with ngx-page-create. Use the exact requested project name when it is valid; do not invent prefixes or date suffixes. If no seed profile is supplied, the default seed is realistic demo data. Entity specs may also define singular, plural, and displayLabel overrides when English inflection is not correct. On an app whose tables already hold rows it keeps them (no reset, no demo seed) and adds the columns the spec adds, filled with fields[].default; seed.reset:true resets the tables to the demo rows.
 ↓IncludeHelpers [steps.SimpleStep-1773318201001]: 
   comment: Load deterministic CRUD helpers
   expression: include("js/tools_crud.js");
@@ -10,8 +10,7 @@ comment: |
   expression: |
     'crudUpsertResult = C8O.crud.upsertCrud({
       spec: spec,
-      sequence: C8O.util.toBoolean(sequence, true),
-      ui: C8O.util.toBoolean(ui, false)
+      sequence: C8O.util.toBoolean(sequence, true)
     });'
 ↓Result [steps.JsonObjectStep-1773318201003]: 
   key: 
@@ -86,20 +85,6 @@ comment: |
         - SmartType: 
           - ↑mode: JS
           - →→: crudUpsertResult && crudUpsertResult.sequence === true
-  ↓uiEnabled [steps.JsonFieldStep-1773318201009]: 
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: uiEnabled
-    type: bool
-    value: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: crudUpsertResult && crudUpsertResult.uiEnabled === true
   ↓primaryTargets [steps.JsonToXmlStep-1773318201010]: 
     jsonObject: 
       - xmlizable: 
@@ -166,13 +151,9 @@ comment: |
           - ↑mode: PLAIN
           - →→: warnings
 ↓spec [variables.RequestableVariable-1773318201016]: 
-  comment: Structured CRUD specification including project, database, facade, entities, seed, and UI options. Entity specs may also define singular, plural, routeSegment, and displayLabel overrides.
-  description: Structured CRUD specification including project, database, facade, entities, seed, and UI options. Entity specs may also define singular, plural, routeSegment, and displayLabel overrides.
+  comment: Structured CRUD specification including project, database, facade, entities, seed, and ui.language (the language of the messages of the business sequences). Entity specs may also define singular, plural, and displayLabel overrides.
+  description: Structured CRUD specification including project, database, facade, entities, seed, and ui.language (the language of the messages of the business sequences). Entity specs may also define singular, plural, and displayLabel overrides.
 ↓sequence [variables.RequestableVariable-1773318201017]: 
   comment: Set true to create or update public CRUD sequences in addition to SQL transactions.
   description: Set true to create or update public CRUD sequences in addition to SQL transactions.
   value: true
-↓ui [variables.RequestableVariable-1773318201018]: 
-  comment: Retired, for old projects only (hidden from the tool schema); pages are built with ngx-page-create.
-  description: Retired, for old projects only (hidden from the tool schema); pages are built with ngx-page-create.
-  value: false

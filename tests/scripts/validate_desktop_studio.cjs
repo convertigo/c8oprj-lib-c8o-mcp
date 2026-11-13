@@ -90,8 +90,6 @@ test('NGX regeneration after an edit: the desktop Studio asks its builder, a ser
     assert.equal(result.requested, DESKTOP.includes(kind), kind);
     assert.equal(result.message, DESKTOP.includes(kind) ? 'Skipped: no mobile builder for target' : 'Skipped: Convertigo Studio required', kind);
   }
-  const crud = read('js/crud_ui_refresh.js');
-  assert.match(crud, /if \(!summary\.studioMode\) \{[\s\S]{0,200}summary\.studioMode = Engine\.isDesktopStudio\(\) === true;/);
   // the Eclipse editor and the Eclipse build job keep Studio mode
   assert.match(read('js/databaseobject_studio.js'), /studioMode = Engine\.isStudioMode\(\) === true;/);
 });

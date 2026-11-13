@@ -217,7 +217,7 @@
     "title": "Convertigo Backend Specialist",
     "description": "Sequence specialist for business sequence requestables, orchestration, and stable response shaping.",
     "promptId": "convertigo/backend",
-    "revision": 9,
+    "revision": 10,
     "roleId": "backend",
     "modelProfile": "fast",
     "scopeTags": [

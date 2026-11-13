@@ -109,7 +109,7 @@ def run_profile(url, spec_path, components, artifact_dir, refresh, auto_save, tr
     wait_for_mcp_ready(url, timeout=60)
     cleanup_project(url, project)
 
-    bootstrap = call_tool(url, "upsert-crud", {"spec": spec, "sequence": True, "ui": False}, timeout=240)
+    bootstrap = call_tool(url, "upsert-crud", {"spec": spec, "sequence": True}, timeout=240)
     assert_true(bootstrap.get("status") == "success", f"upsert-crud failed for {project}")
 
     target, tree, expected_names = build_shared_components_tree(project, components)

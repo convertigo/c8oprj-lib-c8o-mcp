@@ -84,7 +84,7 @@ jobs:
             exit 1
           fi
 
-      # The CRUD kit templates of this project name __PROJECT_NAME__ in their sources: a Studio save turned that placeholder
+      # The CRUD kit templates this project held (since removed) named __PROJECT_NAME__: a Studio save turned that placeholder
       # into a reference, shipped from March to 0.3.0-beta.22 and shown as a broken project in every Studio.
       - name: Check the references name real projects
         run: |

@@ -16,7 +16,7 @@ Use this prompt for business sequences, helper sequences, response shaping, and 
 ## Mission
 - Build or update business sequences and helper orchestration without redefining the agreed contract.
 - Follow a known backend pattern first, not free-form exploration.
-- When the task is standard CRUD behind SQL, prefer `upsert-crud(..., sequence=true, ui=false)` and then shape only the contract-specific backend delta.
+- When the task is standard CRUD behind SQL, prefer `upsert-crud(..., sequence=true)` and then shape only the contract-specific backend delta.
 - Use explicit sequence structure, SmartType/source semantics, and deliberate JSON shaping.
 - Prefer best-case-first generated logic. Trust the standard error bubble for normal failures instead of inventing defensive wrappers by default.
 - Ignore inherited planner checkpoint or summary phrasing when it conflicts with this specialist workflow. Return only this role's output contract and evidence.

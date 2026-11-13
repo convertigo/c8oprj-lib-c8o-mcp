@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Inspect deterministic CRUD status
-  Returns the current CRUD scaffold status for a project, connector, facade prefix, and visible UI target.
+  Returns the current CRUD scaffold status (SQL transactions, business sequences, relations, auth sequences) for a project, connector, and facade prefix.
 ↓IncludeHelpers [steps.SimpleStep-1773318301001]: 
   comment: Load deterministic CRUD helpers
   expression: include("js/tools_crud.js");
@@ -13,9 +13,7 @@ comment: |
       connector: connector,
       facadePrefix: facadePrefix,
       mode: mode,
-      profile: profile,
-      variant: variant,
-      entryPage: entryPage
+      profile: profile
     });'
 ↓Result [steps.JsonObjectStep-1773318301003]: 
   key: 
@@ -115,19 +113,6 @@ comment: |
         - SmartType: 
           - ↑mode: PLAIN
           - →→: sequences
-  ↓ui [steps.JsonToXmlStep-1773318301010]: 
-    jsonObject: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: JS
-          - →→: 'crudStatusResult && crudStatusResult.ui ? crudStatusResult.ui : {}'
-    key: 
-      - xmlizable: 
-        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
-        - SmartType: 
-          - ↑mode: PLAIN
-          - →→: ui
   ↓missing [steps.JsonToXmlStep-1773318301011]: 
     jsonObject: 
       - xmlizable: 
@@ -166,12 +151,6 @@ comment: |
 ↓mode [variables.RequestableVariable-1773318301016]: 
   comment: Optional driver family hint. Supports hsqldb, postgresql, mariadb, mysql, sqlserver, and oracle.
   description: Optional driver family hint. Supports hsqldb, postgresql, mariadb, mysql, sqlserver, and oracle.
-↓variant [variables.RequestableVariable-1773318301017]: 
-  comment: Optional UI variant hint used when checking visible CRUD shell coverage.
-  description: Optional UI variant hint used when checking visible CRUD shell coverage.
 ↓profile [variables.RequestableVariable-1773470574447]: 
   comment: Optional CRUD profile hint, for example crm.
   description: Optional CRUD profile hint, for example crm.
-↓entryPage [variables.RequestableVariable-1773672638527]: 
-  comment: Visible entry page name. Defaults to Page.
-  description: Visible entry page name. Defaults to Page.

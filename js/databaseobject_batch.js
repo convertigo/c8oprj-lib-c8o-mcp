@@ -19,7 +19,6 @@ if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
   include("js/databaseobject.js");
 }
 include("js/databaseobject_ops.js");
-include("js/crud_ui_refresh.js");
 include("js/sql_dialect.js");
 
 (function () {
@@ -302,10 +301,9 @@ include("js/sql_dialect.js");
   C8O.dbo.batchUnwrapValue = unwrapValue;
   C8O.dbo.batchParseObjectInput = parseObjectInput;
   C8O.dbo.batchFirstProvidedInput = firstProvidedInput;
-  // Warnings tree-apply gives on one written node, and on a write under a CRUD-kit page (tests and callers that check a tree).
-  C8O.dbo.batchNodeWarnings = function (dbo, node, options) {
+  // Warnings tree-apply gives on one written node (tests and callers that check a tree).
+  C8O.dbo.batchNodeWarnings = function (dbo, node) {
     var report = { warnings: [] };
-    warnIfManagedCrudTarget({ managedCrudWriter: !!(options && options.managedCrudWriter) }, dbo, report);
     warnNode(dbo, node, report);
     return report.warnings;
   };
@@ -520,23 +518,6 @@ include("js/sql_dialect.js");
     if (report.warnings.indexOf(text) < 0) {
       report.warnings.push(text);
     }
-  }
-
-  function warnIfManagedCrudTarget(ctx, dbo, report) {
-    if (!dbo || (ctx && ctx.managedCrudWriter) || !C8O.crudUiRefresh || typeof C8O.crudUiRefresh.managedCrudMutationWarning !== "function") {
-      return;
-    }
-    // tree-apply without override: a kit object is refused before the write, with the kit option that does it.
-    if (ctx && ctx.managedGuard === "refuse" && typeof C8O.crudUiRefresh.managedCrudRefusal === "function") {
-      var refusal = C8O.crudUiRefresh.managedCrudRefusal({ trimmed: asTrimmed }, dbo);
-      if (refusal.length) {
-        throw makeOpError("managed_by_crud_kit", refusal, "validate", "", safeQName(dbo));
-      }
-    }
-    var warning = C8O.crudUiRefresh.managedCrudMutationWarning({
-      trimmed: asTrimmed
-    }, dbo);
-    pushReportWarning(report, warning);
   }
 
   function registerRef(ctx, refId, dbo) {
@@ -1599,7 +1580,6 @@ include("js/sql_dialect.js");
     var name = stripQNamePrefix(asTrimmed(resolveRefsInValue(ctx, op.name)), report);
     var children = parseChildrenInput(op.children, "create.children", []);
     var createCtx = resolveCreateContext(relatedDbo, mode);
-    warnIfManagedCrudTarget(ctx, createCtx.parent, report);
 
     if (!className.length) {
       throw makeOpError("validation_error", "create operation requires className", "validate", "", relatedQName);
@@ -1745,7 +1725,6 @@ include("js/sql_dialect.js");
       throw makeOpError("validation_error", "setProperties operation requires qname (or global target)", "validate", "", "");
     }
     var dbo = C8O.dbo.resolve(qname, { messagePrefix: "qname" });
-    warnIfManagedCrudTarget(ctx, dbo, report);
     applyProperties(ctx, dbo, op.properties, qname, report);
   }
 
@@ -1769,7 +1748,6 @@ include("js/sql_dialect.js");
 
     var strategy = normalizeStrategy(op.strategy, ctx.strategy);
     var root = C8O.dbo.resolve(qname, { messagePrefix: "qname" });
-    warnIfManagedCrudTarget(ctx, root, report);
 
     if (patch.id !== undefined) {
       registerRef(ctx, patch.id, root);
@@ -1868,10 +1846,6 @@ include("js/sql_dialect.js");
       onError: onError,
       autoSave: autoSave,
       dryRun: dryRun,
-      // The CRUD kit writes its own managed pages and components: no "direct edit" warning about them then.
-      managedCrudWriter: asBoolean(params.managedCrudWriter, false) === true,
-      // "refuse" (tree-apply without override): a write on a kit object fails with the hint; else it only warns.
-      managedGuard: asTrimmed(params.managedGuard) === "refuse" ? "refuse" : "warn",
       strategy: strategy,
       touchedQNames: [],
       touchedQNameSet: {},

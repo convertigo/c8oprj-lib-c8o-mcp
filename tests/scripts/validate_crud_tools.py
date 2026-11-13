@@ -92,42 +92,6 @@ def call_tool(url, tool_name, arguments=None, timeout=120):
     return result
 
 
-def wait_mobile_builder_ready(url, project, artifact, step_name, timeout_sec=120, overall_timeout=180, force_restart=False):
-    deadline = time.time() + overall_timeout
-    last_result = None
-    attempt = 0
-    first_compile_error = None
-    while time.time() < deadline:
-        attempt += 1
-        result = call_tool(
-            url,
-            "mobile-builder-open",
-            {
-                "project": project,
-                "timeoutSec": timeout_sec,
-                "logsLimit": 60,
-                "forceRestart": force_restart if attempt == 1 else False,
-            },
-            timeout=max(timeout_sec + 60, 90),
-        )
-        artifact["steps"].append({"tool": step_name, "attempt": attempt, "result": result})
-        last_result = result
-        if (result.get("compileErrors") or []):
-            if first_compile_error is None:
-                first_compile_error = result
-            time.sleep(3)
-            continue
-        status = str(result.get("status") or "").lower()
-        if status == "ready":
-            return result
-        message = str(result.get("message") or "").lower()
-        if status == "building" or "previous build canceled" in message:
-            time.sleep(3)
-            continue
-        return result
-    return last_result or first_compile_error or {}
-
-
 def run(cmd, cwd=None, env=None):
     return subprocess.run(cmd, cwd=cwd, env=env, text=True, capture_output=True, check=True)
 
@@ -174,11 +138,6 @@ def pluralize_name(name):
     return text + "s"
 
 
-def pascalize_name(name):
-    parts = re.split(r"[^A-Za-z0-9]+", str(name or ""))
-    return "".join(part[:1].upper() + part[1:] for part in parts if part)
-
-
 def load_spec(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
@@ -208,34 +167,6 @@ def read_runtime_text(project, relative_path):
     path = runtime_dir / relative_path
     assert_true(path.exists(), f"Missing runtime file for {project}: {path}")
     return path.read_text(encoding="utf-8"), path
-
-
-def expected_ui_globals(variant):
-    return [
-        "crmBuildStage",
-        "crmLoading",
-        "crmError",
-        "crmStatus",
-        "crmCompanies",
-        "crmContacts",
-        "crmCounts",
-        "crmSelectedCompany",
-        "crmCompanyContacts",
-    ] if variant == "master-detail" else [
-        "crudBuildStage",
-        "crudLoading",
-        "crudError",
-        "crudStatus",
-        "crudRows",
-        "crudCounts",
-        "crudSamples",
-        "crudSelected",
-        "crudDrafts",
-        "crudRelationSearch",
-        "crudModes",
-        "crudEntityStatus",
-        "crudEntityErrors",
-    ]
 
 
 def list_projects(url, filter_text):
@@ -268,32 +199,6 @@ def purge_test_projects(url, exclude=None):
         cleanup_project(url, project)
         deleted.append(project)
     return deleted
-
-
-def flatten_tree_names(node, names=None):
-    names = names or []
-    if isinstance(node, dict):
-        name = node.get("name")
-        if name:
-            names.append(str(name))
-        for child in node.get("children") or []:
-            flatten_tree_names(child, names)
-    return names
-
-
-def flatten_tree_classnames(node, classnames=None):
-    classnames = classnames or []
-    if isinstance(node, dict):
-        class_name = node.get("className")
-        if class_name:
-            classnames.append(str(class_name))
-        for child in node.get("children") or []:
-            flatten_tree_classnames(child, classnames)
-    return classnames
-
-
-def serialize_tree(node):
-    return json.dumps(node or {}, ensure_ascii=True, sort_keys=True)
 
 
 def sql_output_rows(payload):
@@ -348,11 +253,6 @@ def normalized_name(value):
     return re.sub(r"[^a-z0-9]+", "_", str(value or "").strip().lower()).strip("_")
 
 
-def entity_component_qname(project, entity, suffix):
-    plural = pascalize_name(entity.get("plural") or generated_entity_name(entity))
-    return f"{project}.Application.NgxApp.{plural}{suffix}"
-
-
 def explicit_seed_rows(spec, entity):
     data = ((spec.get("seed") or {}).get("data") or {})
     rows = data.get(entity_name(entity))
@@ -401,10 +301,6 @@ def entity_singular(entity):
 
 def generated_entity_name(entity):
     return normalized_name(entity.get("plural") or pluralize_name(entity.get("name") or entity_name(entity)))
-
-
-def generated_entity_route(entity):
-    return str(entity.get("routeSegment") or entity.get("plural") or generated_entity_name(entity)).lower()
 
 
 def find_entity(spec, name):
@@ -517,97 +413,6 @@ def extract_relations(spec):
                 }
             )
     return relations
-
-
-def validate_entity_ui_overrides(url, project, entity, artifact):
-    ui = entity.get("ui") or {}
-    if not ui:
-        return
-    relation_fields = ui.get("relationFields") or {}
-    def has_field_reference(serialized_text, field_name, allow_relation_label=False):
-        token = normalized_name(field_name)
-        haystack = str(serialized_text or "").lower()
-        candidates = {token, token.replace("_", "")}
-        if allow_relation_label and field_name in relation_fields:
-            label_alias = relation_label_alias({"fromField": field_name})
-            candidates.add(label_alias)
-            candidates.add(label_alias.replace("_", ""))
-        return any(candidate and candidate in haystack for candidate in candidates)
-    component_targets = [
-        ("ListPanel", entity_component_qname(project, entity, "ListPanel")),
-        ("DetailCard", entity_component_qname(project, entity, "DetailCard")),
-        ("EditForm", entity_component_qname(project, entity, "EditForm")),
-    ]
-    for component_kind, qname in component_targets:
-        tree_result = call_tool(
-            url,
-            "databaseobject-tree-get",
-            {
-                "target": qname,
-                "childrenDepth": 9,
-                "properties": "changed",
-                "limit": 400,
-            },
-            timeout=120,
-        )
-        artifact["steps"].append({"tool": "databaseobject-tree-get", "target": qname, "result": tree_result})
-        serialized = serialize_tree(tree_result.get("tree"))
-        if component_kind == "ListPanel":
-            for field_name in ui.get("listFields") or []:
-                assert_true(has_field_reference(serialized, field_name, True), f"ListPanel missing ui.listFields field {field_name} in {qname}")
-        elif component_kind == "DetailCard":
-            for field_name in ui.get("detailFields") or []:
-                assert_true(has_field_reference(serialized, field_name, True), f"DetailCard missing ui.detailFields field {field_name} in {qname}")
-            for label in (ui.get("fieldLabels") or {}).values():
-                if str(label).strip():
-                    assert_true(str(label) in serialized, f"DetailCard missing ui.fieldLabels label {label} in {qname}")
-        elif component_kind == "EditForm":
-            expected_form_items = len(ui.get("formFields") or [])
-            if expected_form_items:
-                classnames = flatten_tree_classnames(tree_result.get("tree"))
-                form_item_count = sum(1 for class_name in classnames if class_name == "ngx.components.UIDynamicElement#FormItem")
-                assert_true(form_item_count == expected_form_items, f"Unexpected edit form item count for {qname}: {form_item_count} != {expected_form_items}")
-            for field_name in ui.get("formFields") or []:
-                assert_true(has_field_reference(serialized, field_name), f"EditForm missing ui.formFields field {field_name} in {qname}")
-            for label in (ui.get("fieldLabels") or {}).values():
-                if str(label).strip():
-                    assert_true(str(label) in serialized, f"EditForm missing ui.fieldLabels label {label} in {qname}")
-            if str(ui.get("actionLabel") or "").strip():
-                assert_true(str(ui["actionLabel"]) in serialized, f"EditForm missing ui.actionLabel in {qname}")
-            for field_name, relation_ui in (ui.get("relationFields") or {}).items():
-                control = str((relation_ui or {}).get("control") or "select").strip().lower()
-                if control == "autocomplete":
-                    assert_true("autocomplete" in serialized.lower(), f"EditForm missing autocomplete relation control for {field_name} in {qname}")
-                else:
-                    assert_true("UIDynamicElement#Select" in serialized, f"EditForm missing select relation control for {field_name} in {qname}")
-                placeholder = str((relation_ui or {}).get("placeholder") or "").strip()
-                if placeholder:
-                    assert_true(placeholder in serialized, f"EditForm missing relation placeholder {placeholder} in {qname}")
-
-
-def validate_managed_warning(url, project, entity, artifact):
-    target_qname = entity_component_qname(project, entity, "EditForm")
-    warning_result = call_tool(
-        url,
-        "databaseobject-tree-apply",
-        {
-            "target": target_qname,
-            "at": "self",
-            "mode": "merge",
-            "tree": {
-                "properties": {
-                    "comment": "Managed by upsert-ngx-crud-kit (entity-pages template clone) warning probe."
-                }
-            }
-        },
-        timeout=120,
-    )
-    artifact["steps"].append({"tool": "databaseobject-tree-apply-managed-warning", "target": target_qname, "result": warning_result})
-    warnings = warning_result.get("warnings") or []
-    assert_true(
-        any("Prefer `upsert-ngx-crud-kit` with entity ui hints instead" in str(item) and "listFilters" in str(item) for item in warnings),
-        f"Managed CRUD warning not returned for {target_qname}: {warnings}",
-    )
 
 
 def tx_requestable_name(entity, verb):
@@ -796,13 +601,11 @@ def validate_runtime(url, spec, artifact_dir):
     project = spec["project"]
     connector = spec["database"]["connector"]
     facade_prefix = spec["facade"]["prefix"]
-    entry_page = spec["ui"].get("entryPage", "Home")
-    variant = spec["ui"].get("variant", "entity-pages")
     entities = spec["entities"]
     relations = extract_relations(spec)
     entity_names = [entity["name"] for entity in entities]
     requestables = ["init_schema"] + [f"list_{name}" for name in entity_names] + [f"count_{name}" for name in entity_names]
-    is_crm = variant == "master-detail" and "contacts" in entity_names and "companies" in entity_names
+    is_crm = "contacts" in entity_names and "companies" in entity_names
     if is_crm:
         requestables.append("list_company_contacts")
     artifact = {"project": project, "steps": []}
@@ -832,7 +635,7 @@ def validate_runtime(url, spec, artifact_dir):
     assert_true(mobile_builder_starter.get("editorOpened") is True, f"Starter mobile builder did not open the editor for {project}")
     print(f"[crud-validate] starter mobile builder status={mobile_builder_starter.get('status')} project={project}", flush=True)
 
-    upsert = call_tool(url, "upsert-crud", {"spec": spec, "sequence": True, "ui": False}, timeout=240)
+    upsert = call_tool(url, "upsert-crud", {"spec": spec, "sequence": True}, timeout=240)
     artifact["steps"].append({"tool": "upsert-crud", "result": upsert})
     assert_true(upsert.get("status") == "success", f"upsert-crud did not succeed for {project}")
     if isinstance(upsert.get("createdCount"), (int, float)):
@@ -852,7 +655,6 @@ def validate_runtime(url, spec, artifact_dir):
             "connector": connector,
             "facadePrefix": facade_prefix,
             "profile": spec.get("seed", {}).get("profile", ""),
-            "variant": spec["ui"].get("variant", ""),
             "proofRequestables": requestables,
         },
         timeout=180,
@@ -862,6 +664,14 @@ def validate_runtime(url, spec, artifact_dir):
     assert_true(not backend_proof.get("missing"), f"crud-proof backend missing targets for {project}")
     assert_true(not backend_proof.get("transactions", {}).get("missing"), f"Missing transactions after upsert for {project}")
     assert_true(not backend_proof.get("sequences", {}).get("missing"), f"Missing sequences after upsert for {project}")
+    backend_checks = {}
+    for item in backend_proof.get("checks") or []:
+        if isinstance(item, dict) and (item.get("id") or item.get("name")):
+            backend_checks[item.get("id") or item.get("name")] = item
+    assert_true((backend_checks.get("facade-hidden-authenticated") or {}).get("ok") is True, f"facade-hidden-authenticated proof failed for {project}")
+    assert_true((backend_checks.get("auth-sequences") or {}).get("ok") is True, f"auth-sequences proof failed for {project}")
+    if is_crm:
+        assert_true((backend_proof.get("crm") or {}).get("enabled") is True, f"CRM proof metadata missing for {project}")
     if relations and not is_crm:
         checks = {}
         for item in backend_proof.get("checks") or []:
@@ -961,118 +771,6 @@ def validate_runtime(url, spec, artifact_dir):
         assert_true(int(total) == expected_seed_count(spec, entity), f"Unexpected seed count for {project}.{generated_entity_name(entity)}: {total}")
     print(f"[crud-validate] seed counts ok project={project}", flush=True)
 
-    bootstrap_ui_result = {
-        "status": "skipped",
-        "reason": "Validation now goes straight to stage=final for deterministic CRUD UI scenarios."
-    }
-
-    viewer_url = ""
-
-    final_ui_result = call_tool(
-        url,
-        "upsert-ngx-crud-kit",
-        {
-            "project": project,
-            "entities": spec["entities"],
-            "variant": spec["ui"].get("variant", "entity-pages"),
-            "stage": "final",
-            "facadePrefix": facade_prefix,
-            "entryPage": entry_page,
-        },
-        timeout=420,
-    )
-    artifact["steps"].append({"tool": "upsert-ngx-crud-kit-final", "result": final_ui_result})
-    assert_true(final_ui_result.get("status") == "success", f"upsert-ngx-crud-kit final did not succeed for {project}")
-    final_runtime = final_ui_result.get("runtimeEvidence") or {}
-    assert_true(int(final_runtime.get("sharedActionsRequested") or 0) > 0, f"Final UI did not keep shared actions for {project}")
-    assert_true((final_runtime.get("uiGlobals") or []) == expected_ui_globals(variant), f"Unexpected final UI globals for {project}: {final_runtime.get('uiGlobals')}")
-    assert_true(final_runtime.get("workInProgressMode") == "stateful-visibility", f"Unexpected final workInProgressMode for {project}: {final_runtime.get('workInProgressMode')}")
-    page_touch_refresh = final_runtime.get("pageTouchRefresh") or {}
-    assert_true(page_touch_refresh.get("status") == "ok", f"UI source touch refresh failed for {project}: {page_touch_refresh}")
-    if variant == "entity-pages":
-        assert_true(final_runtime.get("templateDriven") is True, f"Entity-pages UI did not use source templates for {project}")
-        assert_true(str(final_runtime.get("templateSourceProject") or "") == "lib_ConvertigoMCP", f"Unexpected template source project for {project}: {final_runtime.get('templateSourceProject')}")
-        template_sources = set(final_runtime.get("templateSourceQNames") or [])
-        assert_true(bool(template_sources), f"Entity-pages UI did not report template source qnames for {project}")
-        assert_true(
-            "lib_ConvertigoMCP.Application.NgxApp.TplCrudPageHeader" in template_sources and
-            "lib_ConvertigoMCP.Application.NgxApp.TplEntityListPanel" in template_sources and
-            "lib_ConvertigoMCP.Application.NgxApp.TplEntityDetailCard" in template_sources and
-            "lib_ConvertigoMCP.Application.NgxApp.TplEntityEditForm" in template_sources,
-            f"Entity-pages UI did not report the expected template sources for {project}: {sorted(template_sources)}",
-        )
-        expected_page_names = ["Login", entry_page] + [f"{pascalize_name(entity.get('plural') or generated_entity_name(entity))}Page" for entity in entities]
-        expected_page_routes = ["/login", "/home"] + [f"/{generated_entity_route(entity)}" for entity in entities]
-        assert_true((final_runtime.get("pageNames") or []) == expected_page_names, f"Unexpected pageNames for {project}: {final_runtime.get('pageNames')}")
-        assert_true((final_runtime.get("pageRoutes") or []) == expected_page_routes, f"Unexpected pageRoutes for {project}: {final_runtime.get('pageRoutes')}")
-        entity_pages = final_runtime.get("entityPages") or []
-        assert_true(len(entity_pages) == len(entities), f"Unexpected entityPages count for {project}: {len(entity_pages)}")
-        touched_qnames = page_touch_refresh.get("touchedQNames") or []
-        assert_true(len(touched_qnames) == len(entities) + 2, f"Unexpected pageTouchRefresh targets for {project}: {touched_qnames}")
-        assert_true(f"{project}.Application.NgxApp.Login" in touched_qnames, f"pageTouchRefresh did not include the login page for {project}: {touched_qnames}")
-        assert_true(f"{project}.Application.NgxApp.{entry_page}" in touched_qnames, f"pageTouchRefresh did not include the entry page for {project}: {touched_qnames}")
-    mobile_builder_final = wait_mobile_builder_ready(url, project, artifact, "mobile-builder-open-final", timeout_sec=120, overall_timeout=180, force_restart=True)
-    assert_true(mobile_builder_final.get("status") == "ready", f"Final mobile builder refresh did not become ready for {project}: {mobile_builder_final.get('message')}")
-    assert_true(not (mobile_builder_final.get("compileErrors") or []), f"Final mobile builder refresh exposed compile errors for {project}")
-    assert_true(bool(mobile_builder_final.get("viewerBaseUrl") or mobile_builder_final.get("baseUrl")), f"Final mobile builder refresh did not expose viewerBaseUrl for {project}")
-    assert_true(bool(mobile_builder_final.get("viewerHomeUrl")), f"Final mobile builder refresh did not expose viewerHomeUrl for {project}")
-    browser_state = mobile_builder_final.get("browser") or {}
-    assert_true("work in progress" not in str(browser_state.get("bodyTextSample") or "").lower(), f"Final live viewer still shows Work in progress for {project}")
-    viewer_url = str(mobile_builder_final.get("viewerUrl") or mobile_builder_final.get("viewerHomeUrl") or mobile_builder_final.get("viewerBaseUrl") or viewer_url)
-    print(f"[crud-validate] final ngx crud kit ok project={project}", flush=True)
-
-    final_proof = None
-    for attempt in range(3):
-        final_proof = call_tool(
-            url,
-            "crud-proof",
-            {
-                "project": project,
-                "connector": connector,
-                "facadePrefix": facade_prefix,
-                "entryPage": entry_page,
-                "profile": spec.get("seed", {}).get("profile", ""),
-                "variant": spec["ui"].get("variant", ""),
-                "expectUiShell": True,
-                "viewerUrl": viewer_url,
-                "proofRequestables": requestables,
-            },
-            timeout=180,
-        )
-        if final_proof.get("status") == "success":
-            break
-        time.sleep(3)
-    artifact["steps"].append({"tool": "crud-proof-final", "result": final_proof})
-    assert_true(final_proof.get("status") == "success", f"crud-proof final did not succeed for {project}")
-    assert_true(not final_proof.get("missing"), f"crud-proof final missing targets for {project}")
-    ui = final_proof.get("ui", {})
-    assert_true(ui.get("starterDominant") is False, f"Starter still dominant for {project}")
-    assert_true(ui.get("statefulActionsPresent") is True, f"Shared UI actions missing for {project}")
-    assert_true(ui.get("sessionBootstrapPresent") is True, f"Session bootstrap page missing for {project}")
-    assert_true(ui.get("authBootstrapPresent") is True, f"Session auth bootstrap missing for {project}")
-    assert_true(ui.get("sessionRootRedirectPresent") is True, f"Session root redirect missing for {project}")
-    builder_probe = ui.get("builderProbe") or {}
-    viewer_probe = ui.get("viewerProbe") or {}
-    assert_true(builder_probe.get("status") == "ready", f"Builder probe failed for {project}: {builder_probe.get('message')}")
-    assert_true(not (builder_probe.get("compileErrors") or []), f"Builder probe returned compile errors for {project}")
-    assert_true(ui.get("workInProgressVisible") is False, f"Work in progress marker still visible in proof for {project}")
-    checks = {}
-    for item in (final_proof.get("checks") or []):
-        if not isinstance(item, dict):
-            continue
-        key = item.get("id") or item.get("name")
-        if key:
-            checks[key] = item
-    assert_true((checks.get("ui-work-in-progress-hidden") or {}).get("ok") is True, f"ui-work-in-progress-hidden proof failed for {project}")
-    assert_true((checks.get("ui-auth-bootstrap") or {}).get("ok") is True, f"ui-auth-bootstrap proof failed for {project}")
-    assert_true((checks.get("facade-hidden-authenticated") or {}).get("ok") is True, f"facade-hidden-authenticated proof failed for {project}")
-    assert_true((checks.get("auth-sequences") or {}).get("ok") is True, f"auth-sequences proof failed for {project}")
-    assert_true((checks.get("ui-mobile-builder") or {}).get("ok") is True, f"ui-mobile-builder proof failed for {project}")
-    assert_true(viewer_probe.get("ok") is True, f"Viewer probe failed for {project}: {viewer_probe.get('message')}")
-    if is_crm:
-        assert_true((final_proof.get("crm") or {}).get("enabled") is True, f"CRM proof metadata missing for {project}")
-    print(f"[crud-validate] final crud-proof ui ok project={project}", flush=True)
-
     status_result = call_tool(
         url,
         "crud-status",
@@ -1080,13 +778,12 @@ def validate_runtime(url, spec, artifact_dir):
             "project": project,
             "connector": connector,
             "facadePrefix": facade_prefix,
-            "entryPage": entry_page,
             "profile": spec.get("seed", {}).get("profile", ""),
-            "variant": variant,
         },
         timeout=120,
     )
     artifact["steps"].append({"tool": "crud-status", "result": status_result})
+    assert_true(status_result.get("status") == "ok", f"crud-status did not report a complete CRUD for {project}: {status_result.get('missing')}")
     if relations and not is_crm:
         expected_relation_qnames = sorted(f"{project}.{facade_prefix}_{relation_requestable_name(relation, relations)}" for relation in relations)
         assert_true(
@@ -1094,148 +791,6 @@ def validate_runtime(url, spec, artifact_dir):
             f"crud-status did not report expected relation requestables for {project}: {status_result}",
         )
     print(f"[crud-validate] crud-status ok project={project}", flush=True)
-
-    ngx_tree = call_tool(
-        url,
-        "databaseobject-tree-get",
-        {
-            "target": f"{project}.Application.NgxApp",
-            "childrenDepth": 2,
-            "properties": "changed",
-            "limit": 400,
-        },
-        timeout=120,
-    )
-    artifact["steps"].append({"tool": "databaseobject-tree-get", "target": f"{project}.Application.NgxApp", "result": ngx_tree})
-    app_names = set(flatten_tree_names(ngx_tree.get("tree")))
-    expected_components = {
-        "CrudPageHeader",
-        "CrudLoadingState",
-        "CrudErrorRetryState",
-        "Login",
-    }
-    if is_crm:
-        expected_components.update({
-            "ContactTable",
-            "ContactCard",
-            "CompanyTable",
-            "CompanyCard",
-            "crm_bootstrap_dashboard",
-            "crm_refresh_companies",
-            "crm_refresh_contacts",
-            "crm_select_company",
-            "crm_refresh_company_contacts",
-            "crm_retry_dashboard",
-        })
-    else:
-        expected_components.update({"DashboardStatCard", "crud_ensure_session", "crud_bootstrap_dashboard"})
-        for entity in entities:
-            plural_name = str(entity.get("plural") or generated_entity_name(entity))
-            plural = pascalize_name(plural_name)
-            expected_components.update({
-                f"{plural}ListPanel",
-                f"{plural}DetailCard",
-                f"{plural}EditForm",
-            })
-    missing_components = sorted(expected_components - app_names)
-    assert_true(not missing_components, f"Missing shared CRUD components for {project}: {', '.join(missing_components)}")
-    print(f"[crud-validate] shared components present project={project}", flush=True)
-
-    page_shared_refs = set(final_runtime.get("pageSharedRefs") or [])
-    assert_true(
-        f"{project}.Application.NgxApp.CrudPageHeader" in page_shared_refs,
-        f"Entry page does not use CrudPageHeader in {project}",
-    )
-    if not is_crm and variant == "entity-pages":
-        for entity_page in final_runtime.get("entityPages") or []:
-            page_entity_name = str(entity_page.get("entity") or "")
-            shared_refs = set(entity_page.get("sharedRefs") or [])
-            plural = pascalize_name(page_entity_name)
-            assert_true(
-                f"{project}.Application.NgxApp.CrudPageHeader" in shared_refs,
-                f"{page_entity_name} page does not use CrudPageHeader in {project}",
-            )
-            assert_true(
-                f"{project}.Application.NgxApp.{plural}ListPanel" in shared_refs,
-                f"{page_entity_name} page does not use {plural}ListPanel in {project}",
-            )
-            assert_true(
-                f"{project}.Application.NgxApp.{plural}DetailCard" in shared_refs,
-                f"{page_entity_name} page does not use {plural}DetailCard in {project}",
-            )
-            assert_true(
-                f"{project}.Application.NgxApp.{plural}EditForm" in shared_refs,
-                f"{page_entity_name} page does not use {plural}EditForm in {project}",
-            )
-    elif is_crm:
-        for entity in entities:
-            singular = pascalize_name(entity.get("singular") or singularize_name(entity["name"]))
-            assert_true(
-                f"{project}.Application.NgxApp.{singular}Table" in page_shared_refs,
-                f"Entry page does not use {singular}Table in {project}",
-            )
-            assert_true(
-                f"{project}.Application.NgxApp.{singular}Card" in page_shared_refs,
-                f"Entry page does not use {singular}Card in {project}",
-            )
-    else:
-        for entity in entities:
-            plural = pascalize_name(entity.get("plural") or entity["name"])
-            assert_true(
-                f"{project}.Application.NgxApp.{plural}ListPanel" in page_shared_refs,
-                f"Entry page does not use {plural}ListPanel in {project}",
-            )
-            assert_true(
-                f"{project}.Application.NgxApp.{plural}DetailCard" in page_shared_refs,
-                f"Entry page does not use {plural}DetailCard in {project}",
-            )
-            assert_true(
-                f"{project}.Application.NgxApp.{plural}EditForm" in page_shared_refs,
-                f"Entry page does not use {plural}EditForm in {project}",
-            )
-    print(f"[crud-validate] entry page uses shared components project={project}", flush=True)
-
-    page_tree = call_tool(
-        url,
-        "databaseobject-tree-get",
-        {
-            "target": f"{project}.Application.NgxApp.{entry_page}",
-            "childrenDepth": 2,
-            "properties": "changed",
-            "limit": 120,
-        },
-        timeout=120,
-    )
-    artifact["steps"].append({"tool": "databaseobject-tree-get", "target": f"{project}.Application.NgxApp.{entry_page}", "result": page_tree})
-    page_names = set(flatten_tree_names(page_tree.get("tree")))
-    if is_crm:
-        assert_true("PageEvent" in page_names, f"Entry page bootstrap event missing in {project}")
-        assert_true("InvokeBootstrapDashboard" in page_names, f"Entry page does not invoke the bootstrap dashboard action in {project}")
-        print(f"[crud-validate] entry page runtime bootstrap present project={project}", flush=True)
-    else:
-        print(f"[crud-validate] entry page shell present project={project}", flush=True)
-
-    session_tree = call_tool(
-        url,
-        "databaseobject-tree-get",
-        {
-            "target": f"{project}.Application.NgxApp.Login",
-            "childrenDepth": 3,
-            "properties": "changed",
-            "limit": 140,
-        },
-        timeout=120,
-    )
-    artifact["steps"].append({"tool": "databaseobject-tree-get", "target": f"{project}.Application.NgxApp.Login", "result": session_tree})
-    session_names = set(flatten_tree_names(session_tree.get("tree")))
-    assert_true("InvokeCrudAuthLogin" in session_names, f"Login page does not invoke auth_login in {project}")
-    assert_true("OpenCrudLanding" in session_names, f"Login page does not redirect to the CRUD home page in {project}")
-    print(f"[crud-validate] login bootstrap present project={project}", flush=True)
-
-    for entity in entities:
-        validate_entity_ui_overrides(url, project, entity, artifact)
-    if variant == "entity-pages" and entities:
-        validate_managed_warning(url, project, entities[0], artifact)
 
     artifact_path = artifact_dir / f"{project}.json"
     artifact_path.write_text(json.dumps(artifact, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
@@ -1245,10 +800,7 @@ def validate_runtime(url, spec, artifact_dir):
         "driverFamily": upsert.get("driverFamily"),
         "upsertCrudStatus": upsert.get("status"),
         "crudProofBackendStatus": backend_proof.get("status"),
-        "upsertNgxCrudKitBootstrapStatus": bootstrap_ui_result.get("status"),
-        "upsertNgxCrudKitFinalStatus": final_ui_result.get("status"),
-        "crudProofFinalStatus": final_proof.get("status"),
-        "ui": final_proof.get("ui", {}),
+        "crudStatus": status_result.get("status"),
     }
 
 

@@ -10,6 +10,10 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
   include("js/databaseobject_batch.js");
 }
 
+if (typeof C8O.retiredToolRefusal !== "function") {
+  include("js/retired_tools.js");
+}
+
 (function () {
   C8O.mcp = C8O.mcp || {};
 
@@ -1032,6 +1036,12 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
 
         if (sequenceName === "tools_batch_call") {
           throw new Error("Recursive call to batch-call is not allowed.");
+        }
+
+        // A removed tool answers what replaces it, as in the MCP router.
+        var retiredRefusal = C8O.retiredToolRefusal(sequenceName);
+        if (retiredRefusal.length) {
+          throw new Error(retiredRefusal);
         }
 
         var requestable = resolveSequence(sequenceName);

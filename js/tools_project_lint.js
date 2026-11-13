@@ -510,7 +510,7 @@ if (typeof include === "function") {
         return;
       }
       var reads = SR.readKeys(text);
-      // Code that reads both out.error and an envelope key handles either answer (the login of upsert-ngx-crud-kit).
+      // Code that reads both out.error and an envelope key handles either answer (a login page written for both).
       if (reads.indexOf("error") >= 0 && reads.some(function (k) { return ENVELOPE.indexOf(k) >= 0; })) {
         return;
       }
@@ -1054,7 +1054,7 @@ if (typeof include === "function") {
       var folding = D.aliasFolding(dialect);
       if (alias && folding && (folding !== "lower-cases" || /[A-Z]/.test(alias[1])) && /^\s*(SELECT|WITH)\b/i.test(query)) {
         var folded = folding === "lower-cases" ? alias[1].toLowerCase() : alias[1].toUpperCase();
-        // The fix names the other side too: a kit sequence read ./row/TOTAL, and quoting "total" emptied its counter.
+        // The fix names the other side too: a generated sequence read ./row/TOTAL, and quoting "total" emptied its counter.
         add("SQL-ALIAS-CASE", "warning", dbo, "Unquoted alias " + alias[1] + ": " + (D.name(dialect) || "the database") + " " + folding +
           " it (" + folded + "), so row." + alias[1] + " is undefined.",
           "Quote the aliases: AS \"" + alias[1] + "\". A step that already reads ./row/" + folded + " then reads nothing: quote AS \"" +

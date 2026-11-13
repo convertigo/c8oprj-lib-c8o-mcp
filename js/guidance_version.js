@@ -188,8 +188,7 @@ C8O.guidance = C8O.guidance || {};
       "requestable-stub-set": true,
       "scheduler-apply": true,
       "sql-transaction-create": true,
-      "upsert-crud": true,
-      "upsert-ngx-crud-kit": true
+      "upsert-crud": true
     };
     return guarded[name] === true;
   };

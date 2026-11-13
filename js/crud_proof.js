@@ -701,17 +701,6 @@ C8O.crudProof = C8O.crudProof || {};
         present: [],
         missing: []
       },
-      ui: {
-        starterDominant: null,
-        visibleShellPresent: false,
-        liveBindingPresent: false,
-        statefulActionsPresent: false,
-        pageBootstrapPresent: false,
-        authBootstrapPresent: false,
-        workInProgressVisible: null,
-        expectedGlobals: ctx.statefulUiGlobals(spec.ui.variant),
-        targetQName: ctx.findPageContentQName(spec.project, spec.ui.entryPage)
-      },
       auth: {
         loginRequestable: spec.project + ".auth_login",
         logoutRequestable: spec.project + ".auth_logout",
@@ -901,91 +890,6 @@ C8O.crudProof = C8O.crudProof || {};
       }
     }
 
-    try {
-      var uiTree = ctx.callInternalSequence("tools_databaseobject_tree_get", {
-        target: status.ui.targetQName,
-        childrenDepth: 5,
-        properties: "none",
-        limit: 320
-      });
-      var uiAudit = ctx.auditUiTreePayload(uiTree);
-      status.ui.starterDominant = uiAudit.starterDominant;
-      status.ui.visibleShellPresent = uiAudit.visibleShellPresent;
-      status.ui.liveBindingPresent = uiAudit.liveBindingPresent;
-    } catch (uiError) {
-      ctx.addWarning(status, "Unable to inspect UI target: " + String(uiError));
-    }
-
-    try {
-      var bootstrapStackQName = trimmed(ctx, spec.ui.variant).toLowerCase() === "master-detail"
-        ? ctx.crmActionQName(spec.project, "crm_bootstrap_dashboard")
-        : ctx.dashboardActionQName(spec.project, "crud_bootstrap_dashboard");
-      var retryStackQName = trimmed(ctx, spec.ui.variant).toLowerCase() === "master-detail"
-        ? ctx.crmActionQName(spec.project, "crm_retry_dashboard")
-        : ctx.dashboardActionQName(spec.project, "crud_retry_dashboard");
-      status.ui.statefulActionsPresent = !!ctx.resolveQName(bootstrapStackQName, { optional: true });
-      status.ui.retryActionPresent = !!ctx.resolveQName(retryStackQName, { optional: true });
-    } catch (uiActionError) {
-      ctx.addWarning(status, "Unable to inspect UI shared actions: " + String(uiActionError));
-    }
-
-    try {
-      var pageTree = ctx.callInternalSequence("tools_databaseobject_tree_get", {
-        target: ctx.pageQName(spec.project, spec.ui.entryPage),
-        childrenDepth: 3,
-        properties: "all",
-        limit: 180
-      });
-      var pageNames = ctx.collectTreeNames(pageTree && pageTree.tree, []);
-      var pageScriptContent = "";
-      if (pageTree && pageTree.tree && pageTree.tree.properties && pageTree.tree.properties.scriptContent != null) {
-        pageScriptContent = String(pageTree.tree.properties.scriptContent);
-      }
-      var hasPageEventBootstrap = pageNames.indexOf("PageEvent") !== -1 && pageNames.indexOf("InvokeBootstrapDashboard") !== -1;
-      var hasLandingShellNames =
-        pageNames.indexOf("PageHeader") !== -1 ||
-        pageNames.indexOf("HeaderRow") !== -1 ||
-        pageNames.indexOf("RouteRow") !== -1 ||
-        pageNames.indexOf("BootstrapRow") !== -1;
-      var hasScriptBootstrap = trimmed(ctx, spec.ui.variant).toLowerCase() === "master-detail"
-        ? /bootstrapCrmDashboardState|crmBuildStage/.test(pageScriptContent)
-        : /bootstrapCrudDashboardState|crudBuildStage/.test(pageScriptContent);
-      if (!status.ui.visibleShellPresent && hasLandingShellNames) {
-        status.ui.visibleShellPresent = true;
-      }
-      if (!status.ui.liveBindingPresent && (hasPageEventBootstrap || hasScriptBootstrap || hasLandingShellNames)) {
-        status.ui.liveBindingPresent = true;
-      }
-      status.ui.pageBootstrapPresent = hasPageEventBootstrap || hasScriptBootstrap;
-    } catch (pageInspectError) {
-      ctx.addWarning(status, "Unable to inspect UI page bootstrap hook: " + String(pageInspectError));
-    }
-
-    try {
-      var sessionBootstrapTree = ctx.callInternalSequence("tools_databaseobject_tree_get", {
-        target: ctx.sessionBootstrapPageQName(spec.project),
-        childrenDepth: 3,
-        properties: "all",
-        limit: 180
-      });
-      var sessionNames = ctx.collectTreeNames(sessionBootstrapTree && sessionBootstrapTree.tree, []);
-      status.ui.sessionBootstrapPresent = sessionNames.indexOf("PageEvent") !== -1;
-      status.ui.authBootstrapPresent = sessionNames.indexOf("InvokeCrudAuthLogin") !== -1;
-      status.ui.sessionRootRedirectPresent = sessionNames.indexOf("OpenCrudLanding") !== -1;
-      if (!status.ui.pageBootstrapPresent && status.ui.authBootstrapPresent && status.ui.sessionRootRedirectPresent) {
-        status.ui.pageBootstrapPresent = true;
-      }
-    } catch (sessionBootstrapError) {
-      ctx.addWarning(status, "Unable to inspect session bootstrap page: " + String(sessionBootstrapError));
-    }
-
-    // An app whose UI came from the retired CRUD kit: said here, before any edit, with how to change it now.
-    if ((status.ui.visibleShellPresent === true || status.ui.liveBindingPresent === true) && C8O.crudUiRefresh &&
-      typeof C8O.crudUiRefresh.kitHintText === "function") {
-      status.ui.managedBy = "upsert-ngx-crud-kit";
-      status.ui.kitHints = "Its pages, shared components and shared actions were generated by upsert-ngx-crud-kit. " +
-        C8O.crudUiRefresh.kitHintText();
-    }
     if (status.missing.length) {
       status.status = "partial";
     }
@@ -1020,10 +924,6 @@ C8O.crudProof = C8O.crudProof || {};
         enabled: true,
         profile: trimmed(ctx, options.profile || (facadePrefix.toLowerCase() === "crm" ? "crm" : "realistic")),
         rowsPerEntity: trimmed(ctx, options.profile || "").toLowerCase() === "crm" || facadePrefix.toLowerCase() === "crm" ? 20 : 2
-      },
-      ui: {
-        entryPage: trimmed(ctx, options.entryPage || "Home"),
-        variant: trimmed(ctx, options.variant || (facadePrefix.toLowerCase() === "crm" ? "master-detail" : "entity-pages"))
       },
       database: ctx.normalizeDatabaseSpec({
         project: projectName,
@@ -1060,7 +960,7 @@ C8O.crudProof = C8O.crudProof || {};
     if (!hasCrudBusinessSequences(project, facadePrefix)) {
       status.status = "not_crud";
       status.message = "No " + facadePrefix + "_<verb>_<entity> business sequence: " + projectName + " was not built with " +
-        "upsert-crud, and the CRUD rail (upsert-crud, upsert-ngx-crud-kit, crud-proof) does not apply to it. Change it with " +
+        "upsert-crud, and the CRUD rail (upsert-crud, crud-status, crud-proof) does not apply to it. Change it with " +
         "the tools its objects come from: databaseobject-tree-get, sql-transaction-create, business-sequence-create, " +
         "ngx-page-create, databaseobject-tree-apply.";
     }
@@ -1082,20 +982,6 @@ C8O.crudProof = C8O.crudProof || {};
     return false;
   }
 
-  function refreshBuilderProbe(ctx, result, currentProbe) {
-    try {
-      return ctx.callInternalSequence("tools_mobile_builder_open", {
-        project: result.project,
-        timeoutSec: 20,
-        logsLimit: 30,
-        forceRestart: false
-      });
-    } catch (builderProbeRetryError) {
-      ctx.addWarning(result, "Unable to refresh the mobile builder probe from crud-proof: " + String(builderProbeRetryError));
-      return currentProbe;
-    }
-  }
-
   function crudStatus(ctx, options) {
     return inspectCrudStatus(ctx, options || {});
   }
@@ -1103,9 +989,6 @@ C8O.crudProof = C8O.crudProof || {};
   function crudProof(ctx, options) {
     var opts = options || {};
     var result = inspectCrudStatus(ctx, opts);
-    result.entryPage = trimmed(ctx, opts.entryPage || "Home");
-    result.expectUiShell = ctx.toBoolean(opts.expectUiShell, false);
-    result.viewerUrl = trimmed(ctx, opts.viewerUrl || "");
     result.requestables = [];
     result.checks = [];
 
@@ -1266,129 +1149,6 @@ C8O.crudProof = C8O.crudProof || {};
         if (relationProof.ok !== true) {
           pushMissing(ctx, result, relationRequestable);
         }
-      }
-    }
-
-    if (result.expectUiShell) {
-      var shellVisible = result.ui && result.ui.visibleShellPresent === true;
-      var starterReplaced = result.ui && result.ui.starterDominant === false;
-      var liveBinding = result.ui && result.ui.liveBindingPresent === true;
-      var statefulActions = result.ui && result.ui.statefulActionsPresent === true;
-      var pageBootstrap = result.ui && result.ui.pageBootstrapPresent === true;
-      var authBootstrap = result.ui && result.ui.authBootstrapPresent === true;
-      var sessionBootstrap = result.ui && result.ui.sessionBootstrapPresent === true;
-      var sessionRootRedirect = result.ui && result.ui.sessionRootRedirectPresent === true;
-      var builderProbe = null;
-      try {
-        builderProbe = ctx.callInternalSequence("tools_mobile_builder_open", {
-          project: result.project,
-          timeoutSec: 20,
-          logsLimit: 30,
-          forceRestart: false
-        });
-        result.ui.builderProbe = builderProbe || {};
-        result.viewerUrl = trimmed(ctx, (builderProbe && (builderProbe.viewerHomeUrl || builderProbe.viewerBaseUrl || builderProbe.viewerUrl)) || result.viewerUrl);
-      } catch (builderProbeError) {
-        ctx.addWarning(result, "Unable to probe the mobile builder from crud-proof: " + String(builderProbeError));
-        result.ui.builderProbe = {
-          status: "error",
-          message: String(builderProbeError),
-          compileErrors: []
-        };
-      }
-      var builderProbeAttempts = 0;
-      while (builderProbeAttempts < 8) {
-        var currentProbe = result.ui.builderProbe || {};
-        var currentReady = currentProbe.status === "ready";
-        var currentBodyText = trimmed(ctx, currentProbe.browser && currentProbe.browser.bodyTextSample);
-        var currentWorkInProgressVisible = currentReady && /work in progress/i.test(currentBodyText);
-        if ((currentReady && !currentWorkInProgressVisible) || (currentProbe.status !== "compile_error" && currentProbe.status !== "building")) {
-          break;
-        }
-        builderProbeAttempts += 1;
-        try {
-          java.lang.Thread.sleep(1500);
-        } catch (_ignoreBuilderProbeSleep) {}
-        result.ui.builderProbe = refreshBuilderProbe(ctx, result, currentProbe) || currentProbe;
-        result.viewerUrl = trimmed(ctx, ((result.ui.builderProbe || {}).viewerHomeUrl || (result.ui.builderProbe || {}).viewerBaseUrl || (result.ui.builderProbe || {}).viewerUrl) || result.viewerUrl);
-      }
-      var builderReady = !!(result.ui.builderProbe && result.ui.builderProbe.status === "ready");
-      var builderCompileError = !!(result.ui.builderProbe && result.ui.builderProbe.status === "compile_error");
-      var builderBodyText = trimmed(ctx, result.ui && result.ui.builderProbe && result.ui.builderProbe.browser && result.ui.builderProbe.browser.bodyTextSample);
-      var workInProgressVisible = /work in progress/i.test(builderBodyText);
-      result.ui.workInProgressVisible = builderReady ? workInProgressVisible : null;
-      result.checks.push(proofCheck(ctx, "ui-visible-shell", shellVisible, shellVisible ? "" : "Visible CRUD shell is not present on the entry page.", result.ui && result.ui.targetQName));
-      result.checks.push(proofCheck(ctx, "ui-starter-replaced", starterReplaced, starterReplaced ? "" : "Starter content is still dominant on the entry page.", result.ui && result.ui.targetQName));
-      result.checks.push(proofCheck(ctx, "ui-live-binding", liveBinding, liveBinding ? "" : "Live state bindings are missing from the entry page.", result.ui && result.ui.targetQName));
-      result.checks.push(proofCheck(ctx, "ui-stateful-actions", statefulActions, statefulActions ? "" : "Shared action stacks are missing for the UI state flow.", result.project));
-      result.checks.push(proofCheck(ctx, "ui-page-bootstrap", pageBootstrap, pageBootstrap ? "" : "Entry page does not bootstrap the stateful UI flow.", result.project + ".Application.NgxApp." + result.entryPage));
-      result.checks.push(proofCheck(
-        ctx,
-        "ui-mobile-builder",
-        builderReady,
-        builderReady
-          ? ""
-          : (
-            builderCompileError
-              ? (
-                result.ui.builderProbe && result.ui.builderProbe.message
-                  ? result.ui.builderProbe.message
-                  : "Mobile builder compile failed."
-              )
-              : "Mobile builder did not reach the ready state."
-          ),
-        result.project
-      ));
-      result.checks.push(proofCheck(
-        ctx,
-        "ui-work-in-progress-hidden",
-        !builderReady || !workInProgressVisible,
-        !builderReady || !workInProgressVisible
-          ? ""
-          : "Work in progress marker is still visible in the live viewer after finalization.",
-        result.viewerUrl || result.project
-      ));
-      result.checks.push(proofCheck(
-        ctx,
-        "ui-auth-bootstrap",
-        authBootstrap && sessionBootstrap && sessionRootRedirect,
-        authBootstrap && sessionBootstrap && sessionRootRedirect
-          ? ""
-          : "The generated Login page is missing the auth_login call and root-page redirect to the visible CRUD home page.",
-        result.project
-      ));
-      if (result.viewerUrl.length && builderReady) {
-        result.ui.viewerProbe = ctx.probeViewer(
-          result.viewerUrl,
-          result.project,
-          trimmed(ctx, opts.facadePrefix || "crud"),
-          result.crm && result.crm.enabled === true,
-          result.sequences && result.sequences.present ? result.sequences.present : [],
-          ctx.ensureWarnings(result)
-        );
-        result.checks.push(proofCheck(
-          ctx,
-          "ui-viewer-probe",
-          result.ui.viewerProbe && result.ui.viewerProbe.ok === true,
-          result.ui.viewerProbe && result.ui.viewerProbe.ok === true ? "" : (result.ui.viewerProbe && result.ui.viewerProbe.message ? result.ui.viewerProbe.message : "Viewer proof failed."),
-          result.viewerUrl
-        ));
-      }
-      if (builderCompileError) {
-        var compileErrors = ensureArray(ctx, result.ui.builderProbe && result.ui.builderProbe.compileErrors);
-        if (compileErrors.length) {
-          ctx.addWarning(result, "Mobile builder compile errors: " + trimmed(ctx, (compileErrors[0].message || "") + " " + (compileErrors[0].extra || "")));
-        }
-      }
-      var viewerProofOk = !(result.viewerUrl.length) || !!(result.ui && result.ui.viewerProbe && result.ui.viewerProbe.ok === true);
-      if (!starterReplaced || !statefulActions || !authBootstrap || !sessionBootstrap || !sessionRootRedirect || !viewerProofOk) {
-        pushMissing(ctx, result, result.ui && result.ui.targetQName ? result.ui.targetQName : (result.project + ".Application.NgxApp." + result.entryPage + ".Content"));
-      }
-      if (!builderReady) {
-        pushMissing(ctx, result, result.project);
-      }
-      if (result.viewerUrl.length && !(result.ui && result.ui.viewerProbe && result.ui.viewerProbe.ok === true)) {
-        pushMissing(ctx, result, result.viewerUrl);
       }
     }
 
