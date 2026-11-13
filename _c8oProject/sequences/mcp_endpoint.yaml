@@ -710,7 +710,7 @@ responseTimeout: 300
           variableName: result
         ↓RevealAfterCall [steps.SimpleStep-1794600000001]: 
           comment: In reveal mode, shows in the Studio (Eclipse tree or web Studio) what a building tool created or changed.
-          expression: revealAfterToolCall(callSequence, result);
+          expression: revealAfterToolCall(callSequence, result, callVariables);
         ↓NoteRepeatedFailure [steps.SimpleStep-1793350000005]: 
           comment: Says when an identical call of the same MCP session already failed with this error; a call that worked forgets its failures.
           expression: mcpRepeatNote = C8O.mcpRepeat.afterCall(context, mcpCallKey, C8O.mcpRepeat.failureOf(result));

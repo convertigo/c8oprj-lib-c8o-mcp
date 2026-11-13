@@ -130,6 +130,16 @@ var EXPERIMENTAL_CAPABLE_SEQUENCES = {
   tools_databaseobject_schema: true,
   tools_batch_call: true
 };
+// In the reveal mode of the host (X-Convertigo-Reveal-Mode), the user follows the agent: a reveal:false of the model
+// does not hide what these tools create or change. mobile-builder-open keeps the model's choice (it opens a view).
+var REVEAL_FORCED_SEQUENCES = {
+  tools_databaseobject_tree_apply: true,
+  tools_batch_call: true,
+  tools_nocode_form_create: true,
+  tools_nocode_form_edit: true,
+  tools_nocode_form_update: true
+};
+
 var REVEAL_CAPABLE_SEQUENCES = {
   tools_mobile_builder_open: true,
   tools_databaseobject_tree_apply: true,
@@ -163,7 +173,15 @@ var REVEAL_AFTER_CALL = {
   tools_upsert_ngx_crud_kit: function (r) { return String(revealListOf(r.pageTargets)[0] || "").replace(/\.Content$/, ""); },
   tools_databaseobject_rename: function (r) { return String(r.renamed) === "true" ? r.newQName : ""; },
   tools_databaseobject_move: function (r) { return r.qname; },
-  tools_databaseobject_delete: function (r) { return r.parentQName; }
+  tools_databaseobject_delete: function (r) { return r.parentQName; },
+  // the start of a run: the project created from a template, a library imported, or the project given a reference to it
+  tools_marketplace_import: function (r, a) {
+    var target = String(a && a.targetProject || "").trim();
+    if (target.length && (String(r.referenceAdded) === "true" || String(r.referenceUpdated) === "true")) {
+      return target;
+    }
+    return String(r.loadedBefore) !== "true" && String(r.loadedAfter) === "true" ? r.project : "";
+  }
 };
 
 // What the call did, for the activity of the web Studio (StudioReveal.revealChange): the kind of change, the QName before
@@ -200,10 +218,16 @@ var REVEAL_DETAILS_AFTER_CALL = {
     var previous = from.length && to.length && from !== to && q.indexOf(to + ".") === 0 ? from + q.substring(to.length) : "";
     return { change: "moved", previous: previous, summary: (r.reordered === true ? "Reordered " : "Moved ") + (r.name || revealObjectName(q)) };
   },
-  tools_databaseobject_delete: function (r) { return { change: "deleted", previous: r.qname, summary: "Deleted " + (r.name || revealObjectName(r.qname)) }; }
+  tools_databaseobject_delete: function (r) { return { change: "deleted", previous: r.qname, summary: "Deleted " + (r.name || revealObjectName(r.qname)) }; },
+  tools_marketplace_import: function (r, q, a) {
+    if (q === String(a && a.targetProject || "").trim()) {
+      return { change: "changed", summary: "Added the reference to " + r.library, touched: revealQNamesOf(r.project) };
+    }
+    return { change: "created", summary: String(r.library || "") !== String(r.project || "") ? "Created the project " + q + " from " + r.library : "Imported " + q };
+  }
 };
 
-function revealAfterToolCall(sequenceName, toolResult) {
+function revealAfterToolCall(sequenceName, toolResult, callArguments) {
   try {
     if (managedRevealMode !== true || typeof REVEAL_AFTER_CALL[sequenceName] !== "function" || !toolResult || typeof toolResult !== "object") {
       return null;
@@ -211,13 +235,14 @@ function revealAfterToolCall(sequenceName, toolResult) {
     if (/^(error|failed|refused|invalid)$/i.test(String(toolResult.status || ""))) {
       return null;
     }
-    var qname = String(REVEAL_AFTER_CALL[sequenceName](toolResult) || "").trim();
+    var args = callArguments && typeof callArguments === "object" ? callArguments : {};
+    var qname = String(REVEAL_AFTER_CALL[sequenceName](toolResult, args) || "").trim();
     if (!qname.length) {
       return null;
     }
     var details = null;
     try {
-      details = typeof REVEAL_DETAILS_AFTER_CALL[sequenceName] === "function" ? REVEAL_DETAILS_AFTER_CALL[sequenceName](toolResult, qname) : null;
+      details = typeof REVEAL_DETAILS_AFTER_CALL[sequenceName] === "function" ? REVEAL_DETAILS_AFTER_CALL[sequenceName](toolResult, qname, args) : null;
       if (details) {
         details.tool = sequenceName.replace(/^tools_/, "").replace(/_/g, "-");
       }
@@ -911,7 +936,8 @@ if (methodName === "initialize") {
         }
       } catch (_ignoreProjectLock) {}
       if (callSequence === targetSequence && managedRevealMode && REVEAL_CAPABLE_SEQUENCES[targetSequence] === true
-          && (callVariables.reveal === undefined || callVariables.reveal === null || String(callVariables.reveal).trim().length === 0)) {
+          && (REVEAL_FORCED_SEQUENCES[targetSequence] === true
+            || callVariables.reveal === undefined || callVariables.reveal === null || String(callVariables.reveal).trim().length === 0)) {
         callVariables.reveal = "true";
       }
       delete callVariables._showExperimental;

@@ -84,7 +84,7 @@ test('mobile-builder-open with reveal: the web Studio shows the application, rep
 
 test('in reveal mode, the building tools show what they created or changed (one QName per tool, from its answer)', () => {
   const router = read('js/mcp_endpoint_router.js');
-  const code = router.match(/\/\/ In reveal mode \(the Reveal of the Assistant\)[\s\S]*?\nfunction revealAfterToolCall\(sequenceName, toolResult\) \{\n[\s\S]*?\n\}\n/)[0];
+  const code = router.match(/\/\/ In reveal mode \(the Reveal of the Assistant\)[\s\S]*?\nfunction revealAfterToolCall\(sequenceName, toolResult, callArguments\) \{\n[\s\S]*?\n\}\n/)[0];
   const run = (sequence, result, revealMode = true) => {
     const revealed = [];
     const box = { managedRevealMode: revealMode, include: () => {}, C8O: { dbo: { revealStudioTreeByQName: (q, errors) => { revealed.push(q); return { status: 'revealed' }; } } } };
@@ -107,7 +107,7 @@ test('in reveal mode, the building tools show what they created or changed (one 
   assert.deepEqual(run('tools_ngx_page_create', { status: 'ok', page: 'Shop.Application.NgxApp.Orders' }, false), [], 'reveal mode off');
   assert.deepEqual(run('tools_project_lint', { status: 'ok', qname: 'Shop.sq:x' }), [], 'a tool that builds nothing');
   // after the call, in the success path of the endpoint
-  assert.match(read('_c8oProject/sequences/mcp_endpoint.yaml'), /↓RevealAfterCall \[steps\.SimpleStep-1794600000001\]: \n\s+comment: [^\n]+\n\s+expression: revealAfterToolCall\(callSequence, result\);/);
+  assert.match(read('_c8oProject/sequences/mcp_endpoint.yaml'), /↓RevealAfterCall \[steps\.SimpleStep-1794600000001\]: \n\s+comment: [^\n]+\n\s+expression: revealAfterToolCall\(callSequence, result, callVariables\);/);
 });
 
 test('revealChange: an engine that has it is told what changed; an older engine keeps reveal', () => {
@@ -146,7 +146,7 @@ test('revealChange: an engine that has it is told what changed; an older engine 
 
 test('the building tools say what they did: created, renamed, moved, deleted, with the QName before and the other objects', () => {
   const router = read('js/mcp_endpoint_router.js');
-  const code = router.match(/\/\/ In reveal mode \(the Reveal of the Assistant\)[\s\S]*?\nfunction revealAfterToolCall\(sequenceName, toolResult\) \{\n[\s\S]*?\n\}\n/)[0];
+  const code = router.match(/\/\/ In reveal mode \(the Reveal of the Assistant\)[\s\S]*?\nfunction revealAfterToolCall\(sequenceName, toolResult, callArguments\) \{\n[\s\S]*?\n\}\n/)[0];
   const run = (sequence, result) => {
     const sent = [];
     const box = { managedRevealMode: true, include: () => {}, C8O: { dbo: { revealStudioTreeByQName: (q, errors, details) => { sent.push({ q, details }); return { status: 'revealed' }; } } } };
@@ -181,4 +181,38 @@ test('tree-apply and batch-call light every object they touched, not only the la
   assert.match(tree, /details: treeApplyRevealDetails\(treeApplyResult, treeApplyRevealTarget\)/);
   assert.match(read('js/tools_batch_call.js'), /revealStudioTreeByQName\(\n\s+batchRevealTarget,\n\s+mutationFinalize\.errors,\n\s+\{\n\s+change: "changed",\n\s+tool: "batch-call",[\s\S]{0,200}touched: mutationTouchedQNames/);
   assert.match(read('js/ui_reveal.js'), /revealStudioTreeByQName\(target, options && options\.errors, options && options\.details\)/);
+});
+
+test('the start of a run is revealed: the project created by marketplace-import, the project given a library reference', () => {
+  const router = read('js/mcp_endpoint_router.js');
+  const code = router.match(/\/\/ In reveal mode \(the Reveal of the Assistant\)[\s\S]*?\nfunction revealAfterToolCall\(sequenceName, toolResult, callArguments\) \{\n[\s\S]*?\n\}\n/)[0];
+  const run = (result, args) => {
+    const sent = [];
+    const box = { managedRevealMode: true, include: () => {}, C8O: { dbo: { revealStudioTreeByQName: (q, errors, details) => { sent.push({ q, details }); return { status: 'revealed' }; } } } };
+    vm.runInNewContext(code + '\nrevealAfterToolCall("tools_marketplace_import", ' + JSON.stringify(result) + ', ' + JSON.stringify(args) + ');', box);
+    return sent.length ? JSON.parse(JSON.stringify(sent[0])) : null;
+  };
+  const created = run({ status: 'ok', project: 'PipelineCrm3', library: 'template_ngxBuilderIonic', loadedBefore: false, loadedAfter: true },
+    { project: 'template_ngxBuilderIonic', importedProjectName: 'PipelineCrm3' });
+  assert.equal(created.q, 'PipelineCrm3');
+  assert.deepEqual(created.details, { change: 'created', summary: 'Created the project PipelineCrm3 from template_ngxBuilderIonic', tool: 'marketplace-import' });
+  const reference = run({ status: 'ok', project: 'lib_UserManager', library: 'lib_UserManager', loadedBefore: false, loadedAfter: true, referenceAdded: true },
+    { project: 'lib_UserManager', targetProject: 'PipelineCrm3' });
+  assert.equal(reference.q, 'PipelineCrm3', 'the project that now uses the library');
+  assert.deepEqual(reference.details, { change: 'changed', summary: 'Added the reference to lib_UserManager', touched: ['lib_UserManager'], tool: 'marketplace-import' });
+  const library = run({ status: 'ok', project: 'lib_X', library: 'lib_X', loadedBefore: 'false', loadedAfter: 'true' }, { project: 'lib_X' });
+  assert.equal(library.q, 'lib_X');
+  assert.equal(library.details.summary, 'Imported lib_X');
+  assert.equal(run({ status: 'ok', project: 'lib_X', library: 'lib_X', loadedBefore: true, loadedAfter: true, referenceAlready: true }, { project: 'lib_X', targetProject: 'P' }), null,
+    'nothing changed: nothing revealed');
+});
+
+test('in the reveal mode of the host, a reveal:false of the model does not hide what the building tools change', () => {
+  const router = read('js/mcp_endpoint_router.js');
+  const forced = router.match(/var REVEAL_FORCED_SEQUENCES = \{([^}]*)\}/)[1];
+  for (const name of ['tools_databaseobject_tree_apply', 'tools_batch_call', 'tools_nocode_form_edit']) {
+    assert.match(forced, new RegExp(name + ': true'), name);
+  }
+  assert.doesNotMatch(forced, /tools_mobile_builder_open/, 'mobile-builder-open keeps the choice of the model');
+  assert.match(router, /managedRevealMode && REVEAL_CAPABLE_SEQUENCES\[targetSequence\] === true\n\s+&& \(REVEAL_FORCED_SEQUENCES\[targetSequence\] === true\n\s+\|\| callVariables\.reveal === undefined/);
 });
