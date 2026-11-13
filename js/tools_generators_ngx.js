@@ -427,7 +427,19 @@ include("js/sequence_response.js");
 
   // Whether a sequence ends the user's session: a RemoveAuthenticatedUserStep or a RemoveSessionStep, the same call in a
   // JavaScript step, or a call of a sequence that does (a library's logout), two calls deep.
+  var ENDS_SESSION = { steps: /\.(RemoveAuthenticatedUserStep|RemoveSessionStep)$/, code: /removeAuthenticatedUser\s*\(/ };
+  // Whether it opens one: a SetAuthenticatedUserStep, the same call in a JavaScript step, or a call of a library's login.
+  var OPENS_SESSION = { steps: /\.SetAuthenticatedUserStep$/, code: /setAuthenticatedUser\s*\(/ };
+
   function endsSession(seq, depth) {
+    return sessionChange(seq, depth, ENDS_SESSION);
+  }
+
+  function opensSession(seq, depth) {
+    return sessionChange(seq, depth, OPENS_SESSION);
+  }
+
+  function sessionChange(seq, depth, change) {
     var stack = [seq];
     while (stack.length) {
       var all = null;
@@ -442,14 +454,14 @@ include("js/sequence_response.js");
         try {
           className = String(child.getClass().getName());
         } catch (_noClass) {}
-        if (/\.(RemoveAuthenticatedUserStep|RemoveSessionStep)$/.test(className)) {
+        if (change.steps.test(className)) {
           return true;
         }
         var expression = "";
         try {
           expression = str(child.getExpression());
         } catch (_noExpression) {}
-        if (/removeAuthenticatedUser\s*\(/.test(expression)) {
+        if (change.code.test(expression)) {
           return true;
         }
         var target = "";
@@ -461,7 +473,7 @@ include("js/sequence_response.js");
           try {
             called = lookup(target);
           } catch (_noLookup) {}
-          if (called && endsSession(called, (depth || 0) + 1)) {
+          if (called && sessionChange(called, (depth || 0) + 1, change)) {
             return true;
           }
         }
@@ -707,6 +719,14 @@ include("js/sequence_response.js");
     var M = C8O.marketplace;
     var appName = String(projectDbo.getName());
     var status = "referenced";
+    var added = null;
+    // A reference this call added and could not use is removed: nothing is referenced for nothing.
+    var fail = function (message) {
+      if (added) {
+        M.removeReference(appName, added);
+      }
+      return { library: library, error: message };
+    };
     try {
       var refs = M.getProjectReferenceMap(projectDbo);
       if (!(refs && refs.lower && refs.lower[library.toLowerCase()])) {
@@ -720,21 +740,37 @@ include("js/sequence_response.js");
         if (!ref.referenceAdded && !ref.referenceAlready) {
           return { library: library, error: "the reference to " + library + " could not be added to " + appName + ": " + (ref.warnings || []).join(" ") };
         }
+        added = ref.referenceAdded ? ref.referenceName : null;
         status = loadedBefore ? "reference added" : "imported and referenced";
       }
       var libProject = M.resolveProject(library);
       var libApp = libProject ? libProject.getMobileApplication().getApplicationComponent() : null;
       var shared = libApp ? childNamed(libApp, component) : null;
       if (!shared) {
-        return { library: library, error: library + " has no shared component " + component + "." };
+        return fail(library + " has no shared component " + component + ".");
       }
-      return { library: library, status: status, sharedComponent: qnameOf(shared) };
+      return { library: library, status: status, sharedComponent: qnameOf(shared), addedReference: added || undefined };
     } catch (e) {
-      return { library: library, error: library + ": " + String(e && e.message ? e.message : e) };
+      return fail(library + ": " + String(e && e.message ? e.message : e));
     }
   };
 
+  // A page whose generation fails after its grid library was referenced leaves no reference behind.
   G.ngxPageCreate = function (args) {
+    var state = { addedReference: null };
+    try {
+      return ngxPageCreateBody(args, state);
+    } catch (e) {
+      if (state.addedReference) {
+        try {
+          C8O.marketplace.removeReference(state.addedReference.project, state.addedReference.name);
+        } catch (_keepError) {}
+      }
+      throw e;
+    }
+  };
+
+  function ngxPageCreateBody(args, state) {
     var tool = "ngx-page-create";
     var projectDbo = projectOf(args.project, tool);
     var projectName = String(projectDbo.getName());
@@ -1855,11 +1891,14 @@ include("js/sequence_response.js");
       invalid(tool, errors);
     }
     // A grid list needs lib_ExtendedComponents_ui_ngx in the app: referenced already, else imported from the marketplace
-    // and referenced, as marketplace-import does (that stays if the page then fails). An automatic grid falls back to the
+    // and referenced, as marketplace-import does (removed again if the page then fails). An automatic grid falls back to the
     // native table when the library cannot be had; an asked one refuses the page.
     var gridLibrary = null;
     if (gridPlans.length) {
       gridLibrary = G.ensureLibrary(projectDbo, GRID_LIBRARY, GRID_COMPONENT);
+      if (gridLibrary.addedReference) {
+        state.addedReference = { project: projectName, name: gridLibrary.addedReference };
+      }
       if (gridLibrary.error) {
         var askedGrids = gridPlans.filter(function (gp) { return gp.mode === "asked"; }).map(function (gp) { return gp.label + ".grid"; });
         if (askedGrids.length) {
@@ -2053,8 +2092,14 @@ include("js/sequence_response.js");
       if (authRedirect.length) {
         submitChildren.push(authBranch("IfSubmitSessionLost", submitAnswer));
       }
-      var submitEvent = controlEvent("EventonSubmit", "onSubmit", [nxAction("CallSequenceAction", "Submit", {
-        requestable: { mode: "PLAIN", value: projectName + "." + formPlan.submit }, cacheTtl: { mode: "PLAIN", value: "0" } }, submitChildren)]);
+      // A sign-in, sign-up or sign-out form calls with noAutoLogin: else the SDK replays the stored login request and can
+      // loop (convertigo-authentication). The action buttons and the logout page already do.
+      var submitProps = { requestable: { mode: "PLAIN", value: projectName + "." + formPlan.submit }, cacheTtl: { mode: "PLAIN", value: "0" } };
+      var submitSequence = childNamed(projectDbo, formPlan.submit);
+      if (submitSequence && (opensSession(submitSequence) || endsSession(submitSequence))) {
+        submitProps.noAutoLogin = { mode: "PLAIN", value: "true" };
+      }
+      var submitEvent = controlEvent("EventonSubmit", "onSubmit", [nxAction("CallSequenceAction", "Submit", submitProps, submitChildren)]);
       var formQName = qnameOf(formDbo);
       var wired = C8O.dbo.batchApply({ target: formQName, operations: [{ type: "create", opId: "submit", related: formQName, mode: "inside",
         className: submitEvent.className, name: submitEvent.name, properties: submitEvent.properties, children: submitEvent.children }],

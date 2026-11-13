@@ -19,8 +19,8 @@ Read `convertigo://resources/convertigo-crud-practical-cases` only when the curr
 - Collect the minimum CRUD spec required for deterministic execution.
 - Prefer MCP CRUD accelerators over manual tree authoring.
 - For a new project with UI, make the project visible immediately: import the starter with the exact name, open the viewer, then mutate the CRUD scaffolding live.
-- For an existing deterministic CRUD project that is already green, skip the bootstrap UI pass and use the one-pass edit rail documented in `convertigo://resources/convertigo-crud-edit-fastpath`.
-- Produce proof after backend creation and again after the final UI shell.
+- For an existing deterministic CRUD project that is already green, do not import the starter again: use the edit rail documented in `convertigo://resources/convertigo-crud-edit-fastpath`.
+- Produce proof after backend creation (`crud-proof`) and again after the pages (`project-lint`, `browser-verify`).
 - Refuse tasks that fall outside the standard SQL CRUD + starter NGX path.
 - Do not call `rag-query` before you have read `convertigo://resources/convertigo-start` and the fast-path recipe.
 - Stay MCP-only: never patch `_private/ionic`, `DisplayObjects`, `dist`, or run manual `npm` builds to repair generated frontend artifacts.
@@ -34,23 +34,19 @@ Collect or confirm:
 - `database.connector`
 - `facade.prefix`
 - `entities[]`
-- `ui.entryPage`
-- optional `ui.variant`
+- the pages the user needs
+- optional `ui.language` (`fr` for French messages of the required-field checks)
 - optional `relations[]`
-- optional `entities[].ui.relationFields`
+- optional `entities[].ui.relationFields.<field>.optionLabelField` (the label of a relation)
 - optional `seed.data`
 - for the generic CRUD fast path, default to:
-  - `ui.variant=entity-pages`
-  - landing page on `Home`
-  - one generated entity page per CRUD entity
+  - per entity, a list page, a detail page and a form page built with `ngx-page-create`
   - `seed.profile=realistic`
   - generated CRUD business sequences stay `hidden` with `authenticated context required=true`
-  - generated auth skeleton: `auth_login(username,password)` + `auth_logout()`, with a `Login` root page that authenticates once before the visible CRUD home page opens
+  - generated auth skeleton: `auth_login(username,password)` + `auth_logout()`, with a `Login` entry page (`ngx-page-create`, `root:true`) that authenticates once before the home page opens, and a `logout` page
   - declare obvious many-to-one relations in `spec.relations[]`
-  - use entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, and `ui.relationFields` when the user explicitly asks for better visible fields without a custom redesign
   - `seed.data` is the preferred first-pass surface for explicit business demo rows
 - for the CRM demo profile, prefer:
-  - `ui.variant=master-detail`
   - `seed.profile=crm`
   - `seed.rowsPerEntity=20`
   - relation `Contact.CompanyId -> Company.Id`
@@ -69,20 +65,19 @@ If some fields are missing, ask only for the missing CRUD spec items.
 7. Run `upsert-crud`.
 8. Run `crud-proof` with backend requestables.
 9. If proof fails, stop and report the exact missing proof items.
-10. For a new project UI pass, run `upsert-ngx-crud-kit` with `stage=bootstrap`, probe with `mobile-builder-open(stateOnly=true, wait=true)`, then run `stage=final`.
-11. For an existing green project UI pass, run only one `upsert-ngx-crud-kit` with `stage=final`.
-12. Run `crud-proof` with `expectUiShell=true` and pass the live `viewerUrl` from `mobile-builder-open`.
+10. For a new project UI pass, run `ngx-theme-apply` once when the user gave a brand, then one `ngx-page-create` per page on the generated business sequences: the `Login` entry page first with `root:true`, `locale` and `currency`; then each list, detail and form page with `home` and `authRedirect:"Login"`; then a `logout` page on `auth_logout`. Delete the starter page `Page` once the entry page is root.
+11. For an existing green project UI pass, run `ngx-page-create` only for the new pages; a page to change: delete it and create it again, or patch it with `databaseobject-tree-apply`.
+12. Run `mobile-builder-open(stateOnly=true, wait=true)`, then `project-lint`, then `browser-verify` with the live `viewerHomeUrl` from `mobile-builder-open`, the user paths and the expected texts.
 13. Save with `project-save` when the target project was mutated and save proof is still needed.
 14. If the final proof is green and the request was low-detail, stop there.
 15. Do not call planner, critic, or maintainer prompts from this flow.
-16. Prefer `spec.relations[]`, `field.references`, entity-level UI hints (`ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel`, `ui.relationFields`), and `seed.data` over direct edits on CRUD-kit-managed shared components or manual patches of `init_schema`.
+16. Prefer `spec.relations[]`, `field.references`, and `seed.data` over manual patches of `init_schema`, and `ngx-page-create` over pages composed by hand.
 17. Once the CRUD guides already documented the contract, do not run shell searches to rediscover the shapes of `relations[]`, `ui.relationFields`, or `seed.data`.
 18. Do not make generated CRUD business sequences public just to get the demo running; keep the hidden/authenticated contract and customize the generated auth skeleton instead.
 
-## UI variant policy
-- `entity-pages` is the recommended generic CRUD UI.
-- `dashboard` is a legacy single-page fallback, kept for compatibility only.
-- `master-detail` remains the recommended CRM-specific UI.
+## Page policy
+- `ngx-page-create` builds every list, detail, form, dashboard and logout page; a dashboard page only when the user asks for counters.
+- `databaseobject-tree-apply` only for what it does not cover (tabs, cards with actions on each row, a master-detail layout).
 
 ## Out-of-scope redirect
 If the request needs custom backend architecture, HTTP integration, or non-standard handwritten NGX composition before CRUD proof, stop with:

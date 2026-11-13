@@ -27,15 +27,16 @@ Required workflow:
 4. Run `upsert-crud` with the exact spec above.
 5. Run `crud-proof` with the proof requestables above.
 6. If backend proof fails, stop with `RESULT: FAIL`.
-7. Run `upsert-ngx-crud-kit` with `stage=bootstrap`.
-8. Run `mobile-builder-open` again. If it returns `compile_error`, stop with `RESULT: FAIL` and report the compile errors. Do not patch generated frontend artifacts.
-9. Run `upsert-ngx-crud-kit` with `stage=final`.
-10. Run `crud-proof` again with `expectUiShell=true` and the `viewerUrl` from `mobile-builder-open`.
-11. If the final UI proof fails, stop with `RESULT: FAIL`.
-12. Save the project if a mutation occurred and a final save is still needed.
-13. Stop after the first successful final `crud-proof`. Do not start a second refinement pass.
+7. If the user gave a brand, run `ngx-theme-apply` once.
+8. Run `ngx-page-create` once per page on the generated business sequences: the `Login` entry page first with `root:true`, `locale` and `currency`; then the list, detail and form pages of each entity with `home` and `authRedirect:"Login"`; then a `logout` page on `auth_logout`. Delete the starter page `Page` once the entry page is root.
+9. Run `mobile-builder-open(stateOnly=true, wait=true)`. If it returns `compile_error`, stop with `RESULT: FAIL` and report the compile errors. Do not patch generated frontend artifacts.
+10. Run `project-lint` and fix every `error` finding.
+11. Run `browser-verify` with the `viewerHomeUrl` from `mobile-builder-open`, the paths sign in, open each list, open a record, and the expected texts as checks.
+12. If the browser proof fails, fix the source objects and verify the failed paths again; stop with `RESULT: FAIL` if it still fails.
+13. Save the project if a mutation occurred and a final save is still needed.
+14. Stop after the first passed `browser-verify`. Do not start a second refinement pass.
 
 Final output format:
-- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, `upsert-crud` succeeds, backend `crud-proof` succeeds, UI `crud-proof` succeeds, and the final proof shows `missing == []`, `ui.visibleShellPresent == true`, and `ui.starterDominant == false`.
+- `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly, `upsert-crud` succeeds, backend `crud-proof` succeeds with `missing == []`, every `ngx-page-create` call succeeds, `project-lint` reports no `error`, and `browser-verify` answers the verdict `passed` with the app opening on its `Login` page.
 - Otherwise `RESULT: FAIL` with the failing step and the most useful tool response snippets.
 - End with one short `MCP critique` item.

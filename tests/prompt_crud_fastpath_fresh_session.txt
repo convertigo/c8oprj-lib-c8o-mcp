@@ -18,8 +18,8 @@ Expected outcome:
 - the project is created or updated through the deterministic CRUD fast path
 - the UI becomes visible early through the mobile viewer
 - seeded demo data is already present in the first green proof
-- the final proof covers backend requestables, visible shell replacement, and viewer proof
-- stop after the first successful final `crud-proof`, except for a final `project-save` if still needed
+- the final proof covers backend requestables (`crud-proof`), the pages built with `ngx-page-create` (`project-lint`), and a browser proof (`browser-verify`)
+- stop after the first passed `browser-verify`, except for a final `project-save` if still needed
 
 Final output format:
 - `RESULT: PASS` only if `__TARGET_PROJECT__` is named explicitly and the final backend + UI proof is green.

@@ -272,17 +272,19 @@ function fakeJava(files) {
       return [...names].map(n => new File(this, n));
     }
     getName() { return this.path.split("/").pop(); }
+    isFile() { return this.rel() in files; }
     length() { return (files[this.rel()] || "").length; }
     toPath() { return this.rel(); }
   }
   return { io: { File }, nio: { file: { Files: { readAllBytes: p => files[p] } } }, lang: { String: function (bytes) { return new String(bytes); } } };
 }
-function runLint(project, files, securityAudit) {
+function runLint(project, files, securityAudit, others) {
   const sandbox = {
     C8O: { securityAudit, dbo: { getDirectChildren: d => d.children || [], _normalizeXMLVector: v => v || null, _misplacedSmartSourceKeys: () => [], _NGX_NOT_SET: "not set" },
       sqlDialect: { of: () => "hsqldb", unbalancedQuote: () => null, dateMath: () => null, foreignSyntax: () => [], aliasFolding: () => null } },
     Packages: { com: { twinsoft: { convertigo: { engine: { Engine: { theApp: { databaseObjectsManager: {
-      getOriginalProjectByName: n => (String(n) === project.getName() ? project : null) } } } } } } } },
+      getOriginalProjectByName: n => (String(n) === project.getName() ? project : (others || {})[String(n)] || null),
+      getAllProjectNamesList: () => { const names = [project.getName()].concat(Object.keys(others || {})); return { size: () => names.length, get: i => names[i] }; } } } } } } } } },
     java: fakeJava(files || {}),
     JSON
   };
@@ -507,6 +509,54 @@ test("NGX-FALLBACK-ROUTE: a ** page with pages after it hides them (PipelineCrm3
   assert.match(found[0].fix, /^Move NotFound after Companies with databaseobject-move/);
   assert.deepStrictEqual(runLint(app([page("Home", "home", true), page("Deals", "deals"), page("NotFound", "**")]), {})
     .findings.filter(f => f.rule === "NGX-FALLBACK-ROUTE"), [], "the last page");
+});
+
+test("PROJECT-UNUSED-REFERENCE and NGX-UNUSED-SHARED-COMPONENT: a library or a shared component nothing uses (PipelineCrm 12/11)", () => {
+  const ref = (refName, projectName) => fakeBean("references.ProjectSchemaReference", refName, { getParser: () => ({ getProjectName: () => projectName }),
+    getFullQName: () => "Crm." + refName });
+  const refsOf = list => ({ size: () => list.length, get: i => list[i] });
+  const shared = name => fakeBean("ngx.components.UISharedRegularComponent", name, {});
+  const use = (name, target) => fakeBean("ngx.components.UIUseShared", name, { getSharedComponentQName: () => target });
+  const build = () => {
+    const refs = [ref("project1", "mobilebuilder_tpl_8_4_0_ngx"), ref("lib_UserManager", "lib_UserManager"), ref("lib_ExtendedComponents_ui_ngx", "lib_ExtendedComponents_ui_ngx"),
+      ref("lib_OAuth", "lib_OAuth")];
+    const app = fakeBean("ngx.components.ApplicationComponent", "NgxApp", { getTplProjectName: () => "mobilebuilder_tpl_8_4_0_ngx" }, [
+      ngxPage("Deals", [use("UseCard", "Crm.Application.NgxApp.DealCard")], true), shared("DealCard"), shared("Orphan")]);
+    return named(fakeBean("core.Project", "Crm", { getDirPath: () => "/p", getReferenceList: () => refsOf(refs) },
+      [fakeBean("mobile.MobileApplication", "Application", {}, [app])]));
+  };
+  // lib_UserManager is called by a sequence; lib_OAuth is only needed by lib_UserManager; nothing names lib_ExtendedComponents_ui_ngx.
+  const files = {
+    "c8oProject.yaml": "↓Crm [core.Project]: \n  ↓lib_ExtendedComponents_ui_ngx [references.ProjectSchemaReference]: \n    projectName: lib_ExtendedComponents_ui_ngx=https://x/lib.zip\n  ↓auth_login [sequences.GenericSequence]: 🗏 sequences/auth_login.yaml\n",
+    "_c8oProject/sequences/auth_login.yaml": "↓Login [steps.SequenceStep]: \n  sourceSequence: lib_UserManager.Login\n",
+    "_c8oProject/mobileNgxApp.yaml": "tplProjectName: mobilebuilder_tpl_8_4_0_ngx\n"
+  };
+  const userManager = { getName: () => "lib_UserManager", getReferenceList: () => refsOf([ref("lib_OAuth", "lib_OAuth")]) };
+  let found = runLint(build(), files, undefined, { lib_UserManager: userManager }).findings;
+  const unusedRefs = found.filter(f => f.rule === "PROJECT-UNUSED-REFERENCE");
+  assert.deepStrictEqual(unusedRefs.map(f => f.qname), ["Crm.lib_ExtendedComponents_ui_ngx"], "the template, a used library and a library it needs stay");
+  assert.match(unusedRefs[0].message, /^The project references lib_ExtendedComponents_ui_ngx but nothing in it uses it/);
+  assert.match(unusedRefs[0].fix, /^Delete the reference \(databaseobject-delete Crm\.lib_ExtendedComponents_ui_ngx\)/);
+  const unusedShared = found.filter(f => f.rule === "NGX-UNUSED-SHARED-COMPONENT");
+  assert.deepStrictEqual(unusedShared.map(f => f.qname), ["Crm.Application.NgxApp.Orphan"]);
+  assert.match(unusedShared[0].message, /^The shared component Orphan is used by no page nor component of the app/);
+  // A library's shared components are for the apps that reference it.
+  const consumer = { getName: () => "Shop", getReferenceList: () => refsOf([ref("crm", "Crm")]) };
+  found = runLint(build(), files, undefined, { lib_UserManager: userManager, Shop: consumer }).findings;
+  assert.deepStrictEqual(found.filter(f => f.rule === "NGX-UNUSED-SHARED-COMPONENT"), []);
+});
+
+test("unusedReferences reads names as words, and the reference declarations are not uses", () => {
+  const sandbox = { C8O: {}, JSON };
+  vm.createContext(sandbox);
+  vm.runInContext(source, sandbox);
+  const L = sandbox.C8O.lint;
+  const stripped = L.stripReferenceDeclarations("↓App [core.Project]: \n  ↓lib_csv [references.ProjectSchemaReference]: \n    projectName: lib_csv=https://x\n  ↓seq [sequences.GenericSequence]: 🗏 sequences/seq.yaml\n");
+  assert.doesNotMatch(stripped, /lib_csv/);
+  assert.match(stripped, /seq \[sequences/);
+  const refs = [{ name: "lib_csv" }, { name: "lib_csv_response" }];
+  assert.deepStrictEqual(plain(L.unusedReferences(refs, ["sourceSequence: lib_csv_response.Export"], {})).map(r => r.name), ["lib_csv"], "lib_csv_response is not lib_csv");
+  assert.deepStrictEqual(plain(L.unusedReferences(refs, ["include('../lib_csv/js/x.js'); lib_csv_response.y"], {})), []);
 });
 
 test("NGX-I18N-LABEL: the plain label of a form control in an app that translates its texts", () => {

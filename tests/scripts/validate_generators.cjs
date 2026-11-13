@@ -1671,7 +1671,8 @@ function withGridLibrary(world, opts) {
     },
     resolveProject: name => (name === 'lib_ExtendedComponents_ui_ngx' && loaded ? lib : null),
     getProjectReferenceMap: () => ({ lower: o.referenced ? { lib_extendedcomponents_ui_ngx: { referenceName: 'lib_ExtendedComponents_ui_ngx' } } : {} }),
-    addReference: (target, library) => { calls.referenced.push(target + '->' + library); return { referenceAdded: true, warnings: [] }; }
+    addReference: (target, library) => { calls.referenced.push(target + '->' + library); return { referenceAdded: true, referenceName: library, warnings: [] }; },
+    removeReference: (target, name) => { world.removedRefs = (world.removedRefs || []).concat([target + '->' + name]); return { removed: true }; }
   };
   if (o.referenced) {
     loaded = true;
@@ -1682,6 +1683,44 @@ function withGridLibrary(world, opts) {
 const gridList = extra => Object.assign({ item: 'p', title: 'numeroPoste', titleLabel: 'Poste', subtitle: 'libelle', subtitleLabel: 'Libellé',
   columns: [{ label: 'Service', field: 'service' }, { label: 'Échéance', field: 'p.dateEcheance', prefix: 'le ' }, { label: 'RPCA', field: 'rpca.nom' }],
   badgeLabel: 'Statut', badge: { field: 'statut', labels: { A_JOUR: 'À jour', EN_RETARD: 'En retard' } }, empty: 'Aucun poste' }, extra || {});
+
+test('a sign-in form calls its sequence with noAutoLogin, another form does not (convertigo-authentication)', () => {
+  const world = makeWorld();
+  const signIn = bean('auth_signin', JAVA['sequences.GenericSequence'], world.project);
+  ['email', 'password'].forEach(v => bean(v, JAVA['variables.RequestableVariable'], signIn));
+  bean('SetUser', 'com.twinsoft.convertigo.beans.steps.SetAuthenticatedUserStep', signIn);
+  const G = load(world);
+  const submitOf = name => {
+    let call = null;
+    walk(world.ops.filter(op => op.type === 'create' && op.name === 'EventonSubmit').pop(), n => { if (n.name === 'Submit') call = n; });
+    return call;
+  };
+  G.ngxPageCreate({ project: 'App', name: 'SignIn', kind: 'form', root: true, form: { submit: 'auth_signin', submitLabel: 'Sign in', cancel: false,
+    success: { message: 'Welcome', page: 'Login', kind: 'root' }, fields: [{ name: 'email', label: 'Email', type: 'email' }, { name: 'password', label: 'Password', type: 'password' }] } });
+  assert.deepEqual(plain(submitOf().properties.noAutoLogin), { mode: 'PLAIN', value: 'true' });
+  G.ngxPageCreate({ project: 'App', name: 'Declare', kind: 'form', form: { submit: 'declaration_declare', submitLabel: 'OK', cancel: false,
+    success: { message: 'OK' }, fields: [{ name: 'commentaire', label: 'Note' }] } });
+  assert.equal(submitOf().properties.noAutoLogin, undefined);
+});
+
+test('a grid page that fails after its library was referenced removes the reference again (PipelineCrm 12/11)', () => {
+  let world = makeWorld();
+  withGridLibrary(world);
+  world.failOn = 'Postes';
+  assert.throws(() => load(world).ngxPageCreate({ project: 'App', name: 'Postes', kind: 'list', sequence: 'poste_list', list: gridList({ grid: true }) }),
+    /creating Postes under App\.Application\.NgxApp failed/);
+  assert.deepEqual(plain(world.removedRefs), ['App->lib_ExtendedComponents_ui_ngx']);
+  // A library the app referenced before stays referenced; a page created keeps its reference.
+  world = makeWorld();
+  withGridLibrary(world, { referenced: true });
+  world.failOn = 'Postes';
+  assert.throws(() => load(world).ngxPageCreate({ project: 'App', name: 'Postes', kind: 'list', sequence: 'poste_list', list: gridList({ grid: true }) }));
+  assert.equal(world.removedRefs, undefined);
+  world = makeWorld();
+  withGridLibrary(world);
+  load(world).ngxPageCreate({ project: 'App', name: 'Postes', kind: 'list', sequence: 'poste_list', list: gridList({ grid: true }) });
+  assert.equal(world.removedRefs, undefined);
+});
 
 test('a list asked as a grid uses the AG Grid of lib_ExtendedComponents_ui_ngx, imported and referenced when missing', () => {
   const world = makeWorld();

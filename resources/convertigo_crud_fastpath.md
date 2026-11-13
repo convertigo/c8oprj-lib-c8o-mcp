@@ -17,8 +17,8 @@ In scope:
 - starter NGX project or existing starter-derived project
 - SQL CRUD scaffold
 - hidden CRUD business sequences plus the generated auth skeleton
-- visible CRUD shell on the real entry page
-- deterministic proof of backend and UI state
+- the app's pages, built with `ngx-page-create` on the generated business sequences
+- proof of the backend (`crud-proof`) and of the pages in a browser (`browser-verify`)
 
 Out of scope:
 - custom multi-track orchestration
@@ -33,74 +33,78 @@ Capture these before the first mutation:
 - `database.connector`
 - `facade.prefix`
 - `entities[]`
-- `ui.entryPage`
-- optional `ui.variant`
-- `ui.language`: the user's language for the texts the kit writes (`fr` or `en`, default `en`); pass the same `language` to `upsert-ngx-crud-kit`
+- the pages the user needs (by default, per entity: a list, a detail and a form)
+- `ui.language`: `fr` for French messages of the required-field checks of `upsert-crud` (default `en`); give the page texts of `ngx-page-create` in the user's language too
 
 Default assumptions for the fast path:
 - starter-derived NGX app
-- visible entry page is `Home`
 - business sequence prefix is `crud`
-- deterministic shared-component shell is acceptable for the first visible pass
+- the app opens on a `Login` page that signs in with the generated `auth_login`, then on its home page (the main list, or a dashboard when the user asks for counters)
 - use the exact requested project name when it is technically valid; do not invent prefixes, suffixes, or dates
-- for the generic CRUD UI, prefer `ui.variant=entity-pages`
-- `entity-pages` means:
-  - landing dashboard on `Home`
-  - one generated page per entity
-  - shared actions + global state + shared components already wired
 - if no explicit seed profile is provided, use `seed.profile=realistic`
 - if the user wants explicit business demo rows, use `seed.data`
 - in `seed.data`, the foreign keys of one row agree with each other: a deal's contact works for the deal's company, an order line's product is one the order's supplier sells. Check each row against the rows it points to.
 - in `seed.data`, dates are placed relative to today, the date of the conversation (never a year from memory): a deadline, a due date or an expected close date falls after today (a few days to a few months), a creation, a last contact or a closed date before it. Fixed dates from memory put every open deal or task in the past, so the app shows them all as overdue.
 - To read data while you build (check rows, find an id, count, compare), run one SELECT with `sql-select`: a read-only connection to the project's SQL connector, bounded rows (`maxRows`, 50 by default), values written in the SQL, nothing created nor saved in the project. Or call what exists with `requestable-execute`: the list and count transactions of the connector (`<project>.<connector>.list_<entity>`, `count_<entity>`) or the list business sequence (with `authenticatedUser` when it requires a session). Never create and delete probe transactions to read data: each one is a project change, saved and rebuilt (22 of them in one CRM turn). When the app itself needs a value nothing returns, create one read transaction `q_<what>` the app keeps.
-- treat `dashboard` as a legacy single-page fallback
-- for the CRM demo profile, prefer `ui.variant=master-detail`, `seed.profile=crm`, `seed.rowsPerEntity=20`, and relation `Contact.CompanyId -> Company.Id`
-- for a low-detail CRUD request, the first acceptable delivery point is the first green scaffold plus seeded demo data; refinement comes only if the user asked for it
-- when relations are obvious, declare them explicitly in `spec.relations[]`; `field.references` remains accepted for compatibility
-- for generic `entity-pages`, prefer entity-level UI hints such as `ui.listFields`, `ui.detailFields`, `ui.formFields`, `ui.fieldLabels`, `ui.actionLabel` (the label of the form's save button), `ui.relationFields`, `ui.fieldOptions` (a field with fixed values: a select) and `ui.fieldDefaults` (the create form's starting value), `ui.listFilters` (list filters) over direct edits on generated CRUD-kit shared components
-- relation controls default to `select`; use `ui.relationFields.<field>.control=autocomplete` only when the larger option set really needs it
-- generated CRUD business sequences are `hidden` and require an authenticated context; `auth_login(username,password)` and `auth_logout()` are hidden skeleton sequences (the generated `auth_login` accepts any password; replace it with a real check from `convertigo://resources/convertigo-authentication` before delivery), and generated UI apps initialize that session once on a `Login` root page before the visible CRUD home page opens
+- for the CRM demo profile, prefer `seed.profile=crm`, `seed.rowsPerEntity=20`, and relation `Contact.CompanyId -> Company.Id`
+- for a low-detail CRUD request, the first acceptable delivery point is the first green scaffold plus seeded demo data, with its pages proven in a browser; refinement comes only if the user asked for it
+- when relations are obvious, declare them explicitly in `spec.relations[]`; `field.references` remains accepted for compatibility. `ui.relationFields.<field>.optionLabelField` names the field of the related entity that the list and read business sequences return as `<field>__label`
+- generated CRUD business sequences are `hidden` and require an authenticated context; `auth_login(username,password)` and `auth_logout()` are hidden skeleton sequences (the generated `auth_login` accepts any password; replace it with a real check from `convertigo://resources/convertigo-authentication` before delivery). The app signs in once on its `Login` entry page before its pages call them, and each protected page takes `authRedirect:"Login"`
+- the upsert-crud business sequences answer their data itself: `{rows}` (list), `{row}` (read), `{total}` (count), `{message}` (create, update, delete), `{error}` when they fail; `ngx-page-create` reads that shape, so a list page takes `list.items:"rows"` and a detail page `detail.record:"row"`
 - prefer best-case-first generated code and trust the standard error bubble unless the user explicitly asked for special UX around failures
 
 ## Deterministic rail
-1. For a new UI project, import `template_ngxBuilderIonic` explicitly with `marketplace-import` and the exact requested project name.
+1. Validate the requested project name. For a new UI project, import `template_ngxBuilderIonic` explicitly with `marketplace-import` and that exact name.
 2. Open the app immediately with `mobile-builder-open(wait=false)` so the viewer starts asynchronously while backend work continues. Keep the returned live dev URL if it is already available. Open `viewerHomeUrl` (never `viewerBaseUrl`, which can serve the update page); reserve `.../DisplayObjects/mobile/home` for production builds.
 3. Call `upsert-crud` with a complete `spec`.
 4. Call `crud-proof` for backend evidence.
-5. If backend proof is green and the task includes UI, call `upsert-ngx-crud-kit` with `stage=bootstrap`.
-6. Call `mobile-builder-open(stateOnly=true, wait=true)` again after the bootstrap shell exists. If it returns `compile_error`, fix the Convertigo source path or the MCP generator. Do not patch `_private/ionic`, `DisplayObjects`, or other generated files.
-7. Call `upsert-ngx-crud-kit` again with `stage=final`.
-8. Call `crud-proof` again with `expectUiShell=true` and the `viewerUrl`. When the waited builder result reports `browserControlReady:true`, also use Playwright or browser-control MCP against that JxBrowser endpoint for the visible Studio viewer smoke proof; if `browserControlTargetUrl` is `about:blank`, keep polling because the Studio loader is still building. If those MCP browser tools are unavailable, disabled, stale, or attached elsewhere, report the managed Playwright MCP configuration problem instead of using Node scripts, raw CDP, or a separate browser.
-9. Save with `project-save` if the target project was mutated and the save is not already covered by the tool result.
-10. If the request was low-detail and the final proof is green, stop there. Do not improvise a second pass on layout, forms, labels, or entity-specific UX.
+5. If the user gave a brand (a color, a style), call `ngx-theme-apply` once, before the pages.
+6. Call `ngx-page-create` once per page, on the business sequences `upsert-crud` generated (`<prefix>_list_<entities>`, `<prefix>_read_<entity>`, `<prefix>_create_<entity>`, `<prefix>_update_<entity>`): first the `Login` entry page with `root:true`, `locale` and `currency`; then the list, detail and form pages of each entity, each with `home` and `authRedirect:"Login"`; then a `logout` page on `auth_logout`. A refused call lists every problem and creates nothing: fix the spec and send it again. Once the entry page is root, delete the starter page `Page`.
+7. Call `mobile-builder-open(stateOnly=true, wait=true)`. If it returns `compile_error`, fix the Convertigo source path or the MCP generator. Do not patch `_private/ionic`, `DisplayObjects`, or other generated files.
+8. Run `project-lint` and fix what it reports.
+9. Prove the pages with `browser-verify`: `url` the `viewerHomeUrl`, `paths` such as sign in, open each list, open a record, create one, and `checks` with the expected texts. Without it, use the Playwright tools as the common skill says; if those MCP browser tools are unavailable, disabled, stale, or attached elsewhere, report the managed Playwright MCP configuration problem instead of using Node scripts, raw CDP, or a separate browser.
+10. Save with `project-save` if the target project was mutated and the save is not already covered by the tool result.
+11. If the request was low-detail and the final proof is green, stop there. Do not improvise a second pass on layout, forms, labels, or entity-specific UX.
+
+The first pages of a two-entity app, one `ngx-page-create` call each (`<field>` is a column of the row, as `crud-proof` or `requestable-execute` shows it):
+
+```json
+{"project":"<App>","name":"Login","kind":"form","title":"Sign in","root":true,"locale":"en-US","currency":"USD",
+ "form":{"submit":"auth_login","fields":[{"name":"username","label":"User","type":"text","required":true},{"name":"password","label":"Password","type":"password","required":true}],
+  "success":{"page":"Contacts","kind":"root"},"cancel":false,"submitLabel":"Sign in"}}
+{"project":"<App>","name":"Contacts","kind":"list","title":"Contacts","sequence":"crud_list_contacts","home":"Contacts","authRedirect":"Login",
+ "list":{"items":"rows","item":"contact","title":"<field>","subtitle":"<field>","onItem":{"page":"ContactDetail","data":{"id":"id"}}}}
+{"project":"<App>","name":"ContactDetail","kind":"detail","title":"Contact","sequence":"crud_read_contact","params":["id"],"home":"Contacts","authRedirect":"Login",
+ "detail":{"record":"row","fields":[{"label":"Email","field":"<field>"}]}}
+{"project":"<App>","name":"Logout","kind":"logout","title":"Sign out","sequence":"auth_logout","home":"Contacts","logout":{"page":"Login"}}
+```
 
 ## Existing project edit rail
-If the target is already a deterministic CRUD project and the UI is already green, do not replay the new-project rail. Use `convertigo://resources/convertigo-crud-edit-fastpath` instead:
+If the target is already a deterministic CRUD project and its pages are already green, do not replay the new-project rail. Use `convertigo://resources/convertigo-crud-edit-fastpath` instead:
 1. Run `crud-status`.
 2. Build the full updated `spec`.
-3. Run `upsert-crud` with `sequence=true` and `ui=false`.
+3. Run `upsert-crud` with `sequence=true`.
 4. Run backend `crud-proof`.
-5. Run one `upsert-ngx-crud-kit stage=final`.
+5. Run `ngx-page-create` for each new page. A page to change: delete it and create it again, or patch it with `databaseobject-tree-apply`.
 6. Run `mobile-builder-open(stateOnly=true, wait=true)`.
-7. Run final `crud-proof(expectUiShell=true, viewerUrl=...)`.
+7. Run `project-lint`, then `browser-verify` on the changed paths.
 8. Save with `project-save` if needed, then stop.
 
 Do not:
-- rerun `stage=bootstrap`
+- import the starter again or create again a page that did not change
 - patch `init_schema` manually
 - grep the local workspace just to rediscover `relations[]`, `ui.relationFields`, or `seed.data`
 - normalize `project-reload` into the edit rail
 
 ## Proof contract
-`crud-proof` is sufficient when all of these hold:
+`crud-proof` proves the backend when all of these hold:
 - `status` is `success`
 - `missing` is empty
 - `transactions.missing` is empty
 - `sequences.missing` is empty when business sequences are expected
 - proof requestables report `ok=true`
-- when `expectUiShell=true`, `ui.visibleShellPresent == true`
-- when `expectUiShell=true`, `ui.starterDominant == false`
-- when a `viewerUrl` is provided, `ui.viewerProbe.ok == true`
+
+Do not pass `expectUiShell` to `crud-proof`: its UI checks look for the pages of an older UI generator. The pages are proven by `project-lint` without error and a `browser-verify` verdict `passed`.
 
 ## Example proof requestables
 For the default `Contact` / `Company` fast path:
@@ -113,7 +117,7 @@ For the default `Contact` / `Company` fast path:
 
 For a generic many-to-one relation such as `employees.company_id -> companies.id`:
 - declare the relation in `spec.relations[]`
-- optionally configure the UI through `entities[].ui.relationFields.company_id`
+- optionally choose the label field through `entities[].ui.relationFields.company_id.optionLabelField`
 - expect the backend to expose `company_id__label` in `list_employees` / `read_employee`
 - expect a derived CRUD business sequence such as `list_employees_by_company`
 
@@ -160,10 +164,8 @@ For a generic many-to-one relation such as `employees.company_id -> companies.id
       "ui": {
         "relationFields": {
           "company_id": {
-            "control": "select",
             "optionLabelField": "name",
-            "optionValueField": "id",
-            "placeholder": "Select company"
+            "optionValueField": "id"
           }
         }
       }
@@ -228,22 +230,16 @@ For a generic many-to-one relation such as `employees.company_id -> companies.id
       "ui": {
         "relationFields": {
           "region_id": {
-            "control": "select",
             "optionLabelField": "name",
-            "optionValueField": "id",
-            "placeholder": "Select region"
+            "optionValueField": "id"
           },
           "primary_type_id": {
-            "control": "select",
             "optionLabelField": "name",
-            "optionValueField": "id",
-            "placeholder": "Select primary type"
+            "optionValueField": "id"
           },
           "secondary_type_id": {
-            "control": "autocomplete",
             "optionLabelField": "name",
-            "optionValueField": "id",
-            "placeholder": "Select optional secondary type"
+            "optionValueField": "id"
           }
         }
       }
@@ -273,9 +269,9 @@ For a generic many-to-one relation such as `employees.company_id -> companies.id
 - Do not route a standard CRUD task through planner/specialist handoffs first.
 - Do not let the agent rediscover CRUD scaffolding manually when `upsert-crud` already fits.
 - Do not let the agent rediscover `relations[]`, `ui.relationFields`, or `seed.data` manually once the public CRUD guides already document them.
-- Do not accept a run where the starter body is still dominant on the visible page.
+- Do not accept a run where the app still opens on the starter page.
 - Do not use RAG before the built-in CRUD tools and guides are exhausted.
-- Do not continue mutating the generated CRUD UI after the first green proof unless the user explicitly asked for more than the generic scaffold.
-- Do not patch CRUD-kit-managed shared components directly when `spec.relations[]`, `field.references`, `ui.listFields`, `ui.detailFields`, `ui.formFields`, or `ui.relationFields` can express the needed CRUD behavior.
+- Do not continue changing the pages after the first green proof unless the user explicitly asked for more than the generic scaffold.
+- Do not compose by hand a list, detail, form, dashboard or logout page that `ngx-page-create` can build.
 - Do not patch `init_schema` manually just to inject better demo rows when `seed.data` can express them in the spec.
 - Do not expose generated CRUD business sequences as public requestables; keep the hidden/authenticated contract and customize the generated auth skeleton instead.

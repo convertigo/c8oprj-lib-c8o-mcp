@@ -389,9 +389,9 @@ On the first pass, build the smallest shell that already looks like the requeste
 This first shell is intentionally repetitive. It should be built almost mechanically from the recipe for common CRUD/list pages.
 Once backend proof exists, the second pass replaces the placeholder surface with one real bound count, value, or repeated item.
 
-### Literal fast-path template
-For starter-derived apps, use `convertigo://resources/convertigo-fast-path-ngx-entry-shell` as the default first-pass template.
-Do not redesign the first visible shell from scratch when that template already matches the task.
+### Generated pages
+For a list, detail, form, dashboard or logout page, use `ngx-page-create` first (`convertigo://resources/convertigo-recipe-multipage-app`).
+Do not build such a page from scratch when the generator already matches the task.
 
 ### Canonical state model
 For a typical page-local state, keep explicit flags:

@@ -15,7 +15,7 @@ Do not use it for standard SQL CRUD + starter NGX UI work; use `convertigo-crud-
 - `convertigo://resources/convertigo-fast-path-sql-postgresql` when the task uses PostgreSQL
 - `convertigo://resources/convertigo-fast-path-sql-mariadb` when the task uses MariaDB Docker
 - `convertigo://resources/convertigo-crud-practical-cases` when the task is a standard starter NGX + SQL CRUD flow
-- `convertigo://resources/convertigo-fast-path-ngx-entry-shell` when the task includes visible UX
+- `convertigo://resources/convertigo-recipe-multipage-app` when the task includes visible UX (pages built with `ngx-page-create`)
 - `convertigo://resources/convertigo-recipe-http-business-sequence` when the task obviously calls an HTTP-backed source
 - `convertigo://resources/convertigo-recipe-sql-crud` when the task obviously calls for SQL-backed CRUD
 - `convertigo://resources/convertigo-recipe-ngx-data-page` when the task includes visible UX
@@ -57,13 +57,13 @@ Do not use it for standard SQL CRUD + starter NGX UI work; use `convertigo-crud-
    - never call `project-reload` on the active MCP server project; use `project-save` there
 10. Save with `project-save` after the proof passes.
 11. If the task includes UX, tell the frontend specialist to start `mobile-builder-open(wait=false)` early so the app opens in Studio while work is progressing, then use a waited/state-only call before final proof and Playwright/browser-control MCP only when that result reports `browserControlReady:true`. If `browserControlTargetUrl` is `about:blank`, the Studio loader is still building and the specialist must keep polling. If those MCP browser tools are unavailable, disabled, stale, or attached elsewhere, report the managed Playwright MCP configuration problem instead of using Node scripts, raw CDP, or a separate browser.
-12. If the task includes UX, require the frontend specialist to replace the starter/default page content with a visible shell on the first pass:
+12. If the task includes UX, require the frontend specialist to make the app open on a page of the feature on the first pass, built with `ngx-page-create` when it is a list, detail, form, dashboard or logout page:
    - real page title or header
    - at least one visible section tied to the target feature
    - at least one contract-shaped data slot, card, or list container ready to host the agreed public business sequence fields
    - explicit loading, empty, or retry state bound to the agreed contract or stub
-   - when the run starts from a starter-derived NGX project, the first frontend pass must mutate the actual visible entry page subtree and remove or replace the dominant starter body such as `WelcomeCard`
-   The default starter page must not remain the dominant visible content while backend work is still running.
+   - when the run starts from a starter-derived NGX project, the first frontend pass makes its entry page the root (`root:true`) and deletes the starter page `Page`
+   The starter page must not remain the page the app opens on while backend work is still running.
 13. For UX work, split frontend delivery into two explicit passes whenever live backend proof is not ready yet:
    - `phase 1`: visible shell now, using the stable contract or stub shape, without waiting for final SQL/backend proof
    - `phase 2`: bind one real datum, count, or repeated item from the live public business sequence, then collect builder/browser evidence
@@ -82,23 +82,23 @@ Do not use it for standard SQL CRUD + starter NGX UI work; use `convertigo-crud-
 22. For common SQL/list/dashboard demos, prefer a recipe-first execution style over fresh exploration:
    - planner: lock contract, stub, and work split fast
    - sql/backend: use the standard bootstrap/list/count business sequence path first
-   - frontend: make the visible shell on the real entry page first, even if it is initially contract-shaped and loading-focused, then schedule the live-binding pass as soon as backend proof exists
+   - frontend: make the entry page with `ngx-page-create` first, even if it is initially contract-shaped and loading-focused, then schedule the live-binding pass as soon as backend proof exists
 23. For common SQL/list/dashboard demos, force named fast paths in the work split:
    - SQL: `embedded-hsqldb` or `mariadb-docker`
-   - frontend: `starter-entry-page-replacement`
-24. On those fast-path demos, tell specialists to use the literal template resource first:
+   - frontend: `ngx-page-create`
+24. On those fast-path demos, tell specialists to use the literal template resource or generator first:
    - SQL specialists copy the selected SQL fast-path connector/tree and SQL skeleton before improvising
-   - frontend specialists copy the `starter-entry-page-replacement` first-write shell before any palette exploration
+   - frontend specialists create the pages with `ngx-page-create` before any palette exploration
 25. When the task is a standard CRUD path, prefer the deterministic MCP tools instead of specialist free-form construction:
    - `upsert-crud` for connector + CRUD transactions + public sequences
-   - `upsert-ngx-crud-kit` for the first visible CRUD/dashboard shell, generated as local shared components plus a page assembled via `UIUseShared`
+   - `ngx-page-create` for each page (list, detail, form, dashboard, logout) on the generated business sequences, after `ngx-theme-apply` when the user gave a brand
    - `crud-status` to verify the state between passes
 26. Require specialist outputs to declare both `Primary Target` and `Fast-Path Used`.
 27. Verify specialist work against the declared `Primary Target`, not against a stale placeholder qname or the original stub target.
-28. When a known SQL or NGX fast path is selected, use `resources/templates/list` plus `resources/read` to retrieve the exact template guide instead of paraphrasing it from memory.
+28. When a known SQL fast path is selected, use `resources/templates/list` plus `resources/read` to retrieve the exact template guide instead of paraphrasing it from memory.
 29. When the task is a standard starter NGX + SQL CRUD case, prefer the exact practical order from `convertigo-crud-practical-cases` over an improvised planner breakdown.
 29. For SQL, the valid `Primary Target` is the connector qname actually created or repaired, not the public business sequence requestable.
-30. For `frontend-ngx`, the valid `Primary Target` is the visible entry page content subtree, normally `<PROJECT>.Application.NgxApp.Page.Content`.
+30. For `frontend-ngx`, the valid `Primary Target` is the page the specialist built or changed, normally the entry page `<PROJECT>.Application.NgxApp.<Page>`.
 
 ## Interactive contract
 - End every interactive turn with exactly one `<interactive_state>...</interactive_state>` block.

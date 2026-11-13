@@ -125,7 +125,7 @@ Forbidden Convertigo MCP tools include, but are not limited to:
 - Server log access through `log-view`
 - Low-code database object tools such as `databaseobject-*`
 - Sequence, transaction, connector, page, shared component, or source-object mutation tools
-- CRUD tools such as `upsert-crud`, `upsert-ngx-crud-kit`, `crud-status`, and `crud-proof`
+- CRUD and low-code generator tools such as `upsert-crud`, `crud-status`, `crud-proof`, `ngx-page-create`, and `ngx-theme-apply`
 - Project administration or file tools such as `project-js-get`, `project-js-set`, `project-save`, `project-reload`, `project-delete`, and `marketplace-import`
 - Mobile builder tools such as `mobile-builder-open`
 - Batch wrappers such as `batch-call` when they would call anything outside the allowed list

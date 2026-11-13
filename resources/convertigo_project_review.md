@@ -156,6 +156,7 @@ Always check:
 - disabled nodes
 - pages that centralize too much orchestration
 - duplicated shared components or near-clones
+- shared components and project references that nothing uses (`project-lint` reports them: NGX-UNUSED-SHARED-COMPONENT, PROJECT-UNUSED-REFERENCE)
 - old project names still present in SmartSources or disabled branches
 
 ### Frontend doctrine

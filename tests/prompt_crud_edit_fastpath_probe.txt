@@ -19,15 +19,15 @@ Required workflow:
 3. Run `upsert-crud` with the exact updated spec above.
 4. Run backend `crud-proof`.
 5. If backend proof fails, stop with `RESULT: FAIL`.
-6. If the task includes UI, run exactly one `upsert-ngx-crud-kit` with `stage=final`.
-7. Run `mobile-builder-open`.
-8. Run final `crud-proof` with `expectUiShell=true` and the live `viewerUrl`.
+6. If the task includes UI, run `ngx-page-create` once per new page (a new entity: its list, detail and form pages, with `home` and `authRedirect`).
+7. Run `mobile-builder-open(stateOnly=true, wait=true)`.
+8. Run `project-lint`, then `browser-verify` on the changed paths with the live `viewerHomeUrl`.
 9. Save the project if a final save is still needed.
-10. Stop after the first successful final proof.
+10. Stop after the first passed browser proof.
 
 Do not:
 - run `marketplace-import`
-- run `upsert-ngx-crud-kit stage=bootstrap`
+- create again a page that did not change
 - patch `init_schema` manually
 - run `project-reload`
 - start a second refinement pass

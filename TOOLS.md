@@ -33,11 +33,12 @@ For a new CRUD UI project, the current public rail is:
 2. `mobile-builder-open`
 3. `upsert-crud`
 4. backend `crud-proof`
-5. `upsert-ngx-crud-kit stage=bootstrap`
-6. `mobile-builder-open`
-7. `upsert-ngx-crud-kit stage=final`
-8. final `crud-proof(viewerUrl)`
-9. `project-save`
+5. `ngx-theme-apply` when the user gave a brand
+6. one `ngx-page-create` per page (the entry page with `root:true`)
+7. `mobile-builder-open(stateOnly=true, wait=true)`
+8. `project-lint`
+9. `browser-verify`
+10. `project-save`
 
 ## Tools
 
@@ -98,7 +99,7 @@ For a new CRUD UI project, the current public rail is:
 | `scheduler-list` | `tools_scheduler_list` | List scheduled sequence runs | Lists the engine scheduler jobs, CRON schedules and scheduled jobs, optionally for one project. Read-only. |
 | `subagent-run` | `tools_subagent_run` | Hand a piece of work to a sub-agent with a fresh context | Starts a sub-agent with a profile, a task, its inputs and the report wanted, on its own model with its own limits (turns, time, gateway cost), and returns a short report; its context is then thrown away. Profiles: `verifier` (functional and visual browser proofs on the Studio viewer with a vision model, read-only; `browser-verify` is the same with flat arguments) and `constructor` (a Mistral Vibe session on glm-5-3 builds one lot in one project through the Convertigo MCP with the caller's bearer, proves and saves it, and reports the QNames it created and modified; one at a time per project, and the MCP refuses other writes to that project while it runs). A call answers within 45 s of its start, preparation included (Vibe and Codex stop a tool call at 60 s); a longer run answers status running with a runId and its latest activity (steps and what the sub-agent says it checks), to call again with. Runs live in `subagents/<runId>/` of the Studio user workspace (run.json, activity.jsonl, report.json, screenshots); usage.tool = "subagent-run" with profile and runId, summed per model and per sub-agent by the Agent Bridge. Profile models and limits can be set in `agents/convertigo/subagent-profiles.json`. Full MCP bearer required; not in NoCode. |
 | `upsert-crud` | `tools_upsert_crud` | Create or update deterministic CRUD scaffolding | Upserts a Convertigo SQL CRUD scaffold from a structured spec and can optionally expose public sequences and a visible NGX shell. Use the exact requested project name when it is valid; do not invent prefixes or date suffixes. If no seed profile is supplied, the default seed is realistic demo data. Entity specs may also define singular, plural, routeSegment, and displayLabel overrides when English inflection is not correct. |
-| `upsert-ngx-crud-kit` | `tools_upsert_ngx_crud_kit` | Create or update a deterministic NGX CRUD kit | Replaces the visible starter entry page content with a deterministic CRUD shell, staged bootstrap/final markers, shared actions, and global UI state. Prefer entity-pages for generic CRUD, keep dashboard only for compatibility, and use master-detail for the CRM rail. |
+| `upsert-ngx-crud-kit` | `tools_upsert_ngx_crud_kit` | Create or update a deterministic NGX CRUD kit | Hidden from the tool list; old projects only: build pages with ngx-page-create. |
 
 ## Resources
 
@@ -115,7 +116,6 @@ For a new CRUD UI project, the current public rail is:
 | `convertigo://resources/convertigo-crud-fastpath` | Convertigo CRUD Fast Path | Recommended mono-agent path for deterministic SQL CRUD plus starter NGX UI work. | workflow |
 | `convertigo://resources/convertigo-crud-practical-cases` | Convertigo CRUD Practical Cases | Copyable direct MCP flows for proving deterministic CRUD on fresh starter NGX projects. | workflow |
 | `convertigo://resources/convertigo-engineering-workflow` | Convertigo Engineering Workflow | Team practices for reviewable changes, validation discipline, evidence, and controlled RAG usage. | workflow |
-| `convertigo://resources/convertigo-fast-path-ngx-entry-shell` | Convertigo Fast Path NGX Entry Shell | Literal first-pass template for replacing starter entry content with a visible feature shell. | workflow |
 | `convertigo://resources/convertigo-fast-path-sql-hsqldb` | Convertigo Fast Path SQL HSQLDB | Literal first-pass template for an embedded HSQLDB connector with init/list/count proof. | workflow |
 | `convertigo://resources/convertigo-fast-path-sql-mariadb` | Convertigo Fast Path SQL MariaDB | Literal first-pass template for a MariaDB Docker connector with init/list/count proof. | workflow |
 | `convertigo://resources/convertigo-fast-path-sql-postgresql` | Convertigo Fast Path SQL PostgreSQL | Literal first-pass template for a PostgreSQL connector with init/list/count proof. | workflow |

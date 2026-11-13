@@ -173,6 +173,6 @@ comment: |
   description: Set true to create or update public CRUD sequences in addition to SQL transactions.
   value: true
 ↓ui [variables.RequestableVariable-1773318201018]: 
-  comment: Set true to also assemble the deterministic NGX CRUD kit on the visible entry page.
-  description: Set true to also assemble the deterministic NGX CRUD kit on the visible entry page.
+  comment: Retired, for old projects only (hidden from the tool schema); pages are built with ngx-page-create.
+  description: Retired, for old projects only (hidden from the tool schema); pages are built with ngx-page-create.
   value: false

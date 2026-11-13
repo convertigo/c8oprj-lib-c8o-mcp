@@ -1266,6 +1266,21 @@ C8O.marketplace.addReference = function (targetProjectName, libraryName, project
   return out;
 };
 
+// Removes a reference a tool added for a use that did not happen (a page that failed after its library was referenced):
+// the first PipelineCrm (12/11) kept a reference to lib_ExtendedComponents_ui_ngx it never used.
+C8O.marketplace.removeReference = function (targetProjectName, referenceName) {
+  var target = C8O.marketplace.resolveProject(targetProjectName);
+  if (target == null || !C8O.marketplace._trim(referenceName).length) {
+    return { removed: false };
+  }
+  if (typeof C8O.dbo.batchApply !== "function") {
+    include("js/databaseobject_batch.js");
+  }
+  var result = C8O.dbo.batchApply({ target: String(target.getName()), onError: "stop", autoSave: true, triggerMobileBuilder: false,
+    operations: [{ type: "delete", qname: String(target.getName()) + "." + C8O.marketplace._trim(referenceName) }] });
+  return { removed: !!result && result.status !== "failed" && !(result.errors && result.errors.length > 0) };
+};
+
 // The Mobile Builder writes the shared components of a library into an NGX app only when the app project is loaded:
 // after a new reference, a page using one failed to compile ("Could not resolve ../../components/<library>.<component>/...")
 // until the app was reloaded (Studio 8.4, 31/10). The app is saved, then reloaded, so the next build has them.

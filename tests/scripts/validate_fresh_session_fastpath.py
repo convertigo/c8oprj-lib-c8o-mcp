@@ -26,8 +26,10 @@ SESSION_ID_RE = re.compile(r"^session id:\s*([a-z0-9-]+)\s*$", re.IGNORECASE)
 POST_GREEN_MUTATING_TOOLS = {
     "marketplace-import",
     "upsert-crud",
-    "upsert-ngx-crud-kit",
+    "ngx-page-create",
+    "ngx-theme-apply",
     "databaseobject-tree-apply",
+    "databaseobject-delete",
     "batch-call",
     "requestable-execute",
     "project-delete",
@@ -323,7 +325,7 @@ def check_call_order(events):
         if event["server"] == "convertigo" and event["name"] == "mobile-builder-open"
     ]
     if len(mobile_builder_events) < 2:
-        raise RuntimeError("Run did not call mobile-builder-open twice (starter + post-bootstrap).")
+        raise RuntimeError("Run did not call mobile-builder-open twice (starter + after the pages).")
     workflow["starterViewer"] = mobile_builder_events[0]
     workflow["upsertCrud"] = require_event(
         events,
@@ -335,25 +337,38 @@ def check_call_order(events):
         lambda event: event["server"] == "convertigo" and event["name"] == "crud-proof" and not bool((event["args"] or {}).get("expectUiShell")),
         "Run never called backend crud-proof.",
     )
-    workflow["bootstrapUi"] = require_event(
-        events,
-        lambda event: event["server"] == "convertigo" and event["name"] == "upsert-ngx-crud-kit" and str((event["args"] or {}).get("stage") or "") == "bootstrap",
-        "Run never called upsert-ngx-crud-kit stage=bootstrap.",
-    )
+    page_events = [
+        event for event in events
+        if event["server"] == "convertigo" and event["name"] == "ngx-page-create"
+    ]
+    if not page_events:
+        raise RuntimeError("Run never called ngx-page-create.")
+    workflow["firstPage"] = page_events[0]
+    workflow["lastPage"] = page_events[-1]
+    root_page = first_event(page_events, lambda event: bool((event["args"] or {}).get("root")))
+    if not root_page:
+        raise RuntimeError("No ngx-page-create call made the entry page (root:true).")
     workflow["mobileBuilder"] = require_event(
         mobile_builder_events,
-        lambda event: event["line"] > workflow["bootstrapUi"]["line"],
-        "Run never called mobile-builder-open after stage=bootstrap.",
+        lambda event: event["line"] > workflow["lastPage"]["line"],
+        "Run never called mobile-builder-open after the last ngx-page-create.",
     )
-    workflow["finalUi"] = require_event(
+    workflow["lint"] = require_event(
         events,
-        lambda event: event["server"] == "convertigo" and event["name"] == "upsert-ngx-crud-kit" and str((event["args"] or {}).get("stage") or "") == "final",
-        "Run never called upsert-ngx-crud-kit stage=final.",
+        lambda event: event["server"] == "convertigo" and event["name"] == "project-lint" and event["line"] > workflow["lastPage"]["line"],
+        "Run never called project-lint after the pages.",
     )
-    workflow["finalProof"] = require_event(
-        events,
-        lambda event: event["server"] == "convertigo" and event["name"] == "crud-proof" and bool((event["args"] or {}).get("expectUiShell")),
-        "Run never called final crud-proof expectUiShell=true.",
+    verify_events = [
+        event for event in events
+        if event["server"] == "convertigo" and event["name"] == "browser-verify"
+    ]
+    if not verify_events:
+        raise RuntimeError("Run never called browser-verify.")
+    workflow["finalProof"] = verify_events[-1]
+    workflow["firstVerify"] = require_event(
+        verify_events,
+        lambda event: event["line"] > workflow["mobileBuilder"]["line"] and event["line"] > workflow["lint"]["line"],
+        "Run never called browser-verify after the build and project-lint.",
     )
 
     for key in ("capabilities", "fastPathGuide"):
@@ -383,14 +398,14 @@ def check_call_order(events):
     require_before(workflow["marketplaceImport"], workflow["starterViewer"], "The starter viewer was opened before marketplace-import.")
     require_before(workflow["starterViewer"], workflow["upsertCrud"], "upsert-crud happened before the starter viewer was opened.")
     require_before(workflow["upsertCrud"], workflow["backendProof"], "Backend crud-proof happened before upsert-crud.")
-    require_before(workflow["backendProof"], workflow["bootstrapUi"], "Bootstrap UI happened before backend proof.")
-    require_before(workflow["bootstrapUi"], workflow["mobileBuilder"], "mobile-builder-open happened before stage=bootstrap.")
-    require_before(workflow["mobileBuilder"], workflow["finalUi"], "Final UI apply happened before mobile-builder-open.")
-    require_before(workflow["finalUi"], workflow["finalProof"], "Final crud-proof happened before stage=final.")
+    require_before(workflow["backendProof"], workflow["firstPage"], "ngx-page-create happened before backend proof.")
+    require_before(workflow["lastPage"], workflow["mobileBuilder"], "mobile-builder-open happened before the last ngx-page-create.")
+    require_before(workflow["lastPage"], workflow["lint"], "project-lint happened before the last ngx-page-create.")
+    require_before(workflow["mobileBuilder"], workflow["firstVerify"], "browser-verify happened before the build of the pages.")
 
-    final_args = workflow["finalProof"]["args"] or {}
-    if not str(final_args.get("viewerUrl") or "").strip():
-        raise RuntimeError("Final crud-proof did not receive viewerUrl from mobile-builder-open.")
+    verify_args = workflow["firstVerify"]["args"] or {}
+    if not verify_args.get("paths"):
+        raise RuntimeError("browser-verify did not receive the user paths to walk.")
 
     upsert_spec = read_nested_spec((workflow["upsertCrud"]["args"] or {}).get("spec"))
     if not is_seed_enabled(upsert_spec):
@@ -406,7 +421,7 @@ def check_call_order(events):
     )
     if post_green_mutation:
         raise RuntimeError(
-            "Fresh session kept mutating the project after the first green final crud-proof: %s."
+            "Fresh session kept mutating the project after the last browser-verify: %s."
             % event_label(post_green_mutation)
         )
 
@@ -426,9 +441,9 @@ def compute_time_to_first_green(trace_events):
         if start_time is None and event.get("timestamp") is not None:
             start_time = event["timestamp"]
         name = str(event.get("name") or "")
-        if name in ("mcp__convertigo__crud-proof", "mcp__convertigo__crud_proof") and bool((event["args"] or {}).get("expectUiShell")):
+        # The last browser proof closes the run (a failed verdict is fixed and verified again).
+        if name in ("mcp__convertigo__browser-verify", "mcp__convertigo__browser_verify"):
             first_green_time = event.get("timestamp")
-            break
     if not start_time or not first_green_time:
         return None
     return int((first_green_time - start_time).total_seconds() * 1000)

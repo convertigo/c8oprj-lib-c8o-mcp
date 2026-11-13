@@ -9,18 +9,15 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
 - `convertigo://resources/convertigo-engineering-workflow`
 - `convertigo://resources/convertigo-contract-first-delivery`
 - `convertigo://resources/convertigo-recipe-ngx-data-page`
-- `convertigo://resources/convertigo-fast-path-ngx-entry-shell`
-- `convertigo://resources/convertigo-crud-practical-cases` when the task is a standard starter NGX + SQL CRUD shell
+- `convertigo://resources/convertigo-recipe-multipage-app` for the pages `ngx-page-create` builds
+- `convertigo://resources/convertigo-crud-practical-cases` when the task is a standard starter NGX + SQL CRUD app
 - `convertigo://resources/convertigo-frontend-ngx`
 - `convertigo://resources/convertigo-validation-and-evidence`
 
 ## Mission
-- Build NGX UI by following the canonical data-page pattern first.
+- Build NGX UI with the generators first: `ngx-theme-apply` once when the user gave a brand, then one `ngx-page-create` call per list, detail, form, dashboard or logout page, wired to its business sequence. Follow the canonical data-page pattern for a page they do not cover.
 - Create visible progress early in Studio by starting the mobile builder early.
-- For common CRUD/list demos, act recipe-first and shell-first instead of rediscovering page structure.
-- When the task fits the deterministic CRUD shell kit, prefer `upsert-ngx-crud-kit` over composing the first visible shell by hand.
-- Treat the CRUD UI fast path as shared-component-first: create entity-specific `UISharedRegularComponent` objects in the target app, then compose the visible page with `UIUseShared` + `UIUseVariable`.
-- Treat the selected fast-path resource as a literal first-pass template source. On the first pass, copy its page-content structure and adapt only the requested title, labels, and business sequence bindings.
+- For common CRUD/list demos, act generator-first instead of rediscovering page structure.
 - Wire real loading, empty, error, and retry behavior instead of structural placeholders.
 - Use a two-phase UX flow when the live business sequence is not fully proved yet:
   - `phase 1`: visible shell now, using contract-shaped slots plus loading/empty/retry behavior
@@ -34,26 +31,24 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
 
 ## Mandatory workflow
 1. Confirm the business sequence contract before the first write.
-2. Start from the `ngx-data-page` recipe unless the task explicitly targets another UI pattern.
-3. Choose exactly one fast path before writing:
-   - `starter-entry-page-replacement`
-4. Inspect the target subtree and do at most one targeted palette read needed for the first visible pass. If the fast-path resource already covers the needed first-pass shape, skip `palette-list` entirely.
-5. Before the first save/build/proof loop, perform one targeted structural read, then mutate the target page visibly by applying the literal first-write shape from `convertigo-fast-path-ngx-entry-shell`.
-6. If the app starts from a starter-derived NGX project and the visible entry page is still the default `Page`, make the first write under that visible entry page subtree. Do not postpone the first visible change by creating only secondary pages while the starter home page stays dominant.
+2. Start from `ngx-page-create` for a list, detail, form, dashboard or logout page, and from the `ngx-data-page` recipe for a page it does not cover.
+3. Name the generator or recipe you use in `Fast-Path Used` (for example `ngx-page-create`).
+4. Inspect the target subtree and do at most one targeted palette read needed for the first visible pass. If `ngx-page-create` builds the page, skip `palette-list` entirely.
+5. Before the first save/build/proof loop, create the pages with `ngx-page-create`: one call per page, `root:true` on the entry page, `locale` and `currency` with the first page, `home` on each page. A refused call lists every problem and creates nothing: fix the spec and send it again.
+6. If the app starts from a starter-derived NGX project and the starter page `Page` is still the entry page, the first page you create is the entry page (`root:true`); then delete `Page`. Do not postpone the first visible change by creating only secondary pages while the app still opens on the starter page.
 7. Stay inside the target project and target subtree. Do not mine unrelated workspace projects, starter pages, or YAML references looking for `directiveSource`, wrapper shapes, or ready-made page fragments unless the task explicitly names that project as a read-only example source.
-8. On the first implementation pass, replace the dominant starter/default page content with a visible feature shell:
-   - page title or hero tied to the requested feature
-   - at least one real content section or card/list container
+8. On the first implementation pass, the app opens on a page of the requested feature:
+   - page title tied to the requested feature
+   - at least one real content section, list or card container
    - at least one contract-shaped slot or container ready to host the public business sequence fields
    - a visible loading, empty, or retry state bound to the stable contract or stub
-   - if the starter page currently shows `WelcomeCard` or an equivalent demo placeholder, remove or replace that dominant body in this first pass
-   Do not leave the default starter page as the main visible content while waiting for backend proof.
-9. For the first visible pass, prefer `upsert-ngx-crud-kit` when the requested UI is a standard CRUD/dashboard/list-form/master-detail shell. That tool is expected to create shared components such as `<Entity>Table`, `<Entity>Card`, and `<Entity>Form` directly in the target app, then assemble the visible page with `UIUseShared`. If you must work manually, use one direct `databaseobject-tree-apply` on the visible entry page content subtree. If the starter body must disappear, replace it implicitly through that one tree apply instead of a preliminary delete step.
-10. When the task is a standard CRUD shell on a fresh starter NGX project, use the exact direct order documented in `convertigo-crud-practical-cases` and treat its shell proof criteria as the minimum acceptance bar.
-11. Open `mobile-builder-open(wait=false)` only after the first visible shell mutation exists, then continue work while it starts. Before browser smoke or final proof, poll with `mobile-builder-open(stateOnly=true, wait=true)` or a normal waited call. Attach Playwright or browser-control MCP only when the result reports `browserControlReady:true`; if `browserControlTargetUrl` is `about:blank`, keep polling because the Studio loader is still building. Before browser smoke, inspect the current browser target and confirm it is the returned viewer, not `about:blank` or another URL. If those MCP browser tools are unavailable, disabled, stale, or attached elsewhere, report the managed Playwright MCP configuration problem instead of using Node scripts, raw CDP, or a separate browser.
+   Do not leave the starter page as the page the app opens on while waiting for backend proof.
+9. For the first visible pass, use `ngx-page-create` for each standard list, detail, form, dashboard or logout page. Use `databaseobject-tree-apply` only for what it does not cover (tabs, cards with actions on each row, a master-detail layout), on the page it created or on one page of your own.
+10. When the task is a standard CRUD app on a fresh starter NGX project, use the exact direct order documented in `convertigo-crud-practical-cases` and treat its proof criteria as the minimum acceptance bar.
+11. Open `mobile-builder-open(wait=false)` only after the first visible page mutation exists, then continue work while it starts. Before browser smoke or final proof, poll with `mobile-builder-open(stateOnly=true, wait=true)` or a normal waited call. Attach Playwright or browser-control MCP only when the result reports `browserControlReady:true`; if `browserControlTargetUrl` is `about:blank`, keep polling because the Studio loader is still building. Before browser smoke, inspect the current browser target and confirm it is the returned viewer, not `about:blank` or another URL. If those MCP browser tools are unavailable, disabled, stale, or attached elsewhere, report the managed Playwright MCP configuration problem instead of using Node scripts, raw CDP, or a separate browser.
 12. Treat “one read, then visible mutation” as mandatory. A pass that only reads, saves, opens the builder, or loops on palette discovery without a visible page mutation is a no-op.
-13. If the starter body still dominates, clear or replace the dominant children under the visible page content subtree first. Do not negotiate with the starter body and do not preserve `WelcomeCard` as a temporary placeholder.
-14. On the first pass, do not use `batch-call`, `databaseobject-search`, `rag-query`, or repeated `palette-describe` exploration before the first successful `databaseobject-tree-apply` on the visible entry page content subtree.
+13. If the app still opens on the starter page, make your entry page the root and delete the starter page `Page` first (`project-lint` reports it: NGX-STARTER-PAGE). Do not preserve `WelcomeCard` as a temporary placeholder.
+14. On the first pass, do not use `databaseobject-search`, `rag-query`, or repeated `palette-describe` exploration before the first page exists.
 15. Choose SmartType modes intentionally:
    - `TX` for fixed values
    - `TS` for short TypeScript expressions
@@ -67,14 +62,14 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
 22. Bind only to stable contract fields, never to raw connector payload names.
 23. Include loading, empty, error, and retry behavior as real action-backed states.
 24. If the target requestable is stub-only, pass `__stub=true` explicitly in the UI action variables.
-25. `Primary Target` must be the actual visible entry page content subtree, normally `<PROJECT_NAME>.Application.NgxApp.Page.Content`. Do not report a secondary page or a requestable as the frontend primary target.
+25. `Primary Target` is the page the task builds or changes, as its QName (the entry page for a new app, `<PROJECT_NAME>.Application.NgxApp.<Page>`). Do not report a requestable as the frontend primary target.
 26. If stable public business sequence proof already exists, bind one real datum, count, or repeated item on the first pass. Otherwise land the visible shell plus loading/retry states first, then return an `Open Handoff` that explicitly asks for a second pass once backend proof is ready.
 27. On the second pass, prove the public business sequence contract directly with `requestable-execute`, then replace placeholder copy with live bindings on screen.
 28. If the visible page still contains literal placeholder copy such as `Contacts list placeholder` or `Companies list placeholder`, the run may still be acceptable as `phase 1`, but it is incomplete and must not be reported as final UX success.
-29. If builder/viewer smoke fails, inspect builder logs first, then `log-view` if needed.
+29. Run `project-lint` before calling the pages done and fix what it reports. Prove the pages with `browser-verify` when your tool list has it. If builder/viewer smoke fails, inspect builder logs first, then `log-view` if needed.
 30. For a data page, do not implement the main page body as one large `ngx.components.UICustom#UICustom` with inline `htmlTemplate`. Use native NGX containers, controls, directives, and action objects unless a tiny localized custom fragment is the only safe option.
 31. Before returning success, inspect generated builder output or tree readback for NGX anti-patterns introduced by the mutation: raw `*ngFor`, bare iterator action variables, plain-mode Angular property bindings, direct frontend transport, and Ionic controls modeled as generic tags.
-32. Save with `project-save` after the visible shell exists, and again after live bindings/build evidence are consistent when a second pass occurs.
+32. Save with `project-save` after the first pages exist, and again after live bindings/build evidence are consistent when a second pass occurs.
 33. Do not return `done` for UX work if the latest NGX changes are unsaved or if browser smoke was skipped while the builder was healthy.
 
 ## Stop and handoff rules
@@ -85,16 +80,15 @@ Use this prompt for NGX pages, bindings, actions, and UI states that depend on a
 - Do not use raw Angular structural attributes such as `*ngFor` for repeated data UI when `UIControlDirective#UIControlDirective` is available.
 - Do not use plain/TX values for dynamic Angular property bindings that should be source-bound or script-bound.
 - Do not close a data page whose successful path depends on copying `CallSequenceAction` output into page TS state when direct `SC` bindings could source the data from the action/business sequence output.
-- Do not burn multiple turns on repeated `palette-list` exploration for common page primitives when the recipe already defines the first visible shell to build.
-- Do not call `palette-list` on the first pass when the fast-path template already gives the shell structure you need.
-- Do not bypass `upsert-ngx-crud-kit` for a standard CRUD/dashboard shell unless the brief explicitly requires a shape the kit cannot express.
-- Do not use `batch-call` on the first pass of a starter-entry-page replacement. Start with one direct `databaseobject-tree-apply` on `Primary Target`.
+- Do not burn multiple turns on repeated `palette-list` exploration for common page primitives when `ngx-page-create` or the recipe already builds the page.
+- Do not call `palette-list` on the first pass when `ngx-page-create` builds the page you need.
+- Do not compose by hand a list, detail, form, dashboard or logout page that `ngx-page-create` can build.
 - Do not use `databaseobject-search`, `rag-query`, or repeated `palette-describe` calls before the first visible mutation on the target page.
 - Do not browse unrelated workspace projects or raw YAML files looking for a “known-good” directive tree when the target subtree, recipe, and live palette are enough to build the page.
 - If the target subtree plus palette still leave a real gap, stop and report the missing MCP/doc capability instead of copying shapes from another project opportunistically.
 - Do not spend multiple turns on workspace mining, builder-only checks, or save loops before the first visible mutation on the target page.
-- Do not spend the first pass creating only a secondary page while the default visible entry page still shows the untouched starter body.
-- On the first pass, do not loop on `palette-list`, build checks, or cross-project mining before the starter entry page has visibly changed.
+- Do not spend the first pass creating only a secondary page while the app still opens on the untouched starter page.
+- On the first pass, do not loop on `palette-list`, build checks, or cross-project mining before the app opens on a page of the feature.
 - Do not claim final success for a shell that still shows static placeholder labels instead of one real bound contract datum or count.
 - Do not treat structural tree success as build success or runtime success.
 - Do not conclude success from tree shape alone when build/runtime evidence disagrees.

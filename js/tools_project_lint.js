@@ -863,6 +863,93 @@ if (typeof include === "function") {
     return out;
   }
 
+  // The sources of a project as texts: c8oProject.yaml without its reference declarations, the YAML files of _c8oProject
+  // and the scripts of js/. A library the project uses is named in them (a sequence or transaction it calls, a shared
+  // component or action it binds, a script it includes); its reference declaration alone is not a use.
+  C8O.lint.stripReferenceDeclarations = function (yaml) {
+    var out = [];
+    var skipIndent = -1;
+    String(yaml || "").split("\n").forEach(function (line) {
+      var indent = line.length - line.replace(/^\s+/, "").length;
+      if (skipIndent >= 0) {
+        if (line.trim().length && indent <= skipIndent) {
+          skipIndent = -1;
+        } else {
+          return;
+        }
+      }
+      if (/\[references\.\w+/.test(line)) {
+        skipIndent = indent;
+        return;
+      }
+      out.push(line);
+    });
+    return out.join("\n");
+  };
+
+  C8O.lint.readProjectSources = function (project) {
+    var texts = [];
+    var read = function (file) {
+      return String(new java.lang.String(java.nio.file.Files.readAllBytes(file.toPath()), "UTF-8"));
+    };
+    try {
+      var dirPath = String(project.getDirPath());
+      var main = new java.io.File(dirPath, "c8oProject.yaml");
+      if (main.isFile()) {
+        texts.push(C8O.lint.stripReferenceDeclarations(read(main)));
+      }
+      (function walk(dir, depth) {
+        var list = dir.isDirectory() ? dir.listFiles() : null;
+        for (var i = 0; list && i < list.length && texts.length < 2000; i++) {
+          if (list[i].isDirectory()) {
+            if (depth < 6) {
+              walk(list[i], depth + 1);
+            }
+          } else if (/\.yaml$/.test(String(list[i].getName())) && Number(list[i].length()) <= 4194304) {
+            texts.push(read(list[i]));
+          }
+        }
+      })(new java.io.File(dirPath, "_c8oProject"), 0);
+    } catch (_ignoreSources) {}
+    C8O.lint.readProjectJs(project).forEach(function (file) {
+      texts.push(file.text);
+    });
+    return texts;
+  };
+
+  // The project references nothing in the project uses: refs [{dbo, name}], texts its sources, keep {name: why} the
+  // references that stay (the NGX template of the app, a library another referenced library needs). The first PipelineCrm
+  // (12/11) referenced lib_ExtendedComponents_ui_ngx and used none of it.
+  C8O.lint.unusedReferences = function (refs, texts, keep) {
+    var all = (texts || []).join("\n");
+    return (refs || []).filter(function (ref) {
+      var name = String(ref.name || "");
+      if (!name.length || (keep && keep[name.toLowerCase()])) {
+        return false;
+      }
+      var escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return !new RegExp("(^|[^A-Za-z0-9_])" + escaped + "([^A-Za-z0-9_]|$)").test(all);
+    });
+  };
+
+  // The shared components of an app that no UIUseShared binds: comps [{dbo, name, qname}], uses the sharedcomponent
+  // QNames of the project's UIUseShared. A library's components are for the apps that reference it: not reported there.
+  C8O.lint.unusedSharedComponents = function (appName, comps, uses) {
+    var used = {};
+    (uses || []).forEach(function (q) {
+      used[String(q)] = true;
+    });
+    return (comps || []).filter(function (c) {
+      if (used[c.qname]) {
+        return false;
+      }
+      var suffix = "." + c.name;
+      return !Object.keys(used).some(function (q) {
+        return q.indexOf(appName + ".") === 0 && q.length > suffix.length && q.substring(q.length - suffix.length) === suffix;
+      });
+    });
+  };
+
   C8O.lint.run = function (projectName, options) {
     var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(String(projectName || ""));
@@ -1305,11 +1392,22 @@ if (typeof include === "function") {
     var queue = [project];
     // The page or shared component each queued object sits in.
     var queueViews = [null];
+    // The app's shared components and the shared components its UIUseShared bind.
+    var sharedComponents = [];
+    var sharedUses = [];
     while (queue.length) {
       var dbo = queue.shift();
       var view = queueViews.shift();
       scanned++;
       var className = simpleClassName(dbo);
+      if (className === "UIUseShared") {
+        var sharedUse = str(call(dbo, "getSharedComponentQName")).trim();
+        if (sharedUse.length) {
+          sharedUses.push(sharedUse);
+        }
+      } else if (className === "UISharedRegularComponent" || className === "UISharedComponent") {
+        sharedComponents.push({ dbo: dbo, name: String(dbo.getName()), qname: str(call(dbo, "getQName")) || qnameOf(dbo) });
+      }
       var docKind = className === "PageComponent" ? "page" : (/Connector$/.test(className) ? "connector" :
         (/Transaction$/.test(className) ? "transaction" : (/Sequence$/.test(className) && className !== "Sequence" ? "sequence" : "")));
       if (docKind.length) {
@@ -1420,6 +1518,65 @@ if (typeof include === "function") {
           (fallbacks.length > 1 ? " Keep one page with the segment ** only." : ""));
       }
     });
+
+    // A shared component of the app that no page nor component uses: built for nothing, and a reader takes it for part of
+    // the app. A library's components are for the apps that reference it.
+    var referencedByOthers = false;
+    try {
+      var names = Engine.theApp.databaseObjectsManager.getAllProjectNamesList();
+      for (var pn = 0; names && pn < names.size() && !referencedByOthers; pn++) {
+        var other = String(names.get(pn));
+        if (other !== appName) {
+          var otherProject = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(other);
+          referencedByOthers = !!(otherProject && referencedProjects(otherProject)[appName.toLowerCase()]);
+        }
+      }
+    } catch (_noProjectList) {}
+    // A lib_ project is a library by its name, even when the project list cannot be read.
+    if (appComponent && pages.length && !referencedByOthers && !/^lib_/i.test(appName)) {
+      C8O.lint.unusedSharedComponents(appName, sharedComponents, sharedUses).forEach(function (c) {
+        add("NGX-UNUSED-SHARED-COMPONENT", "warning", c.dbo, "The shared component " + c.name + " is used by no page nor component of the app " +
+          "(no UIUseShared binds it): it is built for nothing, and whoever maintains the app takes it for a part of it.",
+          "Delete it (databaseobject-delete " + c.qname + "), or bind it where it belongs with a UIUseShared. Pages are built with ngx-page-create.");
+      });
+    }
+
+    // A project reference nothing uses: the engine loads the library for nothing, and a reader looks for what needs it.
+    // The NGX template of the app and a library that another referenced library needs stay.
+    try {
+      var refList = project.getReferenceList();
+      var refs = [];
+      var keep = {};
+      var tpl = appComponent ? str(call(appComponent, "getTplProjectName")).trim() : "";
+      if (tpl.length) {
+        keep[tpl.toLowerCase()] = true;
+      }
+      for (var ri = 0; ri < refList.size(); ri++) {
+        var refParser = call(refList.get(ri), "getParser");
+        var refName = refParser ? str(call(refParser, "getProjectName")).trim() : "";
+        if (refName.length) {
+          refs.push({ dbo: refList.get(ri), name: refName });
+        }
+      }
+      refs.forEach(function (ref) {
+        var lib = null;
+        try {
+          lib = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(ref.name);
+        } catch (_notLoaded) {
+          lib = null;
+        }
+        Object.keys(lib ? referencedProjects(lib) : {}).forEach(function (n) {
+          keep[n] = true;
+        });
+      });
+      if (refs.length) {
+        C8O.lint.unusedReferences(refs, C8O.lint.readProjectSources(project), keep).forEach(function (ref) {
+          add("PROJECT-UNUSED-REFERENCE", "warning", ref.dbo, "The project references " + ref.name + " but nothing in it uses it: no sequence, " +
+            "transaction, page, shared component, action or script names it. The engine loads the library for nothing.",
+            "Delete the reference (databaseobject-delete " + qnameOf(ref.dbo) + "), unless this lot is about to use the library.");
+        });
+      }
+    } catch (_noReferences) {}
 
     C8O.lint.controlLabelFindings(i18nTextCount, i18n.files, plainControlLabels).forEach(function (f) {
       add(f.rule, "warning", f.dbo, f.message, f.fix);

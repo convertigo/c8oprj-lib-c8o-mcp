@@ -5,7 +5,7 @@
     "title": "Convertigo MCP Quickstart",
     "description": "Bootstrap guide selection and route standard SQL CRUD + starter NGX work to the fast path.",
     "promptId": "convertigo/quickstart",
-    "revision": 7,
+    "revision": 8,
     "roleId": "bootstrap",
     "modelProfile": "balanced",
     "scopeTags": [
@@ -55,7 +55,7 @@
     "title": "Convertigo CRUD Fast Path",
     "description": "Recommended mono-agent rail for deterministic SQL CRUD plus starter NGX UI work.",
     "promptId": "convertigo/crud-fastpath",
-    "revision": 2,
+    "revision": 3,
     "roleId": "crud-fastpath",
     "modelProfile": "balanced",
     "scopeTags": [
@@ -78,7 +78,7 @@
       "mobile-builder-open",
       "upsert-crud",
       "crud-proof",
-      "upsert-ngx-crud-kit",
+      "ngx-page-create",
       "project-save"
     ],
     "handoffTo": [
@@ -141,7 +141,7 @@
     "title": "Convertigo Planner",
     "description": "Contract-first planner for non-fast-path Convertigo work.",
     "promptId": "convertigo/planner",
-    "revision": 10,
+    "revision": 11,
     "roleId": "planner",
     "modelProfile": "high",
     "scopeTags": [
@@ -161,7 +161,7 @@
       "convertigo/fast-path-sql-hsqldb@4",
       "convertigo/fast-path-sql-postgresql@1",
       "convertigo/fast-path-sql-mariadb@3",
-      "convertigo/fast-path-ngx-entry-shell@4",
+      "convertigo/recipe-multipage-app@28",
       "convertigo/recipe-ngx-data-page@4",
       "convertigo/backend-sequences@1",
       "convertigo/validation-and-evidence@1"
@@ -170,13 +170,12 @@
       "embedded-hsqldb",
       "postgresql-service",
       "mariadb-docker",
-      "starter-entry-page-replacement"
+      "ngx-page-create"
     ],
     "templateRefs": [
       "convertigo/fast-path-sql-hsqldb@4",
       "convertigo/fast-path-sql-postgresql@1",
-      "convertigo/fast-path-sql-mariadb@3",
-      "convertigo/fast-path-ngx-entry-shell@4"
+      "convertigo/fast-path-sql-mariadb@3"
     ],
     "recommendedTools": [
       "project-list",
@@ -186,7 +185,7 @@
       "databaseobject-tree-get",
       "databaseobject-tree-apply",
       "upsert-crud",
-      "upsert-ngx-crud-kit",
+      "ngx-page-create",
       "resources/templates/list",
       "resources/read",
       "requestable-execute",
@@ -381,7 +380,7 @@
     "title": "Convertigo Frontend NGX Specialist",
     "description": "NGX page and binding specialist working against a stable backend business sequence contract.",
     "promptId": "convertigo/frontend-ngx",
-    "revision": 8,
+    "revision": 9,
     "roleId": "frontend-ngx",
     "modelProfile": "fast",
     "scopeTags": [
@@ -396,20 +395,18 @@
       "convertigo/engineering-workflow@1",
       "convertigo/contract-first-delivery@2",
       "convertigo/recipe-ngx-data-page@4",
-      "convertigo/fast-path-ngx-entry-shell@4",
+      "convertigo/recipe-multipage-app@28",
       "convertigo/frontend-ngx@1",
       "convertigo/authentication@1",
       "convertigo/validation-and-evidence@1"
     ],
     "fastPathRefs": [
-      "starter-entry-page-replacement"
+      "ngx-page-create"
     ],
-    "templateRefs": [
-      "convertigo/fast-path-ngx-entry-shell@4"
-    ],
+    "templateRefs": [],
     "recommendedTools": [
       "crud-status",
-      "upsert-ngx-crud-kit",
+      "ngx-page-create",
       "databaseobject-tree-get",
       "databaseobject-tree-apply",
       "resources/templates/list",

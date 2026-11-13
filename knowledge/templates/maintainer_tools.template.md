@@ -32,11 +32,12 @@ For a new CRUD UI project, the current public rail is:
 2. `mobile-builder-open`
 3. `upsert-crud`
 4. backend `crud-proof`
-5. `upsert-ngx-crud-kit stage=bootstrap`
-6. `mobile-builder-open`
-7. `upsert-ngx-crud-kit stage=final`
-8. final `crud-proof(viewerUrl)`
-9. `project-save`
+5. `ngx-theme-apply` when the user gave a brand
+6. one `ngx-page-create` per page (the entry page with `root:true`)
+7. `mobile-builder-open(stateOnly=true, wait=true)`
+8. `project-lint`
+9. `browser-verify`
+10. `project-save`
 
 ## Tools
 
