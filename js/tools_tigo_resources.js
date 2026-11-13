@@ -35,60 +35,43 @@ include(
       .relativize(resourceSource)
   )
 );
-var resourceAction = String(action || "list"),
-  resourceProject = String(project || "");
-if (!resourceProject || resourceProject === "lib_ConvertigoAssistant") {
-  throw new Error("Choose an editable target project");
-}
-// An unknown project answered ok with no item, which read as a project without resources (preflight checks).
-if (!Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.existsProject(resourceProject)) {
-  throw new Error("Unknown project: " + resourceProject + ". project-list gives the loaded projects.");
-}
-if (
-  [
-    "list",
-    "get",
-    "save",
-    "duplicate",
-    "delete",
-    "readFile",
-    "writeFile"
-  ].indexOf(resourceAction) < 0
-) {
-  throw new Error("Unsupported project resource operation");
-}
+var resourceAction = String(action || "list"), resourceProject = String(project || "");
 var resourceInput = C8O.util.parseObjectInput(input, { label: "input" });
 var resourceKey = String(key || "");
-if (
-  resourceKey &&
-  resourceKey.indexOf("project:" + resourceProject + ":") !== 0
-) {
-  throw new Error("Resource key must belong to the requested project");
+var resourceScope = resourceInput.scope === "workspace" || resourceKey.indexOf("workspace::") === 0 ? "workspace" : "project";
+delete resourceInput.scope;
+var resourceStudio = resourceEngine.isStudioMode() === true;
+if (!resourceStudio) {
+  try { resourceStudio = resourceEngine.isDesktopStudio() === true; } catch (_noDesktopStudio) {}
 }
-var resourceApi = C8O.tigoResources.create(
-  C8O.tigoResources.javaHost(context, true)
-);
-response = resourceApi.execute({
-  action: resourceAction,
-  scope: "project",
-  project: resourceProject,
-  kind: String(kind || "prompt"),
-  key: resourceKey,
-  revision: String(revision || ""),
-  input: resourceInput,
-  language: String(language || "en")
-});
+if (resourceScope === "workspace" && !resourceStudio) {
+  throw new Error("Personal agent configuration requires the local Studio owner");
+}
+if (resourceScope === "project") {
+  if (!resourceProject || resourceProject === "lib_ConvertigoAssistant") { throw new Error("Choose an editable target project"); }
+  if (!resourceEngine.theApp.databaseObjectsManager.existsProject(resourceProject)) {
+    throw new Error("Unknown project: " + resourceProject + ". project-list gives the loaded projects.");
+  }
+}
+if (["list","get","save","duplicate","delete","readFile","writeFile"].indexOf(resourceAction) < 0) {
+  throw new Error("Unsupported project resource operation");
+}
+var resourcePrefix = resourceScope === "workspace" ? "workspace::" : "project:" + resourceProject + ":";
+if (resourceKey && resourceKey.indexOf(resourcePrefix) !== 0) { throw new Error("Resource key must belong to the requested project or personal scope"); }
+var resourceHost = C8O.tigoResources.javaHost(context, true);
+resourceHost.agentInitiated = true;
+if (resourceStudio) {
+  // A full authenticated author of this local Studio is its owner, as for the constructor.
+  // Never derive a personal owner from tool arguments, a bearer label or a server user's email.
+  resourceHost.identity = function () {return {admin:true,studio:true,surface:"studio",user:"studio",owner:"studio",key:"studio"};};
+}
+var resourceApi = C8O.tigoResources.create(resourceHost);
+var resourceKind = String(kind || "prompt");
+if (resourceAction === "duplicate" && (resourceKind === "mcp" || resourceKey.split(":")[2] === "mcp")) {throw new Error("Read the declaration and save the new MCP proposal for human review");}
+response = resourceApi.execute({action:resourceAction,scope:resourceScope,project:resourceProject,kind:resourceKind,
+  key:resourceKey,revision:String(revision || ""),input:resourceInput,language:String(language || "en")});
 if (resourceAction === "list") {
-  response.items = response.items.filter(function (x) {
-    return x.scope === "project" && x.project === resourceProject;
-  });
-  response.errors = response.errors.filter(function (x) {
-    return x.scope === "project" && x.project === resourceProject;
-  });
-  delete response.favorites;
-  delete response.selection;
-  delete response.missingSelections;
-  delete response.secrets;
-  delete response.projects;
-  delete response.canManageMcp;
+  response.items = response.items.filter(function (x) { return x.scope === resourceScope && (resourceScope !== "project" || x.project === resourceProject); });
+  response.errors = response.errors.filter(function (x) { return x.scope === resourceScope && (resourceScope !== "project" || x.project === resourceProject); });
+  ["favorites","selection","missingSelections","secrets","projects","canManageMcp","proposals"].forEach(function (name) {delete response[name];});
 }

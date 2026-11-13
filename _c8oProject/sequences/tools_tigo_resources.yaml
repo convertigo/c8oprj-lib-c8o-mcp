@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
-  Manage project prompts, skills and MCP declarations
-  Read, create, duplicate or edit .tigo resources and skill support files in a named project, with optimistic revisions. No activation, secret access or Git commit. Requires full MCP authentication; personal resources and built-ins remain protected.
+  'Manage Tigo prompts, skills and proposed MCP connections
+  Read, create, duplicate or edit project .tigo resources and skill support files with optimistic revisions. In local Studio, input.scope=workspace selects the Studio owner personal library. Saving an MCP in Studio creates a pending proposal only: the user must review and explicitly add it in Settings > Library > MCP connections. Never activate it, claim user confirmation, write raw resource files to bypass review, or send secret values. No confirmation, secret access, Git commit or No Code access.'
 includeResponseElement: false
 ↓Run [steps.SimpleStep-1792084184795]: 
   expression: include("js/tools_tigo_resources.js");
@@ -26,6 +26,10 @@ includeResponseElement: false
 ↓key [variables.RequestableVariable-1792084184805]: 
 ↓revision [variables.RequestableVariable-1792084184807]: 
 ↓input [variables.RequestableVariable-1792084184809]: 
+  value: 
+    - ↑ciphered: true
+    - ↑traceable: false
+    - →→: xd8e180806a1c1d83a6255212121ab827
   visibility: 15
 ↓language [variables.RequestableVariable-1792084184811]: 
   value: en

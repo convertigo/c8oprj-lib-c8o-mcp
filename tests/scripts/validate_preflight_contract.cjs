@@ -627,6 +627,32 @@ test('crud-proof: its output schema takes the answer a Studio gives, crm include
     ['$.crm is not declared and the object is closed'], 'the checker sees an undeclared property');
 });
 
+test('subagent-run: finished constructor reports and running waits match the advertised output schema', () => {
+  const ctx = { C8O: {} };
+  vm.createContext(ctx);
+  for (const file of ['js/subagents.js', 'js/subagent_constructor.js']) vm.runInContext(read(file), ctx);
+  const schema = outputSchemaOf('tools_subagent_run');
+  const run = { exists: true, alive: false, runId: 'build-schema-check', startedAt: 0, runner: 'vibe-session',
+    profile: 'constructor', model: 'model-test', task: 'Build a contact list', outDir: '/ws/subagents/build-schema-check' };
+  const runners = { 'vibe-session': ctx.C8O.constructorRunner.runner };
+  for (const execution of [null, { scope: 'studio-owner', confined: false, warning: 'Local owner scope' },
+    { scope: 'shared', confined: true, futureDiagnostic: { abi: 8 } }]) {
+    run.output = JSON.stringify({ ok: true, execution, report: { verdict: 'done', summary: 'Contact list ready' },
+      stopReason: 'finished', toolCalls: 2, durationMs: 1000, usage: { requests: 1 } });
+    const host = { readRun: () => run, now: () => 0, workspaceRoot: () => '/ws' };
+    const answer = JSON.parse(JSON.stringify(ctx.C8O.subagents.collect(run.runId, 0, host, runners)));
+    assert.equal(answer.status, 'finished');
+    assert.deepEqual(answer.execution, execution);
+    assert.deepEqual(schemaErrors(schema, answer), [], 'the real collection result must reach the caller');
+    assert.ok(schemaErrors(schema, { ...answer, execution: 'invalid' }).length, 'execution is an object or null');
+    assert.ok(schemaErrors(schema, { ...answer, undeclared: true }).length, 'the envelope remains closed');
+  }
+  const running = ctx.C8O.subagents.collect(run.runId, 0,
+    { readRun: () => ({ ...run, output: '', alive: true }), now: () => 0 }, runners);
+  assert.equal(running.status, 'running');
+  assert.deepEqual(schemaErrors(schema, JSON.parse(JSON.stringify(running))), []);
+});
+
 test('a refused MCP token is logged with its reason, never with the token', () => {
   const logged = [];
   const ctx = {
