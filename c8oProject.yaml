@@ -107,8 +107,6 @@
   ↓tools_upsert_ngx_crud_kit [sequences.GenericSequence]: 🗏 sequences/tools_upsert_ngx_crud_kit.yaml
   ↓project1 [references.ProjectSchemaReference]: 
     projectName: mobilebuilder_tpl_8_4_0_ngx_legacy=https://github.com/convertigo/c8oprj-mobilebuilder-tpl/archive/8ca383ae844129df72bd3436a7869bfdc0a69d5c.zip
-  ↓project2 [references.ProjectSchemaReference]: 
-    projectName: __PROJECT_NAME__
   ↓UrlMapper [core.UrlMapper]: 🗏 urlMapper.yaml
   ↓Application [core.MobileApplication-1773933153815]: 
     ↓NgxApp [ngx.components.ApplicationComponent-1773933165318]: 🗏 mobileNgxApp.yaml

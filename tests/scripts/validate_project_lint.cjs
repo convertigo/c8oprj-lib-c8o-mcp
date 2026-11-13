@@ -519,7 +519,7 @@ test("PROJECT-UNUSED-REFERENCE and NGX-UNUSED-SHARED-COMPONENT: a library or a s
   const use = (name, target) => fakeBean("ngx.components.UIUseShared", name, { getSharedComponentQName: () => target });
   const build = () => {
     const refs = [ref("project1", "mobilebuilder_tpl_8_4_0_ngx"), ref("lib_UserManager", "lib_UserManager"), ref("lib_ExtendedComponents_ui_ngx", "lib_ExtendedComponents_ui_ngx"),
-      ref("lib_OAuth", "lib_OAuth")];
+      ref("lib_OAuth", "lib_OAuth"), ref("project2", "__PROJECT_NAME__"), ref("lib_Missing", "lib_Missing")];
     const app = fakeBean("ngx.components.ApplicationComponent", "NgxApp", { getTplProjectName: () => "mobilebuilder_tpl_8_4_0_ngx" }, [
       ngxPage("Deals", [use("UseCard", "Crm.Application.NgxApp.DealCard")], true), shared("DealCard"), shared("Orphan")]);
     return named(fakeBean("core.Project", "Crm", { getDirPath: () => "/p", getReferenceList: () => refsOf(refs) },
@@ -532,7 +532,15 @@ test("PROJECT-UNUSED-REFERENCE and NGX-UNUSED-SHARED-COMPONENT: a library or a s
     "_c8oProject/mobileNgxApp.yaml": "tplProjectName: mobilebuilder_tpl_8_4_0_ngx\n"
   };
   const userManager = { getName: () => "lib_UserManager", getReferenceList: () => refsOf([ref("lib_OAuth", "lib_OAuth")]) };
-  let found = runLint(build(), files, undefined, { lib_UserManager: userManager }).findings;
+  const loaded = name => ({ getName: () => name, getReferenceList: () => refsOf([]) });
+  const workspace = { lib_UserManager: userManager, lib_ExtendedComponents_ui_ngx: loaded("lib_ExtendedComponents_ui_ngx"), lib_OAuth: loaded("lib_OAuth"),
+    mobilebuilder_tpl_8_4_0_ngx: loaded("mobilebuilder_tpl_8_4_0_ngx") };
+  let found = runLint(build(), files, undefined, workspace).findings;
+  // A placeholder a template kept (lib_ConvertigoMCP up to 0.3.0-beta.22) and a library not loaded are broken references.
+  const broken = found.filter(f => f.rule === "PROJECT-BROKEN-REFERENCE");
+  assert.deepStrictEqual(broken.map(f => [f.qname, f.severity]), [["Crm.project2", "error"], ["Crm.lib_Missing", "warning"]]);
+  assert.match(broken[0].message, /^The reference names __PROJECT_NAME__, a placeholder a template kept, not a project/);
+  assert.match(broken[1].fix, /or import lib_Missing \(marketplace-import/);
   const unusedRefs = found.filter(f => f.rule === "PROJECT-UNUSED-REFERENCE");
   assert.deepStrictEqual(unusedRefs.map(f => f.qname), ["Crm.lib_ExtendedComponents_ui_ngx"], "the template, a used library and a library it needs stay");
   assert.match(unusedRefs[0].message, /^The project references lib_ExtendedComponents_ui_ngx but nothing in it uses it/);
@@ -542,7 +550,7 @@ test("PROJECT-UNUSED-REFERENCE and NGX-UNUSED-SHARED-COMPONENT: a library or a s
   assert.match(unusedShared[0].message, /^The shared component Orphan is used by no page nor component of the app/);
   // A library's shared components are for the apps that reference it.
   const consumer = { getName: () => "Shop", getReferenceList: () => refsOf([ref("crm", "Crm")]) };
-  found = runLint(build(), files, undefined, { lib_UserManager: userManager, Shop: consumer }).findings;
+  found = runLint(build(), files, undefined, Object.assign({ Shop: consumer }, workspace)).findings;
   assert.deepStrictEqual(found.filter(f => f.rule === "NGX-UNUSED-SHARED-COMPONENT"), []);
 });
 

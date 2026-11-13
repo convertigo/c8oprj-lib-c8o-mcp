@@ -932,6 +932,22 @@ if (typeof include === "function") {
     });
   };
 
+  // References to projects that are not loaded: refs [{dbo, name}] -> [{ref, severity, placeholder, message}]. A name
+  // like __PROJECT_NAME__ is a placeholder a template kept: no project ever has it.
+  C8O.lint.brokenReferences = function (refs) {
+    return (refs || []).map(function (ref) {
+      var placeholder = /^__[A-Za-z0-9_]+__$/.test(String(ref.name)) || String(ref.name).indexOf("${") >= 0;
+      return {
+        ref: ref, severity: placeholder ? "error" : "warning", placeholder: placeholder,
+        message: placeholder
+          ? "The reference names " + ref.name + ", a placeholder a template kept, not a project: the Studio shows it as a broken project and " +
+            "nothing can ever resolve it."
+          : "The reference names " + ref.name + ", which is not loaded in the workspace: what the project uses from it cannot work, and the " +
+            "Studio shows it as a broken project."
+      };
+    });
+  };
+
   // The shared components of an app that no UIUseShared binds: comps [{dbo, name, qname}], uses the sharedcomponent
   // QNames of the project's UIUseShared. A library's components are for the apps that reference it: not reported there.
   C8O.lint.unusedSharedComponents = function (appName, comps, uses) {
@@ -1558,6 +1574,7 @@ if (typeof include === "function") {
           refs.push({ dbo: refList.get(ri), name: refName });
         }
       }
+      var broken = [];
       refs.forEach(function (ref) {
         var lib = null;
         try {
@@ -1565,10 +1582,24 @@ if (typeof include === "function") {
         } catch (_notLoaded) {
           lib = null;
         }
+        if (!lib) {
+          broken.push(ref);
+        }
         Object.keys(lib ? referencedProjects(lib) : {}).forEach(function (n) {
           keep[n] = true;
         });
       });
+      // A reference to no loaded project: a placeholder never replaced (__PROJECT_NAME__ in lib_ConvertigoMCP up to
+      // 0.3.0-beta.22, shown as "! broken project !" in the Studio), or a library not imported.
+      C8O.lint.brokenReferences(broken).forEach(function (f) {
+        add("PROJECT-BROKEN-REFERENCE", f.severity, f.ref.dbo, f.message, "Delete the reference (databaseobject-delete " + qnameOf(f.ref.dbo) + ")" +
+          (f.placeholder ? "." : ", or import " + f.ref.name + " (marketplace-import, or projects import by its URL) when the app uses it."));
+      });
+      var brokenNames = {};
+      broken.forEach(function (b) {
+        brokenNames[b.name.toLowerCase()] = true;
+      });
+      refs = refs.filter(function (r) { return !brokenNames[r.name.toLowerCase()]; });
       if (refs.length) {
         C8O.lint.unusedReferences(refs, C8O.lint.readProjectSources(project), keep).forEach(function (ref) {
           add("PROJECT-UNUSED-REFERENCE", "warning", ref.dbo, "The project references " + ref.name + " but nothing in it uses it: no sequence, " +
