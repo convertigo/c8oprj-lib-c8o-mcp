@@ -495,6 +495,20 @@ test("NGX-RESPONSE-CONTRACT: a page that tests the envelope of a business sequen
   assert.strictEqual(found[1].fix, "Read out?.data?.rows (the paths of a page are read in the data of a business sequence).");
 });
 
+test("NGX-FALLBACK-ROUTE: a ** page with pages after it hides them (PipelineCrm3 13/11)", () => {
+  const page = (name, segment, root) => fakeBean("ngx.components.PageComponent", name, { isRoot: root === true, getScriptContent: () => "", getTitle: () => "",
+    getSegment: () => segment, getComment: () => "A page." });
+  const app = (pages) => named(fakeBean("core.Project", "App", { getDirPath: () => "/p", getReferenceList: () => ({ size: () => 0, get: () => null }) },
+    [fakeBean("mobile.MobileApplication", "MobileApplication", {}, [fakeBean("ngx.components.ApplicationComponent", "Application", {}, pages)])]));
+  const found = runLint(app([page("Home", "home", true), page("NotFound", "**"), page("Deals", "deals"), page("Companies", "companies")]), {})
+    .findings.filter(f => f.rule === "NGX-FALLBACK-ROUTE");
+  assert.deepStrictEqual(found.map(f => [f.qname, f.severity]), [["App.MobileApplication.Application.NotFound", "error"]]);
+  assert.match(found[0].message, /but Deals, Companies come after it: the router takes the first route that matches, so these pages never open/);
+  assert.match(found[0].fix, /^Move NotFound after Companies with databaseobject-move/);
+  assert.deepStrictEqual(runLint(app([page("Home", "home", true), page("Deals", "deals"), page("NotFound", "**")]), {})
+    .findings.filter(f => f.rule === "NGX-FALLBACK-ROUTE"), [], "the last page");
+});
+
 test("NGX-I18N-LABEL: the plain label of a form control in an app that translates its texts", () => {
   const input = (name, label) => fakeBean("ngx.components.UIDynamicElement", name, { getBeanData: () => JSON.stringify({ name: "Input",
     properties: { Label: { mode: "plain", value: label }, Type: { mode: "plain", value: "email" } } }) });

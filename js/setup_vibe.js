@@ -187,6 +187,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       "Convertigo_marketplace-describe",
       "Convertigo_marketplace-import",
       "Convertigo_requestable-execute",
+      "Convertigo_sql-select",
       "Convertigo_databaseobject-tree-get",
       "Convertigo_databaseobject-search",
       "Convertigo_palette-list",

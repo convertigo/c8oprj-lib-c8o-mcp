@@ -97,6 +97,7 @@
   ↓tools_requestable_stub_set [sequences.GenericSequence]: 🗏 sequences/tools_requestable_stub_set.yaml
   ↓tools_scheduler_apply [sequences.GenericSequence]: 🗏 sequences/tools_scheduler_apply.yaml
   ↓tools_scheduler_list [sequences.GenericSequence]: 🗏 sequences/tools_scheduler_list.yaml
+  ↓tools_sql_select [sequences.GenericSequence]: 🗏 sequences/tools_sql_select.yaml
   ↓tools_sql_transaction_create [sequences.GenericSequence]: 🗏 sequences/tools_sql_transaction_create.yaml
   ↓tools_subagent_run [sequences.GenericSequence]: 🗏 sequences/tools_subagent_run.yaml
   ↓tools_tags_apply [sequences.GenericSequence]: 🗏 sequences/tools_tags_apply.yaml

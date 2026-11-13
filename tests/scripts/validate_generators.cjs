@@ -40,7 +40,9 @@ function bean(name, javaClass, parent, props) {
     getSequencesList: () => list(node.children.filter(c => /Sequence$/.test(c.javaClass))),
     getReferenceList: () => list((node.references || []).map(n => ({ getParser: () => ({ getProjectName: () => n }) }))),
     getHttpInfo: () => node.props.httpInfo === true,
-    getHttpInfoTagName: () => node.props.httpInfoTagName || 'HttpInfo'
+    getHttpInfoTagName: () => node.props.httpInfoTagName || 'HttpInfo',
+    getSegment: () => node.props.segment || '',
+    getComment: () => node.props.comment || ''
   };
   if (parent) {
     parent.children.push(node);
@@ -232,6 +234,12 @@ function load(world) {
             }
             if (op.type === 'setProperties') {
               Object.assign(find(world.project, op.qname).props, op.properties);
+            }
+            if (op.type === 'move') {
+              const moved = find(world.project, op.qname);
+              const siblings = moved.parent.children;
+              siblings.splice(siblings.indexOf(moved), 1);
+              siblings.splice(siblings.indexOf(find(world.project, op.target)) + (op.position === 'after' ? 1 : 0), 0, moved);
             }
           }
           return { status: 'ok', summary: {}, errors: [], operations: [], warnings: world.applyWarnings ? world.applyWarnings(args.operations) : [] };
@@ -936,7 +944,7 @@ test('ngx-page-create builds a list page with filters, badges and the session re
   assert.equal(creates(world, 'ngx.components.PageComponent#PageComponent')[0].properties.segment, 'postes');
   // A new app gets the default theme with its first page (31/10: every generated app had the starter's blue).
   assert.deepEqual(plain(out.created), ['App.Application.NgxApp.AppLayout', 'App.Application.NgxApp.Postes', 'App.Application.NgxApp.AppTheme',
-    'App.Application.NgxApp.AppEvent.GetTheme.ApplyTheme']);
+    'App.Application.NgxApp.AppEvent.GetTheme.ApplyTheme', 'App.Application.NgxApp.NotFound']);
   assert.match(out.theme, /^AppTheme created \(preset institutional, primary #1f4e79, mode light\)$/);
   assert.match(out.warnings.join(' '), /onItem\.page Detail is not a page of App yet/);
   assert.match(out.warnings[0], /^English default texts were used for .*list\.empty "No record\."/);
@@ -1905,7 +1913,7 @@ test('a menu page created after the logout page goes before it: the way out stay
   G.ngxPageCreate({ project: 'App', name: 'PosteForm', kind: 'form', sequence: 'poste_list', form: { submit: 'declaration_declare', submitLabel: 'OK', cancelLabel: 'Annuler',
     success: { message: 'OK' }, fields: [{ name: 'commentaire', label: 'Commentaire' }] } });
   const pages = find(world.project, 'App.Application.NgxApp').children.filter(c => /PageComponent/.test(c.javaClass)).map(c => c.name);
-  assert.deepEqual(pages.slice(-3), ['Plist', 'Sortie', 'PosteForm'], 'the menu page before the logout page; a page out of the menu stays at the end');
+  assert.deepEqual(pages.slice(-4), ['Plist', 'Sortie', 'PosteForm', 'NotFound'], 'the menu page before the logout page; a page out of the menu goes before the fallback route');
   const op = world.ops.filter(o => o.type === 'create' && o.name === 'Plist')[0];
   assert.deepEqual([op.mode, op.related], ['before', 'App.Application.NgxApp.Sortie']);
   // In the engine's memory the action's beanData is {name, properties: {noAutoLogin: {mode, value}}}.
@@ -1914,7 +1922,47 @@ test('a menu page created after the logout page goes before it: the way out stay
     noAutoLogin: { mode: 'plain', value: true } } });
   G.ngxPageCreate({ project: 'App', name: 'Dash', kind: 'dashboard', title: 'Bord', sequence: 'poste_list', dashboard: { kpis: [{ label: 'A', field: 'a' }] } });
   const after = find(world.project, 'App.Application.NgxApp').children.filter(c => /PageComponent/.test(c.javaClass)).map(c => c.name);
-  assert.deepEqual(after.slice(-4), ['Plist', 'Dash', 'Sortie', 'PosteForm']);
+  assert.deepEqual(after.slice(-5), ['Plist', 'Dash', 'Sortie', 'PosteForm', 'NotFound']);
+});
+
+test('an unknown URL opens the home page: a ** page kept last, following the home page given (PipelineCrm3 13/11)', () => {
+  const world = makeWorld();
+  world.appComp.children.find(c => c.name === 'Login').isRoot = true;
+  const G = load(world);
+  const pagesOf = () => find(world.project, 'App.Application.NgxApp').children.filter(c => /PageComponent/.test(c.javaClass)).map(c => c.name);
+  const goHome = () => JSON.parse(find(world.project, 'App.Application.NgxApp.NotFound.PageEvent.GoHome').getBeanData());
+  // First page, no home given: the fallback opens the entry page.
+  let out = G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', title: 'Postes', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste' } });
+  assert.equal(out.fallbackRoute, 'NotFound (route **): an unknown URL opens Login as root. Keep it the last page.');
+  const fallback = creates(world, 'ngx.components.PageComponent#PageComponent').filter(op => op.name === 'NotFound')[0];
+  assert.equal(fallback.properties.segment, '**');
+  assert.equal(fallback.properties.inAutoMenu, false);
+  assert.match(fallback.properties.comment, /^Fallback route: an unknown URL opens Login as root/);
+  assert.equal(goHome().ionBean, 'RootPageAction');
+  assert.equal(goHome().page, 'plain:Login');
+  assert.equal(JSON.stringify(fallback).match(/"viewEvent":"pageWillEnter"/g).length, 1, 'redirects on deep links too');
+  // The next pages go before it, and a home page given becomes its target.
+  out = G.ngxPageCreate({ project: 'App', name: 'Dash', kind: 'dashboard', title: 'Bord', sequence: 'poste_list', home: 'Dash', dashboard: { kpis: [{ label: 'A', field: 'a' }] } });
+  assert.deepEqual(pagesOf().slice(-3), ['Plist', 'Dash', 'NotFound']);
+  assert.equal(out.fallbackRoute, 'NotFound (route **): an unknown URL now opens Dash as root (it opened Login).');
+  assert.equal(goHome().page, 'plain:Dash');
+  assert.match(find(world.project, 'App.Application.NgxApp.NotFound').props.comment, /opens Dash as root/);
+  // No home given: the target is kept. A page added after it by another tool: it is moved back last.
+  bean('Extra', 'x.PageComponent', world.appComp, { segment: 'extra' });
+  out = G.ngxPageCreate({ project: 'App', name: 'Info', kind: 'detail', heading: 'Info' });
+  assert.deepEqual(pagesOf().slice(-4), ['Dash', 'Info', 'Extra', 'NotFound']);
+  assert.match(out.fallbackRoute, /^NotFound \(route \*\*\): an unknown URL opens Dash as root\. It was moved back to the last page/);
+  assert.equal(creates(world, 'ngx.components.PageComponent#PageComponent').filter(op => op.name === 'NotFound').length, 1, 'one fallback page');
+  // Another ** page is refused.
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Lost', kind: 'detail', heading: 'Lost', segment: '**' }), /segment \*\*: NotFound is already the route of an unknown URL/);
+  // An app's own ** page is kept as it is.
+  const own = makeWorld();
+  own.appComp.children.find(c => c.name === 'Login').isRoot = true;
+  bean('Oops', 'x.PageComponent', own.appComp, { segment: '**', comment: 'Our page' });
+  out = load(own).ngxPageCreate({ project: 'App', name: 'Info', kind: 'detail', heading: 'Info', home: 'Login' });
+  assert.equal(out.fallbackRoute, "Oops (route **, the app's own page) answers an unknown URL.");
+  assert.equal(creates(own, 'ngx.components.PageComponent#PageComponent').filter(op => op.name === 'NotFound').length, 0);
+  assert.deepEqual(own.appComp.children.filter(c => /PageComponent/.test(c.javaClass)).map(c => c.name).slice(-2), ['Info', 'Oops']);
 });
 
 test('a bare name in the data or vars of a page action reads the page param or local, else is refused (TS2304, CRM 12/11)', () => {
@@ -2065,8 +2113,10 @@ test('numbers follow the language of the app, kept in AppLayout; a form page is 
   assert.match(dash, /toLocaleString\('en-US', \(\(\(local\?\.data\?\.counters\?\.open \?\? 0\)\) \* 1\) % 1 === 0 \? \{style: 'currency', currency: 'USD', maximumFractionDigits: 0\}/);
   assert.doesNotMatch(out.warnings.join(' '), /locale/);
   // The next page without locale keeps the app's language.
-  out = G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', note: 'amount', empty: 'None' } });
-  assert.match(JSON.stringify(world.ops.filter(op => op.type === 'create' && op.name === 'Plist')[0]), /toLocaleString\('en-US', \{maximumFractionDigits: 2\}\)/);
+  out = G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', note: 'quantity', empty: 'None' } });
+  assert.doesNotMatch(JSON.stringify(world.ops.filter(op => op.type === 'create' && op.name === 'Plist')[0]), /toLocaleString/, 'a quantity is not an amount');
+  out = G.ngxPageCreate({ project: 'App', name: 'Plist2', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', note: 'total', empty: 'None' } });
+  assert.match(JSON.stringify(world.ops.filter(op => op.type === 'create' && op.name === 'Plist2')[0]), /toLocaleString\('en-US', \{maximumFractionDigits: 2\}\)/);
   assert.doesNotMatch(out.warnings.join(' '), /locale/);
   // A form page centers its title and form.
   G.ngxPageCreate({ project: 'App', name: 'LoginForm', kind: 'form', form: { submit: 'declaration_declare', submitLabel: 'OK', cancel: false, success: { message: 'OK' }, fields: [{ name: 'commentaire', label: 'Note' }] } });
@@ -2076,6 +2126,48 @@ test('numbers follow the language of the app, kept in AppLayout; a form page is 
   assert.match(css, /\.app-page-form \.app-form, \.app-page-form \.app-title, \.app-page-form \.app-error \{ max-width: 720px; margin-inline: auto; \}/);
   assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Bad', kind: 'list', sequence: 'poste_list', locale: 'english',
     list: { item: 'p', title: 'numeroPoste', empty: 'None' } }), /locale must be a language code such as en, fr or en-US/);
+});
+
+test('an amount shows in the app\'s currency: given, kept in AppLayout, or the one the spec\'s formats use (PipelineCrm3 13/11)', () => {
+  // The KPIs in currency:USD, a dashboard list of deals with note "amount": the list showed 37,500.
+  let world = makeWorld();
+  withGridLibrary(world, { referenced: true });
+  let G = load(world);
+  let out = G.ngxPageCreate({ project: 'App', name: 'Dash', kind: 'dashboard', sequence: 'poste_list', locale: 'en-US',
+    dashboard: { kpis: [{ label: 'Open pipeline', field: 'counters.open', format: 'currency:USD' }, { label: 'Deals', field: 'counters.deals' }],
+      sections: [{ heading: 'All deals', items: 'deals', item: 'd', title: 'title', note: 'amount', empty: 'None' }] } });
+  const dash = JSON.stringify(world.ops.filter(op => op.type === 'create' && op.name === 'Dash')[0]);
+  assert.match(dash, /\(\(d\?\.amount\) \* 1\)\.toLocaleString\('en-US', \(\(d\?\.amount\) \* 1\) % 1 === 0 \? \{style: 'currency', currency: 'USD', maximumFractionDigits: 0\}/);
+  assert.match(dash, /counters\?\.deals \?\? 0\)\) \* 1\)\.toLocaleString\('en-US', \{maximumFractionDigits: 2\}\)/, 'a count stays a number');
+  assert.equal(out.currency, 'USD');
+  assert.match(out.warnings.join(' '), /The app's currency is now USD, the one the formats of this spec use \(kept in AppLayout\)/);
+  assert.match(find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent, /^\/\* app-locale: en-US \*\/\n\/\* app-currency: USD \*\/\n/);
+  // The next page keeps it: a price column of a grid shows in dollars too.
+  out = G.ngxPageCreate({ project: 'App', name: 'Deals', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', titleLabel: 'Deal', grid: true,
+    columns: [{ label: 'Price', field: 'unitPrice' }, { label: 'Fee', field: 'fee', suffix: ' $' }, { label: 'Zip', field: 'zip' }] } });
+  const deals = JSON.stringify(world.ops.filter(op => op.type === 'create' && op.name === 'Deals')[0]);
+  assert.match(deals, /headerName: 'Price', field: 'unitPrice', valueFormatter: \(p: any\) => p\.value == null \|\| p\.value === '' \? '' : '' \+ \(\(p\.value\) == null[^"]*currency: 'USD'/);
+  assert.match(deals, /headerName: 'Fee', field: 'fee', valueFormatter: [^"]*\{maximumFractionDigits: 2\}\)\) \+ ' \$'/, 'a suffix says the unit: the number only');
+  assert.doesNotMatch(deals, /headerName: 'Zip', field: 'zip', valueFormatter/);
+  assert.equal(out.currency, 'USD');
+  assert.doesNotMatch(out.warnings.join(' '), /currency/);
+  // currency given: kept, replacing the former one; a bad code is refused.
+  out = G.ngxPageCreate({ project: 'App', name: 'Quotes', kind: 'list', sequence: 'poste_list', currency: 'eur', list: { item: 'q', title: 'numeroPoste', note: 'amount', empty: 'None' } });
+  assert.match(find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent, /\/\* app-currency: EUR \*\//);
+  assert.doesNotMatch(find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent, /app-currency: USD/);
+  assert.match(out.style, /currency EUR/);
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Bad', kind: 'list', sequence: 'poste_list', currency: 'dollars',
+    list: { item: 'p', title: 'numeroPoste', empty: 'None' } }), /currency must be an ISO 4217 code such as USD, EUR or GBP/);
+  // No currency known: the amount is a number, and the answer says how to give the currency.
+  world = makeWorld();
+  out = load(world).ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', note: 'dealAmount', empty: 'None' } });
+  assert.equal(out.currency, undefined);
+  assert.match(out.warnings.join(' '), /dealAmount is named as money but shown as a plain number \(37,500\): the app has no currency\. Give currency \(USD, EUR\.\.\.\) once/);
+  // Two currencies in the spec: none is the app's.
+  world = makeWorld();
+  out = load(world).ngxPageCreate({ project: 'App', name: 'Fx', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', titleLabel: 'Item', empty: 'None',
+    columns: [{ label: 'EUR', field: 'a', format: 'currency:EUR' }, { label: 'USD', field: 'b', format: 'currency:USD' }] } });
+  assert.equal(out.currency, undefined);
 });
 
 test('without a locale given or kept, the numbers are English and the answer says so', () => {

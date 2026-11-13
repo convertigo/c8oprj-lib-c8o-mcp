@@ -1,0 +1,37 @@
+accessibility: Private
+comment: |
+  Read data with one SELECT, read-only
+  Runs one bounded SELECT (or WITH ... SELECT) on an SQL connector of a project, on a read-only connection, and returns its columns and rows: check rows, find an id, count, compare. Nothing is created nor saved in the project; use it instead of probe transactions created then deleted. Write the values in the SQL (no {variable}); maxRows bounds the rows (default 50, 500 at most). The app itself reads its data through its own transactions and sequences.
+↓Include [steps.SimpleStep-1794800000001]: 
+  expression: include("js/tools_sql_select.js");
+↓Run [steps.SimpleStep-1794800000002]: 
+  expression: 'var sqlSelectResult = C8O.sqlSelect.run({project: project, connector: connector, sql: sql, maxRows: maxRows});'
+↓result [steps.JsonToXmlStep-1794800000003]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: sqlSelectResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1794800000004]: 
+  comment: 'Project whose SQL connector holds the data.'
+  description: 'Project whose SQL connector holds the data.'
+  value: ''
+↓connector [variables.RequestableVariable-1794800000005]: 
+  comment: 'SQL connector name; optional when the project has one.'
+  description: 'SQL connector name; optional when the project has one.'
+  value: ''
+↓sql [variables.RequestableVariable-1794800000006]: 
+  comment: 'One SELECT statement, values written in it.'
+  description: 'One SELECT statement, values written in it.'
+  value: ''
+↓maxRows [variables.RequestableVariable-1794800000007]: 
+  comment: 'Rows returned at most: default 50, 500 at most.'
+  description: 'Rows returned at most: default 50, 500 at most.'
+  value: 50

@@ -41,7 +41,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_crud_fastpath.md",
     "guideId": "convertigo/crud-fastpath",
-    "revision": 7,
+    "revision": 8,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -806,7 +806,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_integration_sql.md",
     "guideId": "convertigo/integration-sql",
-    "revision": 8,
+    "revision": 9,
     "scopeTags": [
       "domain",
       "integration",
@@ -822,6 +822,7 @@
       "sql-transaction-create",
       "databaseobject-tree-apply",
       "databaseobject-schema",
+      "sql-select",
       "requestable-execute",
       "log-view",
       "project-save"
@@ -1132,7 +1133,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_multipage_app.md",
     "guideId": "convertigo/recipe-multipage-app",
-    "revision": 26,
+    "revision": 27,
     "scopeTags": [
       "recipe",
       "ngx",

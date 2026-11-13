@@ -297,6 +297,14 @@ include("js/sequence_response.js");
     amount: "{minimumFractionDigits: 2, maximumFractionDigits: 2}", percent: "{style: 'percent', maximumFractionDigits: 1}" };
   // A field named as an amount gets the number format when the spec gives none.
   var AMOUNT_WORDS = /(^|[._])(amount|montant|price|prix|cost|cout|revenue|revenu|turnover|budget|salary|salaire|total|totals|value|valeur|sum|somme|balance|solde)([._]|$)|(amount|price|value|total|revenue|budget|cost)$/i;
+  // The app's currency: ngx-page-create currency, kept in AppLayout, else the one currency the spec's formats use
+  // (currency:USD on the KPIs). A field named as money and given no format shows in it: the "All deals" list of a dashboard
+  // showed 37,500 under KPIs in dollars (PipelineCrm3, 13/11). Total, value or sum can count things: they stay numbers.
+  var APP_CURRENCY = "";
+  var CURRENCY_MARK = /\/\*\s*app-currency:\s*([A-Za-z]{3})\s*\*\//;
+  var MONEY_WORDS = /(^|[._])(amounts?|montants?|prices?|prix|costs?|couts?|revenues?|revenus?|turnover|budgets?|salary|salaries|salaires?|balance|solde|fees?|frais)([._]|$)|(amount|price|revenue|budget|cost)$/i;
+  // The fields named as money shown as plain numbers by this call, the app having no currency.
+  var moneyAsNumber = [];
 
   function numberOptions(format) {
     var m = /^currency:([A-Za-z]{3})$/.exec(str(format));
@@ -325,8 +333,43 @@ include("js/sequence_response.js");
       return numberOptions(f.format) ? str(f.format) : "";
     }
     var path = str(f.field);
-    return /^[A-Za-z_][\w.]*$/.test(path) && AMOUNT_WORDS.test(path.split(".").pop().replace(/([a-z])([A-Z])/g, "$1_$2")) ? "number" : "";
+    if (!/^[A-Za-z_][\w.]*$/.test(path)) {
+      return "";
+    }
+    var last = path.split(".").pop().replace(/([a-z])([A-Z])/g, "$1_$2");
+    // A prefix or a suffix (" €") says the unit already: the number only.
+    var unitGiven = (f.prefix != null && String(f.prefix).length) || (f.suffix != null && String(f.suffix).length);
+    if (MONEY_WORDS.test(last)) {
+      if (unitGiven) {
+        return "number";
+      }
+      if (APP_CURRENCY.length) {
+        return "currency:" + APP_CURRENCY;
+      }
+      if (moneyAsNumber.indexOf(path) < 0) {
+        moneyAsNumber.push(path);
+      }
+      return "number";
+    }
+    return AMOUNT_WORDS.test(last) ? "number" : "";
   };
+
+  // The currencies the spec's formats name (currency:USD), each once.
+  function specCurrencies(spec) {
+    var found = [];
+    var re = /"format"\s*:\s*"currency:([A-Za-z]{3})"/g;
+    var m;
+    var text = "";
+    try {
+      text = JSON.stringify(spec) || "";
+    } catch (_noJson) {}
+    while ((m = re.exec(text)) !== null) {
+      if (found.indexOf(m[1].toUpperCase()) < 0) {
+        found.push(m[1].toUpperCase());
+      }
+    }
+    return found;
+  }
 
   // Display value of a record field: optional labels map (status codes) as a ternary chain, else the number format.
   function valueExpr(base, spec) {
@@ -546,6 +589,114 @@ include("js/sequence_response.js");
     return String(page.getName()) === "Page" && /^Default home page$/i.test(comment);
   }
 
+  // The route of an unknown URL. The engine writes the app's routes from its pages only, with no wildcard: an unknown URL
+  // matched no route and showed a blank page (PipelineCrm3, 13/11). A page whose segment is ** is that route. The router
+  // takes the first route that matches, so it stays the last page: the pages after it would never open.
+  var FALLBACK_SEGMENT = "**";
+  var FALLBACK_MARK = "Fallback route:";
+
+  function segmentOf(page) {
+    try {
+      return str(page.getSegment());
+    } catch (_noSegment) {
+      return "";
+    }
+  }
+
+  function fallbackPageOf(app) {
+    return appPages(app).filter(function (p) { return segmentOf(p) === FALLBACK_SEGMENT; })[0] || null;
+  }
+
+  function isGeneratedFallback(page) {
+    var comment = "";
+    try {
+      comment = str(page.getComment());
+    } catch (_noComment) {}
+    return comment.indexOf(FALLBACK_MARK) === 0;
+  }
+
+  // The page a generated fallback page opens: the page of its GoHome action ({ionBean, page: "plain:Home"} in the YAML,
+  // {name, properties: {page: {mode, value}}} in memory), else "".
+  function fallbackTargetOf(page) {
+    var event = childNamed(page, "PageEvent");
+    var go = event ? childNamed(event, "GoHome") : null;
+    var bean = null;
+    try {
+      bean = go ? JSON.parse(str(go.getBeanData()).replace(/^'|'$/g, "")) : null;
+    } catch (_noBeanData) {}
+    var props = bean && bean.properties && typeof bean.properties === "object" ? bean.properties : (bean || {});
+    var value = props.page;
+    return str(value && typeof value === "object" ? value.value : (typeof value === "string" ? value.replace(/^plain:/i, "") : ""));
+  }
+
+  function fallbackComment(target) {
+    return FALLBACK_MARK + " an unknown URL opens " + target + " as root instead of a blank page. Keep this page the last one: " +
+      "the router takes the first route that matches, the pages after it would never open. Generated by ngx-page-create.";
+  }
+
+  function fallbackGoHome(target) {
+    return navAction("GoHome", { page: target, kind: "root" });
+  }
+
+  // Gives the app its fallback route: created with the first generated page, it opens the home page given (else the entry
+  // page) and follows the home page given since. A ** page the app made itself is kept as it is. Either one is put back
+  // last when pages were added after it. Returns the sentence the answer gives.
+  function ensureFallbackPage(app, appQName, session, wanted, rootPage) {
+    var fallback = fallbackPageOf(app);
+    var apply = function (operations) {
+      var res = C8O.dbo.batchApply({ target: appQName, operations: operations, onError: "stop", autoSave: false, triggerMobileBuilder: false });
+      return !!res && res.status !== "failed" && !(res.errors && res.errors.length);
+    };
+    if (!fallback) {
+      var target = wanted || rootPage;
+      var fallbackName = ["NotFound", "PageNotFound", "NotFoundRoute"].filter(function (n) { return !childNamed(app, n); })[0];
+      if (!target.length || !fallbackName) {
+        return "";
+      }
+      session.create(appQName, {
+        className: "ngx.components.PageComponent#PageComponent", name: fallbackName,
+        properties: { title: "Not found", segment: FALLBACK_SEGMENT, inAutoMenu: false, comment: fallbackComment(target) },
+        children: [
+          nx("Content", "Content", {}, []),
+          { className: "ngx.components.UIPageEvent#UIPageEvent", name: "PageEvent", properties: { viewEvent: "pageWillEnter" }, children: [fallbackGoHome(target)] }
+        ]
+      });
+      return fallbackName + " (route **): an unknown URL opens " + target + " as root. Keep it the last page.";
+    }
+    var name = String(fallback.getName());
+    var fallbackQName = qnameOf(fallback);
+    var pages = appPages(app);
+    var last = pages[pages.length - 1];
+    var moved = "";
+    if (last !== fallback) {
+      if (apply([{ type: "move", qname: fallbackQName, target: qnameOf(last), position: "after" }])) {
+        moved = " It was moved back to the last page: the pages after it never opened.";
+      } else {
+        session.warnings.push(name + " (route **) is not the last page: move it after " + String(last.getName()) +
+          " with databaseobject-move, the router takes the first route that matches and the pages after it never open.");
+      }
+    }
+    if (!isGeneratedFallback(fallback)) {
+      return name + " (route **, the app's own page) answers an unknown URL." + moved;
+    }
+    var current = fallbackTargetOf(fallback);
+    var keep = current.length && childNamed(app, current) ? current : rootPage;
+    var next = wanted || keep;
+    if (next.length && next !== current) {
+      var event = childNamed(fallback, "PageEvent");
+      var go = event ? childNamed(event, "GoHome") : null;
+      var goNode = fallbackGoHome(next);
+      var ops = (go ? [{ type: "delete", qname: qnameOf(go) }] : []).concat(event ? [{ type: "create", related: qnameOf(event), mode: "inside",
+        className: goNode.className, name: goNode.name, properties: goNode.properties }] : [])
+        .concat([{ type: "setProperties", qname: fallbackQName, properties: { comment: fallbackComment(next) } }]);
+      if (event && apply(ops)) {
+        return name + " (route **): an unknown URL now opens " + next + " as root (it opened " + (current || "nothing") + ")." + moved;
+      }
+      session.warnings.push(name + " (route **) still opens " + (current || "nothing") + ": its GoHome action could not be set to " + next + ".");
+    }
+    return name + " (route **): an unknown URL opens " + (current || next) + " as root." + moved;
+  }
+
   // A library a generated page uses: referenced by the app already, else imported from the marketplace when the workspace
   // lacks it, then referenced (marketplace-import does the same). Returns {library, status, sharedComponent} with the
   // QName of the shared component the page binds, or {error}.
@@ -603,10 +754,10 @@ include("js/sequence_response.js");
     };
     var spec = parseJson(args.spec, "spec", "object") || {};
     ["name", "title", "kind", "sequence", "facade", "authRedirect", "root", "inMenu", "params", "vars", "filters", "list", "detail", "form", "dashboard", "logout", "actions", "heading",
-      "authCodes", "segment", "icon", "filterLabel", "locals", "home", "comment", "theme", "locale"].forEach(function (k) {
+      "authCodes", "segment", "icon", "filterLabel", "locals", "home", "comment", "theme", "locale", "currency"].forEach(function (k) {
       if (spec[k] === undefined && args[k] !== undefined && args[k] !== null && str(args[k]) !== "") {
         var raw = args[k];
-        spec[k] = (["name", "title", "kind", "sequence", "facade", "authRedirect", "heading", "segment", "icon", "filterLabel", "locale"].indexOf(k) >= 0) ? str(raw) : parseJson(raw, k, "string");
+        spec[k] = (["name", "title", "kind", "sequence", "facade", "authRedirect", "heading", "segment", "icon", "filterLabel", "locale", "currency"].indexOf(k) >= 0) ? str(raw) : parseJson(raw, k, "string");
       }
     });
     var app = null;
@@ -635,6 +786,16 @@ include("js/sequence_response.js");
       givenLocale = "";
     }
     NUMBER_LOCALE = givenLocale || keptLocale || "en";
+    var keptCurrency = ((CURRENCY_MARK.exec(layoutCss) || [])[1] || "").toUpperCase();
+    var givenCurrency = str(spec.currency).toUpperCase();
+    if (givenCurrency.length && !/^[A-Z]{3}$/.test(givenCurrency)) {
+      errors.push("currency must be an ISO 4217 code such as USD, EUR or GBP (the currency of the app's amounts).");
+      givenCurrency = "";
+    }
+    var usedCurrencies = specCurrencies(spec);
+    var learnedCurrency = !givenCurrency.length && !keptCurrency.length && usedCurrencies.length === 1 ? usedCurrencies[0] : "";
+    APP_CURRENCY = givenCurrency || keptCurrency || learnedCurrency;
+    moneyAsNumber = [];
     var name = str(spec.name);
     var kind = str(spec.kind);
     var title = str(spec.title) || name;
@@ -1168,6 +1329,10 @@ include("js/sequence_response.js");
         if (isObj(f.labels)) {
           parts.push("valueFormatter: (p: any) => " + mapOf(f.labels) + "[p.value] ?? (p.value ?? '')");
           parts.push("filterValueGetter: (p: any) => " + mapOf(f.labels) + "[" + getter + "] ?? " + getter);
+        } else if (G.numberFormatOf(f).length) {
+          // The grid shows its numbers as the native table does: grouping, decimals and currency of the app.
+          parts.push("valueFormatter: (p: any) => p.value == null || p.value === '' ? '' : " + jsString(f.prefix != null ? String(f.prefix) : "") +
+            " + " + numberExpr("p.value", G.numberFormatOf(f)) + " + " + jsString(f.suffix != null ? String(f.suffix) : ""));
         } else if ((f.prefix != null && String(f.prefix).length) || (f.suffix != null && String(f.suffix).length)) {
           parts.push("valueFormatter: (p: any) => p.value == null || p.value === '' ? '' : " + jsString(f.prefix != null ? String(f.prefix) : "") +
             " + p.value + " + jsString(f.suffix != null ? String(f.suffix) : ""));
@@ -1478,7 +1643,7 @@ include("js/sequence_response.js");
             }
             return nx("DivTag", uniqueName("Kpi" + pascal(k.field.split(".").pop()), usedKpis), {}, kpiChildren.concat([
               nx("SpanTag", "Value", {}, [cls("app-kpi-value"), expr(numberExpr("(" + localPath("data." + dataPath(k.field, "dashboard.kpis[" + i + "].field")) + " ?? 0)",
-                str(k.format).length && numberOptions(k.format) ? str(k.format) : "number"))]),
+                str(k.format).length && numberOptions(k.format) ? str(k.format) : (G.numberFormatOf({ field: k.field }) || "number")))]),
               nx("SpanTag", "Label", {}, [cls("app-kpi-label"), txt(str(k.label) || k.field)])]));
           }))));
         }
@@ -1729,6 +1894,10 @@ include("js/sequence_response.js");
     // (usage tests 29/10, an app built with this tool).
     var segment = str(spec.segment) || (name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase()
       .replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "page");
+    if (segment === FALLBACK_SEGMENT && fallbackPageOf(app)) {
+      invalid(tool, ["segment **: " + String(fallbackPageOf(app).getName()) + " is already the route of an unknown URL (ngx-page-create keeps one, " +
+        "the last page). Give this page its own segment."]);
+    }
     // In the menu by default: list and dashboard pages, which need no parameter, and the logout page; forms and details open
     // from a page.
     var inMenu = spec.inMenu === undefined ? (kind === "list" || kind === "dashboard" || kind === "logout") : (spec.inMenu === true || String(spec.inMenu) === "true");
@@ -1791,6 +1960,14 @@ include("js/sequence_response.js");
       defaulted.push("locale \"en\" (the numbers)");
     }
     var localeMark = "/* app-locale: " + NUMBER_LOCALE + " */";
+    // The marks AppLayout keeps for the next pages: the locale given, the currency given or learned from the spec.
+    var marks = [];
+    if (givenLocale.length && keptLocale !== givenLocale) {
+      marks.push({ re: LOCALE_MARK, text: localeMark, says: "locale " + givenLocale });
+    }
+    if ((givenCurrency.length && givenCurrency !== keptCurrency) || learnedCurrency.length) {
+      marks.push({ re: CURRENCY_MARK, text: "/* app-currency: " + APP_CURRENCY + " */", says: "currency " + APP_CURRENCY });
+    }
     var session = new Session(tool, projectDbo);
     // AppLayout: created when missing, completed with the rules this page uses.
     var style = childNamed(app, "AppLayout");
@@ -1802,7 +1979,7 @@ include("js/sequence_response.js");
     });
     if (!style) {
       session.create(appQName, { className: "ngx.components.UIStyle#UIStyle", name: "AppLayout",
-        properties: { styleContent: (givenLocale.length ? localeMark + "\n" : "") + APP_LAYOUT_RULES.map(function (r) { return r[1]; }).join("\n") + "\n" } });
+        properties: { styleContent: marks.map(function (mk) { return mk.text + "\n"; }).join("") + APP_LAYOUT_RULES.map(function (r) { return r[1]; }).join("\n") + "\n" } });
       styleStatus = "created";
     } else {
       var css = "";
@@ -1812,21 +1989,22 @@ include("js/sequence_response.js");
         css = "";
       }
       var missing = neededRules.filter(function (r) { return css.indexOf(r[0] + " ") < 0 && css.indexOf(r[0] + "{") < 0; });
-      var relocale = givenLocale.length && keptLocale !== givenLocale;
-      if (missing.length || relocale) {
-        var base = relocale ? (LOCALE_MARK.test(css) ? css.replace(LOCALE_MARK, localeMark) : localeMark + "\n" + css) : css;
+      if (missing.length || marks.length) {
+        var base = marks.reduce(function (text, mk) { return mk.re.test(text) ? text.replace(mk.re, mk.text) : mk.text + "\n" + text; }, css);
         var updated = base.replace(/\s*$/, "\n") + missing.map(function (r) { return r[1]; }).join("\n") + (missing.length ? "\n" : "");
         var res = C8O.dbo.batchApply({ target: qnameOf(style), operations: [{ type: "setProperties", qname: qnameOf(style), properties: { styleContent: updated } }],
           onError: "stop", autoSave: false, triggerMobileBuilder: false });
         if (!res || res.status === "failed") {
           invalid(tool, ["AppLayout could not be completed: " + batchErrors(res).join(" | ")]);
         }
-        styleStatus = missing.length ? "completed with " + missing.map(function (r) { return r[0]; }).join(", ") + (relocale ? " and locale " + givenLocale : "")
-          : "locale " + givenLocale;
+        var marked = marks.map(function (mk) { return mk.says; }).join(" and ");
+        styleStatus = missing.length ? "completed with " + missing.map(function (r) { return r[0]; }).join(", ") + (marked.length ? " and " + marked : "") : marked;
       }
     }
+    // A new page goes before the logout page (the last entry of the menu) and before the fallback route (the last route).
     var logoutPage = inMenu && kind !== "logout" ? generatedLogoutPage(app) : null;
-    var page = session.create(appQName, pageNode, logoutPage ? qnameOf(logoutPage) : null);
+    var fallbackBefore = segment === FALLBACK_SEGMENT ? null : fallbackPageOf(app);
+    var page = session.create(appQName, pageNode, logoutPage ? qnameOf(logoutPage) : (fallbackBefore ? qnameOf(fallbackBefore) : null));
     var pageQName = qnameOf(page);
     if (formPlan) {
       // The Form SmartSource needs the priority of the created UIForm: wire the submit chain now.
@@ -1926,6 +2104,13 @@ include("js/sequence_response.js");
       themeApplied.warnings.forEach(function (w) { session.warnings.push(w); });
     }
     var rootPage = makeRoot ? name : String(currentRoot.getName());
+    var fallbackRoute = "";
+    try {
+      fallbackRoute = ensureFallbackPage(app, appQName, session, home.length && (home === name || childNamed(app, home)) ? home : "", rootPage);
+    } catch (fallbackError) {
+      session.rollback();
+      throw fallbackError;
+    }
     var finish = session.finish(page);
     // The grid reaches the build only once the app is loaded again, when the app never used it (databaseobject_batch.js).
     if (gridLibrary && !gridLibrary.error && finish.saved) {
@@ -1944,6 +2129,8 @@ include("js/sequence_response.js");
       theme: themeApplied ? themeApplied.style + " (preset " + themeApplied.preset + ", primary " + themeApplied.tokens.brand + ", mode " + themeApplied.mode + ")"
         : (hadTheme ? "AppTheme kept" : "none"),
       rootPage: rootPage,
+      currency: APP_CURRENCY || undefined,
+      fallbackRoute: fallbackRoute || undefined,
       locals: Object.keys(locals),
       calls: (logoutPlan ? [projectName + "." + facade + " at page enter (noAutoLogin), then " + logoutPlan.page + " as root"]
         : (facade.length ? [projectName + "." + facade + " at page enter" + (filters.length ? " and on the filter button" : "")] : []))
@@ -1965,6 +2152,11 @@ include("js/sequence_response.js");
         : undefined),
       warnings: (defaulted.length ? ["English default texts were used for " + defaulted.join(", ") +
         ": if the app is in another language, change those texts on the page, or delete it and create it again with these fields in that language."] : [])
+        .concat(learnedCurrency.length ? ["The app's currency is now " + learnedCurrency + ", the one the formats of this spec use (kept in AppLayout): " +
+          "a field named as money (amount, price, cost, revenue...) without format shows in it on this page and the next ones."] : [])
+        .concat(moneyAsNumber.length ? [moneyAsNumber.join(", ") + (moneyAsNumber.length > 1 ? " are" : " is") + " named as money but shown as a plain " +
+          "number (37,500): the app has no currency. Give currency (USD, EUR...) once, kept in AppLayout for the next pages, or format currency:XXX on " +
+          (moneyAsNumber.length > 1 ? "those fields" : "that field") + ", then create the page again."] : [])
         .concat(warnings, session.warnings),
       next: "mobile-builder-open({project:\"" + projectName + "\", stateOnly:true}) to wait for the build, then open /" + segment + " in the viewer and check it with a screenshot."
     };

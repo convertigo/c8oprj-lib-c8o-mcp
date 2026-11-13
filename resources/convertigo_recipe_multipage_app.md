@@ -7,7 +7,7 @@ Read `convertigo-backend-sequences` sections 4 and 5, `convertigo-frontend-ngx` 
 
 ## Cost rules for a large build
 Output tokens are the main cost, far ahead of tool latency. Before writing trees:
-- Generate repetitive trees with a script, write the calls array to `<workspace>/_mcp_payloads/<lot>.json` and run `batch-call({callsFile:"_mcp_payloads/<lot>.json"})`. Never print the generated JSON and re-type it as `calls`.
+- Generate repetitive trees with a script, write the calls array to a `.json` file in the temporary folder of this conversation (each turn names it) and run `batch-call({callsFile:"<absolute path of that file>"})`. Never print the generated JSON and re-type it as `calls`, never write it at the workspace or project root.
 - Use the tree shortcuts: `{"mode":"SOURCE","local":"?.x"}` and `{"mode":"SOURCE","global":"?.x"}` SmartSources, `attributes:{...}` on elements, `setLocals:{...}` on events and actions, `importVariables:true` on `TransactionStep` and `SequenceStep`.
 - Keep the default compact responses of `batch-call` and `databaseobject-tree-apply`.
 
@@ -86,6 +86,8 @@ Every page below is built from events and actions: no page loads data from `scri
 - Entry page (`isRoot`): page-enter event -> `CallSequenceAction` `auth_getCurrentUser` with `noAutoLogin` and `noLoading` -> one `IfAction` per role on `out?.success && out?.data?.user?.role == '<ROLE>'` -> `RootPageAction` to that role's home page. Otherwise it shows the login form or buttons.
 - Login: `CallSequenceAction` login with `noAutoLogin` -> child `IfAction` on `out?.success` -> `RootPageAction` home; its Failure handler sets a network error local.
 - Navigation is part of every page: `ngx-page-create` puts the menu button and the back button in each header; give `home` (the role's home page) so each page also gets a home button and a back button that works after a deep link. The menu lists list and dashboard pages by default (`inMenu`); keep forms and details out of it, they open from a page. A user must be able to reach every page from the menu or from a button, and come back.
+- An unknown URL opens the home page: `ngx-page-create` adds a page `NotFound` whose route is `**` with the first page, opening `home` (else the entry page) as root, and keeps it the last page; the router takes the first route that matches, so a page after it never opens (`project-lint` NGX-FALLBACK-ROUTE).
+- Numbers and amounts: give `locale` (en-US, fr-FR) and `currency` (USD, EUR) with the first page; both are kept for the next pages. A field named as money (amount, price, cost, revenue) without `format` then shows in that currency on every page, lists and dashboard sections included.
 - The starter's own page `Page` ("Default home page") is not part of the application: delete it, or make it the real home page, before the first build.
 - Give every sequence, transaction, connector and page a one-line comment saying what it does (`comment` of the generators, or `properties.comment` with databaseobject-tree-apply): it is what the Studio shows to whoever maintains the project. The generators write a default one when none is given.
 - Before each build and at the end of each lot, run `project-lint` on the project and fix what it reports.

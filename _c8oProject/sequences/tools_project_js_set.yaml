@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Write a project helper script
-  Creates or replaces one file under the js/ directory of the given project. Send the complete file content in content, or the path of a workspace file in contentFile (preferred for large scripts); partial patches are not supported and the response never echoes the content. A sequence loads it with a first SimpleStep whose expression is include("js/<file>.js"); see convertigo-backend-sequences section 5.
+  Creates or replaces one file under the js/ directory of the given project. Send the complete file content in content, or the path of a file in contentFile, in the temporary folder of the conversation or the projects workspace (preferred for large scripts); partial patches are not supported and the response never echoes the content. A sequence loads it with a first SimpleStep whose expression is include("js/<file>.js"); see convertigo-backend-sequences section 5.
 ↓InitContext [steps.SimpleStep-1762350567267]: 
   comment: Validate input and persist file content
   expression: |
@@ -35,7 +35,8 @@ comment: |
       var sourceFile = new java.io.File(contentFileText);
       if (!sourceFile.isAbsolute()) { sourceFile = new java.io.File(wsRoot, contentFileText); }
       sourceFile = sourceFile.getCanonicalFile();
-      if (!sourceFile.toPath().startsWith(wsRoot.toPath())) { throw new Error("contentFile must be inside the projects workspace " + wsRoot.getPath()); }
+      var agentTmp = new java.io.File(String(Packages.com.twinsoft.convertigo.engine.Engine.USER_WORKSPACE_PATH), ".agent-tmp").getCanonicalFile();
+      if (!sourceFile.toPath().startsWith(wsRoot.toPath()) && !sourceFile.toPath().startsWith(agentTmp.toPath())) { throw new Error("contentFile must be inside the projects workspace " + wsRoot.getPath() + " or the temporary folder of the conversation, under " + agentTmp.getPath()); }
       if (!sourceFile.isFile()) { throw new Error("contentFile not found: " + sourceFile.getPath()); }
       if (sourceFile.length() > 5242880) { throw new Error("contentFile is larger than 5 MB."); }
       textContent = String(new java.lang.String(java.nio.file.Files.readAllBytes(sourceFile.toPath()), "UTF-8"));

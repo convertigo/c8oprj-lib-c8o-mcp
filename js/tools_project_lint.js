@@ -1407,6 +1407,19 @@ if (typeof include === "function") {
       add("NGX-NO-ROOT-PAGE", "error", pages[0], "No page of the application is its root page (isRoot): the app opens on no route " +
         "(\"Cannot match any routes\").", "Set isRoot on the entry page: databaseobject-tree-apply {properties:{isRoot:true}} on it.");
     }
+    // A page whose segment is ** is the route of an unknown URL. The engine writes the routes in the order of the pages and
+    // the router takes the first one that matches: the pages after it never open.
+    var fallbacks = pages.filter(function (p) { return str(call(p, "getSegment")) === "**"; });
+    fallbacks.forEach(function (f) {
+      var after = pages.slice(pages.indexOf(f) + 1).map(function (p) { return String(p.getName()); });
+      if (after.length) {
+        add("NGX-FALLBACK-ROUTE", "error", f, "The page " + String(f.getName()) + " has the segment **, the route of an unknown URL, but " +
+          after.join(", ") + (after.length > 1 ? " come" : " comes") + " after it: the router takes the first route that matches, so " +
+          (after.length > 1 ? "these pages never open" : "this page never opens") + " (its URL opens " + String(f.getName()) + ").",
+          "Move " + String(f.getName()) + " after " + after[after.length - 1] + " with databaseobject-move (ngx-page-create keeps it the last page)." +
+          (fallbacks.length > 1 ? " Keep one page with the segment ** only." : ""));
+      }
+    });
 
     C8O.lint.controlLabelFindings(i18nTextCount, i18n.files, plainControlLabels).forEach(function (f) {
       add(f.rule, "warning", f.dbo, f.message, f.fix);

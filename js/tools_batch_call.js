@@ -164,8 +164,12 @@ if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.batchUnwrapValue !== "funct
       errors.push({ code: "validation_error", message: message });
       return [];
     };
-    if (!file.toPath().startsWith(root.toPath())) {
-      return fail("callsFile must be inside the projects workspace " + root.getPath() + ".");
+    // The temporary folder of a conversation (<workspace>/.agent-tmp/<conversation>, the Bridge names it at each turn) is
+    // outside the projects workspace when the projects are in <workspace>/projects (Electron Studio, servers).
+    var agentTmp = new File(String(Packages.com.twinsoft.convertigo.engine.Engine.USER_WORKSPACE_PATH), ".agent-tmp").getCanonicalFile();
+    if (!file.toPath().startsWith(root.toPath()) && !file.toPath().startsWith(agentTmp.toPath())) {
+      return fail("callsFile must be inside the projects workspace " + root.getPath() + " or the temporary folder of the conversation, under " +
+        agentTmp.getPath() + ".");
     }
     if (!/\.json$/i.test(String(file.getName()))) {
       return fail("callsFile must be a .json file.");
