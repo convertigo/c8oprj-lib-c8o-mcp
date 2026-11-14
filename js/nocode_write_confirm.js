@@ -372,9 +372,10 @@ C8O.nocodeWriteConfirm = C8O.nocodeWriteConfirm || {};
   var OPEN = { pending: true, taken: true };
   var ANSWERED = { allowed: true, allowed_turn: true, refused: true, expired: true };
 
-  // The request of this change, open or answered and not used yet; a card of the same form and tool that nobody waits
-  // for any more (the agent changed the call) is closed: the new one replaces it.
-  function requestFor(map, user, sequence, fingerprint, formId, now) {
+  // The request of this change, open or answered and not used yet; a card of the same target and tool that nobody waits
+  // for any more (the agent changed the call) is closed: the new one replaces it. The target is the form (No Code) or
+  // the project (the Studio, js/studio_write_confirm.js).
+  function requestFor(map, user, sequence, fingerprint, targetKey, now) {
     var found = null;
     keysOf(map).forEach(function (id) {
       var request = readJson(map, id);
@@ -383,7 +384,8 @@ C8O.nocodeWriteConfirm = C8O.nocodeWriteConfirm || {};
       }
       if (request.fingerprint === fingerprint && (OPEN[request.status] || ANSWERED[request.status])) {
         found = found || request;
-      } else if (OPEN[request.status] && request.sequence === sequence && trimmed(request.formId) === trimmed(formId)
+      } else if (OPEN[request.status] && request.sequence === sequence
+          && trimmed(request.targetKey != null ? request.targetKey : request.formId) === trimmed(targetKey)
           && now >= Number(request.waitUntil || 0)) {
         update(map, id, request, { status: "expired", reason: "replaced" });
       }
@@ -420,6 +422,112 @@ C8O.nocodeWriteConfirm = C8O.nocodeWriteConfirm || {};
     };
   }
 
+  // The wait of one held change, for the No Code writes here and the Studio writes (js/studio_write_confirm.js).
+  // change: {sequence, tool, user, conversationId, fingerprint, targetKey, on() (the user's choice), describe() (what the
+  // card shows: fields merged into the request), refused(reason), awaiting(request, now), stop() (optional: a reason to
+  // refuse at once, checked again while the call waits, or ""), keepRefused (optional: a refused change stays refused
+  // until the end of the turn, so the same call again gets "user_again" without a new card)}. null: the call goes on;
+  // otherwise the agent's answer.
+  api.hold = function (change, host) {
+    var user = trimmed(change.user);
+    var store = host.server();
+    var conversationId = conversationIdOf(change.conversationId);
+    var now = host.now();
+    var stopped = typeof change.stop === "function" ? change.stop() : "";
+    var conversations = store.get(REQUESTS_KEY);
+    var map = conversationId.length && conversations != null ? conversations.get(conversationId) : null;
+    var request = map != null ? requestFor(map, user, change.sequence, change.fingerprint, change.targetKey, now) : null;
+    if (stopped) {
+      if (request && map != null) {
+        update(map, request.id, request, { status: "expired", reason: stopped });
+      }
+      return change.refused(stopped);
+    }
+    if (!request) {
+      // An open card is answered even after the user switched off; without one, the choice decides.
+      if (!change.on()) {
+        return null;
+      }
+      if (!conversationId.length) {
+        return change.refused("cannot_ask");
+      }
+      if (granted(store, conversationId, user, now)) {
+        return null;
+      }
+      var described = change.describe() || {};
+      map = requestsOf(store, conversationId, host);
+      sweep(map, now);
+      request = {
+        id: "wc-" + host.uuid(),
+        kind: "write-confirm",
+        conversationId: conversationId,
+        user: user,
+        sequence: change.sequence,
+        tool: change.tool
+      };
+      Object.keys(described).forEach(function (key) {
+        request[key] = described[key];
+      });
+      request.targetKey = trimmed(change.targetKey);
+      request.fingerprint = change.fingerprint;
+      request.createdAt = now;
+      request.expiresAt = now + EXPIRES_MS;
+      request.waitUntil = now + WAIT_MS;
+      request.status = "pending";
+      request.takenAt = 0;
+      request.decidedAt = 0;
+      map.put(request.id, JSON.stringify(request));
+    } else if (OPEN[request.status]) {
+      request = update(map, request.id, request, { waitUntil: now + WAIT_MS }) || readJson(map, request.id) || request;
+    }
+    var until = now + WAIT_MS;
+    while (true) {
+      now = host.now();
+      var raw = map.get(request.id);
+      var current = readJson(map, request.id);
+      if (!current) {
+        return change.refused("no_answer");
+      }
+      if (current.status === "allowed" || current.status === "allowed_turn") {
+        // used once: two calls of the same change would otherwise both go on
+        if (map.remove(current.id, raw)) {
+          return null;
+        }
+        continue;
+      }
+      if (current.status === "refused" && change.keepRefused === true) {
+        // An agent that called the refused change again opened a new card each time (Studio_8.4_tigo, 14/11): the
+        // refusal answers the same call until the end of the turn drops it.
+        if (current.delivered === true) {
+          return change.refused("user_again");
+        }
+        update(map, current.id, current, { delivered: true });
+        return change.refused("user");
+      }
+      if (current.status === "refused" || current.status === "expired") {
+        map.remove(current.id);
+        return change.refused(current.status === "refused" ? "user"
+          : (current.reason === "turn_end" || current.reason === "replaced" || current.reason === "read_only" ? current.reason : "no_answer"));
+      }
+      if (now > Number(current.expiresAt || 0)) {
+        if (update(map, current.id, current, { status: "expired", reason: "no_answer" })) {
+          map.remove(current.id);
+          return change.refused("no_answer");
+        }
+        continue;
+      }
+      if (now >= until) {
+        return change.awaiting(current, now);
+      }
+      host.sleep(POLL_MS);
+      stopped = typeof change.stop === "function" ? change.stop() : "";
+      if (stopped && update(map, current.id, current, { status: "expired", reason: stopped })) {
+        map.remove(current.id);
+        return change.refused(stopped);
+      }
+    }
+  };
+
   // null: the call goes on. Otherwise what the agent gets instead of the tool's answer.
   // who: {user (the authenticated No Code user), conversationId (X-Convertigo-Conversation-Id)}.
   // host: server() -> {get, set}, newMap(), getForm(id, project) -> the saved form or null, now(), sleep(ms), uuid().
@@ -434,81 +542,36 @@ C8O.nocodeWriteConfirm = C8O.nocodeWriteConfirm || {};
     }
     var tool = api.WRITE_TOOLS[sequence];
     var store = host.server();
-    var conversationId = conversationIdOf(who && who.conversationId);
-    var fingerprint = api.fingerprint(sequence, args);
-    var now = host.now();
-    var conversations = store.get(REQUESTS_KEY);
-    var map = conversationId.length && conversations != null ? conversations.get(conversationId) : null;
-    var request = map != null ? requestFor(map, user, sequence, fingerprint, args.id, now) : null;
-    if (!request) {
-      // An open card is answered even after the user switched off; without one, the choice decides.
-      if (!api.isOn(store, user)) {
-        return null;
+    return api.hold({
+      sequence: sequence,
+      tool: tool,
+      user: user,
+      conversationId: who && who.conversationId,
+      fingerprint: api.fingerprint(sequence, args),
+      targetKey: trimmed(args.id),
+      on: function () {
+        return api.isOn(store, user);
+      },
+      describe: function () {
+        var form = trimmed(args.id).length && sequence !== "tools_nocode_form_create" ? host.getForm(trimmed(args.id), trimmed(args.project) || "C8Oforms") : null;
+        var summary = api.summary(sequence, args, form);
+        return { formId: summary.formId, formName: summary.formName, items: summary.items };
+      },
+      refused: function (reason) {
+        return refused(tool, reason);
+      },
+      awaiting: function (request, now) {
+        return awaiting(tool, request, now);
       }
-      if (!conversationId.length) {
-        return refused(tool, "cannot_ask");
-      }
-      if (granted(store, conversationId, user, now)) {
-        return null;
-      }
-      var form = trimmed(args.id).length && sequence !== "tools_nocode_form_create" ? host.getForm(trimmed(args.id), trimmed(args.project) || "C8Oforms") : null;
-      var summary = api.summary(sequence, args, form);
-      map = requestsOf(store, conversationId, host);
-      sweep(map, now);
-      request = {
-        id: "wc-" + host.uuid(),
-        kind: "write-confirm",
-        conversationId: conversationId,
-        user: user,
-        sequence: sequence,
-        tool: tool,
-        formId: summary.formId,
-        formName: summary.formName,
-        items: summary.items,
-        fingerprint: fingerprint,
-        createdAt: now,
-        expiresAt: now + EXPIRES_MS,
-        waitUntil: now + WAIT_MS,
-        status: "pending",
-        takenAt: 0,
-        decidedAt: 0
-      };
-      map.put(request.id, JSON.stringify(request));
-    } else if (OPEN[request.status]) {
-      request = update(map, request.id, request, { waitUntil: now + WAIT_MS }) || readJson(map, request.id) || request;
-    }
-    var until = now + WAIT_MS;
-    while (true) {
-      now = host.now();
-      var raw = map.get(request.id);
-      var current = readJson(map, request.id);
-      if (!current) {
-        return refused(tool, "no_answer");
-      }
-      if (current.status === "allowed" || current.status === "allowed_turn") {
-        // used once: two calls of the same change would otherwise both go on
-        if (map.remove(current.id, raw)) {
-          return null;
-        }
-        continue;
-      }
-      if (current.status === "refused" || current.status === "expired") {
-        map.remove(current.id);
-        return refused(tool, current.status === "refused" ? "user" : (current.reason === "turn_end" || current.reason === "replaced" ? current.reason : "no_answer"));
-      }
-      if (now > Number(current.expiresAt || 0)) {
-        if (update(map, current.id, current, { status: "expired", reason: "no_answer" })) {
-          map.remove(current.id);
-          return refused(tool, "no_answer");
-        }
-        continue;
-      }
-      if (now >= until) {
-        return awaiting(tool, current, now);
-      }
-      host.sleep(POLL_MS);
-    }
+    }, host);
   };
+
+  // The waits of a held call, for the Studio module (it words its own answers).
+  api.WAIT_MS = WAIT_MS;
+  api.EXPIRES_MS = EXPIRES_MS;
+  api.canonical = canonical;
+  api.parsed = parsed;
+  api.truthy = truthy;
 
   // The host of the engine: the shared store and the saved form, read with the user's No Code token.
   api.javaHost = function () {

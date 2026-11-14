@@ -1,6 +1,6 @@
 accessibility: Private
 comment: |
-  What a held No Code write answers the agent instead of the tool (js/nocode_write_confirm.js): the user refused the change on the confirmation card of the Tigo panel, the card waits for the user, or it was not answered in time. The MCP router calls it with the answer it built; it is not a tool and is never listed.
+  What a held write answers the agent instead of the tool, in No Code (js/nocode_write_confirm.js) and in a Studio (js/studio_write_confirm.js): the user refused the change on the confirmation card of the Tigo panel, the card waits for the user, it was not answered in time, or Tigo is read-only. The MCP router calls it with the answer it built; it is not a tool and is never listed.
 ↓Run [steps.SimpleStep-1793290000001]: 
   expression: |
     'try {

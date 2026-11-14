@@ -976,6 +976,53 @@ if (methodName === "initialize") {
           callVariables = { answer: JSON.stringify(heldAnswer) };
         }
       }
+      // In a Studio, "Confirmer avant de modifier" or "Lecture seule" of the Tigo panel (js/studio_write_confirm.js): a
+      // write of a Tigo agent or of its sub-agents (their managed token) waits for the user's answer on a card, or is
+      // refused. Off unless the Assistant wrote another choice; the durable tokens of other MCP clients are not concerned.
+      // Nothing to read before the Assistant first writes a choice.
+      var studioChoiceKnown = false;
+      try {
+        studioChoiceKnown = context.server.get("lib_ConvertigoAssistant.writeConfirm") != null;
+      } catch (_noServerStore) {
+        studioChoiceKnown = true;
+      }
+      if (callSequence === targetSequence && studioChoiceKnown && typeof mcpAuthentication !== "undefined" && mcpAuthentication && mcpAuthentication.kind === "managed") {
+        var studioAnswer = null;
+        try {
+          if (typeof C8O.studioWriteConfirm === "undefined" || !C8O.studioWriteConfirm.run) {
+            include("js/studio_write_confirm.js");
+          }
+          var studioHost = C8O.studioWriteConfirm.javaHost();
+          if (targetSequence === "tools_batch_call" && C8O.studioWriteConfirm.mode(context.server) !== "off") {
+            studioAnswer = C8O.studioWriteConfirm.inlineCallsFile(callVariables, studioHost);
+          }
+          if (!studioAnswer) {
+            var studioRunHeader = context && context.httpServletRequest
+              ? String(context.httpServletRequest.getHeader("X-Convertigo-Subagent-Run") || "") : "";
+            studioAnswer = C8O.studioWriteConfirm.run(targetSequence, callVariables, { conversationId: managedConversationId, subagentRun: studioRunHeader }, studioHost);
+          }
+        } catch (studioError) {
+          // A user who asked to confirm, or to change nothing, never gets an unconfirmed write.
+          var studioMode = "confirm";
+          try {
+            studioMode = C8O.studioWriteConfirm.mode(context.server);
+          } catch (_unknownStudioChoice) {}
+          var studioWrite = true;
+          try {
+            studioWrite = C8O.studioWriteConfirm.WRITE_TOOLS[targetSequence] !== undefined;
+          } catch (_unknownStudioWrites) {}
+          if (studioMode !== "off" && studioWrite) {
+            studioAnswer = { status: "refused", saved: false, reason: "confirm_unavailable", message: "The confirmation of this change could not be asked: nothing was saved. Tell the user in one sentence." };
+          }
+          try {
+            com.twinsoft.convertigo.engine.Engine.logEngine.warn("[lib_ConvertigoMCP] Studio change confirmation failed: " + studioError);
+          } catch (_ignoreStudioLog) {}
+        }
+        if (studioAnswer) {
+          callSequence = "nocode_write_held";
+          callVariables = { answer: JSON.stringify(studioAnswer) };
+        }
+      }
       if (callSequence === targetSequence) {
         injectMeta(callVariables);
       }

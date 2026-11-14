@@ -98,6 +98,12 @@ Do not present planner/specialist routing, benchmark flows, or manual YAML editi
   (`subagent-run`, `browser-verify`) are refused whatever the bearer: `js/user_key_server_policy.js` removes them from
   the tool list, the router answers `agent_isolation_unavailable`, and `C8O.subagents.run` refuses to start. A tool
   added later that starts an agent goes into its `AGENT_TOOLS`. Test: `tests/scripts/validate_user_key_server_policy.cjs`.
+- "Confirmer avant de modifier" and "Lecture seule" of a Studio's Tigo panel: the router holds every write of a managed
+  token (Tigo's agents and their sub-agents) until the user answers a card, or refuses it in read-only mode
+  (`js/studio_write_confirm.js`, the wait of `js/nocode_write_confirm.js`). Every `tools_*` sequence is in its
+  `WRITE_TOOLS` or its `READ_TOOLS`: a tool added later goes into one of them, or
+  `tests/scripts/validate_studio_write_confirm.cjs` fails. A batch is held for its writes only, and its `callsFile` is
+  read before the card and run inline.
 
 ## Who owns the managed MCP url (contract with lib_ConvertigoAgentBridge)
 
