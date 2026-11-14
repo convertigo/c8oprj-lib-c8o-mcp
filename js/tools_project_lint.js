@@ -966,6 +966,120 @@ if (typeof include === "function") {
     });
   };
 
+  // A call whose answer no step reads, and a constant success answered after it. A public seed called lib_UserManager's
+  // CreateAccount, ConfirmAccount and SetUserAttribute, read none of their answers, and answered seeded=ok: on a fresh
+  // server the demo account did not exist (13/11).
+  // flows: [{qname, steps, read}] where steps run in that order, each {qname, name, className, priority, target, output,
+  // enabled, constant: the text a step answers whatever happens, or null, nodeName}, read: {priority: true} for each step
+  // whose output another step or a step variable of the sequence sources. writesOf(target): [{qname, writes}] the call
+  // writes, itself or through what it calls (the security audit's model), empty when it writes nothing. sessionOf(target):
+  // "open" for a call that signs a user in (its refusal is an answer to read), "close" for a sign-out, which the caller
+  // follows with its own end of session, "" otherwise.
+  var SUCCESS_ANSWER = /^\s*(?:ok|okay|true|yes|1|success(?:ful)?|succeeded|done|completed?|saved|created|updated|deleted|removed|seeded|initiali[sz]ed|ready)\b/i;
+
+  C8O.lint.uncheckedCalls = function (flows, writesOf, sessionOf) {
+    var out = [];
+    var describe = function (writes) {
+      return writes.slice(0, 2).map(function (w) { return w.qname + " (" + w.writes.join(", ") + ")"; }).join(", ") +
+        (writes.length > 2 ? " and " + (writes.length - 2) + " more" : "");
+    };
+    (flows || []).forEach(function (flow) {
+      var read = flow.read || {};
+      var unchecked = [];
+      var answered = false;
+      (flow.steps || []).forEach(function (step) {
+        if (step.enabled === false) {
+          return;
+        }
+        var isCall = step.className === "SequenceStep" || step.className === "TransactionStep";
+        if (isCall && String(step.target || "").length) {
+          if (step.output === true || read[step.priority] === true) {
+            return;
+          }
+          var session = typeof sessionOf === "function" ? String(sessionOf(String(step.target)) || "") : "";
+          if (session === "close") {
+            return;
+          }
+          var writes = (typeof writesOf === "function" ? writesOf(String(step.target)) : []) || [];
+          if (!writes.length && session !== "open") {
+            return;
+          }
+          unchecked.push(step);
+          if (step.className === "SequenceStep") {
+            out.push({ rule: "SEQ-CALL-UNCHECKED", severity: "warning", qname: step.qname,
+              message: "The step " + step.name + " calls " + step.target + (session === "open"
+                ? ", which signs the user in, and no step reads its answer: when it refuses the credentials, the sequence goes on and " +
+                  "answers as if the user were signed in."
+                : ", which writes through " + describe(writes) + ", and no step reads its answer: when the call fails (an account that " +
+                  "exists already, an invalid key, a mail relay down, a database error), the sequence goes on as if it had worked."),
+              fix: "Read the answer: an IfExistThenElseStep on the call's ./document/error (a JsonSourceStep for a test in JavaScript) " +
+                "whose then branch ends with an XMLErrorStep, then answer from what the call returned. marketplace-describe gives a " +
+                "library's sequences and their answers." });
+          }
+          return;
+        }
+        if (!answered && unchecked.length && step.output === true && step.constant != null && SUCCESS_ANSWER.test(String(step.constant))) {
+          answered = true;
+          var names = unchecked.slice(0, 3).map(function (s) { return s.name; }).join(", ") + (unchecked.length > 3 ? "..." : "");
+          out.push({ rule: "SEQ-CONSTANT-SUCCESS", severity: "error", qname: step.qname,
+            message: "The step " + step.name + " answers " + (step.nodeName ? step.nodeName + "=" : "") + JSON.stringify(String(step.constant).trim()) +
+              ", a constant, after writing calls whose answers no step reads (" + names + "): the sequence says it worked when they " +
+              "failed, as a seed that answered ok and created nothing.",
+            fix: "Check each call (an IfExistThenElseStep on its ./document/error, then an XMLErrorStep) and answer what was done, " +
+              "from the calls' answers." });
+        }
+      });
+    });
+    return out;
+  };
+
+  // Names that a JavaScript step reads without a declaration because the engine or JavaScript gives them.
+  var JS_GLOBALS = /^(?:context|log|java|javax|Packages|JSON|Math|String|Number|Object|Array|Date|RegExp|Boolean|Error|include|dom|parseInt|parseFloat|isNaN|undefined|null|true|false|this|arguments|com|org|net|C8O)$/;
+
+  function stripJs(code) {
+    return String(code || "").replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ")
+      .replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g, "\"\"");
+  }
+
+  // The JavaScript of a sequence reads a step by its name (Step.document, typeof Step): a step is not a JavaScript variable,
+  // so the code reads undefined. A seed's "is the table empty" test always said yes and reseeded the data on every call,
+  // and the key of its account confirmation was always empty (13/11). flow: {steps: [{qname, name, js}], declared:
+  // {name: true} for the sequence variables and the variables of source steps}. Returns [{qname, name}], one per step and name.
+  C8O.lint.stepNamesAsVariables = function (flow) {
+    var steps = (flow && flow.steps) || [];
+    var declared = {};
+    Object.keys((flow && flow.declared) || {}).forEach(function (k) { declared[k] = true; });
+    var codes = steps.map(function (s) { return stripJs(s.js); });
+    codes.forEach(function (code) {
+      code.replace(/\b(?:var|let|const|function)\s+([A-Za-z_$][\w$]*)/g, function (_m, name) { declared[name] = true; return _m; });
+      code.replace(/(?:^|[^.\w$])([A-Za-z_$][\w$]*)\s*=(?!=)/g, function (_m, name) { declared[name] = true; return _m; });
+      code.replace(/\(\s*([A-Za-z_$][\w$]*(?:\s*,\s*[A-Za-z_$][\w$]*)*)\s*\)\s*(?:=>|\{)/g, function (_m, list) {
+        list.split(",").forEach(function (n) { declared[n.trim()] = true; });
+        return _m;
+      });
+    });
+    var names = {};
+    steps.forEach(function (s) {
+      var n = String(s.name || "");
+      if (/^[A-Za-z_$][\w$]*$/.test(n) && n.length > 1 && !JS_GLOBALS.test(n) && declared[n] !== true) {
+        names[n] = true;
+      }
+    });
+    var out = [];
+    steps.forEach(function (s, i) {
+      if (!codes[i].length) {
+        return;
+      }
+      Object.keys(names).forEach(function (n) {
+        var reads = new RegExp("\\btypeof\\s+" + n + "\\b|(?:^|[^.\\w$])" + n + "\\s*(?:\\.|\\[)").test(codes[i]);
+        if (reads) {
+          out.push({ qname: s.qname, name: n });
+        }
+      });
+    });
+    return out;
+  };
+
   C8O.lint.run = function (projectName, options) {
     var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
     var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(String(projectName || ""));
@@ -992,6 +1106,8 @@ if (typeof include === "function") {
     var i18n = C8O.lint.readI18n(project);
     var counts = { byRule: {}, bySeverity: { error: 0, warning: 0, info: 0 } };
     var scanned = 0;
+    // The steps of each sequence in the order they run, for the rules on calls (sequenceFlow).
+    var sequenceFlows = [];
     // LIB-* rules: the libraries the app references already, and no rule sends a library to itself.
     var appName = String(project.getName());
     var referenced = referencedProjects(project);
@@ -1153,6 +1269,83 @@ if (typeof include === "function") {
         add("SEQ-WRITE-UNCHECKED", "warning", writes[0], "The sequence writes through " + writes.length + " TransactionStep(s) and never reads an error: a failing write does not stop the sequence, and the business sequence still answers success.",
           "Source the write step's ./document and test document.error before counting the write.");
       }
+      var flow = sequenceFlow(sequence, variableNames);
+      sequenceFlows.push(flow);
+      C8O.lint.stepNamesAsVariables(flow).forEach(function (use) {
+        add("SEQ-STEP-AS-VARIABLE", "error", use.qname, "The JavaScript reads " + use.name + ", the name of a step of the sequence: a step is not a " +
+          "JavaScript variable, so it reads undefined (a test on it always takes the same branch, a value taken from it is empty).",
+          "Put the step's output in a variable with a JsonSourceStep or SimpleSourceStep (variableName) sourcing its ./document, " +
+          "or source it from the step that needs it (a step variable's source, an IfExistThenElseStep).");
+      });
+    }
+
+    // The steps of a sequence in the order they run, with what the lint rules on calls need (C8O.lint.uncheckedCalls,
+    // C8O.lint.stepNamesAsVariables).
+    function sequenceFlow(sequence, variableNames) {
+      var flow = { qname: qnameOf(sequence), steps: [], read: {}, declared: {} };
+      Object.keys(variableNames).forEach(function (n) { flow.declared[n] = true; });
+      var noteSource = function (definition) {
+        try {
+          if (definition != null && definition.size() > 0 && str(definition.get(0)).length) {
+            flow.read[str(definition.get(0))] = true;
+          }
+        } catch (_noDefinition) {}
+      };
+      (function walk(parent) {
+        var nodes = C8O.dbo.getDirectChildren(parent);
+        for (var i = 0; i < nodes.length; i++) {
+          var node = nodes[i];
+          var cls = simpleClassName(node);
+          if (/Variable$/.test(cls)) {
+            noteSource(call(node, "getSourceDefinition"));
+            continue;
+          }
+          if (!/Step$/.test(cls)) {
+            continue;
+          }
+          try {
+            var sources = node.getSources();
+            var it = sources ? sources.iterator() : null;
+            while (it && it.hasNext()) {
+              var source = it.next();
+              if (str(source.getPriority()).length) {
+                flow.read[str(source.getPriority())] = true;
+              }
+            }
+          } catch (_noSources) {
+            noteSource(call(node, "getSourceDefinition"));
+          }
+          ["getVariableName", "getFieldsVariableName", "getErrorVariableName"].forEach(function (getter) {
+            var declared = str(call(node, getter));
+            if (declared.length) {
+              flow.declared[declared] = true;
+            }
+          });
+          var constant = null;
+          if (cls === "ElementStep") {
+            var literal = /^\s*(?:(["'])((?:(?!\1)[^\\])*)\1|(true|false|-?\d+(?:\.\d+)?))\s*;?\s*$/.exec(str(call(node, "getExpression")));
+            constant = literal ? (literal[2] !== undefined ? literal[2] : literal[3]) : null;
+          } else if (cls === "XMLElementStep") {
+            var definition = call(node, "getSourceDefinition");
+            var sourced = false;
+            try {
+              sourced = definition != null && definition.size() > 0 && str(definition.get(0)).length > 0;
+            } catch (_noSourceDefinition) {}
+            constant = !sourced && str(call(node, "getNodeText")).length ? str(call(node, "getNodeText")) : null;
+          }
+          var js = [str(call(node, "getExpression")), str(call(node, "getCondition")), stepSmartScripts(node)].join("\n");
+          var target = str(call(node, "getSourceSequence")) || str(call(node, "getSourceTransaction"));
+          var priority = "";
+          try {
+            priority = String(node.priority);
+          } catch (_noPriority) {}
+          flow.steps.push({ qname: qnameOf(node), name: String(node.getName()), className: cls, priority: priority, target: target,
+            output: call(node, "isOutput") === true, enabled: call(node, "isEnabled") !== false, constant: constant,
+            nodeName: str(call(node, "getNodeName")), js: js });
+          walk(node);
+        }
+      })(sequence);
+      return flow;
     }
 
     // A source with its path beside model reads local alone: {{local}} in a text, NG02200 in a ForEach (PCA eval 30/10).
@@ -1625,6 +1818,15 @@ if (typeof include === "function") {
     try {
       auditModel = C8O.securityAudit.collect(String(project.getName()), { includeEngine: false, includeFrontend: false });
     } catch (_noAuditModel) {}
+    if (auditModel) {
+      C8O.lint.uncheckedCalls(sequenceFlows, function (target) {
+        return C8O.securityAudit.writesReachedFrom(auditModel, target);
+      }, function (target) {
+        return C8O.securityAudit.sessionChange(auditModel, target);
+      }).forEach(function (f) {
+        add(f.rule, f.severity, f.qname, f.message, f.fix);
+      });
+    }
     if (appComponent && auditModel) {
       C8O.lint.sessionFindings(C8O.lint.sessionSequences(auditModel), ngxCalls, String(project.getName())).forEach(function (f) {
         add(f.rule, "warning", f.dbo || appComponent, f.message, f.fix);

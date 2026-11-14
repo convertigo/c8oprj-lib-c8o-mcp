@@ -105,6 +105,16 @@ Use this recipe on a development engine to get a working account without a mail 
 
 Do not write an account document by hand or compute its password hash: the document and hash formats belong to the library and change with its versions. Do not add an anonymous sequence that creates or confirms accounts to make a demo work. Report the demo account to the user as a development-only step.
 
+### Demo or first account created by a seed
+When the user wants the demo account created on a fresh server (a seed run once the project is deployed), the seed makes the same library calls and checks each answer:
+1. Read the account: `lib_UserManager.lib_usermanager_fullsync.GetAccountDocument` with `_use_docid` = the email. The account is missing when `./document/couchdb_output/error` exists. An `IfExistThenElseStep` runs its then branch when the node it sources exists: source that error path to create the missing account (sourced on `_id`, it would create only accounts that exist already).
+2. `lib_UserManager.CreateAccount` with `user`, `lang`, and `password` from an input of the seed (`visibility` 15, no default) or a `.secret` symbol with an empty default the server defines (`${<app>.demo.password.secret=}`), never a literal; the seed answers an error when it is empty. Check its answer: an `IfExistThenElseStep` on `./document/error` whose then branch ends with an `XMLErrorStep`.
+3. Read the account again and source `./document/couchdb_output/account/passwordResetKey/text()` into the `passwordResetKey` variable of `lib_UserManager.ConfirmAccount` (a source: a step is not a JavaScript variable), then check its answer the same way.
+4. Give the role with `lib_UserManager.SetUserAttribute`, checking its answer too.
+5. Answer what was done (`created` or `existing`) from those answers, never a constant `ok`.
+
+The seed creates accounts: it is never `Public`, nor `Hidden` without authentication. Make it `Private`, run by a scheduler job or by an administrator's sequence (`Hidden`, `authenticatedContextRequired=true`, role checked inside) that calls it, or delete it once the server is initialized. Prove it before giving the credentials to the user: run it where the account does not exist yet (an account created earlier with the recipe above makes a broken seed look right), then call the app's login sequence with the demo credentials (`requestable-execute`) or sign in with `browser-verify`.
+
 Any deviation from the library is announced to the user and agreed before the project is changed, not justified afterwards.
 
 Flows, in order:

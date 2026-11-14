@@ -1,0 +1,38 @@
+accessibility: Private
+comment: |
+  Build the NGX app for production
+  Runs the production build of the NGX application of a project, as the Build button of the Studio's Build panel does (npm run build, written to DisplayObjects/mobile, which a deployed project serves; deployed without it, the app shows "Not built"). Waits up to waitSec (40 at most); a longer build answers status running with its buildId: call again with that buildId to wait. Answers success with the output folder, or failed with the compile errors. Run it before a deployment or an export for a server, after the dev build is green. On an engine without the production build entry point it answers unsupported: ask the user to click Build in the Studio before deploying.
+responseTimeout: 60
+↓Include [steps.SimpleStep-1794900000001]: 
+  expression: include("js/tools_mobile_builder_build.js");
+↓Run [steps.SimpleStep-1794900000002]: 
+  expression: 'var mobileBuilderBuildResult = C8O.mobileBuilderBuild.execute(context, {project: project, buildId: buildId, waitSec: waitSec, endpoint: endpoint});'
+↓result [steps.JsonToXmlStep-1794900000003]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: mobileBuilderBuildResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1794900000004]: 
+  comment: 'Project whose NGX application to build for production.'
+  description: 'Project whose NGX application to build for production.'
+  value: ''
+↓buildId [variables.RequestableVariable-1794900000005]: 
+  comment: 'buildId of a running build to wait for, from a previous answer; empty to start a build (or wait for the one already running).'
+  description: 'buildId of a running build to wait for, from a previous answer; empty to start a build (or wait for the one already running).'
+  value: ''
+↓waitSec [variables.RequestableVariable-1794900000006]: 
+  comment: 'Seconds to wait for the end of the build: default 40, 40 at most; 0 answers at once.'
+  description: 'Seconds to wait for the end of the build: default 40, 40 at most; 0 answers at once.'
+  value: 40
+↓endpoint [variables.RequestableVariable-1794900000007]: 
+  comment: 'URL of the Convertigo server the app is served from (its path gives the base href); default: the application server URL of this engine.'
+  description: 'URL of the Convertigo server the app is served from (its path gives the base href); default: the application server URL of this engine.'
+  value: ''

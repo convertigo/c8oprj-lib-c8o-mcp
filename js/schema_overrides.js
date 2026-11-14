@@ -343,6 +343,38 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     });
   }
 
+  // mobile-builder-build: the production build of an NGX app (js/tools_mobile_builder_build.js).
+  function mobileBuilderBuildInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "Loaded project whose NGX application to build for production (DisplayObjects/mobile)." },
+        buildId: { type: "string", description: "buildId of a running build, from a previous answer, to wait for it again. Empty: start a build, or wait for the one already running." },
+        waitSec: { type: "integer", minimum: 0, maximum: 40, description: "Seconds to wait for the end of the build: default 40, 40 at most. A longer build answers status running with its buildId." },
+        endpoint: { type: "string", description: "URL of the Convertigo server the app is served from, such as https://server/convertigo; its path gives the base href. Default: the application server URL of this engine." }
+      },
+      required: ["project"],
+      additionalProperties: false
+    };
+  }
+
+  function mobileBuilderBuildOutputSchema() {
+    return closedObjectSchema({
+      status: { type: "string", enum: ["running", "success", "failed", "stopped", "unsupported"], description: "unsupported: this engine has no production build entry point; the user clicks Build in the Studio." },
+      project: { type: "string" },
+      buildId: { type: "string", description: "Pass it back with buildId to wait for a running build." },
+      started: { type: "boolean", description: "Whether this call started the build." },
+      built: { type: "boolean", description: "Whether DisplayObjects/mobile now holds a production build." },
+      outputFolder: { type: "string" },
+      applicationPath: { type: "string", description: "Path of the built application on the server, ending with DisplayObjects/mobile/." },
+      durationMs: { type: "integer" },
+      errors: { type: "array", items: { type: "string" }, description: "Error lines of the build (compile errors with their place)." },
+      logs: { type: "array", items: { type: "string" }, description: "Last lines of the build output." },
+      message: { type: "string" },
+      next: { type: "string" }
+    });
+  }
+
   function logViewInputSchema() {
     return {
       type: "object",
@@ -682,7 +714,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       requestable: { type: "string" },
       suppressed: { type: "boolean" },
       suppressionReason: { type: "string" },
-      suppressionRefused: { type: "string", description: "Why a matching accepted risk did not suppress this finding." }
+      suppressionRefused: { type: "string", description: "Why a matching accepted risk did not suppress this finding." },
+      anonymousWrite: { type: "string", description: "An exposure finding on a requestable anyone can call that writes data, itself or through the sequences and libraries it calls: a defect to fix, never to suppress." }
     });
   }
 
@@ -711,7 +744,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       auditedAt: { type: "string" },
       score: { type: "number", description: "0 to 100; 100 means no active finding. Accepted risks (suppress) do not count." },
       grade: grade,
-      gradeCappedBy: { type: "string", description: "critical-finding (an active critical finding caps the grade at D) or refused-suppression (an active finding whose suppression was refused caps it at B)." },
+      gradeCappedBy: { type: "string", description: "critical-finding (an active critical finding caps the grade at D), refused-suppression (an active finding whose suppression was refused caps it at B) or anonymous-write (an active exposure finding on a requestable anyone can call that writes data caps it at B)." },
       rawScore: { type: "number", description: "The score as if nothing were suppressed." },
       rawGrade: { type: "string", enum: ["A", "B", "C", "D", "F"], description: "The grade as if nothing were suppressed: report it next to grade." },
       rawGradeCappedBy: { type: "string" },
@@ -2699,6 +2732,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_marketplace_import") {
       return marketplaceImportInputSchema();
     }
+    if (seq === "tools_mobile_builder_build") {
+      return mobileBuilderBuildInputSchema();
+    }
     if (seq === "tools_mobile_builder_open") {
       return mobileBuilderOpenInputSchema();
     }
@@ -2867,6 +2903,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_requestable_execute") {
       return requestableExecuteOutputSchema();
+    }
+    if (seq === "tools_mobile_builder_build") {
+      return mobileBuilderBuildOutputSchema();
     }
     if (seq === "tools_mobile_builder_open") {
       return mobileBuilderOpenOutputSchema();

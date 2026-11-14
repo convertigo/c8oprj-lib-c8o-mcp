@@ -31,7 +31,7 @@ C8O.securityAudit = C8O.securityAudit || {};
   api.LIMITATIONS = [
     "Static analysis: custom JavaScript, handlers and TypeScript are pattern-scanned, not executed.",
     "Authentication performed inside JavaScript (for example a bearer check) is not recognized; acknowledge such findings with suppress, except an exposure finding on a requestable that writes data: it cannot be suppressed, verify the check yourself and report it.",
-    "Writes are the SQL statements that change data and the CouchDB / FullSync writes of the transactions a requestable reaches through SequenceStep and TransactionStep calls; writes made in JavaScript are not seen.",
+    "Writes are the SQL statements that change data and the CouchDB / FullSync writes of the transactions a requestable reaches through SequenceStep and TransactionStep calls, in the project and up to 4 calls deep into the projects it calls (its libraries); a library sequence named or documented as creating, changing or deleting accounts counts as a write; writes made in JavaScript are not seen.",
     "Anonymous reachability follows SequenceStep and TransactionStep calls inside the audited project only; calls built in JavaScript or into other projects are not followed.",
     "Engine checks describe the engine running this audit, which may differ from the production server.",
     "The Studio does not enforce Private: in Studio mode every requestable runs when called from outside, so an anonymous call that succeeds in the Studio does not mean a Private requestable is exposed. This audit reads the accessibility a server applies.",
@@ -494,16 +494,24 @@ C8O.securityAudit = C8O.securityAudit || {};
     return out;
   };
 
-  // The data a requestable writes, itself or through the requestables it calls (SequenceStep and TransactionStep calls
-  // inside the project): [{ qname, writes }] of the writing transactions.
-  api.writesReachedFrom = function (model, qname) {
+  // The requestables of the project and the ones of other projects it calls (externalRequestables), by QName.
+  function requestablesByQName(model) {
     var byQName = {};
-    var requestables = arr(model.requestables);
-    for (var i = 0; i < requestables.length; i++) {
-      byQName[requestables[i].qname] = requestables[i];
+    var all = arr(model.externalRequestables).concat(arr(model.requestables));
+    for (var i = 0; i < all.length; i++) {
+      byQName[all[i].qname] = all[i];
     }
+    return byQName;
+  }
+
+  // The data a requestable writes, itself or through the requestables it calls (SequenceStep and TransactionStep calls,
+  // in the project and into the libraries the collector followed): [{ qname, writes }] of the writing transactions, and
+  // of the library sequences that change accounts by their name or comment without a write the audit sees.
+  api.writesReachedFrom = function (model, qname) {
+    var byQName = requestablesByQName(model);
     var seen = {};
     var out = [];
+    var named = [];
     var queue = [qname];
     while (queue.length) {
       var current = byQName[queue.shift()];
@@ -513,25 +521,73 @@ C8O.securityAudit = C8O.securityAudit || {};
       seen[current.qname] = true;
       if (arr(current.writes).length) {
         out.push({ qname: current.qname, writes: arr(current.writes).slice() });
+      } else if (current.accountChange === true) {
+        named.push({ qname: current.qname, writes: ["accounts, by its name or comment"] });
       }
       queue = queue.concat(arr(current.calls));
     }
-    return out;
+    return out.length ? out : named;
+  };
+
+  // How a requestable changes the session, itself or through a sequence it calls directly: "open" (it signs a user in),
+  // "close" (it signs the user out or ends the session) or "".
+  api.sessionChange = function (model, qname) {
+    var byQName = requestablesByQName(model);
+    var opens = {};
+    var closes = {};
+    arr(model.steps).forEach(function (s) {
+      var signals = s.signals || {};
+      if (s.enabled === false) {
+        return;
+      }
+      if (s.kind === "setAuthenticatedUser" || s.kind === "ldapAuth" || signals.setsUser === true) {
+        opens[s.owner] = true;
+      }
+      if (s.kind === "removeUser" || s.kind === "endSession" || signals.removesUser === true || signals.endsSession === true) {
+        closes[s.owner] = true;
+      }
+    });
+    arr(model.externalRequestables).forEach(function (e) {
+      if (e.opensSession === true) {
+        opens[e.qname] = true;
+      }
+      if (e.closesSession === true) {
+        closes[e.qname] = true;
+      }
+    });
+    var self = byQName[qname];
+    var targets = [qname].concat(self ? arr(self.calls) : []);
+    if (targets.some(function (t) { return closes[t] === true; })) {
+      return "close";
+    }
+    return targets.some(function (t) { return opens[t] === true; }) ? "open" : "";
   };
 
   // Requestables that open or close the user's session (a SetAuthenticatedUser, LDAP authentication, RemoveAuthenticatedUser
-  // or RemoveSession step, or the same calls in a JavaScript step): a login or a logout is anonymous by design.
+  // or RemoveSession step, or the same calls in a JavaScript step), themselves or through a sequence they call directly
+  // that does (the app's login calling lib_UserManager.SignIn): a login or a logout is anonymous by design.
   api.sessionEntryPoints = function (model) {
-    var out = {};
+    var own = {};
     var steps = arr(model.steps);
     for (var i = 0; i < steps.length; i++) {
       var s = steps[i];
       var signals = s.signals || {};
       if (s.enabled !== false && (s.kind === "setAuthenticatedUser" || s.kind === "ldapAuth" || s.kind === "removeUser" || s.kind === "endSession"
           || signals.setsUser === true || signals.removesUser === true || signals.endsSession === true)) {
-        out[s.owner] = true;
+        own[s.owner] = true;
       }
     }
+    arr(model.externalRequestables).forEach(function (e) {
+      if (e.opensSession === true || e.closesSession === true) {
+        own[e.qname] = true;
+      }
+    });
+    var out = {};
+    arr(model.requestables).forEach(function (r) {
+      if (own[r.qname] === true || arr(r.calls).some(function (target) { return own[target] === true; })) {
+        out[r.qname] = true;
+      }
+    });
     return out;
   };
 
@@ -624,7 +680,9 @@ C8O.securityAudit = C8O.securityAudit || {};
    * Deterministic score: each rule deducts the sum of its findings' weights, capped by
    * the cap of the rule's most severe finding. Suppressed findings deduct nothing.
    * Any active critical finding caps the grade at D, and an active finding whose suppression was refused (anonymous
-   * write, see suppressionGuard) caps it at B: "good, with one known exposure", not an A.
+   * write, see suppressionGuard) caps it at B: "good, with one known exposure", not an A. So does an active exposure
+   * finding on a requestable anyone can call that writes data (anonymousWrite), whether a suppression was tried or not:
+   * an agent left a public seed that wrote accounts and data, never asked to suppress it, and reported an A (13/11).
    */
   api.score = function (findings) {
     var byRule = {};
@@ -632,6 +690,7 @@ C8O.securityAudit = C8O.securityAudit || {};
     var summary = { critical: 0, high: 0, medium: 0, low: 0, info: 0, suppressed: 0, byCategory: {} };
     var hasCritical = false;
     var hasRefused = false;
+    var hasAnonymousWrite = false;
     for (var i = 0; i < findings.length; i++) {
       var f = findings[i];
       if (f.suppressed === true) {
@@ -645,6 +704,8 @@ C8O.securityAudit = C8O.securityAudit || {};
       }
       if (f.suppressionRefused) {
         hasRefused = true;
+      } else if (f.anonymousWrite) {
+        hasAnonymousWrite = true;
       }
       if (!byRule[f.ruleId]) {
         byRule[f.ruleId] = { category: f.category, sum: 0, maxRank: 0 };
@@ -671,9 +732,9 @@ C8O.securityAudit = C8O.securityAudit || {};
     if (hasCritical && bands.indexOf(grade) < 3) {
       grade = "D";
       cappedBy = "critical-finding";
-    } else if (hasRefused && bands.indexOf(grade) < 1) {
+    } else if ((hasRefused || hasAnonymousWrite) && bands.indexOf(grade) < 1) {
       grade = "B";
-      cappedBy = "refused-suppression";
+      cappedBy = hasRefused ? "refused-suppression" : "anonymous-write";
     }
     var categories = [];
     for (var c = 0; c < api.CATEGORIES.length; c++) {
@@ -822,7 +883,7 @@ C8O.securityAudit = C8O.securityAudit || {};
       weights: api.WEIGHTS,
       perRuleCaps: api.RULE_CAPS,
       gradeBands: api.GRADE_BANDS,
-      gradeCap: "Any active critical finding caps the grade at D. An active finding whose suppression was refused (suppressRefused) caps it at B."
+      gradeCap: "Any active critical finding caps the grade at D. An active finding whose suppression was refused (suppressRefused) caps it at B, and so does an active exposure finding on a requestable anyone can call that writes data (anonymousWrite)."
     };
   };
 
@@ -885,7 +946,17 @@ C8O.securityAudit = C8O.securityAudit || {};
     var minRank = api.severityRank(opts.minSeverity || "low");
     var limit = opts.limit > 0 ? opts.limit : 200;
     var evaluation = api.evaluate(model);
-    var suppression = api.suppress(evaluation.findings, opts.suppress, api.suppressionGuard(model));
+    var guard = api.suppressionGuard(model);
+    var suppression = api.suppress(evaluation.findings, opts.suppress, guard);
+    // An exposure finding on a requestable anyone can call that writes data says so, suppression tried or not.
+    suppression.findings.forEach(function (f) {
+      if (f.suppressed !== true && !f.suppressionRefused) {
+        var anonymousWrite = guard(f);
+        if (anonymousWrite.length) {
+          f.anonymousWrite = anonymousWrite;
+        }
+      }
+    });
     var findings = api.sortFindings(suppression.findings);
     var scored = api.score(findings);
     var raw = api.rawScore(findings);

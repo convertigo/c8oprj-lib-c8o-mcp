@@ -439,6 +439,160 @@ C8O.securityAudit = C8O.securityAudit || {};
     walkRequestable(tx, r, model, budget);
   }
 
+  /*
+   * The requestables of other projects the project calls (a library: lib_UserManager.CreateAccount...), and the ones
+   * they call in turn, up to MAX_EXTERNAL_DEPTH calls away from the project: what each writes, its calls, whether it
+   * opens or closes the session, whether its name or comment says it changes accounts. A public seed answered ok and
+   * created no account while its only account writes were library calls, which the audit did not follow (13/11).
+   * They go to model.externalRequestables, never to model.requestables: the rules judge the project, not its libraries.
+   */
+  var MAX_EXTERNAL_DEPTH = 4;
+  var MAX_EXTERNAL_REQUESTABLES = 300;
+  var MAX_EXTERNAL_STEPS = 20000;
+  // A library sequence named or documented as creating, changing or deleting accounts writes them, even when its writes
+  // are not seen (JavaScript, a connector the audit does not classify).
+  var ACCOUNT_CHANGE_NAME = /^(?:create|add|insert|register|sign_?up|delete|remove|purge|update|modify|set|change|reset|confirm|activate|deactivate|enable|disable|invite)_?[a-z]*?(?:account|user|password|member|role)s?(?:_?[a-z]*)?$/i;
+  var ACCOUNT_CHANGE_COMMENT = /\b(?:creates?|adds?|registers?|deletes?|removes?|updates?|modif(?:y|ies)|changes?|resets?|confirms?|activates?|deactivates?|invites?)\b[^.\n]{0,60}?\b(?:accounts?|users?|passwords?|members?)\b/i;
+
+  api.accountChangeName = function (name, comment) {
+    return ACCOUNT_CHANGE_NAME.test(str(name)) || ACCOUNT_CHANGE_COMMENT.test(str(comment));
+  };
+
+  api.MAX_EXTERNAL_DEPTH = MAX_EXTERNAL_DEPTH;
+
+  function projectOfTarget(target) {
+    var dot = str(target).indexOf(".");
+    return dot > 0 ? str(target).substring(0, dot) : "";
+  }
+
+  // "P.sequence" or "P.connector.transaction" of a loaded project, or null.
+  function resolveExternal(target) {
+    var parts = str(target).split(".");
+    if (parts.length < 2 || parts.length > 3) {
+      return null;
+    }
+    try {
+      var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
+      var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName(parts[0]);
+      if (project == null) {
+        return null;
+      }
+      if (parts.length === 2) {
+        var sequence = project.getSequenceByName(parts[1]);
+        return sequence == null ? null : { dbo: sequence, kind: "sequence" };
+      }
+      var connector = project.getConnectorByName(parts[1]);
+      var transaction = connector == null ? null : connector.getTransactionByName(parts[2]);
+      return transaction == null ? null : { dbo: transaction, kind: "transaction" };
+    } catch (_notLoaded) {
+      return null;
+    }
+  }
+
+  // The calls and session steps of one external requestable (its steps only, no variable, no secret).
+  function scanExternal(root, entry, budget) {
+    var stack = C8O.dbo.getDirectChildren(root).reverse();
+    while (stack.length) {
+      if (budget.steps++ > MAX_EXTERNAL_STEPS) {
+        entry.truncated = true;
+        return;
+      }
+      var dbo = stack.pop();
+      var className = simpleClassName(dbo);
+      if (!/Step$/.test(className)) {
+        continue;
+      }
+      var enabled = call(dbo, "isEnabled", true) !== false;
+      if (enabled && (className === "SetAuthenticatedUserStep" || className === "LDAPAuthenticationStep")) {
+        entry.opensSession = true;
+      } else if (enabled && (className === "RemoveAuthenticatedUserStep" || className === "RemoveSessionStep")) {
+        entry.closesSession = true;
+      } else if (enabled && className === "SimpleStep") {
+        var signals = api.scanJsSignals(call(dbo, "getExpression", ""));
+        if (signals.setsUser) {
+          entry.opensSession = true;
+        }
+        if (signals.removesUser || signals.endsSession) {
+          entry.closesSession = true;
+        }
+      }
+      var target = has(dbo, "getSourceSequence") ? str(call(dbo, "getSourceSequence", ""))
+        : (has(dbo, "getSourceTransaction") ? str(call(dbo, "getSourceTransaction", "")) : "");
+      if (enabled && target.length && entry.calls.indexOf(target) === -1) {
+        entry.calls.push(target);
+      }
+      var children = C8O.dbo.getDirectChildren(dbo);
+      for (var i = children.length - 1; i >= 0; i--) {
+        stack.push(children[i]);
+      }
+    }
+  }
+
+  // resolve(target) -> {dbo, kind} | null: the engine lookup, replaced by the tests.
+  api.collectExternal = function (model, resolve) {
+    var lookup = typeof resolve === "function" ? resolve : resolveExternal;
+    var own = str(model.project && model.project.name);
+    var known = {};
+    arr(model.requestables).forEach(function (r) { known[r.qname] = true; });
+    var external = [];
+    var byQName = {};
+    var queue = [];
+    arr(model.requestables).forEach(function (r) {
+      arr(r.calls).forEach(function (target) {
+        if (!known[target] && projectOfTarget(target) !== own) {
+          queue.push({ target: target, depth: 1 });
+        }
+      });
+    });
+    var budget = { steps: 0 };
+    while (queue.length) {
+      var next = queue.shift();
+      if (byQName[next.target] || known[next.target] || next.depth > MAX_EXTERNAL_DEPTH) {
+        continue;
+      }
+      if (external.length >= MAX_EXTERNAL_REQUESTABLES) {
+        model.warnings.push("Calls into other projects followed for " + MAX_EXTERNAL_REQUESTABLES + " requestables only.");
+        break;
+      }
+      var found = lookup(next.target);
+      if (!found || !found.dbo) {
+        continue;
+      }
+      var dbo = found.dbo;
+      var entry = {
+        qname: next.target,
+        kind: found.kind,
+        external: true,
+        depth: next.depth,
+        requestableClass: simpleClassName(dbo),
+        calls: [],
+        writes: [],
+        opensSession: false,
+        closesSession: false,
+        accountChange: false
+      };
+      if (found.kind === "transaction") {
+        entry.writes = api.transactionWrites(entry.requestableClass, has(dbo, "getSqlQuery") ? call(dbo, "getSqlQuery", "") : "");
+      } else {
+        scanExternal(dbo, entry, budget);
+        entry.accountChange = api.accountChangeName(C8O.dbo.safeName(dbo), call(dbo, "getComment", ""));
+      }
+      byQName[entry.qname] = entry;
+      external.push(entry);
+      for (var c = 0; c < entry.calls.length; c++) {
+        if (!byQName[entry.calls[c]] && !known[entry.calls[c]]) {
+          queue.push({ target: entry.calls[c], depth: next.depth + 1 });
+        }
+      }
+    }
+    model.externalRequestables = external;
+    return external;
+  };
+
+  function arr(value) {
+    return Array.isArray(value) ? value : [];
+  }
+
   function collectConnector(connector, model, budget) {
     var className = simpleClassName(connector);
     var entry = { qname: qnameOf(connector), connectorClass: className, type: "other" };
@@ -618,6 +772,7 @@ C8O.securityAudit = C8O.securityAudit || {};
       references: [],
       symbols: [],
       frontend: { present: call(project, "getMobileApplication", null) != null, scanned: opts.includeFrontend !== false, sources: 0, signals: [], calls: [] },
+      externalRequestables: [],
       warnings: [],
       collectionTruncated: false
     };
@@ -631,6 +786,12 @@ C8O.securityAudit = C8O.securityAudit || {};
     var connectors = javaList(call(project, "getConnectorsList", null));
     for (var c = 0; c < connectors.length; c++) {
       collectConnector(connectors[c], model, budget);
+    }
+    try {
+      api.collectExternal(model);
+    } catch (externalError) {
+      model.externalRequestables = [];
+      model.warnings.push("Calls into other projects not followed: " + String(externalError));
     }
     collectMappings(project, model);
     collectReferences(project, model);

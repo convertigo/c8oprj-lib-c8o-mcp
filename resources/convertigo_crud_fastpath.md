@@ -65,6 +65,9 @@ Default assumptions for the fast path:
 9. Prove the pages with `browser-verify`: `url` the `viewerHomeUrl`, `paths` such as sign in, open each list, open a record, create one, and `checks` with the expected texts. Without it, use the Playwright tools as the common skill says; if those MCP browser tools are unavailable, disabled, stale, or attached elsewhere, report the managed Playwright MCP configuration problem instead of using Node scripts, raw CDP, or a separate browser.
 10. Save with `project-save` if the target project was mutated and the save is not already covered by the tool result.
 11. If the request was low-detail and the final proof is green, stop there. Do not improvise a second pass on layout, forms, labels, or entity-specific UX.
+12. Before a deployment (or an export for a server), run `mobile-builder-build({project})`: the production build in `DisplayObjects/mobile`, which a deployed project serves. Call it again with its `buildId` while it answers `running`. When it answers `unsupported`, tell the user to click Build in the Studio's Build panel before deploying.
+
+A seed for a fresh server (the demo rows, a demo account) follows the common skill's "Seed and visible data" rules: each call's answer checked, an error when one fails, an answer made from those answers, never public, and the demo sign-in proven with the login sequence before the account is reported.
 
 The first pages of a two-entity app, one `ngx-page-create` call each (`<field>` is a column of the row, as `crud-proof` or `requestable-execute` shows it):
 

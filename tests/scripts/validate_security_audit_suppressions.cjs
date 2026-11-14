@@ -156,11 +156,18 @@ test('an active finding whose suppression was refused caps the grade at B, whate
   assert.equal(report.gradeCappedBy, 'refused-suppression');
   assert.match(report.scoreModel.gradeCap, /caps it at B/);
   assert.equal(report.rawGrade, 'B', 'the raw grade counts the same finding');
-  // the same finding not suppressed at all: an A for a score of 90, as before
+  // the same finding not suppressed at all is still an anonymous write: a B, not the A an agent reported for a public seed
+  // that wrote data (13/11)
   const plain = audit.buildReport(app, { minSeverity: 'info' });
   assert.equal(plain.score, 90);
-  assert.equal(plain.grade, 'A');
-  assert.equal(plain.gradeCappedBy, '');
+  assert.equal(plain.grade, 'B');
+  assert.equal(plain.gradeCappedBy, 'anonymous-write');
+  assert.match(plain.findings.find(f => f.qname === 'P.reminder_run').anonymousWrite, /writes data through P\.db\.w_notification_insert/);
+  // a finding on a requestable that writes nothing keeps its A
+  const harmless = audit.buildReport(model({ requestables: [seq('ping', 'Public', false, []), seq('poste_list', 'Hidden', true, [])] }), { minSeverity: 'info' });
+  assert.equal(harmless.score, 90);
+  assert.equal(harmless.grade, 'A');
+  assert.equal(harmless.gradeCappedBy, '');
   // a lower score keeps its own grade, a critical finding still caps at D
   const lower = audit.score([{ ruleId: 'EXP-01', severity: 'high', category: 'exposure', suppressionRefused: 'x' },
     { ruleId: 'EXP-02', severity: 'high', category: 'exposure' }, { ruleId: 'INJ-01', severity: 'high', category: 'injection' }]);

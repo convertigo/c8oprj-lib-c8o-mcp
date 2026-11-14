@@ -7,7 +7,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_start.md",
     "guideId": "convertigo/start",
-    "revision": 42,
+    "revision": 43,
     "scopeTags": [
       "start",
       "onboarding",
@@ -41,7 +41,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_crud_fastpath.md",
     "guideId": "convertigo/crud-fastpath",
-    "revision": 10,
+    "revision": 11,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -56,6 +56,7 @@
     "recommendedTools": [
       "marketplace-import",
       "mobile-builder-open",
+      "mobile-builder-build",
       "upsert-crud",
       "crud-proof",
       "ngx-page-create",
@@ -143,7 +144,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_project_review.md",
     "guideId": "convertigo/project-review",
-    "revision": 3,
+    "revision": 4,
     "scopeTags": [
       "workflow",
       "review",
@@ -447,7 +448,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_backend_sequences.md",
     "guideId": "convertigo/backend-sequences",
-    "revision": 13,
+    "revision": 14,
     "scopeTags": [
       "domain",
       "backend",
@@ -841,7 +842,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_authentication.md",
     "guideId": "convertigo/authentication",
-    "revision": 11,
+    "revision": 12,
     "scopeTags": [
       "domain",
       "auth",
@@ -1084,7 +1085,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_multipage_app.md",
     "guideId": "convertigo/recipe-multipage-app",
-    "revision": 28,
+    "revision": 29,
     "scopeTags": [
       "recipe",
       "ngx",
@@ -1108,6 +1109,7 @@
       "databaseobject-tree-get",
       "requestable-execute",
       "mobile-builder-open",
+      "mobile-builder-build",
       "subagent-run",
       "project-save",
       "business-sequence-create"
