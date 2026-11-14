@@ -1,6 +1,11 @@
 path: /mcp
 ↓Get [rest.GetOperation-1761839223002]: 
+  comment: 'The endpoint offers no server stream: GET answers 405 Method Not Allowed, as Streamable HTTP asks. A 200 that is not text/event-stream reads as a stream that closed at once, and Streamable HTTP clients reopened it every second.'
   targetRequestable: lib_ConvertigoMCP.mcp_ping
+  ↓MethodNotAllowed [rest.OperationResponse-1794757200000]: 
+    statusCode: 405
+    statusText: Method Not Allowed
+    xpath: /document
 ↓Post [rest.PostOperation]: 
   comment: Streamable HTTP entry point for MCP requests
   targetRequestable: lib_ConvertigoMCP.mcp_endpoint

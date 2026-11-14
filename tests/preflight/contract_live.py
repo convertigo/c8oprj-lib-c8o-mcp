@@ -531,7 +531,12 @@ class Contract:
             except urllib.error.HTTPError as e:
                 from mcp_live import Answer
                 ans = Answer(e.code, e.headers.get("Content-Type"), e.read().decode("utf-8", "replace"))
-            if ans.looks_html():
+            if method == "GET" and ans.status != 405 and "text/event-stream" not in (ans.content_type or ""):
+                # Streamable HTTP: a GET answers an SSE stream or 405. A 200 in JSON reads as a stream that closed at
+                # once, and MCP SDK clients reopened it every second for the life of each session (14/11).
+                self.r.add("errors", label, "FAIL", f"HTTP {ans.status} {ans.content_type}, neither 405 nor an SSE stream",
+                           fix="answer 405 Method Not Allowed on GET (OperationResponse of the Get operation of ApiMcp)")
+            elif ans.looks_html():
                 status = "FAIL" if method == "POST" else "WARN"
                 self.r.add("errors", label, status, f"HTML answer (HTTP {ans.status}): {ans.body[:100]!r}")
             elif ans.envelope is None and ans.body.strip():

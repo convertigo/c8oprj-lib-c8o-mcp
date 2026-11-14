@@ -934,3 +934,21 @@ test('an unknown, revoked or corrupt durable token record still refuses the toke
   assert.equal(outcome(refusal), 'invalid_token_record');
   assert.equal(refusal.retryable, undefined);
 });
+
+// --- transport ------------------------------------------------------------------------------------
+
+test('GET on /mcp and /mcp/ answers 405: the endpoint offers no server stream (Streamable HTTP)', () => {
+  // A 200 in JSON on GET reads as an SSE stream that closed at once: MCP SDK clients reopened it every second for
+  // the life of each session, about 60 requests a minute per session on test-nocode (14/11).
+  for (const file of ['_c8oProject/urlMapper/ApiMcp.yaml', '_c8oProject/urlMapper/ApiMcp1.yaml']) {
+    const text = read(file);
+    const at = text.indexOf('↓Get [rest.GetOperation');
+    assert.ok(at >= 0, `${file}: no Get operation`);
+    const next = text.indexOf('\n↓', at + 1);
+    const get = text.slice(at, next < 0 ? text.length : next);
+    const response = get.slice(get.indexOf(' [rest.OperationResponse'));
+    assert.ok(get.includes(' [rest.OperationResponse'), `${file}: the Get operation has no OperationResponse`);
+    assert.match(response, /\n {4}statusCode: 405(\n|$)/, `${file}: the Get response is not 405`);
+    assert.match(response, /\n {4}xpath: \/document(\n|$)/, `${file}: the 405 response must match every output (xpath /document)`);
+  }
+});
