@@ -374,6 +374,10 @@ node --test --test-concurrency=1 tests/scripts/validate_guide_drawers.cjs tests/
 node tests/scripts/measure_guide_resources.cjs
 ```
 
+To remeasure the proposal's baseline without checking out or changing the
+worktree, use `node tests/scripts/measure_guide_resources.cjs --ref origin/preview/0.2.29`.
+Record the resolved commit alongside the inventory: the preview branch can move.
+
 `resources/guide_drawers.json` records each former guide, its summary and its
 drawers. The fingerprint update makes drawer edits invalidate installed skills.
 Keep drawer boundaries outside code fences and the `---` separator below the
