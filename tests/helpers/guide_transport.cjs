@@ -24,17 +24,17 @@ function guidanceText(sourceFile) {
   if (!guide) return read(sourceFile);
   return guide.drawers.map(d => read('resources/' + d.file).slice(d.bodyOffset) + '\n'.repeat(d.trailingSourceNewlines || 0)).join('');
 }
-function resources() {
+function resources(readProjectFile = read) {
   const sandbox = {
     C8O: { util: { toTrimmedString: v => String(v || '').trim() }, project: {},
       MCP_GUIDANCE_VERSION: '2026-09-18.skill-layers.0123456789abcdef' },
     include() {},
-    c8oReadCatalogFile: (folder, file) => read(folder + '/' + file),
-    c8oLoadCatalogIndex: (folder, file, opts) => JSON.parse(read(folder + '/' + file)).map(opts.normalize),
+    c8oReadCatalogFile: (folder, file) => readProjectFile(folder + '/' + file),
+    c8oLoadCatalogIndex: (folder, file, opts) => JSON.parse(readProjectFile(folder + '/' + file)).map(opts.normalize),
     c8oFindCatalogEntry: (entries, key, value) => entries.find(e => String(e[key]).toLowerCase() === String(value).toLowerCase())
   };
   vm.createContext(sandbox);
-  vm.runInContext(read('js/resources.js'), sandbox);
+  vm.runInContext(readProjectFile('js/resources.js'), sandbox);
   return sandbox;
 }
 function envelopes(entry, text) {
