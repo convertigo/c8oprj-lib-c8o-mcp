@@ -366,6 +366,25 @@ loaded project.
 
 ## Guide index consistency
 
+For guide changes, run the targeted offline checks (no Studio or benchmark):
+
+```bash
+node tests/scripts/update_guide_fingerprints.cjs
+node --test --test-concurrency=1 tests/scripts/validate_guide_drawers.cjs tests/scripts/validate_resources_index.cjs tests/scripts/validate_skill_layers.cjs
+node tests/scripts/measure_guide_resources.cjs
+```
+
+`resources/guide_drawers.json` records each former guide, its summary and its
+drawers. The fingerprint update makes drawer edits invalidate installed skills.
+Keep drawer boundaries outside code fences and the `---` separator below the
+navigation header. The updater records `bodyOffset`; existing content-policy
+tests use it to follow the moved instructions. Guide reads use one URI per call, without logs.
+The size check serializes native MCP, `jsonOnly=true` and the full tool response
+with both `content` and `structuredContent`: summaries stay below 6000 characters,
+drawers below 12000, and every guide read below 16000, including JSON escaping.
+The inventory includes built-ins and records legacy aliases. It models normal
+responses without an operator note or logs; it does not start a live server.
+
 Run `node --test tests/scripts/validate_resources_index.cjs` after adding or
 renaming a guide, a task route or a prompt. It checks that every indexed file
 exists, that `uri` and `guideId` are unique, that routes and prompt `guideIds`

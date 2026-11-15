@@ -1,3 +1,4 @@
+const { guidanceText } = require('../helpers/guide_transport.cjs');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -18,7 +19,7 @@ test('the Vibe bootstrap sends every model to the verifier for browser proofs, w
 });
 
 test('the Playwright fallback says how to get past the widget, an ion-select and an ion-input', () => {
-  const skill = read('resources/convertigo_common_skill.md');
+  const skill = guidanceText('resources/convertigo_common_skill.md');
   assert.match(skill, /the Studio's build progress widget \(a `div` holding a 100x100 `canvas`, centred on the page\) takes the clicks above Ionic overlays/);
   assert.match(skill, /d\.style\.pointerEvents = 'none'/);
   assert.match(skill, /an `ion-select-option` is never visible, so click the `ion-select`, then the option text in the alert or popover it opens, then the alert's OK/);

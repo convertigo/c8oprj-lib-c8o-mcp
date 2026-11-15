@@ -1,3 +1,4 @@
+const { guidanceText } = require('../helpers/guide_transport.cjs');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -54,6 +55,6 @@ test('form outside a form, or with local, is refused with the reason', () => {
 });
 
 test('the guides offer the form short form', () => {
-  assert.match(read('resources/convertigo_common_skill.md'), /in a form's submit action, `\{"mode":"SOURCE","form":"email"\}` \(the value of that control of the enclosing form\)/);
-  assert.match(read('resources/convertigo_frontend_ngx.md'), /- Short form: `\{"mode":"SOURCE","form":"email"\}` on a variable inside the form/);
+  assert.match(guidanceText('resources/convertigo_common_skill.md'), /in a form's submit action, `\{"mode":"SOURCE","form":"email"\}` \(the value of that control of the enclosing form\)/);
+  assert.match(guidanceText('resources/convertigo_frontend_ngx.md'), /- Short form: `\{"mode":"SOURCE","form":"email"\}` on a variable inside the form/);
 });

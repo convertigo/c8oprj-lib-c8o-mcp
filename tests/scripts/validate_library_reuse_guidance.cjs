@@ -5,10 +5,11 @@ const path = require('node:path');
 
 // The agents of the PCA eval (31/10) read the common skill once, never the recipe, and took the marketplace libraries
 // for external dependencies a specification told them to avoid: they rebuilt the CSV export and the admin grids by hand.
-// The skill itself must say what a library is, which one fits a need, and put the reuse step in the bootstrap.
+// The installed skill keeps the reuse rule and links to the table's exact drawer.
 
 const root = path.resolve(__dirname, '../..');
-const skill = fs.readFileSync(path.join(root, 'resources/convertigo_common_skill.md'), 'utf8');
+const { guidanceText } = require('../helpers/guide_transport.cjs');
+const skill = guidanceText('resources/convertigo_common_skill.md');
 const sections = skill.split(/\n(?=## )/);
 const indexOf = title => sections.findIndex(s => s.startsWith('## ' + title));
 
@@ -48,4 +49,10 @@ test('the bootstrap every agent runs has the reuse step, before the first mutati
   // The how-to stays in one place: no second copy of the long reuse instructions.
   assert.equal(skill.split('Reuse before building').length, 2);
   assert.match(skill, /`ngx-page-create` \(list, detail, form, dashboard or logout page; a table list of 5 cells or more is the agGrid of `lib_ExtendedComponents_ui_ngx`/);
+});
+
+test('the installed skill keeps reuse mandatory and links to the capability table drawer', () => {
+  const installed = fs.readFileSync(path.join(root, 'resources/convertigo_common_skill.md'), 'utf8');
+  assert.match(installed, /Before the first project mutation, inventory capabilities and reuse existing libraries/);
+  assert.match(installed, /convertigo:\/\/guides\/common\/libraries/);
 });

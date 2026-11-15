@@ -5,6 +5,25 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root = path.resolve(__dirname, '../..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+function stepExpression(file, step) {
+  const source = read(file);
+  const at = source.indexOf('↓' + step + ' [steps.SimpleStep');
+  if (at < 0) throw new Error('Missing step ' + step);
+  const lines = source.slice(at).split('\n');
+  const start = lines.findIndex(line => /^\s*expression: \|\s*$/.test(line));
+  const indent = lines[start + 1].match(/^\s*/)[0];
+  const body = [];
+  for (let i = start + 1; i < lines.length && (lines[i].startsWith(indent) || !lines[i].trim()); i++) body.push(lines[i].slice(indent.length));
+  return body.join('\n').trim().replace(/^'|'$/g, '').replace(/''/g, "'");
+}
+// Existing content-policy regressions follow moved prose through the migration
+// manifest. Transport tests below still read exactly one resource at a time.
+function guidanceText(sourceFile) {
+  const manifest = JSON.parse(read('resources/guide_drawers.json'));
+  const guide = manifest.find(g => 'resources/' + g.sourceFile === sourceFile);
+  if (!guide) return read(sourceFile);
+  return guide.drawers.map(d => read('resources/' + d.file).slice(d.bodyOffset)).join('');
+}
 function resources() {
   const sandbox = {
     C8O: { util: { toTrimmedString: v => String(v || '').trim() }, project: {},
@@ -36,4 +55,4 @@ function sizes(entry, text) {
   const wire = envelopes(entry, text);
   return Object.fromEntries(Object.entries(wire).map(([key, value]) => [key, JSON.stringify(value).length]));
 }
-module.exports = { root, read, resources, envelopes, sizes };
+module.exports = { root, read, resources, envelopes, sizes, stepExpression, guidanceText };

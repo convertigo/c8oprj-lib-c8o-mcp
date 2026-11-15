@@ -1,3 +1,4 @@
+const { guidanceText } = require('../helpers/guide_transport.cjs');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -301,7 +302,7 @@ test('a supervisor note reaches the agent in its next successful tool answer, on
   const endpoint = read('_c8oProject/sequences/mcp_endpoint.yaml');
   assert.match(endpoint, /↓TakeOperatorNote \[steps\.SimpleStep-1792407700005\]: \n\s+expression: mcpOperatorNote = takeOperatorNote\(\);/);
   assert.match(endpoint, /↓OperatorNoteIf \[steps\.IfStep-1792407700007\]/);
-  assert.match(read('resources/convertigo_common_skill.md'), /`operatorNote` is a note from the person who supervises your work/);
+  assert.match(guidanceText('resources/convertigo_common_skill.md'), /`operatorNote` is a note from the person who supervises your work/);
 });
 
 // --- tool errors for Vibe, js/ prefix -----------------------------------------------------------------
@@ -318,7 +319,7 @@ test('a tool error reaches a Vibe client as a readable result, and every output 
     properties: { status: { type: 'string' }, error: { type: 'object', properties: { context: { type: 'object' } } } } });
   assert.deepEqual(Object.keys(tight.properties.error).sort(), ['description', 'type']);
   assert.equal(tight.properties.error.type, 'object');
-  assert.match(read('resources/convertigo_vibe_start.md'), /check `result\.error` after each call/);
+  assert.match(guidanceText('resources/convertigo_vibe_start.md'), /check `result\.error` after each call/);
 });
 
 test('project-js-set and project-js-get take js/app.js as app.js (run 11a F-02)', () => {

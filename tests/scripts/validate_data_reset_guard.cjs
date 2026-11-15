@@ -1,3 +1,4 @@
+const { guidanceText } = require('../helpers/guide_transport.cjs');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -62,5 +63,5 @@ test('the reset flag says a fix of values is an UPDATE, not a reset', () => {
   for (const text of [schema, yaml]) {
     assert.match(text, /Set true only when the user's own words ask to empty or reset the data[^\n]*UPDATE the rows concerned/);
   }
-  assert.match(read('resources/convertigo_crud_edit_fastpath.md'), /fixed with an UPDATE of the rows concerned/);
+  assert.match(guidanceText('resources/convertigo_crud_edit_fastpath.md'), /fixed with an UPDATE of the rows concerned/);
 });

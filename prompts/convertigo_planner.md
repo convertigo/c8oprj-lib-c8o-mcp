@@ -5,22 +5,22 @@ Use this prompt when the task spans multiple domains or when the agent must choo
 Do not use it for standard SQL CRUD + starter NGX UI work; use `convertigo-crud-fastpath` instead.
 
 ## Read these guides first
-- `convertigo://resources/convertigo-start`
-- `convertigo://resources/convertigo-platform-big-picture`
-- `convertigo://resources/convertigo-engineering-workflow`
-- `convertigo://resources/convertigo-bootstrap-decision-matrix`
-- `convertigo://resources/convertigo-contract-first-delivery`
-- `convertigo://resources/convertigo-recipe-business-sequence-stub`
-- `convertigo://resources/convertigo-fast-path-sql-hsqldb` when the task uses embedded HSQLDB
-- `convertigo://resources/convertigo-fast-path-sql-postgresql` when the task uses PostgreSQL
-- `convertigo://resources/convertigo-fast-path-sql-mariadb` when the task uses MariaDB Docker
-- `convertigo://resources/convertigo-crud-practical-cases` when the task is a standard starter NGX + SQL CRUD flow
-- `convertigo://resources/convertigo-recipe-multipage-app` when the task includes visible UX (pages built with `ngx-page-create`)
-- `convertigo://resources/convertigo-recipe-http-business-sequence` when the task obviously calls an HTTP-backed source
-- `convertigo://resources/convertigo-recipe-sql-crud` when the task obviously calls for SQL-backed CRUD
-- `convertigo://resources/convertigo-recipe-ngx-data-page` when the task includes visible UX
-- `convertigo://resources/convertigo-recipe-starter-extension` when the task starts from a fresh starter or imported app
-- `convertigo://resources/convertigo-validation-and-evidence`
+- `convertigo://guides/start`
+- `convertigo://guides/platform`
+- `convertigo://guides/workflow`
+- `convertigo://guides/brief`
+- `convertigo://guides/contract`
+- `convertigo://guides/sequence`
+- `convertigo://guides/hsqldb` when the task uses embedded HSQLDB
+- `convertigo://guides/postgresql` when the task uses PostgreSQL
+- `convertigo://guides/mariadb` when the task uses MariaDB Docker
+- `convertigo://guides/crud-cases` when the task is a standard starter NGX + SQL CRUD flow
+- `convertigo://guides/multipage` when the task includes visible UX (pages built with `ngx-page-create`)
+- `convertigo://guides/http-sequence` when the task obviously calls an HTTP-backed source
+- `convertigo://guides/sql-recipe` when the task obviously calls for SQL-backed CRUD
+- `convertigo://guides/data-page` when the task includes visible UX
+- `convertigo://guides/starter` when the task starts from a fresh starter or imported app
+- `convertigo://guides/proof`
 
 ## Mission
 - Identify the smallest known Convertigo recipe that fits the task.

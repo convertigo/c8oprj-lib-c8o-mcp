@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '../..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const { guidanceText } = require('../helpers/guide_transport.cjs');
 
 // Guides are served straight from this index on every request and nothing checks it at
 // runtime, so a missing file or a dangling route only fails when an agent reads it.
@@ -60,8 +61,8 @@ test('the authentication guide is routed, linked and harness-neutral', () => {
   const entry = index.find(item => item.guideId === 'convertigo/authentication');
   assert.ok(entry, 'authentication guide must be indexed');
   const route = routes.routes.find(item => item.id === 'authentication');
-  assert.deepEqual(route.required, [entry.uri]);
-  const guide = read('resources/' + entry.file);
+  assert.deepEqual(route.required, [entry.summaryUri || entry.uri]);
+  const guide = guidanceText('resources/' + entry.file);
   for (const marker of HARNESS_MARKERS) {
     assert.doesNotMatch(guide, marker, 'guide must use plain MCP tool ids');
   }
@@ -72,11 +73,11 @@ test('the authentication guide is routed, linked and harness-neutral', () => {
 });
 
 test('field-learned rules stay in the guidance', () => {
-  const common = read('resources/convertigo_common_skill.md');
+  const common = guidanceText('resources/convertigo_common_skill.md');
   assert.match(common, /visibility` is a bitmask: Logs=1, Studio=2, Platform=4, XmlFile=8/);
   assert.match(common, /Sibling actions under the same event run in parallel/);
   assert.match(common, /Failure handler only fires when the call is rejected/);
-  const ngx = read('resources/convertigo_frontend_ngx.md');
+  const ngx = guidanceText('resources/convertigo_frontend_ngx.md');
   assert.match(ngx, /^### Execution order inside an event$/m);
   assert.match(ngx, /^## Forms and input fields$/m);
   assert.match(ngx, /`LabelPlacement` explicitly/);
@@ -84,7 +85,7 @@ test('field-learned rules stay in the guidance', () => {
   assert.match(common, /Never write SmartSource JSON from memory/);
   assert.match(ngx, /^### Never write SmartSource JSON from memory$/m);
   assert.match(ngx, /\{"priority":<priority of the UIForm>,"identifier":"<identifier of the UIForm>"\}/);
-  const auth = read('resources/convertigo_authentication.md');
+  const auth = guidanceText('resources/convertigo_authentication.md');
   assert.match(auth, /^### Demo or first account without SMTP$/m);
   assert.match(auth, /GetAccountDocument/);
   assert.match(auth, /`noAutoLogin`/);

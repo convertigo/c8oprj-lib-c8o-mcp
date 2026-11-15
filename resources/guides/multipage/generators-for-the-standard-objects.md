@@ -1,0 +1,21 @@
+# Generators for the standard objects
+
+Read when: Generators for the standard objects. Summary: `convertigo://guides/multipage`.
+Previous: `convertigo://guides/multipage/overview`. Next: `convertigo://guides/multipage/generators-for-the-standard-objects-2`.
+
+---
+
+## Generators for the standard objects
+Most of such an app is made of the fixed objects this recipe describes: SQL transactions, business sequences of one shape, and pages of four kinds. Three tools build each of them in one call, with the rules of the guides built in. Use them first; keep `databaseobject-tree-apply` for what they do not cover.
+- `sql-transaction-create`: SqlTransactions from SQL text or a structured `select` (camelCase aliases, optional filters, `contains`, `in` list filters with `POSITION`, `bool`), `insert`, `update` or `delete`; several per call with `transactions:[...]`. It refuses SQL that breaks a rule of `convertigo-integration-sql` and says how to fix it.
+- `business-sequence-create`: one business sequence of the shape below from `{name, inputs, roles, reads, writes, logic}`. Write `js/app.js` first: `logic` names a function such as `App.orderList(ctx)` that receives `ctx = {me, input, reads, today}` (the user row, the inputs as strings, the rows of each read) and returns `{success, data, errors, meta}`, plus `writes: {<write name>: row or [rows]}` whose fields are the variables of the write transaction. Reads take what to call, `vars` (JS expressions, e.g. `{ownerId: "me.role === 'ADMIN' ? ownerId : me.id"}`), a `perimeter` (`filter` drops out-of-perimeter rows, `deny` answers `FORBIDDEN`) and `required`. Writes run only when `logic` succeeds, once per row, and stop at the first failure (`WRITE_FAILED`).
+  - What a read or write calls: SQL (`sql`, `select`, `insert`... creates the transaction), an existing transaction of any connector (`transaction:"q_orders"`, or `"<connector>.<transaction>"` for an HTTP/REST, SQL or other connector), or a sequence (`sequence:"<sequence>"`, or `"<library>.<sequence>"` for a library the app references after `marketplace-import({project:"<library>", targetProject:"<App>"})`). Prefer a library sequence or an HTTP transaction behind `business-sequence-create` to a hand-built business sequence: auth, perimeter and the contract stay the same.
+  - A SQL read gives `ctx.reads.<name>` its rows. Another read gives the JSON the call returns, without `attr`, `error` and `HttpInfo`; the array or object of a JSON HTTP transaction is unwrapped, and `path:"people"` keeps one part of it (`perimeter` and `required` then apply to it).
+  - A call fails on `document.error`, an HTTP status >= 400, or a sequence answering `success:false`: `READ_FAILED` or `WRITE_FAILED` with the cause in the message. An HTTP transaction needs `httpInfo:true` first, otherwise a 404 or a lost connection looks like data and the generator refuses it.
+  - `auth.userSequence` reloads the user through a sequence instead of `auth.userTransaction`.
+  - `session` makes the login and logout business sequences (see Session): `logic` alone never opens a session.
+- `ngx-theme-apply`: the visual identity of the app, once, before the pages: the user's brand color and a preset (`institutional`, `modern`, `dense`), light by default (see Visual design in `convertigo-frontend-ngx`).
+- `ngx-page-create`: a `list` (filters, badges colored by status, row click, `columns` for a table), `detail`, `form` (UIForm, Form SmartSources, toast and navigation) or `dashboard` (KPI cards with icons and accent colors, sections) page wired to its business sequence, with the lost-session redirect, the `local?.x` templates, an empty state with an icon, the menu icon and the `AppLayout` style.
+
+Each one validates the whole spec before writing and creates all or nothing: a refused call lists every problem and leaves the project untouched, so fix the spec and send it again. The answer lists the created QNames and the next proof to run. Pages may link to pages not created yet (a warning, not an error), so build them in any order.
+

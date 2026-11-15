@@ -6,18 +6,18 @@ Use this prompt when the caller is Mistral Vibe and the task should run through 
 ## Read these guides first
 - `convertigo://capabilities`
 - `convertigo://recipes/quickstart`
-- `convertigo://resources/convertigo-start`
-- `convertigo://resources/convertigo-vibe-start`
+- `convertigo://guides/start`
+- `convertigo://guides/vibe`
 
 Then read the smallest matching shared recipe before mutation:
 
-- new starter app: `convertigo://resources/convertigo-recipe-starter-extension`
-- HTTP web-service backend business sequence: `convertigo://resources/convertigo-recipe-http-business-sequence`
-- data-backed NGX page: `convertigo://resources/convertigo-recipe-ngx-data-page`
-- new application from a specification (several pages, roles or a session, SQL): `convertigo://resources/convertigo-recipe-multipage-app`
-- standard SQL CRUD + starter NGX UI: `convertigo://resources/convertigo-crud-fastpath`
-- existing deterministic CRUD edit: `convertigo://resources/convertigo-crud-edit-fastpath`
-- final review or evidence: `convertigo://resources/convertigo-validation-and-evidence`
+- new starter app: `convertigo://guides/starter`
+- HTTP web-service backend business sequence: `convertigo://guides/http-sequence`
+- data-backed NGX page: `convertigo://guides/data-page`
+- new application from a specification (several pages, roles or a session, SQL): `convertigo://guides/multipage`
+- standard SQL CRUD + starter NGX UI: `convertigo://guides/crud`
+- existing deterministic CRUD edit: `convertigo://guides/crud-edit`
+- final review or evidence: `convertigo://guides/proof`
 
 ## Mission
 - Make Vibe use the `convertigo-vibe-generalist` skill and the `Convertigo` MCP server.

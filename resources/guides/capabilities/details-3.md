@@ -1,0 +1,3 @@
+- Page `scriptContent` is atomic: read it with `properties:"all"` and preserve the complete string and every existing marker section when editing. NGX `identifier` values must be valid TypeScript identifiers without dashes.
+- Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated frontend artifacts. Fix the Convertigo source objects or the MCP generator instead.
+- Once the CRUD fast path is selected, do not fall back to `rag-query` unless the built-in guides and CRUD tools no longer answer the task.

@@ -1,0 +1,130 @@
+[
+  {
+    "uri": "convertigo://resources/convertigo-start",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-crud-fastpath",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-vibe-start",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-vibe-http-ngx-fastpath",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-project-review",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-crud-edit-fastpath",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-platform-big-picture",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-engineering-workflow",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-bootstrap-decision-matrix",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-contract-first-delivery",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-recipe-starter-extension",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-recipe-business-sequence-stub",
+    "aliases": [
+      "convertigo://resources/convertigo-recipe-facade-stub"
+    ]
+  },
+  {
+    "uri": "convertigo://resources/convertigo-backend-sequences",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-recipe-http-business-sequence",
+    "aliases": [
+      "convertigo://resources/convertigo-recipe-http-facade"
+    ]
+  },
+  {
+    "uri": "convertigo://resources/convertigo-integration-http",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-recipe-sql-crud",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-fast-path-sql-hsqldb",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-fast-path-sql-postgresql",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-fast-path-sql-mariadb",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-crud-practical-cases",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-integration-sql",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-authentication",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-recipe-ngx-data-page",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-frontend-ngx",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-validation-and-evidence",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-context-api",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-json-quickref",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-task-routes",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-recipe-multipage-app",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://capabilities",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://recipes/quickstart",
+    "aliases": []
+  }
+]

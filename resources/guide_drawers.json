@@ -1,0 +1,1718 @@
+[
+  {
+    "oldUri": "convertigo://resources/convertigo-start",
+    "summaryUri": "convertigo://guides/start",
+    "sourceFile": "convertigo_start.md",
+    "originalSha256": "c489e9a903f4e36a48bb3a55fbdb2347ceb918193ef22bc0f07b581becb15858",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/start/overview",
+        "file": "guides/start/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "464da4052c452284485fc3d467d7c3c83dc31b51ba8e54a83047274d2a1487bf",
+        "bodyOffset": 195,
+        "servedSha256": "8af7955ca1a8fb6f5c80b184c11e4676c38a13347166147e31a96bcf24ad43fe"
+      },
+      {
+        "uri": "convertigo://guides/start/mandatory-workflow",
+        "file": "guides/start/mandatory-workflow.md",
+        "when": "Mandatory workflow",
+        "sha256": "2f1cd363d379611b77a555291381a14d2ba00773ed923f852edb594b8e5101df",
+        "bodyOffset": 201,
+        "servedSha256": "6107d013980fdee29ba1b318e982de8b7a780381b7b95aa4912363363fef69af"
+      },
+      {
+        "uri": "convertigo://guides/start/mandatory-workflow-2",
+        "file": "guides/start/mandatory-workflow-2.md",
+        "when": "Mutations, CRUD page generators and backend contracts",
+        "sha256": "d03a6c2c2c296252cd6e6b492cef65e63f5685b7360b1f253faac24fc6a4ae50",
+        "bodyOffset": 281,
+        "servedSha256": "3d133a5fadf3bec1808e13d99557273bd29451139d0f117e0fb8d76d74bf9de0"
+      },
+      {
+        "uri": "convertigo://guides/start/mandatory-workflow-3",
+        "file": "guides/start/mandatory-workflow-3.md",
+        "when": "Viewer URLs, call skeletons and first-write checks",
+        "sha256": "49afbd62988504c06518bb4dbd1b0581f7ff3f8e7fcc348a3573979ef3c7b4c1",
+        "bodyOffset": 277,
+        "servedSha256": "b67cae418f530aa865b3ed00255fd5386dc9d10bda371473a60b24a5a9691d0b"
+      },
+      {
+        "uri": "convertigo://guides/start/mandatory-workflow-4",
+        "file": "guides/start/mandatory-workflow-4.md",
+        "when": "Escalation, unsafe shortcuts and completion checks",
+        "sha256": "1351b719652bb73a5397c2b0a1f339e512b81ced200fbf3f5eaa52a1ced859ae",
+        "bodyOffset": 221,
+        "servedSha256": "4da21098feca441f7be95ab1a704ae3f1f437937ab94efe94161ced90eb45e1e"
+      }
+    ],
+    "summarySha256": "6cbdf6495f99e2a1aaaa3909388cdfadc2de55a212804b67d0cfcd19b62e504f"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-crud-fastpath",
+    "summaryUri": "convertigo://guides/crud",
+    "sourceFile": "convertigo_crud_fastpath.md",
+    "originalSha256": "45def5d414ddfc5a26da6e24dfc199a2ebad136102e8b16b886778d00042bfcd",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/crud/overview",
+        "file": "guides/crud/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "5dce22f8c7c80f4ad996be795ac5259ce6bcd1566830d69e6b6723e0545b3bbe",
+        "bodyOffset": 190,
+        "servedSha256": "04466beb447988e66c140994f4c0b5863299e4e37c29687b07eeb6f042b95de5"
+      },
+      {
+        "uri": "convertigo://guides/crud/required-inputs",
+        "file": "guides/crud/required-inputs.md",
+        "when": "Required inputs",
+        "sha256": "dfce5c6da00cc5dec34b4cb59cb570e94695b92461d0208723df9051903616fc",
+        "bodyOffset": 190,
+        "servedSha256": "9daa62afef855fef72bb9df5e7b924a2a465138e8e5124a94e8515c4f2cfc337"
+      },
+      {
+        "uri": "convertigo://guides/crud/deterministic-rail",
+        "file": "guides/crud/deterministic-rail.md",
+        "when": "Deterministic rail",
+        "sha256": "ecaccdb59595e30be2e785c63aaa474ef3aabc730b062588ffe7724a314bb8fb",
+        "bodyOffset": 211,
+        "servedSha256": "c82dc96ec1eef89377edac05a069f840a9e09c045fbdde3e5e72c4f72a5f23b4"
+      },
+      {
+        "uri": "convertigo://guides/crud/existing-project-edit-rail",
+        "file": "guides/crud/existing-project-edit-rail.md",
+        "when": "Existing project edit rail",
+        "sha256": "7477f0a9dcbc0d098458d90ec76a08a20d0dcfe7e873ae16c02b3300ca892ee2",
+        "bodyOffset": 222,
+        "servedSha256": "445e0d34f891fdf8c30d85c847aa5d4c5b1ba59eb546712470a21f8acb14d027"
+      },
+      {
+        "uri": "convertigo://guides/crud/canonical-examples",
+        "file": "guides/crud/canonical-examples.md",
+        "when": "Canonical examples",
+        "sha256": "f0f43e2a7b41382a70821c5cb30fc7aec3bdaeefb27a405a64668f1e4c41e4e1",
+        "bodyOffset": 209,
+        "servedSha256": "310d2ac5d6fa196e240d65c36428b0feb390d63367faeed210512291aaa420a1"
+      },
+      {
+        "uri": "convertigo://guides/crud/anti-patterns",
+        "file": "guides/crud/anti-patterns.md",
+        "when": "Anti-patterns",
+        "sha256": "03231199969ae5bb8d8c5f9293f6a64425486be094a6c106c2233953fe67c353",
+        "bodyOffset": 143,
+        "servedSha256": "5cab221ac94f19bb51345571f76a34f58d8d925434b80ee2918b22a1518846f1"
+      }
+    ],
+    "summarySha256": "9aa2b40e8c1a1461e7d4dcc330cb76da9edd1a69ad1656955776ba8ed4382a12"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-vibe-start",
+    "summaryUri": "convertigo://guides/vibe",
+    "sourceFile": "convertigo_vibe_start.md",
+    "originalSha256": "4dc2dd0b524597a8be93cb8600cca8fdc652c25ef251ae68eea3ddc3507ba392",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/vibe/setup",
+        "file": "guides/vibe/setup.md",
+        "when": "Setup, isolation and bootstrap",
+        "sha256": "06d79775d0c1cbe27d297d0d5e44eb8f6727d008706fb8d7e65fc21c1517d49b",
+        "bodyOffset": 160,
+        "servedSha256": "57469e98e33c7bfd1ae1abf312492cbae185047a11eb1dc1056f6a98122521c2"
+      },
+      {
+        "uri": "convertigo://guides/vibe/calls",
+        "file": "guides/vibe/calls.md",
+        "when": "Ordered calls, error results and headless execution",
+        "sha256": "708991a084811be03e0d210456df25655501cb1bd94f57895236b82c56945405",
+        "bodyOffset": 253,
+        "servedSha256": "bccbf4df2d9ab4bd33cb325a686246267020b98b27a5a98af9798f31696ef6cb"
+      },
+      {
+        "uri": "convertigo://guides/vibe/starter-http",
+        "file": "guides/vibe/starter-http.md",
+        "when": "Starter import and typed HTTP transport",
+        "sha256": "949c1bd03f7abe755b49980fd4ac65b421f167e59cd7e471bf41fc81454dfe44",
+        "bodyOffset": 231,
+        "servedSha256": "d6505b9536e7a04f249aa8bef446ef3cb19ba7b16d8041714ec19d66d9e67963"
+      },
+      {
+        "uri": "convertigo://guides/vibe/http-variables",
+        "file": "guides/vibe/http-variables.md",
+        "when": "URL paths, transaction classes and StepVariables",
+        "sha256": "b84933857cf560863e45188ecdecede9f361ced2944a10b9b96e89978c007ba2",
+        "bodyOffset": 255,
+        "servedSha256": "1b603a19404c45012019a473be857f2da79ed42df79ffa8fe49d1f75979f72fa"
+      },
+      {
+        "uri": "convertigo://guides/vibe/backend-proof",
+        "file": "guides/vibe/backend-proof.md",
+        "when": "Public input forwarding and backend proof",
+        "sha256": "1db9d1722325425299a01af8946325302274a6d90478c7d1748e8584520f0e56",
+        "bodyOffset": 243,
+        "servedSha256": "d33890df83d6a4dfa6e909b90efd0231999c75b03aae554da882f5e26a4b0996"
+      },
+      {
+        "uri": "convertigo://guides/vibe/payload-proof",
+        "file": "guides/vibe/payload-proof.md",
+        "when": "HTTP payload failures and UI entry gate",
+        "sha256": "25053aa2964beffa493c54f6c7c558ff0ebc692cd99539a5bd18444445b41018",
+        "bodyOffset": 231,
+        "servedSha256": "394dab35cf7874cf684d8aef4e40931890cc9c49ace65326b167eff6f8900fbd"
+      },
+      {
+        "uri": "convertigo://guides/vibe/locals",
+        "file": "guides/vibe/locals.md",
+        "when": "Palette objects, locals and input bindings",
+        "sha256": "22f6d156138bf8cf093d3e5190684e13d85ed3b5c0014d7cb523842506f647fb",
+        "bodyOffset": 239,
+        "servedSha256": "9e16182ac497c4adf08a3d1e9597bccfb672de3909b36ff94e0fa8f31fae8c51"
+      },
+      {
+        "uri": "convertigo://guides/vibe/bindings",
+        "file": "guides/vibe/bindings.md",
+        "when": "SmartSource readback and iterator text",
+        "sha256": "6ef6c0e08baf93d1414e66b3237d67a4d10d37824746a6fdc4b5e2e737e33cc4",
+        "bodyOffset": 223,
+        "servedSha256": "fe3913ab7576e55b805deac4c3030b8acf7c3f0486f1eeba18f0c186e4241ea3"
+      },
+      {
+        "uri": "convertigo://guides/vibe/actions",
+        "file": "guides/vibe/actions.md",
+        "when": "Conditions, action completion and starter cleanup",
+        "sha256": "c78253c49129d8a201e699c5f11d36f3b289ca0fe153f97631070d63ca246dd0",
+        "bodyOffset": 254,
+        "servedSha256": "bb56219a092fff0a0cd7413282ce60217f8c71b33bdb3dd310e55a259fa9fae9"
+      },
+      {
+        "uri": "convertigo://guides/vibe/output-shaping",
+        "file": "guides/vibe/output-shaping.md",
+        "when": "Cleanup, output shaping and XPath repair",
+        "sha256": "936dacbeda17f95ade75040adbed5eb15266b048ff1185d96b9dae928043f081",
+        "bodyOffset": 233,
+        "servedSha256": "d0925d1a832683631dfde0fb0a7864622d6340c549db2aa4a667e6c53bf80a19"
+      },
+      {
+        "uri": "convertigo://guides/vibe/result-state",
+        "file": "guides/vibe/result-state.md",
+        "when": "Result storage, SC values and visible state",
+        "sha256": "0e029a657fa0f8404e7219ff2772e0e764922790e9a95e7b1f0e53a1aff7334d",
+        "bodyOffset": 244,
+        "servedSha256": "a8c7a10e48aa3dc7a84a332f5dc47551f8a711b6e0344ea2acbc235feeb6ce5e"
+      },
+      {
+        "uri": "convertigo://guides/vibe/validation",
+        "file": "guides/vibe/validation.md",
+        "when": "Visible records, isolation and final evidence",
+        "sha256": "8229e59ae3af24759d5e9ba6816b39aa0b6be9550aaa4c5dbc1b9ab650dc523f",
+        "bodyOffset": 247,
+        "servedSha256": "c1f418aae74e91d5753e374abb76719e7336e06d995d73d43a6ca053d6684658"
+      },
+      {
+        "uri": "convertigo://guides/vibe/diagnostics",
+        "file": "guides/vibe/diagnostics.md",
+        "when": "Diagnose bootstrap, backend and binding failures",
+        "sha256": "7860b2db55ad9391213a1f42598b139c055aaa39c2d225aa0269635fa3eb1a87",
+        "bodyOffset": 254,
+        "servedSha256": "e9d9c23d1d785ccf375e2b25b9d4946b43a40113cba74c83a0ecd2c1a003243d"
+      },
+      {
+        "uri": "convertigo://guides/vibe/diagnostics-ui",
+        "file": "guides/vibe/diagnostics-ui.md",
+        "when": "Diagnose public contract and visible UI failures",
+        "sha256": "e49cd5b919f0a8b6140f7b1876be03792b4e34410450fd626788bc36b5736fa4",
+        "bodyOffset": 206,
+        "servedSha256": "d49a345729c0301291e4bcf1310093534305f60a57506f7bdd21697c4616b6b1"
+      }
+    ],
+    "summarySha256": "4ded291308dd56023e4dd9e08ea479a0628c93c80cb38492d6488712908067fd"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-vibe-http-ngx-fastpath",
+    "summaryUri": "convertigo://guides/http-app",
+    "sourceFile": "convertigo_vibe_http_ngx_fastpath.md",
+    "originalSha256": "87bc6486b36236bd16686709c8afd79fac24d84f00d9f2e077155b9a73d3cfd5",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/http-app/overview",
+        "file": "guides/http-app/overview.md",
+        "when": "overview",
+        "sha256": "f0ef8a49a1053c43620b27b442a0de5dfefbfba3e8c22d1e753fd9627e13b3e1",
+        "bodyOffset": 129,
+        "servedSha256": "ef60cea746ff1143f564207a90af20ad8342d0d24faa91b9097a9d05611b07ee"
+      },
+      {
+        "uri": "convertigo://guides/http-app/hard-rules",
+        "file": "guides/http-app/hard-rules.md",
+        "when": "Hard Rules",
+        "sha256": "bcad47df0ba4714f47f25da5fe64391000790c439929e4cb61bbcc4883e3c805",
+        "bodyOffset": 186,
+        "servedSha256": "c4750fcd2ede83f7e909c027b415d4defbda5445ade50aef56684e6840821b43"
+      },
+      {
+        "uri": "convertigo://guides/http-app/hard-rules-2",
+        "file": "guides/http-app/hard-rules-2.md",
+        "when": "ForEach aliases and row scope",
+        "sha256": "34eff51abfc2911ec348a9e3e3d65713a499dfe01807701d155fca55b41d8a5c",
+        "bodyOffset": 226,
+        "servedSha256": "3f5dd163d7cae9490045b132c4298b426948a7685e78285e8a6e91907c0cda38"
+      },
+      {
+        "uri": "convertigo://guides/http-app/http-backend",
+        "file": "guides/http-app/http-backend.md",
+        "when": "HTTP Backend",
+        "sha256": "775aade3fcccaa52764dbecdadb679cd971fffcb2cd44bd29d701c1ee03b050a",
+        "bodyOffset": 196,
+        "servedSha256": "fa12807324b865d135361f90d1b3939b83e25ef714c74940c644b44f775be8fe"
+      },
+      {
+        "uri": "convertigo://guides/http-app/http-backend-2",
+        "file": "guides/http-app/http-backend-2.md",
+        "when": "Endpoint selection, transaction variables and direct proof",
+        "sha256": "b05274e9a62f3f9a5d1c4adae42c96b33f1a95e97d1e2ca6e82ab03504d9abac",
+        "bodyOffset": 288,
+        "servedSha256": "07e04bde3839c8c562733643ba9e0aef87a5157fa5f9c4d37d9d7292867e46a0"
+      },
+      {
+        "uri": "convertigo://guides/http-app/http-backend-3",
+        "file": "guides/http-app/http-backend-3.md",
+        "when": "Same-rail repairs and HTTP proof failures",
+        "sha256": "50fd045a5d890b63b67530c533db12a0fa7b9f3062ea49b4d16c3c2d6a8c8684",
+        "bodyOffset": 259,
+        "servedSha256": "b37e27b6bda3e1c27a91c7f4faaf16316cce33635aef9e5c500e65ede23ee9e9"
+      },
+      {
+        "uri": "convertigo://guides/http-app/business-sequence",
+        "file": "guides/http-app/business-sequence.md",
+        "when": "Business sequence",
+        "sha256": "ef1f174ee8c1cc5a8fc052af7a6ba8d7ddc9b3dd3ded77c2f11e4f87be738785",
+        "bodyOffset": 202,
+        "servedSha256": "5c664c65f68703d31f79fe41f4118f278bd98f05cec0fddc8bf01632bbcce434"
+      },
+      {
+        "uri": "convertigo://guides/http-app/ngx-page",
+        "file": "guides/http-app/ngx-page.md",
+        "when": "NGX Page",
+        "sha256": "a1f848650b2ca1cc6f8d495909e2cf65278db1da0739324bd5e343d340dd5f66",
+        "bodyOffset": 189,
+        "servedSha256": "c333aedaa232143426cfa7016bdd0b031e99465e62275daaecb25766b53da899"
+      },
+      {
+        "uri": "convertigo://guides/http-app/ngx-page-2",
+        "file": "guides/http-app/ngx-page-2.md",
+        "when": "SmartSource JSON and visible search structure",
+        "sha256": "4302c19eedf9fd9bf65441448be5497a5fe943f81011d583c6bfc0e85c84b014",
+        "bodyOffset": 254,
+        "servedSha256": "871d3eeb81909100ebbe7c049126a1881129e596dcc48eefd4e0fcf12e65e2c5"
+      },
+      {
+        "uri": "convertigo://guides/http-app/ngx-page-3",
+        "file": "guides/http-app/ngx-page-3.md",
+        "when": "Submit chain, call variables and result storage",
+        "sha256": "874efe52d133fe40d327b6dff1cb798a0db033c1e3a240cba10eeb82325d3582",
+        "bodyOffset": 260,
+        "servedSha256": "6f6df0cd133c2555e82d8a6b1656d3a90810455307df71c2912d9dd951b2856c"
+      },
+      {
+        "uri": "convertigo://guides/http-app/ngx-page-4",
+        "file": "guides/http-app/ngx-page-4.md",
+        "when": "Iterator rows, visible proof and stop conditions",
+        "sha256": "a3a21f2fa1c6572acaf141a620211184f13d31d65aa9170043914405f9c1d04f",
+        "bodyOffset": 213,
+        "servedSha256": "586406bfa67f4776be171986154e6f792b3ef9a6bcb6c1ec268a1ab794a2e4d3"
+      }
+    ],
+    "summarySha256": "1ff399de81eeea53a234685a89bcb000234c446c47c4486417ac4e0ccae70857"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-project-review",
+    "summaryUri": "convertigo://guides/review",
+    "sourceFile": "convertigo_project_review.md",
+    "originalSha256": "8cf2100f1d0747e35464086621dd8d8db7348e13805cbe0cacdd5337badbb42b",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/review/overview",
+        "file": "guides/review/overview.md",
+        "when": "Overview",
+        "sha256": "b7d735e2a44f179d72c339be299c10de9b4c52f9d93c3315de27635d220759ee",
+        "bodyOffset": 138,
+        "servedSha256": "590050e4dbce8700752424762ca8c609cb3624a51a52820d5743c4793f5979fa"
+      },
+      {
+        "uri": "convertigo://guides/review/backend-review-doctrine",
+        "file": "guides/review/backend-review-doctrine.md",
+        "when": "Backend review doctrine",
+        "sha256": "427a4b2bffecb1275e5c340e06afbb2f7f865c7dab3004dd43445c26b25775b4",
+        "bodyOffset": 218,
+        "servedSha256": "ff0932772f992c361f96b09fbc963c7011a0b8a34eeafe6a32b9fc08c122c22b"
+      },
+      {
+        "uri": "convertigo://guides/review/frontend-review-doctrine",
+        "file": "guides/review/frontend-review-doctrine.md",
+        "when": "Frontend review doctrine",
+        "sha256": "ec5e74a77b135a71e605b8001440c821568545c902684e2316a57d4875876a06",
+        "bodyOffset": 231,
+        "servedSha256": "91369740072112d95c4ce717a663038d588272539ae19f140a4466ca1da9ed98"
+      },
+      {
+        "uri": "convertigo://guides/review/static-review-limits",
+        "file": "guides/review/static-review-limits.md",
+        "when": "Static review limits",
+        "sha256": "8da460259273e6e8d3474e5145d111215c05b64e96858db333de5fd59b4555bb",
+        "bodyOffset": 167,
+        "servedSha256": "8e5a0629fc19f90dc7c0d5b8e77c46201a27f8aaf3e4a6e18e9b5f16ab2e8bbc"
+      }
+    ],
+    "summarySha256": "76ed9ca57d3a5eb47b45e80d89134f4a76546daabbb7a2f98b66490989d20408"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-crud-edit-fastpath",
+    "summaryUri": "convertigo://guides/crud-edit",
+    "sourceFile": "convertigo_crud_edit_fastpath.md",
+    "originalSha256": "ccd7180273fcaafe80cc81f560b121f160818ea266e748e894abaf21788a6040",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/crud-edit/overview",
+        "file": "guides/crud-edit/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "1d70315287100ecad91d2fabebf621ad8bf47714a0b8225413719296222802d0",
+        "bodyOffset": 210,
+        "servedSha256": "33956db866c3afa3ced0c9ba2507d3a15e6f0ac06e2751880f08b14a742dfd65"
+      },
+      {
+        "uri": "convertigo://guides/crud-edit/running-upsert-crud-again",
+        "file": "guides/crud-edit/running-upsert-crud-again.md",
+        "when": "Running upsert-crud again",
+        "sha256": "58f43f0d3abb3bb04d627e6a0fdf3e2072636d11266c1affebb4bb1255716a03",
+        "bodyOffset": 236,
+        "servedSha256": "9436bc7f5991840846288cd5109edddecf7d8e893c97eef277eb6ceea7a8faf6"
+      },
+      {
+        "uri": "convertigo://guides/crud-edit/server-side-checks-validation",
+        "file": "guides/crud-edit/server-side-checks-validation.md",
+        "when": "Server-side checks (validation)",
+        "sha256": "9094241336f224def9942b53f1d99f47b7962da79a0a499106e8bcede3eb37bd",
+        "bodyOffset": 278,
+        "servedSha256": "ae5236a9d1f210fdc15f654b10a0c2b2c5633cdc40438f82d29888f235fcf41a"
+      },
+      {
+        "uri": "convertigo://guides/crud-edit/canonical-crud-additions-to-express-direct",
+        "file": "guides/crud-edit/canonical-crud-additions-to-express-direct.md",
+        "when": "Canonical CRUD additions to express directly in the spec",
+        "sha256": "07aee1e9f4461e2e6db9765f85dc387be3db83ec43233f75df979058a9e3415f",
+        "bodyOffset": 312,
+        "servedSha256": "f61ad6ae40cf80dd631604ac227b00a2cdcc667f1f29029d10adc2f16026e60d"
+      },
+      {
+        "uri": "convertigo://guides/crud-edit/two-canonical-examples",
+        "file": "guides/crud-edit/two-canonical-examples.md",
+        "when": "Two canonical examples",
+        "sha256": "ccd83f0c17c0c86b1bd09d2dca50bb0b668ce165b01dc8b9d1884e01d21178a6",
+        "bodyOffset": 195,
+        "servedSha256": "4942facfea0801ae2a7ea7d9c63076f1f5e4b2b8e19697bd9fa94bd48d8416bf"
+      }
+    ],
+    "summarySha256": "22be151b4b2c3a2b72da8afd6389c3c31b68b3dddb06cb8199fd4bf534635367"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-platform-big-picture",
+    "summaryUri": "convertigo://guides/platform",
+    "sourceFile": "convertigo_platform_big_picture.md",
+    "originalSha256": "f003906d419921028f054bf24cc94b8b9292ca6f320d765b6d2117a73b6d3e13",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/platform/overview",
+        "file": "guides/platform/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "f6507138f57f54062b8a40f118d09cbb07d687f89b66ea1e0399fa1d759effd1",
+        "bodyOffset": 201,
+        "servedSha256": "7854de63038057792bcd4a8596762413a35292db959771ad6735d0fafad22084"
+      },
+      {
+        "uri": "convertigo://guides/platform/mandatory-workflow",
+        "file": "guides/platform/mandatory-workflow.md",
+        "when": "Mandatory workflow",
+        "sha256": "9a8810f85b1665921febb38104929bd7ed1a5a17c70cafe98e715b688bad13b6",
+        "bodyOffset": 210,
+        "servedSha256": "a0ebc7477be5d656fa743408084622808e4e9f57351cf7a65dad5aa23d49c8c5"
+      },
+      {
+        "uri": "convertigo://guides/platform/mandatory-workflow-2",
+        "file": "guides/platform/mandatory-workflow-2.md",
+        "when": "Symbols, reusable components and platform completion",
+        "sha256": "5500f8151f96096d96030ed29b89ab0106814a68a431be52df69ca97a96d33db",
+        "bodyOffset": 298,
+        "servedSha256": "c37b72cad2ee8d8bcc949ff06d36459adfe8d051c5063e55c3f082d1b8b17578"
+      },
+      {
+        "uri": "convertigo://guides/platform/recommended-guides-and-recipes",
+        "file": "guides/platform/recommended-guides-and-recipes.md",
+        "when": "Recommended guides and recipes",
+        "sha256": "d0cd8304aa357f25de7395ab348a01be11c7ab32eaecd54792e48120e6950c5d",
+        "bodyOffset": 187,
+        "servedSha256": "8ec9d2623bbfa7dc237ce2a6a4e0424b79560db2f49c207f4613ce3be0ec0869"
+      }
+    ],
+    "summarySha256": "3c0e61d7e12f5b25c2feb81a2374ed7c447d186909b55c27ce148626a6e36f9b"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-engineering-workflow",
+    "summaryUri": "convertigo://guides/workflow",
+    "sourceFile": "convertigo_engineering_workflow.md",
+    "originalSha256": "1c5122d8e6a6ef75f85fdeefdcbd83ac5769db5e732cc49e9d707b0568d8c0b3",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/workflow/overview",
+        "file": "guides/workflow/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "aabcf5062e68d9e65e014355b9b1908c293567cc6675e0d7a4ed051c3d0c1628",
+        "bodyOffset": 206,
+        "servedSha256": "41a801a2577ffb64bb010ec3cdc5e6115dc857bbe9b3a33f90d37ec15a447e2d"
+      },
+      {
+        "uri": "convertigo://guides/workflow/anti-patterns-do-not-do",
+        "file": "guides/workflow/anti-patterns-do-not-do.md",
+        "when": "Anti-patterns / do not do",
+        "sha256": "0d7c50d262d8a880fe9e13960c774ce416bc7ed02e24805e489f04aaa3f499d4",
+        "bodyOffset": 165,
+        "servedSha256": "7ddbc22b1baed77bd2f6e3d0878d41d284a11187d66375377bb0adf3710e44b7"
+      }
+    ],
+    "summarySha256": "b789153d66ced2a5e6f803fbd2c53b878beb30d0512a66b74293558ac8c25b06"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-bootstrap-decision-matrix",
+    "summaryUri": "convertigo://guides/brief",
+    "sourceFile": "convertigo_bootstrap_decision_matrix.md",
+    "originalSha256": "410b57c3b21f53e23db628c651cafeeb07d796c789beb5f422245bd6818989f3",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/brief/overview",
+        "file": "guides/brief/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "bd215112f0212eb13bc759e2b929e666e89d987b11f9675bc13d692a2f032fe7",
+        "bodyOffset": 190,
+        "servedSha256": "f0a6a0019a139d6c0ed2415e6682fe23ba4c79bf0194bd19532a148acef5351e"
+      },
+      {
+        "uri": "convertigo://guides/brief/who-asks-what",
+        "file": "guides/brief/who-asks-what.md",
+        "when": "Who asks what",
+        "sha256": "7c8e7f701032c2fdfed430a6c14746e049e6283b2f198449b378db0c9bb5a031",
+        "bodyOffset": 135,
+        "servedSha256": "e917d40c5742b093c5337fadf636ff6db656b15e19b14a3ac723e12ab0454b71"
+      }
+    ],
+    "summarySha256": "ca13dbb3eb073ae5126eda63871f21b46dab921a86df0c354f246943353f0bec"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-contract-first-delivery",
+    "summaryUri": "convertigo://guides/contract",
+    "sourceFile": "convertigo_contract_first_delivery.md",
+    "originalSha256": "940bff7c4b9c1473ef9990f9ad342db2e47f10dceb8c2dd12c59fd5a2cc1e067",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/contract/overview",
+        "file": "guides/contract/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "86dd97ad7a51f4ad44744dc2778fadaeee5d7528faa478961331f8b1cdee0f7d",
+        "bodyOffset": 201,
+        "servedSha256": "8fe3c67bcd19a6f3c205b8d17620584dd2da137bd625aac5af20b7a824830610"
+      },
+      {
+        "uri": "convertigo://guides/contract/mandatory-workflow",
+        "file": "guides/contract/mandatory-workflow.md",
+        "when": "Mandatory workflow",
+        "sha256": "3be57982b2cf73fe030bf893a2118689abfc543f37db931e4ade963dbbdc57d2",
+        "bodyOffset": 213,
+        "servedSha256": "06996843062162ece35965fc5bed98372452255120a609b5adda6a59dd8008f2"
+      },
+      {
+        "uri": "convertigo://guides/contract/anti-patterns-do-not-do",
+        "file": "guides/contract/anti-patterns-do-not-do.md",
+        "when": "Anti-patterns / do not do",
+        "sha256": "0b70d4df9ef9f0c38ee4e2a6cf4c627111da6898b705b729c4215bb54dd8b96b",
+        "bodyOffset": 175,
+        "servedSha256": "0aab81eab6ba7769383b61115fdba84782b0123124ab336da7dc8e4a94146cc2"
+      }
+    ],
+    "summarySha256": "ec00b2b024abd8b70c6f0bbedf1e2fd8b0dda0af15f8f076a3345f9ce7be1f2e"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-recipe-starter-extension",
+    "summaryUri": "convertigo://guides/starter",
+    "sourceFile": "convertigo_recipe_starter_extension.md",
+    "originalSha256": "1e261a500d38254fec6e1676f69791315aa0145b0688bdd9ec68831c4aa49592",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/starter/overview",
+        "file": "guides/starter/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "33d9e89f3d5f195fb2d79834d2fcba7b1f19ddb6fa4b2d5e96d856be92e36313",
+        "bodyOffset": 199,
+        "servedSha256": "239a0cd0a2c92869d3061ce6c454a2316109f615df07385efe502dc7fc2f67ea"
+      },
+      {
+        "uri": "convertigo://guides/starter/mandatory-workflow",
+        "file": "guides/starter/mandatory-workflow.md",
+        "when": "Mandatory workflow",
+        "sha256": "4787e5788197c5afc1bec4a4b5f4ec9b6862bb601bc241710320dabe0830848c",
+        "bodyOffset": 207,
+        "servedSha256": "10df21d977040e6394681ee8c79aede4c0cfd118951f4fd7e4f701b6e5ca1286"
+      },
+      {
+        "uri": "convertigo://guides/starter/mandatory-workflow-2",
+        "file": "guides/starter/mandatory-workflow-2.md",
+        "when": "Visible entry page, actions and starter cleanup",
+        "sha256": "ab92c70129c0b751350dab970f344f043b02fcbf1f52fa905596803363e4b44f",
+        "bodyOffset": 275,
+        "servedSha256": "46f764baf7d7ba57be01970cf67b57aea0e620a88fe272319f24302aeba31c89"
+      },
+      {
+        "uri": "convertigo://guides/starter/mandatory-workflow-3",
+        "file": "guides/starter/mandatory-workflow-3.md",
+        "when": "Starter constraints and minimum runtime proof",
+        "sha256": "150855b3e7495f4d5b6937a2a1405249c519c484dd82aeb4d63db21ab31efc40",
+        "bodyOffset": 277,
+        "servedSha256": "c5c94e2f5745d6244acb0fc0f7e93ab14910b5176e75a1094b7c67d403ca191d"
+      },
+      {
+        "uri": "convertigo://guides/starter/minimum-validation-proof",
+        "file": "guides/starter/minimum-validation-proof.md",
+        "when": "Minimum validation proof",
+        "sha256": "50642d17a3d1a5b4c0d91070663c1bdcc30f4e943de05fc4c06884c226443cbd",
+        "bodyOffset": 173,
+        "servedSha256": "ed039bcde1528a6ac4b56f2e125b027920980d500b5d29d19fc22ef0dd6c774b"
+      }
+    ],
+    "summarySha256": "3a398c94daf3dc1835ee9b63c898140096207a478283c03aad6633734fba7f59"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-recipe-business-sequence-stub",
+    "summaryUri": "convertigo://guides/sequence",
+    "sourceFile": "convertigo_recipe_business_sequence_stub.md",
+    "originalSha256": "e0028588afaf2a7a67e5811d921a7130e5d171883e4ffb31bd42bf0457ddd834",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/sequence/overview",
+        "file": "guides/sequence/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "ddd66845f8da47423a5493c979b4444ae9f6b6160997179ea5ea9373c1dcc1fb",
+        "bodyOffset": 200,
+        "servedSha256": "a95ee63c86f852b9edb2d477f79cd1414dc45c09403301789ff1e4675c317512"
+      },
+      {
+        "uri": "convertigo://guides/sequence/completion-checks",
+        "file": "guides/sequence/completion-checks.md",
+        "when": "Completion checks",
+        "sha256": "9ba3f5bc911cc65ba148cfea9d2ea1a521935383d7e2fa298b4a2c83e4f081fa",
+        "bodyOffset": 149,
+        "servedSha256": "6d473b024edd882ad5d13c5f10ae89c72df440d9ca167befb8ea76d29a5d5dc2"
+      }
+    ],
+    "summarySha256": "8d359cf91a56bd6c6b24efc8beb5fb3ed84987b567bacb60939dc4dcfd4440eb"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-backend-sequences",
+    "summaryUri": "convertigo://guides/backend",
+    "sourceFile": "convertigo_backend_sequences.md",
+    "originalSha256": "8cfd70f48e0983d10f608ae94f5326573286f066bc14c40f59bc50ab8c386527",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/backend/overview",
+        "file": "guides/backend/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "bacb2b4cdffcddcce2fcd198533d08de540c1bcdd6e4c98ef36e6989c9745cd2",
+        "bodyOffset": 212,
+        "servedSha256": "e60d7f27b608815fffb15f0db3f623c20254a1f0fae44888106e256c768e4f03"
+      },
+      {
+        "uri": "convertigo://guides/backend/step-taxonomy-that-matters-most",
+        "file": "guides/backend/step-taxonomy-that-matters-most.md",
+        "when": "Step taxonomy that matters most",
+        "sha256": "14ba0ca487fe50cda509b0403730e28b88bab0cb3e68048a06b01551a735cbfb",
+        "bodyOffset": 246,
+        "servedSha256": "4201fcad17044266b53fcba97b213f5ccfd926e796a00a9725a196e09899af91"
+      },
+      {
+        "uri": "convertigo://guides/backend/step-taxonomy-that-matters-most-2",
+        "file": "guides/backend/step-taxonomy-that-matters-most-2.md",
+        "when": "Public JSON fields and call-step output paths",
+        "sha256": "74800b81ab4b18c2058b93b617049edad1d3e1df60431f3e04d7052f3ab8f400",
+        "bodyOffset": 297,
+        "servedSha256": "a23469d54cc83e482dc43d5f165ffd3697a2719999409d7b5c60a851e7f76b84"
+      },
+      {
+        "uri": "convertigo://guides/backend/step-taxonomy-that-matters-most-3",
+        "file": "guides/backend/step-taxonomy-that-matters-most-3.md",
+        "when": "Called sequence paths and minimal shaping",
+        "sha256": "d035f50e6bdf01fe537b99b839d8ce4b84101427dc23ffa5036b9535d2bd9d81",
+        "bodyOffset": 291,
+        "servedSha256": "f10b12268cc29f888815fb5d483d6893255e3fdc8a1393ac5c2317ce62ef3db7"
+      },
+      {
+        "uri": "convertigo://guides/backend/step-taxonomy-that-matters-most-4",
+        "file": "guides/backend/step-taxonomy-that-matters-most-4.md",
+        "when": "SmartType modes and source-picker tuples",
+        "sha256": "69c7a3331215bea5e3f9bba64406d211b5b22940e8858a5a605d6d7d1858896d",
+        "bodyOffset": 292,
+        "servedSha256": "4af53ef95a06f4fd8e12fc6baadbf691d083aed38db11040fae0f9fd67a1d300"
+      },
+      {
+        "uri": "convertigo://guides/backend/schema-learning-when-mapping-matters",
+        "file": "guides/backend/schema-learning-when-mapping-matters.md",
+        "when": "Schema learning when mapping matters",
+        "sha256": "84095e27f5f658d00c4fa01601beeb051fb75ec4a923d624b777d185f1560f2a",
+        "bodyOffset": 286,
+        "servedSha256": "487faa269f9dee35cd927e77ada53825334bc3fe9d5ecba86b941eb4063085b7"
+      },
+      {
+        "uri": "convertigo://guides/backend/schema-learning-when-mapping-matters-2",
+        "file": "guides/backend/schema-learning-when-mapping-matters-2.md",
+        "when": "Multipart email example and iterator conditions",
+        "sha256": "491588bf73f8a5606ca87ebb924787bbc4ae088be305a6d4e14e89ec0e87c950",
+        "bodyOffset": 311,
+        "servedSha256": "8f2034fd610fc38219ba7e2d5b6e77f17250e7f382cf815f676b8f0462bc4812"
+      },
+      {
+        "uri": "convertigo://guides/backend/schema-learning-when-mapping-matters-3",
+        "file": "guides/backend/schema-learning-when-mapping-matters-3.md",
+        "when": "Public output flags and canonical backend patterns",
+        "sha256": "43cc1b05a09888e311bcbe8dfa78d44cb924a9e9f3f0d7a606ad7baaa7972ccc",
+        "bodyOffset": 311,
+        "servedSha256": "eb0e6556d5354d1098c77d8511a257f1a84f7c320d39348efd3f001a2593c8b7"
+      },
+      {
+        "uri": "convertigo://guides/backend/when-to-escalate-to-references",
+        "file": "guides/backend/when-to-escalate-to-references.md",
+        "when": "When to escalate to references",
+        "sha256": "2019d55e967e552cc112f8fcfe9b39d9f2d3b8225d265913a6ab76f3d12d84d3",
+        "bodyOffset": 203,
+        "servedSha256": "e68c12edb850720116292c267d8deec040e605a8339c1e4ad908aaad85b86ec0"
+      }
+    ],
+    "summarySha256": "7a4610a1a0eb14d0774c03bd8e0b4e190c66c6454929062e4404dfc263ccc8ae"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-recipe-http-business-sequence",
+    "summaryUri": "convertigo://guides/http-sequence",
+    "sourceFile": "convertigo_recipe_http_business_sequence.md",
+    "originalSha256": "088421890ce07b9944fb55a6c9d75082d35dcba8f5267d0e3c16acd07c95431b",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/http-sequence/overview",
+        "file": "guides/http-sequence/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "86b7c51db31fcd4f742ee6c78f4bbb18aa804aa23d60b02e84e0734d5a6464dc",
+        "bodyOffset": 211,
+        "servedSha256": "47e456f815b175f474f1107fc26d3b369271ff637dee6f4b6aa8bc5e8b6c19a0"
+      },
+      {
+        "uri": "convertigo://guides/http-sequence/mandatory-workflow",
+        "file": "guides/http-sequence/mandatory-workflow.md",
+        "when": "Mandatory workflow",
+        "sha256": "5028c0b684802b950ac80b3551b1b560de762a8bc30584fb9ffe8f898ca63f16",
+        "bodyOffset": 225,
+        "servedSha256": "e6c240b7fec9ec38521e5b4f4d7306364ef95915562d3f8ca893015bab4ece66"
+      },
+      {
+        "uri": "convertigo://guides/http-sequence/mandatory-workflow-2",
+        "file": "guides/http-sequence/mandatory-workflow-2.md",
+        "when": "Transport failures and connector contracts",
+        "sha256": "6272fcfc4323efa83707bec5ea0c94812758cb307795f266ae02395925852aa3",
+        "bodyOffset": 283,
+        "servedSha256": "95ba2014867ac5384a9991130f080b0d539d119fcf4a5781ad7aa71673a925fd"
+      },
+      {
+        "uri": "convertigo://guides/http-sequence/mandatory-workflow-3",
+        "file": "guides/http-sequence/mandatory-workflow-3.md",
+        "when": "Transaction creation and public variable forwarding",
+        "sha256": "af208cd77f226d83d4c0ec9771d6719d8147276e908b2514c3624ac192caf584",
+        "bodyOffset": 303,
+        "servedSha256": "478ec7058d552b2a0807fd822014d0a161f1918dd516dc5d92c17055ec612523"
+      },
+      {
+        "uri": "convertigo://guides/http-sequence/mandatory-workflow-4",
+        "file": "guides/http-sequence/mandatory-workflow-4.md",
+        "when": "Repair missing query forwarding and metadata-only output",
+        "sha256": "ffc13efd58c8e12838b80bdae5fe5a28e3befc44a6c8948f4c7810fafb9ef7d7",
+        "bodyOffset": 313,
+        "servedSha256": "ada3f42776dcb8d379818df8039ac8ed21cbd4a42e48c3ec136fbdb414394758"
+      },
+      {
+        "uri": "convertigo://guides/http-sequence/mandatory-workflow-5",
+        "file": "guides/http-sequence/mandatory-workflow-5.md",
+        "when": "Early output proof and application-record contracts",
+        "sha256": "8a181d6a06b9fd103e044dc2e26aefe45efb4c2338ee78a3e8e222c22cfd9ee8",
+        "bodyOffset": 304,
+        "servedSha256": "9b8d7976d3ce4d6ba995d2011e46c79d0af54987db011c4903da3323c09044fe"
+      },
+      {
+        "uri": "convertigo://guides/http-sequence/recommended-mcp-tools",
+        "file": "guides/http-sequence/recommended-mcp-tools.md",
+        "when": "Recommended MCP tools",
+        "sha256": "fa144195855fa48f2f15b585947aca53c7285004d71280238ee8a5e31c0f573a",
+        "bodyOffset": 246,
+        "servedSha256": "0110e10f3b474393755f354d86edfa50d97332aa0c389cbc789553a70fdd7a61"
+      },
+      {
+        "uri": "convertigo://guides/http-sequence/anti-patterns-do-not-do",
+        "file": "guides/http-sequence/anti-patterns-do-not-do.md",
+        "when": "Anti-patterns / do not do",
+        "sha256": "a35f1f588336fdb9c96031e36b9fd846688a82220c660604e205e244de1e1f9a",
+        "bodyOffset": 256,
+        "servedSha256": "3ffc6d3a623dd30c280431b74dac220401acfa2e1266d135a11a0904eff838ae"
+      },
+      {
+        "uri": "convertigo://guides/http-sequence/minimum-validation-proof",
+        "file": "guides/http-sequence/minimum-validation-proof.md",
+        "when": "Minimum validation proof",
+        "sha256": "8976ce8bad62b5409c60db7de8ba1852a3ca6ae7c9a1c9282140e18b017bf103",
+        "bodyOffset": 188,
+        "servedSha256": "ad41047d11cad0961e32902e84d16e07cfe6dded4e82852df1f4ec5a331456f7"
+      }
+    ],
+    "summarySha256": "a743076815896edf0b3a4227796464b79c930796492555abd7c9c2c86128f2e4"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-integration-http",
+    "summaryUri": "convertigo://guides/http",
+    "sourceFile": "convertigo_integration_http.md",
+    "originalSha256": "4369bf336bc285c830df95b46dd9ee45c957604e20d2b694b9d5a5881626b682",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/http/overview",
+        "file": "guides/http/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "f544ccdf3b07cff9070226aa61c0be11bfe33484a9d4699e8cbc1a8a0e51bf1d",
+        "bodyOffset": 208,
+        "servedSha256": "79e7e7cb8d958939b36d9e6a9463556461fc85674d4892888f9d8860a401ceef"
+      },
+      {
+        "uri": "convertigo://guides/http/connector-setup-rules-that-matter",
+        "file": "guides/http/connector-setup-rules-that-matter.md",
+        "when": "Connector setup rules that matter",
+        "sha256": "8bba3cee384a3e940ed2d7cc7e35b1c111cd8bb0342ed456c81f8a48c9cd21bd",
+        "bodyOffset": 242,
+        "servedSha256": "46502b23fa26e5624cb3d7a67fae47c6f1ec785256615f718ab0a0c5f9083db9"
+      },
+      {
+        "uri": "convertigo://guides/http/business-sequence-mapping-patterns",
+        "file": "guides/http/business-sequence-mapping-patterns.md",
+        "when": "Business sequence mapping patterns",
+        "sha256": "06ef875368b4b4b9029986b717e7c1ecf1e2dfa610dfc7b761c6351e06852a77",
+        "bodyOffset": 258,
+        "servedSha256": "269336825ba2c2910effc5cf2c673efb27c5f03e3d13ada469ce9bc4328872b7"
+      },
+      {
+        "uri": "convertigo://guides/http/anti-patterns-do-not-do",
+        "file": "guides/http/anti-patterns-do-not-do.md",
+        "when": "Anti-patterns / do not do",
+        "sha256": "04e881c5380ca5d951b78799462de968a8cf6244ad0cd6a6e5209a8f4913d377",
+        "bodyOffset": 183,
+        "servedSha256": "5bd9493d8f11ec710dfa8ca6e8a7e8f15f9e05486c0eea1252a49347c076cbe5"
+      }
+    ],
+    "summarySha256": "771efb2d6b6ca05402908afb7ea9d04488227797a9a9d9cef15703ded0fe472c"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-recipe-sql-crud",
+    "summaryUri": "convertigo://guides/sql-recipe",
+    "sourceFile": "convertigo_recipe_sql_crud.md",
+    "originalSha256": "525dd55ff7101ea486bea28be41689868447a2aa8d7ae5fd138ddce24a65e026",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/sql-recipe/overview",
+        "file": "guides/sql-recipe/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "395904d3a1225088cb96fc6b1eb474545086cd1748171f0456582525eb98f275",
+        "bodyOffset": 205,
+        "servedSha256": "8ea590961713960b009e6c16b81800693e829f3faeb8dc52acc5c91d847318d6"
+      },
+      {
+        "uri": "convertigo://guides/sql-recipe/mandatory-workflow",
+        "file": "guides/sql-recipe/mandatory-workflow.md",
+        "when": "Mandatory workflow",
+        "sha256": "a0c5056d8fb2cd1183904760edce6c5b8d7b32c8a69ce092d819095f9475d58f",
+        "bodyOffset": 217,
+        "servedSha256": "13bee414e4d6e99dcfe6e36b9c682cad4d74932ce671731af8f4988c0328df35"
+      },
+      {
+        "uri": "convertigo://guides/sql-recipe/recommended-mcp-tools",
+        "file": "guides/sql-recipe/recommended-mcp-tools.md",
+        "when": "Recommended MCP tools",
+        "sha256": "b44fa18d817812baabdee690f0fee10b942cb8a0f68a290280a982b270b7fd14",
+        "bodyOffset": 171,
+        "servedSha256": "911e1d50e64237f24ae66d356c27106071a1db594ff65444f46bdcf1ac643775"
+      }
+    ],
+    "summarySha256": "1e8af770af9311b58db082ad9f9c041a192ac8848b0d4e78378f96a96d4ec6c5"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-fast-path-sql-hsqldb",
+    "summaryUri": "convertigo://guides/hsqldb",
+    "sourceFile": "convertigo_fast_path_sql_hsqldb.md",
+    "originalSha256": "91deb2c4a915c88aa14e0778c3a5204741868ca00d51c1d89b4c7939db26b415",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/hsqldb/overview",
+        "file": "guides/hsqldb/overview.md",
+        "when": "When to use this",
+        "sha256": "9e4413e6e40af46bd72a18db4505cfaf4d080050a8167ae1a43c37c506694057",
+        "bodyOffset": 155,
+        "servedSha256": "f805f2f12eca23476b91cf5fb599a4fd7db4722db8cbd607b85796add39f7636"
+      },
+      {
+        "uri": "convertigo://guides/hsqldb/canonical-sql-statements",
+        "file": "guides/hsqldb/canonical-sql-statements.md",
+        "when": "Canonical SQL statements",
+        "sha256": "6742c61aa78985c5642f4205c5c65917285e1a3a056749f32edc8120ff60e013",
+        "bodyOffset": 219,
+        "servedSha256": "1b7fee7a824e165f6ab76684cc8841983df30c2eb31280f7b9e222f02d914733"
+      },
+      {
+        "uri": "convertigo://guides/hsqldb/do-not-do-on-first-pass",
+        "file": "guides/hsqldb/do-not-do-on-first-pass.md",
+        "when": "Do not do on first pass",
+        "sha256": "da0f8bedea60a0ef5ee502db45c770f8e411c5892903818ca92fc668611b6290",
+        "bodyOffset": 173,
+        "servedSha256": "aa49a3f90c140e520a6ed3d5e357859d13e4050a7bb7d58659affbd0f8d32f7b"
+      }
+    ],
+    "summarySha256": "e4ff70754e8169ce79226c0a1fe68673dc6e5600d51c60d4cb19b9c2a5c9ef43"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-fast-path-sql-postgresql",
+    "summaryUri": "convertigo://guides/postgresql",
+    "sourceFile": "convertigo_fast_path_sql_postgresql.md",
+    "originalSha256": "41cf1284d3b072aac316e1949f6330ffd8059496857a5aa08492ff3a910886f4",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/postgresql/overview",
+        "file": "guides/postgresql/overview.md",
+        "when": "When to use this",
+        "sha256": "5f4c513d3284367076415176e8d3784fa4236e7a7ea33a6089d8df2acdfd4585",
+        "bodyOffset": 163,
+        "servedSha256": "e81520923122060e2794b89a2a8f495d9cca0a133a1b0af37a0e4e10fc630360"
+      },
+      {
+        "uri": "convertigo://guides/postgresql/mandatory-proof-sequence",
+        "file": "guides/postgresql/mandatory-proof-sequence.md",
+        "when": "Mandatory proof sequence",
+        "sha256": "df2e00c589ca4a86e573d8561189d9081f68e68e26ab9634bfc8615d31ac45de",
+        "bodyOffset": 167,
+        "servedSha256": "0e313c5478d9cbe54cca540f8490004e9547596951d501f4b6cbcef9be8848b8"
+      }
+    ],
+    "summarySha256": "bccf00107163b502ccda5288430d708535ba575dfbdcba2a764433bd82c53280"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-fast-path-sql-mariadb",
+    "summaryUri": "convertigo://guides/mariadb",
+    "sourceFile": "convertigo_fast_path_sql_mariadb.md",
+    "originalSha256": "90a72ea598b73b5cf0842dadf7d97da44c0e9827fafb6786be58d649ff67929b",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/mariadb/overview",
+        "file": "guides/mariadb/overview.md",
+        "when": "When to use this",
+        "sha256": "f91a929fa0bf8a779bbf04dcb5aaa7635cfbf4c8532ac7f29ded05ea9be78e0f",
+        "bodyOffset": 157,
+        "servedSha256": "66ec525853dc76016e2a1207d13b58dda1904770c15a688c9f9bcb13f0302e55"
+      },
+      {
+        "uri": "convertigo://guides/mariadb/mandatory-proof-sequence",
+        "file": "guides/mariadb/mandatory-proof-sequence.md",
+        "when": "Mandatory proof sequence",
+        "sha256": "2dfcf7745ae692ba54e49d58a3e0b127f826f0b9b9a660c8cf1dbf96c02b2167",
+        "bodyOffset": 161,
+        "servedSha256": "16ded71faf4eaabbb48604e25ad400512937b0132cf814f949bd3e670612a95e"
+      }
+    ],
+    "summarySha256": "8a9ee479122fe13c53fb2a8f0480451b4873b9b4d91112ecab0cc886797eacc3"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-crud-practical-cases",
+    "summaryUri": "convertigo://guides/crud-cases",
+    "sourceFile": "convertigo_crud_practical_cases.md",
+    "originalSha256": "ffa4ba0135ae2a07cc7749608624830dfa4015c6f6efe63c3a074503c539eced",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/crud-cases/overview",
+        "file": "guides/crud-cases/overview.md",
+        "when": "HSQLDB starter NGX",
+        "sha256": "457c47c468d3a288bddfd544abd1645d5ef0542eea775f34159dd3c0f6b5aa15",
+        "bodyOffset": 165,
+        "servedSha256": "7e12d85ff1b62dcc00c846b0193a858e91c731b54cab88b7437e376d8f780130"
+      },
+      {
+        "uri": "convertigo://guides/crud-cases/postgresql-starter-ngx",
+        "file": "guides/crud-cases/postgresql-starter-ngx.md",
+        "when": "PostgreSQL starter NGX",
+        "sha256": "9dfe651b696d5abe90f283b015288dd62b5e4c4d9bb2408ca8a3fb5f95e4e435",
+        "bodyOffset": 163,
+        "servedSha256": "4399d9c4329e7520dd5157331e528a2c208d2b88999c37e4392ad53cb65f325e"
+      }
+    ],
+    "summarySha256": "f95af34266fffcfb06146f267e35db8add716f05d56a7b68e1664ec29d04301d"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-integration-sql",
+    "summaryUri": "convertigo://guides/sql",
+    "sourceFile": "convertigo_integration_sql.md",
+    "originalSha256": "2562993633251a6e3bc25ff23111c39d54080ba4f36bd99344fbe6236b6709d6",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/sql/overview",
+        "file": "guides/sql/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "679487f907da2fdd8a0e555b1dfdd5981f0c2eec0ee3426ff2f16b46a27707be",
+        "bodyOffset": 204,
+        "servedSha256": "670c51ae2f092914e261ca0147ffe4c6127d8f5ec27edd6a1e35f2dee5c8b7be"
+      },
+      {
+        "uri": "convertigo://guides/sql/sql-connector-rules-that-matter",
+        "file": "guides/sql/sql-connector-rules-that-matter.md",
+        "when": "SQL connector rules that matter",
+        "sha256": "94fa88eaa07473ef4602425e8a86cb22315d9985aad1d00307d9d05df1dd0125",
+        "bodyOffset": 242,
+        "servedSha256": "7b54eeaf9c4c7926dfc78f7df8e14a19025c78ebe073b81a0eff0c10010e4594"
+      },
+      {
+        "uri": "convertigo://guides/sql/sql-variable-semantics-you-must-not-guess",
+        "file": "guides/sql/sql-variable-semantics-you-must-not-guess.md",
+        "when": "SQL variable semantics you must not guess",
+        "sha256": "17218ba418c6503d15a2b22c365526473c6facc372ba576a76efce89391ca1a4",
+        "bodyOffset": 287,
+        "servedSha256": "16feb8180e4c3d37d068cacc7553f26dbe878cc889e26903c3a04012cc27a2db"
+      },
+      {
+        "uri": "convertigo://guides/sql/sql-variable-semantics-you-must-not-guess-2",
+        "file": "guides/sql/sql-variable-semantics-you-must-not-guess-2.md",
+        "when": "Bound parameters and SQL validation failures",
+        "sha256": "41dca6adb22b368b436a388aa7658292645269efd01e0f25729026ae464738fd",
+        "bodyOffset": 303,
+        "servedSha256": "46d29b2ebed49bfaedb1ea4fc92c34b47a5e1e40de91b41a3e525607f0c3f07f"
+      },
+      {
+        "uri": "convertigo://guides/sql/sql-variable-semantics-you-must-not-guess-3",
+        "file": "guides/sql/sql-variable-semantics-you-must-not-guess-3.md",
+        "when": "Dialect functions and SQL variable handling",
+        "sha256": "8a5ea8b2b41108eb03f7243097fe20f6150b09cf3cdbf0fbd01f12e01174038a",
+        "bodyOffset": 303,
+        "servedSha256": "23f9645f76aa5182d5177113347b554db42ba9ff306566b1168eced6c6afb309"
+      },
+      {
+        "uri": "convertigo://guides/sql/sql-variable-semantics-you-must-not-guess-4",
+        "file": "guides/sql/sql-variable-semantics-you-must-not-guess-4.md",
+        "when": "Transaction authoring and schema-proof sequence",
+        "sha256": "850da0c4da08c277237a4738b5e335eb512e4b250902cdebb86c380f8b4fb124",
+        "bodyOffset": 292,
+        "servedSha256": "d02c98d8d3e4c7bed34d68c27082a0aecce19f0f3fc95a1598a2b8a8aaa959f1"
+      },
+      {
+        "uri": "convertigo://guides/sql/schema-learning-workflow",
+        "file": "guides/sql/schema-learning-workflow.md",
+        "when": "Schema learning workflow",
+        "sha256": "c7cd4d462a4238274661cebea7da5aa4f94beb5d77607d0486ee1a4a6efaef7f",
+        "bodyOffset": 264,
+        "servedSha256": "9011aeba0a7df13cf05c4d527b995a8bbfdab4f0e9ae172c0e618043bd1521fe"
+      },
+      {
+        "uri": "convertigo://guides/sql/driver-specific-subtleties-to-teach-the-ag",
+        "file": "guides/sql/driver-specific-subtleties-to-teach-the-ag.md",
+        "when": "Driver-specific subtleties to teach the agent",
+        "sha256": "a09e022a661d9796f03114c3bc564965f8c0a26ab367754c243df3324febcf65",
+        "bodyOffset": 211,
+        "servedSha256": "a99bb53062b8e18a615b9cffe69bf8de4647f249b9e4ab72029be02a98514b75"
+      }
+    ],
+    "summarySha256": "0cca955789f603737b7177ead9c867e98ac45671ec9891af2d7c9b64cb3467bf"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-authentication",
+    "summaryUri": "convertigo://guides/auth",
+    "sourceFile": "convertigo_authentication.md",
+    "originalSha256": "ef1b767c73af4edc3586e1d89f9de9b4fa31f58dc288ac46e35e5d7cd738fc2f",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/auth/overview",
+        "file": "guides/auth/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "714ae3a2b02e7196796ce183d7cd4ff5e5c866e96c6640041e4dde93c6a0cb48",
+        "bodyOffset": 190,
+        "servedSha256": "5e5f892638faeb46581d156be48046da55e9ae774409983488bddfc870300b9b"
+      },
+      {
+        "uri": "convertigo://guides/auth/choosing-a-flow",
+        "file": "guides/auth/choosing-a-flow.md",
+        "when": "Choosing a flow",
+        "sha256": "067ab4aca12b42940b40b63b4ca115ba4d9db306b62ece8c682966ea4f263e60",
+        "bodyOffset": 194,
+        "servedSha256": "f192729e3e43b8625317aaadeb9c0a46dc7726bf154edcc0e17e523e13c61bcb"
+      },
+      {
+        "uri": "convertigo://guides/auth/golden-path-every-flow",
+        "file": "guides/auth/golden-path-every-flow.md",
+        "when": "Golden path (every flow)",
+        "sha256": "7f7b9ba81222ba5b733716d0fdebe48c8a3103ab3b2cfe2affeb05c3ae023d47",
+        "bodyOffset": 232,
+        "servedSha256": "aca3318f51c49acf6d4acdac8c712aa71372b2d184593bca03c572bc115e7ba5"
+      },
+      {
+        "uri": "convertigo://guides/auth/oauth-openid-connect-with-lib-oauth",
+        "file": "guides/auth/oauth-openid-connect-with-lib-oauth.md",
+        "when": "OAuth / OpenID Connect with lib_OAuth",
+        "sha256": "afd81007e181ff9f85089a9783aedeb758c27339c6fd6acc04ef62fb776f6a20",
+        "bodyOffset": 265,
+        "servedSha256": "02b2034174cdf1c311d6cca124377720dfbb80cc50b70473df211e912eed754c"
+      },
+      {
+        "uri": "convertigo://guides/auth/email-password-with-lib-usermanager",
+        "file": "guides/auth/email-password-with-lib-usermanager.md",
+        "when": "Email + password with lib_UserManager",
+        "sha256": "494cd0ecddff425bd51d1c8a1e097c0938953d3130bdd26c9e13cba69c6d458c",
+        "bodyOffset": 280,
+        "servedSha256": "0596c9dc4f5a30fe1b87b64bbfaae2fc70b79a62f00a1bd2f820ed5c10574535"
+      },
+      {
+        "uri": "convertigo://guides/auth/email-password-with-lib-usermanager-2",
+        "file": "guides/auth/email-password-with-lib-usermanager-2.md",
+        "when": "Seed access control, role checks and demo-account proof",
+        "sha256": "6087ab379fb05a086a9896fa84e11f5730e7661bd202d9745142432d28d48c76",
+        "bodyOffset": 289,
+        "servedSha256": "d1ef50278a5b116caa3bf6b28dd80c87da3bb2c3df1dfc16eac68c511627f62c"
+      },
+      {
+        "uri": "convertigo://guides/auth/ngx-client",
+        "file": "guides/auth/ngx-client.md",
+        "when": "NGX client",
+        "sha256": "86a472e487c370f0469e066b567b58c4ccd4637035b4d709ab8907650dcba0c2",
+        "bodyOffset": 203,
+        "servedSha256": "49840b8f0d8e8da0e1dbb369441cc8ea649df469fefd33fdf93f133c507e955c"
+      },
+      {
+        "uri": "convertigo://guides/auth/ngx-client-2",
+        "file": "guides/auth/ngx-client-2.md",
+        "when": "OAuth redirect cleanup, secrets and final proof",
+        "sha256": "b6a71aed5a0f7ebdfdbc1b78b0395e34e3dc51a8f657b0c5ef134359add87858",
+        "bodyOffset": 203,
+        "servedSha256": "9f5bdbe1807c177c09dae5ed6b0f9656d524507b8a8cd201fe5556e0fc0712ad"
+      }
+    ],
+    "summarySha256": "d016750d39b29e06291c6eadcfd3703a91ee7d0bf6f88a71d0a70a60c5a14c4d"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-recipe-ngx-data-page",
+    "summaryUri": "convertigo://guides/data-page",
+    "sourceFile": "convertigo_recipe_ngx_data_page.md",
+    "originalSha256": "ef437246f67f5058156ce4fb041559e19a4cae7864bc5e30dd464a9492d1095d",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/data-page/orientation",
+        "file": "guides/data-page/orientation.md",
+        "when": "When to use the data-page recipe",
+        "sha256": "b57373053ddfb201770b7a82ea32585087f5cc9cbe05b6d99b3f41d2aa679e2d",
+        "bodyOffset": 180,
+        "servedSha256": "6575a0e03e9f0e4dfd38c1347a02044c6312b5c015e308a6d2fde97419a26c04"
+      },
+      {
+        "uri": "convertigo://guides/data-page/golden-path",
+        "file": "guides/data-page/golden-path.md",
+        "when": "Golden path and palette-first state",
+        "sha256": "e236562fba565920a7cf0b8f8f5ccdf56f0634dc07d05fba5ae835ff1f01cab9",
+        "bodyOffset": 243,
+        "servedSha256": "d9444a69fe174a7c501212c8323d79966a501c81ca6c55c8d9a88c5f2dd0eecc"
+      },
+      {
+        "uri": "convertigo://guides/data-page/input-binding",
+        "file": "guides/data-page/input-binding.md",
+        "when": "Input Local SmartSource and binding examples",
+        "sha256": "7186eecc8c8ddf8e456b636a6b32b4d834feb0b47e1db40467c22151877aabe4",
+        "bodyOffset": 262,
+        "servedSha256": "f0c7fd6c72452f99586dcdbb16038a10e09dfc8243af48cac7400a510c88fc13"
+      },
+      {
+        "uri": "convertigo://guides/data-page/result-binding",
+        "file": "guides/data-page/result-binding.md",
+        "when": "Result storage and source binding examples",
+        "sha256": "923bdae424454120130e9374814428b28ffa8068984799b946366d9561a9cab9",
+        "bodyOffset": 258,
+        "servedSha256": "76b6915d22bf5dba7792a3a959b0ccb733acbaf6cf0ebf092ea367d234444903"
+      },
+      {
+        "uri": "convertigo://guides/data-page/action-chain",
+        "file": "guides/data-page/action-chain.md",
+        "when": "Action chain, custom action and output rules",
+        "sha256": "f634b08c7a26c205a574df59e81ebc1e84fad32841381b47cf0451df07989dd2",
+        "bodyOffset": 261,
+        "servedSha256": "db08fce6cef6df34783af3b4410b27903ab1ac9e7b7cf8d387b3781c3857d1b6"
+      },
+      {
+        "uri": "convertigo://guides/data-page/proof-gate",
+        "file": "guides/data-page/proof-gate.md",
+        "when": "Contract proof before the structural gate",
+        "sha256": "7e945a4eda5fac8505b145d4137c7506f71a7c92e247a0e501328ff8a160a313",
+        "bodyOffset": 257,
+        "servedSha256": "9078b6e3fff816489eec70406ec8e8f0584c830556d806b7dc56633d2cf32444"
+      },
+      {
+        "uri": "convertigo://guides/data-page/structure-gate",
+        "file": "guides/data-page/structure-gate.md",
+        "when": "Mandatory palette-modeled data-page gate",
+        "sha256": "5a1ca64583662f54b4285264a307719454bcf29650da13ee17c89777e77580ab",
+        "bodyOffset": 254,
+        "servedSha256": "62ea0dcc7adcca77b70413b48a15e430822e0d92bcee3dbff098f9601337e63f"
+      },
+      {
+        "uri": "convertigo://guides/data-page/search-contract",
+        "file": "guides/data-page/search-contract.md",
+        "when": "Search input, public variables and shaping",
+        "sha256": "cd18b20aa59a7ac79cb3f56e389f310090f72bc757302b3de55d6786173d38ad",
+        "bodyOffset": 259,
+        "servedSha256": "73a81f544d52ce8c33a496770438266af23562360a4e27429d17606944b05a8b"
+      },
+      {
+        "uri": "convertigo://guides/data-page/search-input",
+        "file": "guides/data-page/search-input.md",
+        "when": "Search input binding readback and repairs",
+        "sha256": "d65a49d088e51b0648235d3f164b6f6b802c4c57925838505a2d358d348628c0",
+        "bodyOffset": 257,
+        "servedSha256": "28f450f9b8e744cc5569ea988ab99094551f07a2265d17751e84dd107e1b8dba"
+      },
+      {
+        "uri": "convertigo://guides/data-page/search-call",
+        "file": "guides/data-page/search-call.md",
+        "when": "CallSequenceAction and request variables",
+        "sha256": "e86d4b986d61aadda70844be1f618ebd045d2ce1635801a91a8618193576eb28",
+        "bodyOffset": 255,
+        "servedSha256": "7961a42487889979854d658f0d4c55cf82b5132d9a17ed065f394dd66ce82fb7"
+      },
+      {
+        "uri": "convertigo://guides/data-page/search-results",
+        "file": "guides/data-page/search-results.md",
+        "when": "Results, loading, error and empty state",
+        "sha256": "e952ada8aacfe7330a964255f7ec08bf288ea839b54612b4783b5c69ee2a381f",
+        "bodyOffset": 253,
+        "servedSha256": "7b00aa2f454c9fb774f6feb4b92169c06b3038ec133d51c78a48049f1a7bfd55"
+      },
+      {
+        "uri": "convertigo://guides/data-page/search-iterator",
+        "file": "guides/data-page/search-iterator.md",
+        "when": "ForEach sources and row field text",
+        "sha256": "fe8761611514198f418dd16660dbf2390e1b5869b8b1618a49c89b088a6ba2ec",
+        "bodyOffset": 240,
+        "servedSha256": "cc6a8f93c606855699c1ad7d94c4e9f2b995996ebf6674c2ebd6351de01a574c"
+      },
+      {
+        "uri": "convertigo://guides/data-page/search-ui",
+        "file": "guides/data-page/search-ui.md",
+        "when": "Input state and visible search behavior",
+        "sha256": "fad1e439e6cd2a20b7d5029fc5f5eba8c5b8d9b0e1cda1b45574bef6c612cdaf",
+        "bodyOffset": 255,
+        "servedSha256": "5ee9b3e3cea6a1b455eef59ddba7e48864f9f61d9df1de4f08af1fe1b1313070"
+      },
+      {
+        "uri": "convertigo://guides/data-page/search-repair",
+        "file": "guides/data-page/search-repair.md",
+        "when": "Search readback and runtime repair",
+        "sha256": "88646e32d74a5ec42b17da264fe4e9276f97403d47fad11ff481ab94f73df50d",
+        "bodyOffset": 237,
+        "servedSha256": "a9f7d816dc42cb16d0bb161d87c5ec98af65f4b12b9a3c48ac26aae7c51c3b15"
+      },
+      {
+        "uri": "convertigo://guides/data-page/state-model",
+        "file": "guides/data-page/state-model.md",
+        "when": "Visible shell, templates and state model",
+        "sha256": "4cbfb9b6e0b9cceb0b4d1f8cda6f01d2e6f4d0f82ec452022613e0cb8b370c74",
+        "bodyOffset": 248,
+        "servedSha256": "71b6c4b9a45e187cd0676e05520645c513eb00bfd3e4abbf267ce85d8b15a55f"
+      },
+      {
+        "uri": "convertigo://guides/data-page/events",
+        "file": "guides/data-page/events.md",
+        "when": "Binding modes and event rules",
+        "sha256": "c8ba16f322dd7a15364292a6f645aaa3b09a6f7dc4c669d59797a682c9977426",
+        "bodyOffset": 226,
+        "servedSha256": "e7097ad2a71fb4ddd40f8c48373b8ca5f40a99e8a29bc35c9a79a53a77ca49c3"
+      },
+      {
+        "uri": "convertigo://guides/data-page/failures",
+        "file": "guides/data-page/failures.md",
+        "when": "Anti-patterns and common failure modes",
+        "sha256": "9f0dc46c0dec42707868960f509ab3faf4a84deeea771289e3766c040d9b2c60",
+        "bodyOffset": 236,
+        "servedSha256": "3b8db85e07c18b285403ee9b7ab21c7400bb0dd5428bb2325a5890577b3cfa55"
+      },
+      {
+        "uri": "convertigo://guides/data-page/proof",
+        "file": "guides/data-page/proof.md",
+        "when": "Runtime evidence and completion checks",
+        "sha256": "5f7c93673fa749fadd95ac926ab1d3dd4cd813350c5ae63cc3e3c152f1ca2af7",
+        "bodyOffset": 193,
+        "servedSha256": "14486afbba1a43750e529f4298bf9d4f853c15dbe98720722c10a773ab3c31d4"
+      }
+    ],
+    "summarySha256": "acb57a723a7c3fd77b2eefe3685c0db4739a1e3bbe3be74edc6c6f7f93ab7ef3"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-frontend-ngx",
+    "summaryUri": "convertigo://guides/ngx",
+    "sourceFile": "convertigo_frontend_ngx.md",
+    "originalSha256": "e94c6e11aac3b35bea05ededc7a67280330aa625f741dd7a6e9ff7d7f69efe91",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/ngx/orientation",
+        "file": "guides/ngx/orientation.md",
+        "when": "Choose the NGX recipe and handbook",
+        "sha256": "bf9e42cfbad19c750ea09ed6042db2b8d33f5e2fa991c944e283ad7375fb3648",
+        "bodyOffset": 168,
+        "servedSha256": "c4d28607b6399308278f83e4d42290428cddda2e100a93919ce54ffd425d6d9a"
+      },
+      {
+        "uri": "convertigo://guides/ngx/palette",
+        "file": "guides/ngx/palette.md",
+        "when": "Palette structure and source-object rules",
+        "sha256": "1552cdd3ac9c65b9f9c11358e132f9c585c2250c4ba94e327f9d68f55ca1c886",
+        "bodyOffset": 234,
+        "servedSha256": "6587c28e9d5e70e483dd24d8ee16720a3d8bd2445220356881b92dcf933ab495"
+      },
+      {
+        "uri": "convertigo://guides/ngx/components",
+        "file": "guides/ngx/components.md",
+        "when": "Palette component names and visual design",
+        "sha256": "5d926de39b9f85e56c223aa1f259de546c220ae25bb4b8a518c77a4ff47b32f2",
+        "bodyOffset": 226,
+        "servedSha256": "a7918df4f96ad797ecdba4ae5274d642bb6dcb6e375b12cf456b559d1eb1c183"
+      },
+      {
+        "uri": "convertigo://guides/ngx/design",
+        "file": "guides/ngx/design.md",
+        "when": "Deliberate layouts and visual review",
+        "sha256": "c2c086f2bd01cdd631064e941c89cd2690f31fe16f5747ac624d34264cad2b3b",
+        "bodyOffset": 225,
+        "servedSha256": "517f0a12a008f03b05bd0aa2fcb043a5091b5a14125888d3978cae0c469c82e4"
+      },
+      {
+        "uri": "convertigo://guides/ngx/presentation",
+        "file": "guides/ngx/presentation.md",
+        "when": "Cards, labels and readable page structure",
+        "sha256": "480785b2ece5a974f9d7bb96ffe15f86f7cb0fe4a4b85a313f2c6ae3a76134ec",
+        "bodyOffset": 233,
+        "servedSha256": "d0806c1eaea065ed7a7155becfcffc1c65f8d60340473391e580131cbbff9d20"
+      },
+      {
+        "uri": "convertigo://guides/ngx/page-structure",
+        "file": "guides/ngx/page-structure.md",
+        "when": "Viewer proof, pages and action paths",
+        "sha256": "16c5d1f24c171cdbfaca576b3b7a56ff68a163816e57dcd938ca43925f3b96fa",
+        "bodyOffset": 221,
+        "servedSha256": "cd5a35561266e7fd6b82ba8508f574c64221bf58977a35c3ec8ec73127e6d824"
+      },
+      {
+        "uri": "convertigo://guides/ngx/events",
+        "file": "guides/ngx/events.md",
+        "when": "Action execution order and business errors",
+        "sha256": "3f69446de03bf32fb1fbf12bbd98a8199ed2524f3bada706b8e6e0b926911b73",
+        "bodyOffset": 240,
+        "servedSha256": "c7d591557c384bc45575be7b125a1f0100d3acd99dbc730ee6edd4e02bf51608"
+      },
+      {
+        "uri": "convertigo://guides/ngx/http-search",
+        "file": "guides/ngx/http-search.md",
+        "when": "HTTP search page input and state",
+        "sha256": "a7e65611333d69cd582a6fd98036993470475ee72ce702b33fea65e0aae69e45",
+        "bodyOffset": 213,
+        "servedSha256": "711b3db8632f7746b1bc9a79cf86310b9ef5f08be8f3269232194728e555b2b4"
+      },
+      {
+        "uri": "convertigo://guides/ngx/http-results",
+        "file": "guides/ngx/http-results.md",
+        "when": "Application contract and result mapping",
+        "sha256": "e9f30599d4701797481358c2fa685da49927893de2c8b9f67667a4c55b9de97f",
+        "bodyOffset": 230,
+        "servedSha256": "9b020820feff47553e629337d1031e00af90cd9eaddb4ccec50d8ad175433733"
+      },
+      {
+        "uri": "convertigo://guides/ngx/navigation",
+        "file": "guides/ngx/navigation.md",
+        "when": "Noncompliant calls and page navigation",
+        "sha256": "b3cda9ec80141887028001fef134f5bc22c0182eeccb9d8318312c24377ec4ba",
+        "bodyOffset": 224,
+        "servedSha256": "a434fb4a9a7ecb88fe4a1797b9e9750acab82db37080d6478d01c76a1dccbe74"
+      },
+      {
+        "uri": "convertigo://guides/ngx/forms",
+        "file": "guides/ngx/forms.md",
+        "when": "Forms, labels, validation and Form SmartSources",
+        "sha256": "ce2810fcf32a6c89925bec9cb4e2b4edd113cfd8ba585220a2e2f84eda8be84f",
+        "bodyOffset": 246,
+        "servedSha256": "8901133f811c3d3d57f3ab49151b6e08951b7be1109007b8183a02be8371db74"
+      },
+      {
+        "uri": "convertigo://guides/ngx/form-submit",
+        "file": "guides/ngx/form-submit.md",
+        "when": "Existing form data and submit chains",
+        "sha256": "501ad0dccba1a91ae73803e972f77c8ddcd69aca414caa881c8d7dc009c94f6d",
+        "bodyOffset": 219,
+        "servedSha256": "ab390250d410a2f70e36a890b63651b152f8cb3e4ae8fecdaa5873432d7ff37d"
+      },
+      {
+        "uri": "convertigo://guides/ngx/smartsource",
+        "file": "guides/ngx/smartsource.md",
+        "when": "SmartSource shapes, modes and directives",
+        "sha256": "f55b14687aa961a8e7887473606145c872174f8c087a763e061ac9ed54c07846",
+        "bodyOffset": 233,
+        "servedSha256": "20da2afc953c6e6ca68c5f58a679530d74d38396ffff8358177c0e6f30af1a7f"
+      },
+      {
+        "uri": "convertigo://guides/ngx/action-data",
+        "file": "guides/ngx/action-data.md",
+        "when": "Iterator scope and data along action chains",
+        "sha256": "5e796a95cb5c0d22ee09a5f972bc23ce8568329be54ecc43d9f70b76042f9d57",
+        "bodyOffset": 242,
+        "servedSha256": "5c8c9c82b0727cb588163ab30a9c70ae2881c370727e88c0b243ee70bca15c89"
+      },
+      {
+        "uri": "convertigo://guides/ngx/custom-actions",
+        "file": "guides/ngx/custom-actions.md",
+        "when": "Cache, expression contexts and custom actions",
+        "sha256": "6569312519c4aba988f676abc4753c378009866b8f28def8df1a1d2f8b1d22d1",
+        "bodyOffset": 244,
+        "servedSha256": "5a72713e965a574cbdbf39582be4901008c7a385268544b9c2dc07bb1cfcc2e1"
+      },
+      {
+        "uri": "convertigo://guides/ngx/dependencies",
+        "file": "guides/ngx/dependencies.md",
+        "when": "NPM dependencies and common data-page states",
+        "sha256": "aae03a184fdced869e2df487cc4284e837bdfb66bd80bf9803844b13896ad418",
+        "bodyOffset": 239,
+        "servedSha256": "d20d19646554a763e4520b83872c67f258eaf08819d2c411fbed541d9d20ebcc"
+      },
+      {
+        "uri": "convertigo://guides/ngx/viewer",
+        "file": "guides/ngx/viewer.md",
+        "when": "Builder launch and managed browser control",
+        "sha256": "058ee9de80465ac91f635e6ef7b839023eda6e3ba7e3612eb95b588bec13fc64",
+        "bodyOffset": 232,
+        "servedSha256": "c869496c3221f67d75dfc55c4a64b96699b786c25047180299e62989553f5a04"
+      },
+      {
+        "uri": "convertigo://guides/ngx/proof",
+        "file": "guides/ngx/proof.md",
+        "when": "Runtime proof, stubs and common drift",
+        "sha256": "e6f1fabfae5f519c897ef03b9ff1b9a2e72444cacfbc90f4daa4e4330a59a1dc",
+        "bodyOffset": 228,
+        "servedSha256": "3d8e1ba286368950c886d94cb15e4afb7f6dab87f9664863e6f837faf1708b4e"
+      },
+      {
+        "uri": "convertigo://guides/ngx/completion-checks",
+        "file": "guides/ngx/completion-checks.md",
+        "when": "Completion checks",
+        "sha256": "527b77bf2114f9581d9f8ae8e6c9a98b4eb40783c3e66a2888bef91a7598f391",
+        "bodyOffset": 136,
+        "servedSha256": "72df05db2b0bb856ce099158c903cd4682c7f2d036447ce205744ce327bd1838"
+      }
+    ],
+    "summarySha256": "2aa4611146007e40d6fd1b95b7401ed0abfb7bd41f24f2299cc0278e20c67b25"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-validation-and-evidence",
+    "summaryUri": "convertigo://guides/proof",
+    "sourceFile": "convertigo_validation_and_evidence.md",
+    "originalSha256": "d894b6d7fc848724647cdef56a93fe3c94c63abe74b62f0de6054cceab8645cc",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/proof/overview",
+        "file": "guides/proof/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "d3c83c0b8e1b1abdf8ebc7b182c0f9011388362a2248d1e587d07b225645ac86",
+        "bodyOffset": 195,
+        "servedSha256": "e6dc12640b8546759cf48b0a10d02ecbd8eb3591749e5127a7f95f338b8630c4"
+      },
+      {
+        "uri": "convertigo://guides/proof/mandatory-workflow",
+        "file": "guides/proof/mandatory-workflow.md",
+        "when": "Mandatory workflow",
+        "sha256": "621e2c52ef956290f642d385bd458691c5e2379d7312d469c758df86a8252a97",
+        "bodyOffset": 202,
+        "servedSha256": "d9a8129a7b5cbec9a19dd1652d433dd092408b74aad82205883f9dd0470d88b9"
+      },
+      {
+        "uri": "convertigo://guides/proof/recommended-mcp-tools",
+        "file": "guides/proof/recommended-mcp-tools.md",
+        "when": "Recommended MCP tools",
+        "sha256": "ca041431665823003e361e7a4dd78bded3c068988c53ee531dc4ea257d05e541",
+        "bodyOffset": 161,
+        "servedSha256": "e11a2d8a9e44e15b194b0087c844cb422ca23409662adeb82d2a79b34f692e9e"
+      }
+    ],
+    "summarySha256": "ee167be01df5ecb216c41d8f27366c41a9a8c2b336f1d776fecb3256b80a85a9"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-context-api",
+    "summaryUri": "convertigo://guides/context",
+    "sourceFile": "convertigo_context_api.md",
+    "originalSha256": "b9640a494615f0635cdc7f4b52ca41a464f716187bc85221affa85afb3fe329c",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/context/overview",
+        "file": "guides/context/overview.md",
+        "when": "Frequently used fields (read/write when noted)",
+        "sha256": "2342eaf763bdad76dc113a8e81d28188f9599d515776e15e949c263823150a02",
+        "bodyOffset": 212,
+        "servedSha256": "4639758406613c5503e1b2f9f45860b5139080c85b3454aff16690c075f68db9"
+      },
+      {
+        "uri": "convertigo://guides/context/sharing-data-safely",
+        "file": "guides/context/sharing-data-safely.md",
+        "when": "Sharing data safely",
+        "sha256": "d971ebf912c1c35b265c50cd5efeb6731f3fd13dc737ae5263bf3b845766acd5",
+        "bodyOffset": 151,
+        "servedSha256": "0baf96bc68ab275f2304a8d76c42f9ca5ba21b48866778ee297d8eb0c7b2f527"
+      }
+    ],
+    "summarySha256": "9848f7d0693ce8a3ee4ea0c91d62649c8b385bd24c7bb4ff23e32eddbd946ab2"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-recipe-multipage-app",
+    "summaryUri": "convertigo://guides/multipage",
+    "sourceFile": "convertigo_recipe_multipage_app.md",
+    "originalSha256": "2d8e719e34e98b0b6b08a21283eb26e45fa7e9e80df07f4754fcd31b66913c31",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/multipage/overview",
+        "file": "guides/multipage/overview.md",
+        "when": "Scope, prerequisites and route selection",
+        "sha256": "7d87069b33c234dc07261ac429443527e1b5827869bb7eb66b89036bd19a7eeb",
+        "bodyOffset": 220,
+        "servedSha256": "734cf239d514b99207a1c1a5c9a65c048e9b3291608f3e0af56dc4218e1e31cd"
+      },
+      {
+        "uri": "convertigo://guides/multipage/generators-for-the-standard-objects",
+        "file": "guides/multipage/generators-for-the-standard-objects.md",
+        "when": "Generators for the standard objects",
+        "sha256": "1c55a4fd2821534db9176a9fdf8997f5bb8e39ee746be9c4a946371a30a7c799",
+        "bodyOffset": 264,
+        "servedSha256": "19b864c05d7fd13d8eaaad6673937444ef72089b72cca522148ef7f1f3ce3be3"
+      },
+      {
+        "uri": "convertigo://guides/multipage/generators-for-the-standard-objects-2",
+        "file": "guides/multipage/generators-for-the-standard-objects-2.md",
+        "when": "Generator limits and application architecture",
+        "sha256": "cb7cdc6b81f32612c0f1efcc4fdb33a2bb805b5c2bc72cbdf227e07f63957fb3",
+        "bodyOffset": 286,
+        "servedSha256": "ec12cccd12c0da212226110dfe1bb53c580f8715d3f6f956799b816ab52f96c2"
+      },
+      {
+        "uri": "convertigo://guides/multipage/architecture",
+        "file": "guides/multipage/architecture.md",
+        "when": "Architecture",
+        "sha256": "a890c77f6c911e51f82611759a7f92b3d519d9765c2c35661575d68f21f2f2f7",
+        "bodyOffset": 233,
+        "servedSha256": "ec00d0eba7bb6472492a0cfb72e0bc236d0a2505fc50c47ed94d82fad9beefb2"
+      },
+      {
+        "uri": "convertigo://guides/multipage/business-sequence-shape",
+        "file": "guides/multipage/business-sequence-shape.md",
+        "when": "Business sequence shape",
+        "sha256": "a648468db159537ce0c8410a5027d162f31904c13a73ae8d37c08b986421cdb5",
+        "bodyOffset": 214,
+        "servedSha256": "ff0c0d5476567c731c2fb9414f896420eb536b0adce795d2100a0c85cc09fc07"
+      },
+      {
+        "uri": "convertigo://guides/multipage/session",
+        "file": "guides/multipage/session.md",
+        "when": "Session",
+        "sha256": "9362ddd530678d8d5014c3ab059515ffa2b4ad5e658294977e1c1aac7eccabd8",
+        "bodyOffset": 195,
+        "servedSha256": "69833cb7af1f49c871fc48eca0080eff832edb9869fecae2472c5d148a1a897b"
+      },
+      {
+        "uri": "convertigo://guides/multipage/ngx-pages",
+        "file": "guides/multipage/ngx-pages.md",
+        "when": "NGX pages",
+        "sha256": "95a20d82c7d32f6a6c8591a50a40f3b694339f5b878859500c7cf39e8ec8edcb",
+        "bodyOffset": 185,
+        "servedSha256": "703fdaa7557c5fe1a510feee85272ee79447797b992c8ef7f17ca612b75e56c1"
+      },
+      {
+        "uri": "convertigo://guides/multipage/ngx-pages-2",
+        "file": "guides/multipage/ngx-pages-2.md",
+        "when": "CRUD payload shapes, build order and application proof",
+        "sha256": "283063dd0d233837ed3cb4abdaa08f30320a64030b9cf1e9f345fd1caf93abd0",
+        "bodyOffset": 279,
+        "servedSha256": "f630f69acebf225a3c878391dd9474c3bc81f33dd9a3a1fc85a4d8d278101aff"
+      },
+      {
+        "uri": "convertigo://guides/multipage/order-of-work",
+        "file": "guides/multipage/order-of-work.md",
+        "when": "Order of work",
+        "sha256": "0c5993403fa4a64fe6af3bd38e67f7f6a25782a2614cb9cb4f7939b886489d48",
+        "bodyOffset": 196,
+        "servedSha256": "573bfe7716226a5073e5d3e9ffb154918373048191d0443650aa4cde25a2771e"
+      },
+      {
+        "uri": "convertigo://guides/multipage/validation",
+        "file": "guides/multipage/validation.md",
+        "when": "Validation",
+        "sha256": "67979b96feb95e0f8bd30c16067bf8b26a9beadb0ae62d8d3a63cff9842658fd",
+        "bodyOffset": 142,
+        "servedSha256": "ff6c461348f34b2dd0176b5ce9f663e5185371ae194cb35cfd415bb2cc6492bb"
+      }
+    ],
+    "summarySha256": "6b830084a3182f8ebf4810d09ad00afcd12cb79578dcd802d59eae06e700e096"
+  },
+  {
+    "oldUri": null,
+    "summaryUri": "convertigo://guides/common",
+    "sourceFile": "convertigo_common_skill.md",
+    "originalSha256": "a3d29c3d4a309f378cf333ea5b24444d3267540887872bfa1c5513a59892cc33",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/common/mcp",
+        "file": "guides/common/mcp.md",
+        "when": "Guidance freshness and MCP-only authoring",
+        "sha256": "18f808aa4a6651603803a7e0bf7c2af45b65db5d2414f72cd82f741e971a9260",
+        "bodyOffset": 190,
+        "servedSha256": "b1f05924ab6c57521093f1dc61010e8ccd34680bf50877bfca033b36d270fb87"
+      },
+      {
+        "uri": "convertigo://guides/common/libraries",
+        "file": "guides/common/libraries.md",
+        "when": "Standard libraries and bootstrap decisions",
+        "sha256": "f93d338e3a7accae3ef63c59c6d4f3b52cfbca585122ed4b975131543637de73",
+        "bodyOffset": 235,
+        "servedSha256": "ced4722f637d5369eeebcbcd6d6039bea6eed24edd4159a76401aa6982c6fdfb"
+      },
+      {
+        "uri": "convertigo://guides/common/batching",
+        "file": "guides/common/batching.md",
+        "when": "Tree shortcuts and file-backed batch calls",
+        "sha256": "c7b4fc6cbaa3f1d43f69fb7366014d39ec2a87c78d2366c6ad9403c6eab7319c",
+        "bodyOffset": 241,
+        "servedSha256": "86560fd3c8a34ac593a4df86188073765bc90b08cdb95a3d9627a740c09b3778"
+      },
+      {
+        "uri": "convertigo://guides/common/readback",
+        "file": "guides/common/readback.md",
+        "when": "QNames, source priorities and precise readback",
+        "sha256": "f522c05c27e04bc67be3507d6339b45eeea8b28e4fe3883592b867bf85308c0e",
+        "bodyOffset": 248,
+        "servedSha256": "f8540c9aef48dd5636b4bfe77808004f6bef1395dba5c925be44b1eb6859dcfe"
+      },
+      {
+        "uri": "convertigo://guides/common/progress",
+        "file": "guides/common/progress.md",
+        "when": "Durable progress and resume",
+        "sha256": "7858cafc1e94508a36878155367d1e198aafda5fdf74fb258e9ebc555d215ce4",
+        "bodyOffset": 211,
+        "servedSha256": "2ef3a9d2c336c5e2c5f832c4aaf16cb38b0dcb7162ea6ce52e12ccb80772d1b0"
+      },
+      {
+        "uri": "convertigo://guides/common/subagents",
+        "file": "guides/common/subagents.md",
+        "when": "Constructor lots and verifier runs",
+        "sha256": "16fd62bc06d078a8a9cde4ba6edef2b3cfbad6103583442b1783124158571198",
+        "bodyOffset": 229,
+        "servedSha256": "78bf2b4d4ec65a41caaf1f9ec510dd376714be7d069ace4556564ca35db244c7"
+      },
+      {
+        "uri": "convertigo://guides/common/names-secrets",
+        "file": "guides/common/names-secrets.md",
+        "when": "Exact names, symbols and secret visibility",
+        "sha256": "0112e83527d877896d20d15a7a25e48ce68ae4872c8d39f82854c8c72cf882f0",
+        "bodyOffset": 236,
+        "servedSha256": "c25719bf7d54da4e8bdc541ec10f595e086a1afd8cbf5826af4059cc788c7e92"
+      },
+      {
+        "uri": "convertigo://guides/common/ngx",
+        "file": "guides/common/ngx.md",
+        "when": "NGX forms, events and SmartSource invariants",
+        "sha256": "2a86f9b99a5a7b43c0a441c0be5880241802cd94a85daef6199f1a28c69c8c57",
+        "bodyOffset": 248,
+        "servedSha256": "8beb0c58dff659c20a11c74b453429f1a17ddbc19834a427492b4ca85d034798"
+      },
+      {
+        "uri": "convertigo://guides/common/backend",
+        "file": "guides/common/backend.md",
+        "when": "Iterators, dependencies and backend invariants",
+        "sha256": "a438c8a4f31f3cb4bac200fcb3fd2dc74b162d28a4ee24661886ece13996be82",
+        "bodyOffset": 239,
+        "servedSha256": "f626d494541516d463e7a21db20f9b21515693d1cd067fac3b509d8826bfa199"
+      },
+      {
+        "uri": "convertigo://guides/common/crud",
+        "file": "guides/common/crud.md",
+        "when": "New and existing CRUD routing",
+        "sha256": "3e6b9269133750207894d4546312caa23fe88d5aad074095685e96fd308108e1",
+        "bodyOffset": 211,
+        "servedSha256": "a2d422b0982920d3be92fe27db716bc8831eeac8146a7f927203dd1e0d51c132"
+      },
+      {
+        "uri": "convertigo://guides/common/review",
+        "file": "guides/common/review.md",
+        "when": "Read-only reviews and French deliverables",
+        "sha256": "032395e640556e471cc4cb65155952a649a7a290eb3525a295b3c2d5497ca1ca",
+        "bodyOffset": 230,
+        "servedSha256": "d82b1442836c6960bc960d45739d7c8bb349d6b788b358842ed4111ba6c8a7cd"
+      },
+      {
+        "uri": "convertigo://guides/common/auth",
+        "file": "guides/common/auth.md",
+        "when": "Authentication libraries and seed safety",
+        "sha256": "8036098eaa47ee9719f3e381b72c7754f876f1de62fb084e5af74e60985c5fdc",
+        "bodyOffset": 232,
+        "servedSha256": "c9cf4c931c3a6db80d6a6c83d6165349741b720acd072a81d52f8b7084ece871"
+      },
+      {
+        "uri": "convertigo://guides/common/viewer",
+        "file": "guides/common/viewer.md",
+        "when": "Viewer readiness and error diagnosis",
+        "sha256": "14037c3ebfdf39f1dd33ba6236218bd34b8b5a6b24acec13d20c98c0fc1dc2d9",
+        "bodyOffset": 222,
+        "servedSha256": "6c7ed16063eb1436cf20a69a504f22f8d8f9319aefda5163d797eb5e9f0fbac5"
+      },
+      {
+        "uri": "convertigo://guides/common/reveal",
+        "file": "guides/common/reveal.md",
+        "when": "Optional Studio reveal mode",
+        "sha256": "cd7d232f1287a75dd1c22bfc86d99df38c3baab1d3d46b6359e0f25bc3f39fb0",
+        "bodyOffset": 205,
+        "servedSha256": "3cbd8720c3966ff11cdf1b7549c263349588de5e206fdde2c4e8e5b5db002a37"
+      },
+      {
+        "uri": "convertigo://guides/common/proof",
+        "file": "guides/common/proof.md",
+        "when": "Mutation failures and functional browser proof",
+        "sha256": "3779722eceef914c24ae337b56df3d011ada5dec78151e369ea70ad70f011328",
+        "bodyOffset": 251,
+        "servedSha256": "b81ace2c5523c74e8965c6b738b4148afcbe5ab09f86bbe31740bc4017b0d01d"
+      },
+      {
+        "uri": "convertigo://guides/common/proof-results",
+        "file": "guides/common/proof-results.md",
+        "when": "Act on verifier reports and close the task",
+        "sha256": "6e286c3fd1c964ad5cebcf58fca9e3312ebf58ad90645ff211d5178c703b4477",
+        "bodyOffset": 233,
+        "servedSha256": "b2d01951e922ccaf9eeb452095d764403f5b9cad7ef91d55365d6da98dd8f302"
+      },
+      {
+        "uri": "convertigo://guides/common/seed",
+        "file": "guides/common/seed.md",
+        "when": "Idempotent seeds, credentials and login proof",
+        "sha256": "a62361068f096c1b5ea8754654753d3a1aa48f006c89964bec3253787c78e466",
+        "bodyOffset": 247,
+        "servedSha256": "23d9643a7eac0c889ef86d7501a98160f1a43156b604758f3818be44e901a2dc"
+      },
+      {
+        "uri": "convertigo://guides/common/tigo",
+        "file": "guides/common/tigo.md",
+        "when": "User-requested Tigo library configuration",
+        "sha256": "46c918899d89a56133dd5a91d6b03c688b95df38dd8f8b013f17c11a670d65df",
+        "bodyOffset": 189,
+        "servedSha256": "48d5b07cbff577bb75de043dd4154146cf4b6fb86cc8a5d1d8dd1ce5b7e80f53"
+      }
+    ],
+    "summarySha256": "6c10e5a805389382d00c071f4e609e6415d6d2b0d440775959a041fb393e22a5"
+  }
+]

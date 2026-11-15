@@ -1,3 +1,4 @@
+const { guidanceText } = require('../helpers/guide_transport.cjs');
 // mobile-builder-build (js/tools_mobile_builder_build.js): the production build of an NGX app. An agent had no tool for it
 // (13/11): the rail ended with the dev build, and the user clicked Build in the Studio's Build panel before deploying,
 // otherwise the deployed app showed "Not built". The engine (WsBuilder.buildForServer, Convertigo 8.5) is faked: what is
@@ -168,7 +169,7 @@ test('mobile-builder-build is a tool: its sequence, closed output schema, Vibe l
   assert.match(read('js/subagents.js'), /tools_mobile_builder_build: true/);
   assert.doesNotMatch(read('js/nocode_tool_policy.js'), /tools_mobile_builder_build/, 'not a No Code tool');
   ['resources/convertigo_common_skill.md', 'resources/convertigo_start.md', 'resources/convertigo_crud_fastpath.md',
-    'resources/convertigo_recipe_multipage_app.md'].forEach(f => assert.match(read(f), /mobile-builder-build/, f));
+    'resources/convertigo_recipe_multipage_app.md'].forEach(f => assert.match(guidanceText(f), /mobile-builder-build/, f));
   // the engine entry point, looked up before use
   const source = read('js/tools_mobile_builder_build.js');
   assert.match(source, /typeof WsBuilder\.buildForServer !== "function"/);

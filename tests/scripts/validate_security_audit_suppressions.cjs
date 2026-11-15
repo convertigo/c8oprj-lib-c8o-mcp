@@ -1,3 +1,4 @@
+const { guidanceText } = require('../helpers/guide_transport.cjs');
 // Accepted risks of project-security-audit. Agents silenced real findings and reported an A (PCA eval 29/10: a Public
 // reminder job that wrote notifications, callable without authentication, suppressed into a grade of 100). The answer now
 // keeps the raw grade next to the grade, a suppression needs its reason, and an exposure finding on a requestable anyone
@@ -140,8 +141,8 @@ test('the tool says it: reason required, the raw grade and the refusals in its s
   assert.match(sequence, /↓rawScore \[steps\.JsonFieldStep-\d+\]: \n/);
   assert.match(sequence, /- →→: auditResult\.rawGrade\n/);
   assert.match(sequence, /condition: auditResult\.suppressRefused != null\n/);
-  assert.match(read('resources/convertigo_project_review.md'), /Report `grade` and `rawGrade` together/);
-  assert.match(read('resources/convertigo_common_skill.md'), /A sequence anyone can call that writes data is fixed, never suppressed/);
+  assert.match(guidanceText('resources/convertigo_project_review.md'), /Report `grade` and `rawGrade` together/);
+  assert.match(guidanceText('resources/convertigo_common_skill.md'), /A sequence anyone can call that writes data is fixed, never suppressed/);
 });
 
 test('an active finding whose suppression was refused caps the grade at B, whatever the score', () => {
@@ -177,5 +178,5 @@ test('an active finding whose suppression was refused caps the grade at B, whate
   const critical = audit.score([{ ruleId: 'EXP-01', severity: 'high', category: 'exposure', suppressionRefused: 'x' }, { ruleId: 'SEC-01', severity: 'critical', category: 'secrets' }]);
   assert.equal(critical.grade, 'D');
   assert.equal(critical.gradeCappedBy, 'critical-finding');
-  assert.match(read('resources/convertigo_project_review.md'), /caps the grade at B \(`gradeCappedBy: refused-suppression`\)/);
+  assert.match(guidanceText('resources/convertigo_project_review.md'), /caps the grade at B \(`gradeCappedBy: refused-suppression`\)/);
 });

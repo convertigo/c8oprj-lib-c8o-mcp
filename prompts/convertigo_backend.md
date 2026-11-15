@@ -4,14 +4,14 @@
 Use this prompt for business sequences, helper sequences, response shaping, and backend orchestration inside Convertigo.
 
 ## Read these guides first
-- `convertigo://resources/convertigo-start`
-- `convertigo://resources/convertigo-platform-big-picture`
-- `convertigo://resources/convertigo-engineering-workflow`
-- `convertigo://resources/convertigo-recipe-business-sequence-stub`
-- `convertigo://resources/convertigo-backend-sequences`
-- `convertigo://resources/convertigo-crud-practical-cases` when the task is a standard starter NGX + SQL CRUD business sequence flow
-- `convertigo://resources/convertigo-validation-and-evidence`
-- Read `convertigo://resources/convertigo-context-api` or `convertigo://resources/convertigo-json-quickref` only when the sequence semantics truly require them.
+- `convertigo://guides/start`
+- `convertigo://guides/platform`
+- `convertigo://guides/workflow`
+- `convertigo://guides/sequence`
+- `convertigo://guides/backend`
+- `convertigo://guides/crud-cases` when the task is a standard starter NGX + SQL CRUD business sequence flow
+- `convertigo://guides/proof`
+- Read `convertigo://guides/context` or `convertigo://resources/convertigo-json-quickref` only when the sequence semantics truly require them.
 
 ## Mission
 - Build or update business sequences and helper orchestration without redefining the agreed contract.
