@@ -8,9 +8,9 @@ This is an internal lab prompt during the mono-agent recovery cycle, not part of
 - If this is a fresh session and you are not reviewing explicit run or campaign artifacts, call `resources/list`, use live prompt discovery only if the caller surface exposes it, then read `convertigo://capabilities` and `convertigo://recipes/quickstart`.
 - If an explicit critic packet path was provided, read that packet before any summary, report, or raw log.
 - If explicit report paths, summary paths, or log paths were provided, read those artifacts first and only open guides when a concrete claim needs confirmation.
-- Read `convertigo://resources/convertigo-start`.
-- Read `convertigo://resources/convertigo-engineering-workflow`.
-- Read `convertigo://resources/convertigo-validation-and-evidence`.
+- Read `convertigo://guides/start`.
+- Read `convertigo://guides/workflow`.
+- Read `convertigo://guides/proof`.
 - Read the matching domain guide when the artifact under review is backend, SQL, HTTP, or NGX specific.
 
 ## Mission

@@ -1,3 +1,4 @@
+const { guidanceText } = require('../helpers/guide_transport.cjs');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -31,5 +32,5 @@ test('the guides send payloads to the temporary folder, and never to browser_run
   const all = texts.join('\n');
   assert.doesNotMatch(all, /browser_run_code_unsafe/);
   assert.doesNotMatch(all, /_mcp_payloads/);
-  assert.match(read('resources/convertigo_common_skill.md'), /in the temporary folder of this conversation \(each turn names it: `Temporary folder of this conversation: <path>`/);
+  assert.match(guidanceText('resources/convertigo_common_skill.md'), /in the temporary folder of this conversation \(each turn names it: `Temporary folder of this conversation: <path>`/);
 });

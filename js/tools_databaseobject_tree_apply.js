@@ -110,7 +110,7 @@ function treeApplyExpandShortcuts(node, path) {
   var pageScript = node.properties && typeof node.properties === "object" && !Array.isArray(node.properties)
     ? node.properties.scriptContent : undefined;
   if (pageScript && /c8o\.callJson(?:Object)?\s*\(/.test(typeof pageScript === "string" ? pageScript : JSON.stringify(pageScript))) {
-    treeApplyWarnings.push((path || "tree") + ": scriptContent calls the backend directly (c8o.callJson). Load data with a page or button event and a CallSequenceAction instead, bound to the page through locals (convertigo-frontend-ngx, palette-first): a direct call runs outside Angular change detection and the view does not refresh.");
+    treeApplyWarnings.push((path || "tree") + ": scriptContent calls the backend directly (c8o.callJson). Load data with a page or button event and a CallSequenceAction instead, bound to the page through locals: a direct call runs outside Angular change detection and the view does not refresh. Read convertigo://guides/ngx/palette and convertigo://guides/ngx/events.");
   }
   // handlers (a transaction's JavaScript handlers) is a node key too: it is not a bean property.
   if (node.properties && typeof node.properties === "object" && !Array.isArray(node.properties) &&

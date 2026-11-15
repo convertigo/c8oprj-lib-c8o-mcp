@@ -4,15 +4,15 @@
 Use this prompt for NGX pages, bindings, actions, and UI states that depend on a stable backend business sequence contract.
 
 ## Read these guides first
-- `convertigo://resources/convertigo-start`
-- `convertigo://resources/convertigo-platform-big-picture`
-- `convertigo://resources/convertigo-engineering-workflow`
-- `convertigo://resources/convertigo-contract-first-delivery`
-- `convertigo://resources/convertigo-recipe-ngx-data-page`
-- `convertigo://resources/convertigo-recipe-multipage-app` for the pages `ngx-page-create` builds
-- `convertigo://resources/convertigo-crud-practical-cases` when the task is a standard starter NGX + SQL CRUD app
-- `convertigo://resources/convertigo-frontend-ngx`
-- `convertigo://resources/convertigo-validation-and-evidence`
+- `convertigo://guides/start`
+- `convertigo://guides/platform`
+- `convertigo://guides/workflow`
+- `convertigo://guides/contract`
+- `convertigo://guides/data-page`
+- `convertigo://guides/multipage` for the pages `ngx-page-create` builds
+- `convertigo://guides/crud-cases` when the task is a standard starter NGX + SQL CRUD app
+- `convertigo://guides/ngx`
+- `convertigo://guides/proof`
 
 ## Mission
 - Build NGX UI with the generators first: `ngx-theme-apply` once when the user gave a brand, then one `ngx-page-create` call per list, detail, form, dashboard or logout page, wired to its business sequence. Follow the canonical data-page pattern for a page they do not cover.

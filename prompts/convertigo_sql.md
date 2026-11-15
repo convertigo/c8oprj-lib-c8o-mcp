@@ -4,17 +4,17 @@
 Use this prompt for SQL connectors and transactions that sit behind an already agreed backend business sequence contract.
 
 ## Read these guides first
-- `convertigo://resources/convertigo-start`
-- `convertigo://resources/convertigo-platform-big-picture`
-- `convertigo://resources/convertigo-engineering-workflow`
-- `convertigo://resources/convertigo-recipe-sql-crud`
-- `convertigo://resources/convertigo-fast-path-sql-hsqldb`
-- `convertigo://resources/convertigo-fast-path-sql-postgresql`
-- `convertigo://resources/convertigo-fast-path-sql-mariadb`
-- `convertigo://resources/convertigo-crud-practical-cases` when the task is a standard starter NGX + SQL CRUD proof flow
-- `convertigo://resources/convertigo-backend-sequences`
-- `convertigo://resources/convertigo-integration-sql`
-- `convertigo://resources/convertigo-validation-and-evidence`
+- `convertigo://guides/start`
+- `convertigo://guides/platform`
+- `convertigo://guides/workflow`
+- `convertigo://guides/sql-recipe`
+- `convertigo://guides/hsqldb`
+- `convertigo://guides/postgresql`
+- `convertigo://guides/mariadb`
+- `convertigo://guides/crud-cases` when the task is a standard starter NGX + SQL CRUD proof flow
+- `convertigo://guides/backend`
+- `convertigo://guides/sql`
+- `convertigo://guides/proof`
 
 ## Mission
 - Build SQL-backed CRUD or data access behind a stable business sequence contract.

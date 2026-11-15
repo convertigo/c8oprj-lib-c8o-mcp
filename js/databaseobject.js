@@ -141,7 +141,7 @@ var SMART_TYPE_VALUE_HINT =
 // _buildMobileSmartSourceType rejects mode JS and reads "value".
 var NGX_SMART_TYPE_VALUE_HINT =
   'NGX SmartType values are JSON objects like {"mode":"PLAIN","value":"text"}. ' +
-  'Use {"mode":"SCRIPT","value":"<expression>"} for evaluated expressions (not JS), or {"mode":"SOURCE","value":"<smart-source-json>"} for a picker source.';
+  'Use {"mode":"SCRIPT","value":"<expression>"} for evaluated expressions (not JS), or {"mode":"SOURCE","value":"<smart-source-json>"} for a picker source. Read convertigo://guides/ngx/smartsource.';
 
 var MULTI_SOURCES_HINT =
   'sourcesDefinition expects an array of entries, each entry providing a label, a SmartType source (same ["<stepPriority>", "<xpath>"] structure), and an optional fallback value. ' +
@@ -2106,7 +2106,7 @@ C8O.dbo._expandSmartSourceShorthand = function (rawSpec, dbo) {
     return rawSpec;
   }
   if (spec.mode && String(spec.mode).toUpperCase() !== "SOURCE") {
-    throw new Error("NGX SmartSource short form (local/global/form) requires mode SOURCE.");
+    throw new Error("NGX SmartSource short form (local/global/form) requires mode SOURCE. Read convertigo://guides/ngx/smartsource.");
   }
   if ((hasLocal ? 1 : 0) + (hasGlobal ? 1 : 0) + (hasForm ? 1 : 0) > 1) {
     throw new Error("NGX SmartSource short form takes one of local, global or form.");
@@ -2245,7 +2245,7 @@ C8O.dbo._buildMobileSmartSourceType = function (spec) {
     } catch (_invalidMode) {
       throw new Error(
         "Invalid NGX SmartType mode \"" + modeToken +
-        "\". Use PLAIN, SCRIPT, or SOURCE; JavaScript expressions use SCRIPT, not JS."
+        "\". Use PLAIN, SCRIPT, or SOURCE; JavaScript expressions use SCRIPT, not JS. Read convertigo://guides/ngx/smartsource."
       );
     }
   }
@@ -2274,7 +2274,7 @@ C8O.dbo._buildMobileSmartSourceType = function (spec) {
     if (!computedSource.length) {
       throw new Error(
         "Invalid NGX SOURCE SmartType: the source resolves to an empty Angular expression. " +
-        "Check the smart-source JSON or use SCRIPT with an explicit component expression such as this.local?.property."
+        "Check the smart-source JSON or use SCRIPT with an explicit component expression such as this.local?.property. Read convertigo://guides/ngx/smartsource."
       );
     }
   }

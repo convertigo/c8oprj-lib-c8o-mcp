@@ -10,29 +10,29 @@ Use this prompt as the exploratory bootstrap path before planning or specialist 
 - If the task matches a known fast path, use `resources/templates/list` to discover template-bearing resources, then read only the matching template with `resources/read`.
 - Then read:
   - `convertigo://capabilities`
-  - `convertigo://resources/convertigo-start`
-  - `convertigo://resources/convertigo-platform-big-picture`
-  - `convertigo://resources/convertigo-engineering-workflow`
-  - `convertigo://resources/convertigo-bootstrap-decision-matrix`
+  - `convertigo://guides/start`
+  - `convertigo://guides/platform`
+  - `convertigo://guides/workflow`
+  - `convertigo://guides/brief`
 
 Read the smallest matching recipe next:
-- fresh app or starter extension: `convertigo://resources/convertigo-recipe-starter-extension`
-- business sequence or stub contract: `convertigo://resources/convertigo-recipe-business-sequence-stub`
-- HTTP-backed business sequence: `convertigo://resources/convertigo-recipe-http-business-sequence`
-- SQL CRUD behind business sequence: `convertigo://resources/convertigo-recipe-sql-crud`
-- direct CRUD proof flow: `convertigo://resources/convertigo-crud-practical-cases` when the task is a standard starter NGX + SQL CRUD case
-- preferred mono-agent CRUD rail: `convertigo://resources/convertigo-crud-fastpath` when the task is standard SQL CRUD + starter NGX UI
-- existing deterministic CRUD project edit rail: `convertigo://resources/convertigo-crud-edit-fastpath` when the project is already green and only needs CRUD extension
-- NGX data page: `convertigo://resources/convertigo-recipe-ngx-data-page`
+- fresh app or starter extension: `convertigo://guides/starter`
+- business sequence or stub contract: `convertigo://guides/sequence`
+- HTTP-backed business sequence: `convertigo://guides/http-sequence`
+- SQL CRUD behind business sequence: `convertigo://guides/sql-recipe`
+- direct CRUD proof flow: `convertigo://guides/crud-cases` when the task is a standard starter NGX + SQL CRUD case
+- preferred mono-agent CRUD rail: `convertigo://guides/crud` when the task is standard SQL CRUD + starter NGX UI
+- existing deterministic CRUD project edit rail: `convertigo://guides/crud-edit` when the project is already green and only needs CRUD extension
+- NGX data page: `convertigo://guides/data-page`
 
 Read the deeper domain guides only when the recipe leaves open questions:
-- `convertigo://resources/convertigo-backend-sequences`
-- `convertigo://resources/convertigo-integration-http`
-- `convertigo://resources/convertigo-integration-sql`
-- `convertigo://resources/convertigo-frontend-ngx`
-- `convertigo://resources/convertigo-validation-and-evidence`
+- `convertigo://guides/backend`
+- `convertigo://guides/http`
+- `convertigo://guides/sql`
+- `convertigo://guides/ngx`
+- `convertigo://guides/proof`
 - narrow references only when needed:
-  - `convertigo://resources/convertigo-context-api`
+  - `convertigo://guides/context`
   - `convertigo://resources/convertigo-json-quickref`
 
 ## Mission
@@ -48,7 +48,7 @@ Read the deeper domain guides only when the recipe leaves open questions:
 
 ## Mandatory workflow
 1. Read the built-ins, the start guide, the big-picture guide, and the bootstrap decision matrix.
-2. If the task is standard SQL CRUD + starter NGX UI, redirect to `convertigo-crud-fastpath` instead of continuing through planner/specialist routing. If the target project is already a green deterministic CRUD project, also read `convertigo://resources/convertigo-crud-edit-fastpath` and keep that edit rail in mind.
+2. If the task is standard SQL CRUD + starter NGX UI, redirect to `convertigo-crud-fastpath` instead of continuing through planner/specialist routing. If the target project is already a green deterministic CRUD project, also read `convertigo://guides/crud-edit` and keep that edit rail in mind.
 3. Pick one matching recipe before any broad discovery.
 4. Do not call `rag-query` before the start guide and the chosen recipe were read.
 5. Inspect only the exact target project or subtree required to answer the next bootstrap question.
@@ -64,7 +64,7 @@ Read the deeper domain guides only when the recipe leaves open questions:
    - at most 1 to 3 concrete questions per turn
    - do not ask the same decision twice under different wording
    - stop asking as soon as the planner can start safely
-7. If the task spans backend, integration, and UI, read `convertigo://resources/convertigo-contract-first-delivery`.
+7. If the task spans backend, integration, and UI, read `convertigo://guides/contract`.
 8. Choose the matching specialist prompt from live prompt discovery when it exists; otherwise use the canonical routing table below or the caller-provided synchronized role metadata.
 9. For a new standard CRUD UI project, validate the exact project name, run `marketplace-import`, open the live viewer immediately with `mobile-builder-open(wait=false)`, then continue with `upsert-crud`, backend `crud-proof`, `ngx-theme-apply` when the user gave a brand, one `ngx-page-create` per page, a waited `mobile-builder-open(stateOnly=true, wait=true)`, `project-lint`, and `browser-verify`.
 10. For an existing deterministic CRUD project edit, the preferred rail is `crud-status` -> optional early `mobile-builder-open(wait=false)` when UI work is likely -> `upsert-crud` -> backend `crud-proof` -> `ngx-page-create` for the new pages -> `mobile-builder-open(stateOnly=true, wait=true)` -> `project-lint` -> `browser-verify`. Do not import the starter again.
@@ -108,7 +108,7 @@ Read the deeper domain guides only when the recipe leaves open questions:
 - For the generic CRUD UI, build a list, a detail and a form page per entity with `ngx-page-create`; a dashboard page only when the user asks for counters.
 - For explicit business demo rows, prefer `seed.data` over post-generation patches of `init_schema`.
 - When the task is a standard CRUD path, prefer `convertigo-crud-fastpath` and the direct order documented there: `marketplace-import` -> `mobile-builder-open(wait=false)` -> `upsert-crud` -> backend `crud-proof` -> `ngx-theme-apply` when the user gave a brand -> one `ngx-page-create` per page -> `mobile-builder-open(stateOnly=true, wait=true)` -> `project-lint` -> `browser-verify`.
-- When the task is a standard CRUD edit on a project that is already green, prefer the edit rail documented in `convertigo://resources/convertigo-crud-edit-fastpath`: `crud-status` -> optional early `mobile-builder-open(wait=false)` when UI work is likely -> `upsert-crud` -> backend `crud-proof` -> `ngx-page-create` for the new pages -> `mobile-builder-open(stateOnly=true, wait=true)` -> `project-lint` -> `browser-verify`.
+- When the task is a standard CRUD edit on a project that is already green, prefer the edit rail documented in `convertigo://guides/crud-edit`: `crud-status` -> optional early `mobile-builder-open(wait=false)` when UI work is likely -> `upsert-crud` -> backend `crud-proof` -> `ngx-page-create` for the new pages -> `mobile-builder-open(stateOnly=true, wait=true)` -> `project-lint` -> `browser-verify`.
 - When the task is a low-detail CRUD path, stop after that first green proof plus seeded demo data unless the user explicitly asked for custom screens, custom layout, or field-level UX tailoring.
 - Once the fast path has been selected, do not call `rag-query` unless the built-in guides and CRUD tools still leave a blocking gap.
 - Once the CRUD guides were read, do not grep the local workspace just to recover the shape of `relations[]`, `ui.relationFields`, or `seed.data`.

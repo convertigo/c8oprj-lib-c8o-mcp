@@ -8,21 +8,21 @@ Use this prompt as the recommended public path for a standard SQL CRUD + starter
 - If live prompt discovery is available in the caller surface, call `prompts/list` before choosing the role prompt.
 - `convertigo://capabilities`
 - `convertigo://recipes/quickstart`
-- `convertigo://resources/convertigo-start`
-- `convertigo://resources/convertigo-crud-fastpath`
-- `convertigo://resources/convertigo-validation-and-evidence`
+- `convertigo://guides/start`
+- `convertigo://guides/crud`
+- `convertigo://guides/proof`
 
-Read `convertigo://resources/convertigo-crud-practical-cases` only when the current proof is unclear or when the driver-specific flow needs confirmation.
+Read `convertigo://guides/crud-cases` only when the current proof is unclear or when the driver-specific flow needs confirmation.
 
 ## Mission
 - Stay in one mono-agent MCP flow.
 - Collect the minimum CRUD spec required for deterministic execution.
 - Prefer MCP CRUD accelerators over manual tree authoring.
 - For a new project with UI, make the project visible immediately: import the starter with the exact name, open the viewer, then mutate the CRUD scaffolding live.
-- For an existing deterministic CRUD project that is already green, do not import the starter again: use the edit rail documented in `convertigo://resources/convertigo-crud-edit-fastpath`.
+- For an existing deterministic CRUD project that is already green, do not import the starter again: use the edit rail documented in `convertigo://guides/crud-edit`.
 - Produce proof after backend creation (`crud-proof`) and again after the pages (`project-lint`, `browser-verify`).
 - Refuse tasks that fall outside the standard SQL CRUD + starter NGX path.
-- Do not call `rag-query` before you have read `convertigo://resources/convertigo-start` and the fast-path recipe.
+- Do not call `rag-query` before you have read `convertigo://guides/start` and the fast-path recipe.
 - Stay MCP-only: never patch `_private/ionic`, `DisplayObjects`, `dist`, or run manual `npm` builds to repair generated frontend artifacts.
 - For a low-detail CRUD request, stop after the first green scaffold + seeded demo data. Do not start a second refinement pass unless the user explicitly asked for custom screens, layout, or field-level UX.
 - Prefer best-case-first generated code. Let the standard error bubble surface normal failures unless the user explicitly asked for custom UX around them.

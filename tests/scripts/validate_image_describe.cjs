@@ -1,3 +1,4 @@
+const { guidanceText } = require('../helpers/guide_transport.cjs');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
@@ -167,6 +168,6 @@ test('the tool is declared, documented and kept out of the NoCode profile', () =
   assert.match(sequence, /C8O\.imageDescribe\.execute\(context,/);
   assert.match(fs.readFileSync(path.join(root, 'TOOLS.md'), 'utf8'), /\| `image-describe` \| `tools_image_describe` \|/);
   assert.match(fs.readFileSync(path.join(root, 'js/setup_vibe.js'), 'utf8'), /"Convertigo_image-describe"/);
-  assert.match(fs.readFileSync(path.join(root, 'resources/convertigo_common_skill.md'), 'utf8'), /`image-describe\(\{path:/);
+  assert.match(guidanceText('resources/convertigo_common_skill.md'), /`image-describe\(\{path:/);
   assert.doesNotMatch(fs.readFileSync(path.join(root, 'js/nocode_tool_policy.js'), 'utf8'), /tools_image_describe/);
 });

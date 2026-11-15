@@ -4,13 +4,13 @@
 Use this prompt for HTTP connectors and transactions that sit behind an already agreed backend business sequence contract.
 
 ## Read these guides first
-- `convertigo://resources/convertigo-start`
-- `convertigo://resources/convertigo-platform-big-picture`
-- `convertigo://resources/convertigo-engineering-workflow`
-- `convertigo://resources/convertigo-recipe-http-business-sequence`
-- `convertigo://resources/convertigo-backend-sequences`
-- `convertigo://resources/convertigo-integration-http`
-- `convertigo://resources/convertigo-validation-and-evidence`
+- `convertigo://guides/start`
+- `convertigo://guides/platform`
+- `convertigo://guides/workflow`
+- `convertigo://guides/http-sequence`
+- `convertigo://guides/backend`
+- `convertigo://guides/http`
+- `convertigo://guides/proof`
 
 ## Mission
 - Configure the minimal HTTP connector and transaction path behind the business sequence.

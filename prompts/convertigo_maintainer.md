@@ -7,9 +7,9 @@ This is an internal lab prompt during the mono-agent recovery cycle, not part of
 ## Read these guides first
 - Read the maintainer packet first. It is the primary source of truth for the cycle.
 - If the packet cites guide URIs, read only those guides before expanding scope.
-- If the packet does not cite a required guide, read `convertigo://resources/convertigo-start`.
-- Read `convertigo://resources/convertigo-engineering-workflow`.
-- Read `convertigo://resources/convertigo-validation-and-evidence`.
+- If the packet does not cite a required guide, read `convertigo://guides/start`.
+- Read `convertigo://guides/workflow`.
+- Read `convertigo://guides/proof`.
 
 ## Mission
 - Apply the smallest coherent patch set that addresses the packet's selected findings.

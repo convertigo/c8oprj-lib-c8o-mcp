@@ -23,6 +23,8 @@ C8O.guidance = C8O.guidance || {};
     ["resources", "convertigo_common_skill.md"],
     ["resources", "convertigo_task_routes.json"],
     ["resources", "resources_index.json"],
+    ["resources", "guide_drawers.json"],
+    ["js", "resources.js"],
     ["js", "setup_common.js"]
   ];
 

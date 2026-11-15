@@ -11,30 +11,22 @@ var C8O_RESOURCES_BUILTIN = [
     title: "Convertigo MCP capabilities",
     description: "Core MCP capabilities and recommended authoring flow.",
     mimeType: "text/markdown",
+    guidanceLevel: "summary",
+    drawerUris: ["convertigo://guides/capabilities/details-1", "convertigo://guides/capabilities/details-2", "convertigo://guides/capabilities/details-3"],
     text: [
       "# Convertigo MCP capabilities",
       "",
-      "- MCP guidance version: `" + C8O.MCP_GUIDANCE_VERSION + "`. Setup-generated skills declare the same `Skill guidance version`; if the installed skill differs from this value or has no version, rerun `_setupCodex` or `_setupVibe` for the current MCP endpoint before project mutation.",
-      "- Guidance handshake: compare versions during bootstrap. When the client can attach MCP request metadata, send `params._meta.convertigoGuidanceVersion` on the first guarded `tools/call`; raw HTTP clients may instead send `X-Convertigo-Guidance-Version`. A mismatch warning requires setup refresh before mutation. A missing-version warning is advisory when the installed skill version already matches this capability version, so the current task may continue while the managed host refreshes its transport configuration.",
-      "- Treat the live MCP catalog as the public source of truth: `tools/list`, `resources/list`, `prompts/list`.",
-      "- Primitive authoring stays tree-first: inspect with `databaseobject-tree-get`, discover with `project-list` and `databaseobject-search`, create with `palette-list` and `palette-describe`, mutate with `databaseobject-tree-apply`, and group changes with `batch-call`.",
-      "- Optional UI reveal mode is opt-in per call. When the host asks for live reveal, pass `reveal:true` only on supported mutation/viewer tools such as `databaseobject-tree-apply`, `mobile-builder-open`, `nocode-form-create`, `nocode-form-edit`, and `nocode-form-update`; skipped or unsupported reveal results are UI hints, not mutation failures.",
-      "- Security review starts with `project-security-audit({project})`: read-only findings with a deterministic 0-100 score and A-F grade; acknowledge accepted risks with `suppress` instead of ignoring them.",
-      "- Runtime proof uses `requestable-execute`, `crud-status`, `crud-proof`, and `log-view` when execution feedback is not enough.",
-      "- HTTP integration must keep transport in `HttpConnector` plus typed HTTP transactions; business sequences call them with `TransactionStep` and only orchestrate or shape contracts.",
-      "- New UI projects start from `marketplace-import` and `mobile-builder-open(wait=false)` so the live viewer opens asynchronously while the agent continues backend or UI work.",
-      "- Canonical standard NGX import: `marketplace-import({project:\"template_ngxBuilderIonic\", importedProjectName:\"<targetProject>\"})`. Launch the viewer once after import; do not probe state before launch. When the launch reports Node download, npm install, or a cold Angular build, finish useful mutations and make one waited state call with `timeoutSec:180` instead of repeated 30-second polls.",
-      "- For a new standard SQL CRUD + starter NGX UI task, the current recommended public rail is: validate the name -> `marketplace-import` -> `mobile-builder-open(wait=false)` -> `upsert-crud` -> backend `crud-proof` -> `ngx-theme-apply` when the user gave a brand -> one `ngx-page-create` per page (the entry page with `root:true`, `locale` and `currency` with the first page, `home` on each page) -> `mobile-builder-open(stateOnly=true, wait=true)` -> `project-lint` -> `browser-verify` -> `project-save`; before a deployment, `mobile-builder-build` (the production build in `DisplayObjects/mobile`; when it answers `unsupported`, the user clicks Build in the Studio's Build panel).",
-      "- For an existing deterministic CRUD project that is already green, prefer the edit rail: `crud-status` -> `mobile-builder-open(wait=false)` when UI work is likely -> `upsert-crud` -> backend `crud-proof` -> `ngx-page-create` for the new pages (a page to change: delete it and create it again, or `databaseobject-tree-apply`) -> `mobile-builder-open(stateOnly=true, wait=true)` -> `project-lint` -> `browser-verify` -> `project-save`.",
-      "- For a low-detail CRUD request, stop after that first green end-to-end scaffold plus seeded demo data. Do not improvise a second UX/layout pass unless the user asked for it.",
-      "- Treat `spec.relations[]`, `entities[].ui.relationFields`, and `seed.data` as first-class public CRUD inputs. Do not reverse-engineer them from the local workspace once the CRUD guides were read.",
-      "- Generated CRUD business sequences are hidden requestables that require an authenticated context. The generated `auth_login(username,password)` and `auth_logout()` skeleton sequences stay hidden, and the generated UI uses a `Login` page to establish that session once before the visible CRUD home page opens.",
-      "- Prefer best-case-first generated code. Trust the standard runtime error bubble for ordinary failures instead of adding defensive wrappers by default.",
-      "- In the live dev viewer, open `viewerHomeUrl`, never `viewerBaseUrl`: on some engines the base URL serves the update page, which reloads every second (an agent landed there). Use `mobile-builder-open(wait=false)` early for async launch, continue useful inspection or mutation while it starts, then `mobile-builder-open(stateOnly=true, wait=true)` before final proof. A state-only `status:\"stopped\"` is terminal for that poll: call `mobile-builder-open(stateOnly=false, wait=false)` once instead of waiting again. Use Playwright only when both `browserDebugPortMatched:true` and `browserControlReady:true` are reported. Studio JxBrowser exposes one existing visible page over CDP, not a normal multi-tab browser. In the Electron Studio (`browserControlHint` names its agent browser) that one page starts on `about:blank`: once `status` is `ready`, navigate it yourself to `viewerHomeUrl` (the application on the engine, never the development server port) with the Playwright navigate tool; never open a new tab or close it; `browserDebugPortMatched` is always true there. The known-good fast check is `playwright.browser_tabs` for list/URL confirmation, `playwright.browser_find` for visible UI, and `playwright.browser_evaluate` only for DOM state or timing; do not create or navigate tabs/pages or probe extra browser features first. If the target is `about:blank` with status `building`, poll; if status is `stopped`, launch asynchronously. If MCP browser tools are unavailable, stale, or attached elsewhere, report the managed Playwright configuration problem instead of using Node, raw CDP, or another browser. When browserDebugPortRequested is 0 the client has no managed browser: follow browserControlHint and navigate your own browser tool to viewerHomeUrl. Reserve `.../DisplayObjects/mobile/home` for production builds.",
-      "- Do not use shell, PowerShell, `rg`, or filesystem scans to rediscover MCP signatures or examples. Never recursively search a drive root, user profile, workspace root, or generated frontend tree for browser/build diagnostics; use `mobile-builder-open`, `log-view`, and the managed Playwright target.",
-      "- Page `scriptContent` is atomic: read it with `properties:\"all\"` and preserve the complete string and every existing marker section when editing. NGX `identifier` values must be valid TypeScript identifiers without dashes.",
-      "- Never patch `_private/ionic`, `DisplayObjects`, `dist`, or other generated frontend artifacts. Fix the Convertigo source objects or the MCP generator instead.",
-      "- Once the CRUD fast path is selected, do not fall back to `rag-query` unless the built-in guides and CRUD tools no longer answer the task."
+      "- MCP guidance version: `" + C8O.MCP_GUIDANCE_VERSION + "`. Compare the installed skill once; rerun the setup for your harness on mismatch before mutation. Missing transport metadata is advisory when the installed version matches.",
+      "- Live tools/list, resources/list and prompts/list are the contract. Read known guide URIs directly; open one summary or exact drawer per call, never a batch of guide reads.",
+      "- Inspect with databaseobject-tree-get; mutate with databaseobject-tree-apply; order dependent writes in batch-call; prove with requestable-execute; persist with project-save.",
+      "- Keep the exact requested project name. New NGX apps start with marketplace-import(template_ngxBuilderIonic), then mobile-builder-open(wait=false). Use typed HTTP/SQL transactions behind business sequences; prove application data before wiring UI events/actions and SC locals.",
+      "- Standard CRUD: upsert-crud -> backend crud-proof -> ngx-page-create per page -> viewer readiness -> project-lint -> browser-verify. Existing pages are patched through databaseobject-tree-apply or deleted and recreated; ngx-page-create never overwrites them. Generated auth_login is a demo skeleton requiring replacement before delivery.",
+      "- Never edit descriptors or generated artifacts. Preserve scriptContent markers. Read valid SmartSources; do not invent their internal JSON. Prove visible behavior, report missing proof, and stop after the requested result is green.",
+      "",
+      "## Drawers",
+      "- convertigo://guides/capabilities/details-1 — guidance handshake and authoring/CRUD rails.",
+      "- convertigo://guides/capabilities/details-2 — authentication and managed viewer/browser control.",
+      "- convertigo://guides/capabilities/details-3 — source boundaries and generated artifacts."
     ].join("\n")
   },
   {
@@ -43,23 +35,19 @@ var C8O_RESOURCES_BUILTIN = [
     title: "Convertigo MCP quickstart recipes",
     description: "Minimal MCP-first recipes for fast project delivery.",
     mimeType: "text/markdown",
+    guidanceLevel: "summary",
+    drawerUris: ["convertigo://guides/crud/deterministic-rail", "convertigo://guides/crud-edit/overview", "convertigo://guides/ngx/viewer"],
     text: [
       "# Quickstart recipes",
       "",
-      "1. When a managed skill already names the required resource URI or tool, read it directly. Do not list resources, templates, or prompts again unless routing is ambiguous, a named entry is missing, or guidance versions disagree.",
-      "2. Read `convertigo://capabilities` to verify guidance freshness, then read only the smallest entry recipe matching the task. Use `convertigo://resources/convertigo-start` when no route is known and this quickstart only when route selection remains ambiguous.",
-      "3. Decide whether the task really fits the deterministic CRUD fast path. For a new standard SQL CRUD + starter NGX UI project, prefer `convertigo-crud-fastpath`; for an existing deterministic CRUD project edit, prefer `convertigo://resources/convertigo-crud-edit-fastpath`; other tasks stay exploratory.",
-      "4. For a new UI project, keep the exact requested project name, call `marketplace-import({project:\"template_ngxBuilderIonic\", importedProjectName:\"<targetProject>\"})`, then `mobile-builder-open` with `wait=false` immediately so the viewer starts while the rest of the scaffolding proceeds. Do not probe state before launch.",
-      "5. For an existing deterministic CRUD project edit, do not import the starter again: `crud-status` -> optional early `mobile-builder-open(wait=false)` when UI work is likely -> `upsert-crud` -> backend `crud-proof` -> `ngx-page-create` for the new pages -> `mobile-builder-open(stateOnly=true, wait=true)` -> `project-lint` -> `browser-verify`.",
-      "6. In generated CRUD UI apps, initialize the session once on the generated `Login` root page, then let the visible pages call only the CRUD business sequences they need.",
-      "7. For a low-detail CRUD request, stop after the first green scaffold + seeded demo data. Do not start a second UX refinement pass unless the user explicitly asked for it.",
-      "8. Once the fast path is chosen, do not call `rag-query` unless the built-in guides and tools are exhausted.",
-      "9. Do not grep the local workspace to rediscover `relations[]`, `ui.relationFields`, or `seed.data` once the CRUD guides already document them.",
-      "10. Use targeted `databaseobject-tree-get` or `databaseobject-search` reads, consult palette metadata only for uncertain object contracts, and group coherent mutations with `batch-call` when safe.",
-      "11. For UI work, mutate while the asynchronously opened viewer builds, then perform one readiness check and one acceptance-oriented browser proof. Repeat only to repair a concrete failed criterion.",
-      "12. If the viewer launch reports a Node download, npm install, or cold Angular build, use one waited state check with `timeoutSec:180`; do not repeat short polling calls.",
-      "13. Validate backend behavior with `requestable-execute` or `crud-proof`, then persist with `project-save`.",
-      "14. If a waited `mobile-builder-open` reports `compile_error`, fix the Convertigo source objects or MCP generator path. Do not repair generated runtime artifacts."
+      "Read convertigo://capabilities once to check guidance freshness. Follow the managed skill's one matching route; read known URIs directly. If no route is known, read convertigo://guides/start. Read one guide per call.",
+      "Keep the exact target project name. For new NGX apps import template_ngxBuilderIonic and launch mobile-builder-open(wait=false), then work while it builds. For CRUD use upsert-crud, backend crud-proof, ngx-page-create per page, project-lint and browser-verify. Patch an existing page through databaseobject-tree-apply or delete and recreate it. Replace the generated demo auth_login before delivery.",
+      "Inspect/mutate source objects through MCP. Prove application data, viewer readiness and visible behavior, then project-save. Never edit descriptors or generated artifacts. On compile_error repair the source objects. Do not repeat catalog discovery, unchanged proof or unsolicited UX passes.",
+      "",
+      "## Drawers",
+      "- convertigo://guides/crud/deterministic-rail — new standard SQL CRUD rail.",
+      "- convertigo://guides/crud-edit/overview — existing deterministic CRUD edits.",
+      "- convertigo://guides/ngx/viewer — builder launch and managed browser control."
     ].join("\n")
   }
 ];
@@ -148,5 +136,11 @@ function c8oReadResourceFile(entry) {
   if (!entry.file) {
     throw new Error("Resource entry has no file property");
   }
-  return c8oReadCatalogFile("resources", entry.file);
+  var text = String(c8oReadCatalogFile("resources", entry.file));
+  if (entry.expandGuidance === true) {
+    text = text.replace(/\{\{GUIDANCE_VERSION\}\}/g, String(C8O.MCP_GUIDANCE_VERSION))
+      .replace(/\{\{SETUP_SEQUENCE\}\}/g, "_setupVibe, _setupCodex or _setupClaude for your harness")
+      .replace(/\{\{TASK_ROUTES\}\}/g, "Read `convertigo://resources/convertigo-task-routes` for the current routes.");
+  }
+  return text;
 }

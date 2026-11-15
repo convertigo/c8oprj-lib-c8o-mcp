@@ -105,6 +105,8 @@ for (const marker of ["Convertigo_", "mcp__convertigo__", "~/.codex", "~/.vibe",
 // resource files at install time.
 assert.strictEqual(typeof setupCommon.copyResourceSkills, "function");
 assert.ok(setupCommon.resourceSkillFiles().length > 5, "No specialised guide found in the resources index");
+const installedSlugs = setupCommon.resourceSkillFiles().map(entry => entry.file.replace(/\.md$/i, '').replace(/[\\\/_]/g, '-'));
+assert.strictEqual(new Set(installedSlugs).size, installedSlugs.length, 'Copied drawer skills overwrite each other');
 for (const harnessId of setupCommon.harnessIds()) {
   const harness = setupCommon.harness(harnessId);
   if (harness.readsMcpResources === true) {
@@ -172,11 +174,20 @@ const mutatedBootstrap = createSandbox({
   "js/setup_common.js": read("js/setup_common.js").replace("// Per-harness bootstrap.", "// Per-harness bootstrap (edited).")
 });
 assert.notStrictEqual(mutatedBootstrap.C8O.MCP_GUIDANCE_VERSION, version, "Guidance version did not follow the bootstraps");
+const mutatedDrawers = createSandbox({
+  "resources/guide_drawers.json": read("resources/guide_drawers.json") + "\n"
+});
+assert.notStrictEqual(mutatedDrawers.C8O.MCP_GUIDANCE_VERSION, version, "Guidance version did not follow drawer fingerprints");
 
 // 5. The generated Vibe skill carries the bootstrap, the common skill and the
 //    guidance version line the agent bridge parses.
 const mcpUrl = "http://localhost:18080/convertigo/api/mcp";
 const vibeSkill = buildVibeSkill(sandbox, mcpUrl);
+for (const harnessId of setupCommon.harnessIds()) {
+  const installed = setupCommon.buildSkillMarkdown(harnessId, mcpUrl);
+  assert.ok(installed.length < 16000, harnessId + ' installed skill is too long: ' + installed.length);
+  assert.ok(installed.includes('convertigo://guides/ngx/smartsource'), harnessId + ' cannot reach the binding drawer');
+}
 assert.match(vibeSkill, /^---\nname: convertigo-vibe-generalist\n/);
 assert.ok(vibeSkill.includes(setupCommon.bootstrapLines("vibe")[0]), "Vibe bootstrap missing from the generated skill");
 assert.ok(vibeSkill.includes("## MCP-first rule"), "Common skill missing from the generated skill");
@@ -214,5 +225,6 @@ console.log(JSON.stringify({
   }, {}),
   generatedSkillLines: {
     vibe: vibeSkill.split("\n").length
-  }
+  },
+  generatedSkillCharacters: Object.fromEntries(setupCommon.harnessIds().map(id => [id, setupCommon.buildSkillMarkdown(id, mcpUrl).length]))
 }, null, 2));

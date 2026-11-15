@@ -7,7 +7,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_start.md",
     "guideId": "convertigo/start",
-    "revision": 43,
+    "revision": 44,
     "scopeTags": [
       "start",
       "onboarding",
@@ -30,8 +30,9 @@
       "convertigo-critic",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "start",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/start"
   },
   {
     "uri": "convertigo://resources/convertigo-crud-fastpath",
@@ -41,7 +42,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_crud_fastpath.md",
     "guideId": "convertigo/crud-fastpath",
-    "revision": 11,
+    "revision": 12,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -65,8 +66,9 @@
     "promptNames": [
       "convertigo-crud-fastpath"
     ],
-    "guidanceLevel": "workflow",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/crud"
   },
   {
     "uri": "convertigo://resources/convertigo-vibe-start",
@@ -76,7 +78,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_vibe_start.md",
     "guideId": "convertigo/vibe-start",
-    "revision": 30,
+    "revision": 31,
     "scopeTags": [
       "start",
       "vibe",
@@ -97,8 +99,9 @@
     "promptNames": [
       "convertigo-vibe-quickstart"
     ],
-    "guidanceLevel": "start",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/vibe"
   },
   {
     "uri": "convertigo://resources/convertigo-vibe-http-ngx-fastpath",
@@ -108,7 +111,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_vibe_http_ngx_fastpath.md",
     "guideId": "convertigo/vibe-http-ngx-fastpath",
-    "revision": 3,
+    "revision": 4,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -133,8 +136,9 @@
     "promptNames": [
       "convertigo-vibe-quickstart"
     ],
-    "guidanceLevel": "workflow",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/http-app"
   },
   {
     "uri": "convertigo://resources/convertigo-project-review",
@@ -144,7 +148,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_project_review.md",
     "guideId": "convertigo/project-review",
-    "revision": 4,
+    "revision": 5,
     "scopeTags": [
       "workflow",
       "review",
@@ -168,8 +172,9 @@
       "convertigo-critic",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "workflow",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/review"
   },
   {
     "uri": "convertigo://resources/convertigo-crud-edit-fastpath",
@@ -179,7 +184,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_crud_edit_fastpath.md",
     "guideId": "convertigo/crud-edit-fastpath",
-    "revision": 14,
+    "revision": 15,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -205,8 +210,9 @@
       "convertigo-crud-fastpath",
       "convertigo-quickstart"
     ],
-    "guidanceLevel": "workflow",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/crud-edit"
   },
   {
     "uri": "convertigo://resources/convertigo-platform-big-picture",
@@ -216,7 +222,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_platform_big_picture.md",
     "guideId": "convertigo/platform-big-picture",
-    "revision": 5,
+    "revision": 6,
     "scopeTags": [
       "start",
       "platform",
@@ -243,8 +249,9 @@
       "convertigo-critic",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "start",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/platform"
   },
   {
     "uri": "convertigo://resources/convertigo-engineering-workflow",
@@ -254,7 +261,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_engineering_workflow.md",
     "guideId": "convertigo/engineering-workflow",
-    "revision": 1,
+    "revision": 2,
     "scopeTags": [
       "workflow",
       "validation",
@@ -284,8 +291,9 @@
       "convertigo-critic",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "workflow",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/workflow"
   },
   {
     "uri": "convertigo://resources/convertigo-bootstrap-decision-matrix",
@@ -295,7 +303,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_bootstrap_decision_matrix.md",
     "guideId": "convertigo/bootstrap-decision-matrix",
-    "revision": 2,
+    "revision": 3,
     "scopeTags": [
       "workflow",
       "bootstrap",
@@ -319,8 +327,9 @@
       "convertigo-quickstart",
       "convertigo-planner"
     ],
-    "guidanceLevel": "workflow",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/brief"
   },
   {
     "uri": "convertigo://resources/convertigo-contract-first-delivery",
@@ -330,7 +339,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_contract_first_delivery.md",
     "guideId": "convertigo/contract-first-delivery",
-    "revision": 2,
+    "revision": 3,
     "scopeTags": [
       "workflow",
       "planner",
@@ -355,8 +364,9 @@
       "convertigo-frontend-ngx",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "workflow",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/contract"
   },
   {
     "uri": "convertigo://resources/convertigo-recipe-starter-extension",
@@ -366,7 +376,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_starter_extension.md",
     "guideId": "convertigo/recipe-starter-extension",
-    "revision": 5,
+    "revision": 6,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -394,8 +404,9 @@
       "convertigo-frontend-ngx",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "workflow",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/starter"
   },
   {
     "uri": "convertigo://resources/convertigo-recipe-business-sequence-stub",
@@ -405,7 +416,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_business_sequence_stub.md",
     "guideId": "convertigo/recipe-business-sequence-stub",
-    "revision": 3,
+    "revision": 4,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -434,11 +445,12 @@
       "convertigo-frontend-ngx",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "workflow",
+    "guidanceLevel": "redirect",
     "fallbackToRag": false,
     "aliases": [
       "convertigo://resources/convertigo-recipe-facade-stub"
-    ]
+    ],
+    "summaryUri": "convertigo://guides/sequence"
   },
   {
     "uri": "convertigo://resources/convertigo-backend-sequences",
@@ -448,7 +460,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_backend_sequences.md",
     "guideId": "convertigo/backend-sequences",
-    "revision": 14,
+    "revision": 15,
     "scopeTags": [
       "domain",
       "backend",
@@ -477,8 +489,9 @@
       "convertigo-http",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "domain",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/backend"
   },
   {
     "uri": "convertigo://resources/convertigo-recipe-http-business-sequence",
@@ -488,7 +501,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_http_business_sequence.md",
     "guideId": "convertigo/recipe-http-business-sequence",
-    "revision": 15,
+    "revision": 16,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -515,11 +528,12 @@
       "convertigo-http",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "workflow",
+    "guidanceLevel": "redirect",
     "fallbackToRag": false,
     "aliases": [
       "convertigo://resources/convertigo-recipe-http-facade"
-    ]
+    ],
+    "summaryUri": "convertigo://guides/http-sequence"
   },
   {
     "uri": "convertigo://resources/convertigo-integration-http",
@@ -529,7 +543,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_integration_http.md",
     "guideId": "convertigo/integration-http",
-    "revision": 2,
+    "revision": 3,
     "scopeTags": [
       "domain",
       "integration",
@@ -552,8 +566,9 @@
       "convertigo-http",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "domain",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/http"
   },
   {
     "uri": "convertigo://resources/convertigo-recipe-sql-crud",
@@ -563,7 +578,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_sql_crud.md",
     "guideId": "convertigo/recipe-sql-crud",
-    "revision": 6,
+    "revision": 7,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -589,8 +604,9 @@
       "convertigo-sql",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "workflow",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/sql-recipe"
   },
   {
     "uri": "convertigo://resources/convertigo-fast-path-sql-hsqldb",
@@ -600,7 +616,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_fast_path_sql_hsqldb.md",
     "guideId": "convertigo/fast-path-sql-hsqldb",
-    "revision": 8,
+    "revision": 9,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -623,7 +639,7 @@
       "convertigo-sql",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "workflow",
+    "guidanceLevel": "redirect",
     "fallbackToRag": false,
     "resourceKind": "template",
     "templateId": "convertigo/fast-path-sql-hsqldb",
@@ -642,7 +658,8 @@
       "<project>.<connector>.count_contacts",
       "<project>.<connector>.list_companies",
       "<project>.<connector>.count_companies"
-    ]
+    ],
+    "summaryUri": "convertigo://guides/hsqldb"
   },
   {
     "uri": "convertigo://resources/convertigo-fast-path-sql-postgresql",
@@ -652,7 +669,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_fast_path_sql_postgresql.md",
     "guideId": "convertigo/fast-path-sql-postgresql",
-    "revision": 2,
+    "revision": 3,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -676,7 +693,7 @@
       "convertigo-sql",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "workflow",
+    "guidanceLevel": "redirect",
     "fallbackToRag": false,
     "resourceKind": "template",
     "templateId": "convertigo/fast-path-sql-postgresql",
@@ -698,7 +715,8 @@
       "<project>.<connector>.count_contacts",
       "<project>.<connector>.list_companies",
       "<project>.<connector>.count_companies"
-    ]
+    ],
+    "summaryUri": "convertigo://guides/postgresql"
   },
   {
     "uri": "convertigo://resources/convertigo-fast-path-sql-mariadb",
@@ -708,7 +726,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_fast_path_sql_mariadb.md",
     "guideId": "convertigo/fast-path-sql-mariadb",
-    "revision": 4,
+    "revision": 5,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -732,7 +750,7 @@
       "convertigo-sql",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "workflow",
+    "guidanceLevel": "redirect",
     "fallbackToRag": false,
     "resourceKind": "template",
     "templateId": "convertigo/fast-path-sql-mariadb",
@@ -754,7 +772,8 @@
       "<project>.<connector>.count_contacts",
       "<project>.<connector>.list_companies",
       "<project>.<connector>.count_companies"
-    ]
+    ],
+    "summaryUri": "convertigo://guides/mariadb"
   },
   {
     "uri": "convertigo://resources/convertigo-crud-practical-cases",
@@ -764,7 +783,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_crud_practical_cases.md",
     "guideId": "convertigo/crud-practical-cases",
-    "revision": 2,
+    "revision": 3,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -795,8 +814,9 @@
       "convertigo-crud-fastpath",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "workflow",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/crud-cases"
   },
   {
     "uri": "convertigo://resources/convertigo-integration-sql",
@@ -806,7 +826,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_integration_sql.md",
     "guideId": "convertigo/integration-sql",
-    "revision": 9,
+    "revision": 10,
     "scopeTags": [
       "domain",
       "integration",
@@ -831,8 +851,9 @@
       "convertigo-sql",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "domain",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/sql"
   },
   {
     "uri": "convertigo://resources/convertigo-authentication",
@@ -842,7 +863,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_authentication.md",
     "guideId": "convertigo/authentication",
-    "revision": 12,
+    "revision": 13,
     "scopeTags": [
       "domain",
       "auth",
@@ -871,8 +892,9 @@
       "convertigo-frontend-ngx",
       "convertigo-critic"
     ],
-    "guidanceLevel": "domain",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/auth"
   },
   {
     "uri": "convertigo://resources/convertigo-recipe-ngx-data-page",
@@ -882,7 +904,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_ngx_data_page.md",
     "guideId": "convertigo/recipe-ngx-data-page",
-    "revision": 43,
+    "revision": 44,
     "scopeTags": [
       "workflow",
       "recipe",
@@ -909,8 +931,9 @@
       "convertigo-frontend-ngx",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "workflow",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/data-page"
   },
   {
     "uri": "convertigo://resources/convertigo-frontend-ngx",
@@ -920,7 +943,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_frontend_ngx.md",
     "guideId": "convertigo/frontend-ngx",
-    "revision": 39,
+    "revision": 40,
     "scopeTags": [
       "domain",
       "frontend",
@@ -950,8 +973,9 @@
       "convertigo-frontend-ngx",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "domain",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/ngx"
   },
   {
     "uri": "convertigo://resources/convertigo-validation-and-evidence",
@@ -961,7 +985,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_validation_and_evidence.md",
     "guideId": "convertigo/validation-and-evidence",
-    "revision": 5,
+    "revision": 6,
     "scopeTags": [
       "validation",
       "evidence",
@@ -993,8 +1017,9 @@
       "convertigo-critic",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "validation",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/proof"
   },
   {
     "uri": "convertigo://resources/convertigo-context-api",
@@ -1004,7 +1029,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_context_api.md",
     "guideId": "convertigo/context-api",
-    "revision": 1,
+    "revision": 2,
     "scopeTags": [
       "reference",
       "backend",
@@ -1020,8 +1045,9 @@
       "convertigo-backend",
       "convertigo-maintainer"
     ],
-    "guidanceLevel": "reference",
-    "fallbackToRag": true
+    "guidanceLevel": "redirect",
+    "fallbackToRag": true,
+    "summaryUri": "convertigo://guides/context"
   },
   {
     "uri": "convertigo://resources/convertigo-json-quickref",
@@ -1085,7 +1111,7 @@
     "mimeType": "text/markdown",
     "file": "convertigo_recipe_multipage_app.md",
     "guideId": "convertigo/recipe-multipage-app",
-    "revision": 29,
+    "revision": 30,
     "scopeTags": [
       "recipe",
       "ngx",
@@ -1118,7 +1144,2383 @@
       "convertigo-backend",
       "convertigo-frontend-ngx"
     ],
-    "guidanceLevel": "workflow",
-    "fallbackToRag": false
+    "guidanceLevel": "redirect",
+    "fallbackToRag": false,
+    "summaryUri": "convertigo://guides/multipage"
+  },
+  {
+    "uri": "convertigo://guides/start/overview",
+    "name": "Convertigo Start Guide — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/start/overview.md",
+    "guideId": "convertigo/start/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/start"
+  },
+  {
+    "uri": "convertigo://guides/start/mandatory-workflow",
+    "name": "Convertigo Start Guide — Mandatory workflow",
+    "description": "Open for Mandatory workflow.",
+    "mimeType": "text/markdown",
+    "file": "guides/start/mandatory-workflow.md",
+    "guideId": "convertigo/start/mandatory-workflow",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/start"
+  },
+  {
+    "uri": "convertigo://guides/start/mandatory-workflow-2",
+    "name": "Convertigo Start Guide — Mutations, CRUD page generators and backend contracts",
+    "description": "Open for Mutations, CRUD page generators and backend contracts.",
+    "mimeType": "text/markdown",
+    "file": "guides/start/mandatory-workflow-2.md",
+    "guideId": "convertigo/start/mandatory-workflow-2",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/start"
+  },
+  {
+    "uri": "convertigo://guides/start/mandatory-workflow-3",
+    "name": "Convertigo Start Guide — Viewer URLs, call skeletons and first-write checks",
+    "description": "Open for Viewer URLs, call skeletons and first-write checks.",
+    "mimeType": "text/markdown",
+    "file": "guides/start/mandatory-workflow-3.md",
+    "guideId": "convertigo/start/mandatory-workflow-3",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/start"
+  },
+  {
+    "uri": "convertigo://guides/start/mandatory-workflow-4",
+    "name": "Convertigo Start Guide — Escalation, unsafe shortcuts and completion checks",
+    "description": "Open for Escalation, unsafe shortcuts and completion checks.",
+    "mimeType": "text/markdown",
+    "file": "guides/start/mandatory-workflow-4.md",
+    "guideId": "convertigo/start/mandatory-workflow-4",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/start"
+  },
+  {
+    "uri": "convertigo://guides/start",
+    "name": "Convertigo Start Guide",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/start.md",
+    "guideId": "convertigo/start/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/start/overview",
+      "convertigo://guides/start/mandatory-workflow",
+      "convertigo://guides/start/mandatory-workflow-2",
+      "convertigo://guides/start/mandatory-workflow-3",
+      "convertigo://guides/start/mandatory-workflow-4"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/crud/overview",
+    "name": "Convertigo CRUD Fast Path — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/crud/overview.md",
+    "guideId": "convertigo/crud-fastpath/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/crud"
+  },
+  {
+    "uri": "convertigo://guides/crud/required-inputs",
+    "name": "Convertigo CRUD Fast Path — Required inputs",
+    "description": "Open for Required inputs.",
+    "mimeType": "text/markdown",
+    "file": "guides/crud/required-inputs.md",
+    "guideId": "convertigo/crud-fastpath/required-inputs",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/crud"
+  },
+  {
+    "uri": "convertigo://guides/crud/deterministic-rail",
+    "name": "Convertigo CRUD Fast Path — Deterministic rail",
+    "description": "Open for Deterministic rail.",
+    "mimeType": "text/markdown",
+    "file": "guides/crud/deterministic-rail.md",
+    "guideId": "convertigo/crud-fastpath/deterministic-rail",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/crud"
+  },
+  {
+    "uri": "convertigo://guides/crud/existing-project-edit-rail",
+    "name": "Convertigo CRUD Fast Path — Existing project edit rail",
+    "description": "Open for Existing project edit rail.",
+    "mimeType": "text/markdown",
+    "file": "guides/crud/existing-project-edit-rail.md",
+    "guideId": "convertigo/crud-fastpath/existing-project-edit-rail",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/crud"
+  },
+  {
+    "uri": "convertigo://guides/crud/canonical-examples",
+    "name": "Convertigo CRUD Fast Path — Canonical examples",
+    "description": "Open for Canonical examples.",
+    "mimeType": "text/markdown",
+    "file": "guides/crud/canonical-examples.md",
+    "guideId": "convertigo/crud-fastpath/canonical-examples",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/crud"
+  },
+  {
+    "uri": "convertigo://guides/crud/anti-patterns",
+    "name": "Convertigo CRUD Fast Path — Anti-patterns",
+    "description": "Open for Anti-patterns.",
+    "mimeType": "text/markdown",
+    "file": "guides/crud/anti-patterns.md",
+    "guideId": "convertigo/crud-fastpath/anti-patterns",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/crud"
+  },
+  {
+    "uri": "convertigo://guides/crud",
+    "name": "Convertigo CRUD Fast Path",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/crud.md",
+    "guideId": "convertigo/crud-fastpath/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/crud/overview",
+      "convertigo://guides/crud/required-inputs",
+      "convertigo://guides/crud/deterministic-rail",
+      "convertigo://guides/crud/existing-project-edit-rail",
+      "convertigo://guides/crud/canonical-examples",
+      "convertigo://guides/crud/anti-patterns"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/vibe/setup",
+    "name": "Convertigo Vibe Start — Setup, isolation and bootstrap",
+    "description": "Open for Setup, isolation and bootstrap.",
+    "mimeType": "text/markdown",
+    "file": "guides/vibe/setup.md",
+    "guideId": "convertigo/vibe-start/setup",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/vibe"
+  },
+  {
+    "uri": "convertigo://guides/vibe/calls",
+    "name": "Convertigo Vibe Start — Ordered calls, error results and headless execution",
+    "description": "Open for Ordered calls, error results and headless execution.",
+    "mimeType": "text/markdown",
+    "file": "guides/vibe/calls.md",
+    "guideId": "convertigo/vibe-start/calls",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/vibe"
+  },
+  {
+    "uri": "convertigo://guides/vibe/starter-http",
+    "name": "Convertigo Vibe Start — Starter import and typed HTTP transport",
+    "description": "Open for Starter import and typed HTTP transport.",
+    "mimeType": "text/markdown",
+    "file": "guides/vibe/starter-http.md",
+    "guideId": "convertigo/vibe-start/starter-http",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/vibe"
+  },
+  {
+    "uri": "convertigo://guides/vibe/http-variables",
+    "name": "Convertigo Vibe Start — URL paths, transaction classes and StepVariables",
+    "description": "Open for URL paths, transaction classes and StepVariables.",
+    "mimeType": "text/markdown",
+    "file": "guides/vibe/http-variables.md",
+    "guideId": "convertigo/vibe-start/http-variables",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/vibe"
+  },
+  {
+    "uri": "convertigo://guides/vibe/backend-proof",
+    "name": "Convertigo Vibe Start — Public input forwarding and backend proof",
+    "description": "Open for Public input forwarding and backend proof.",
+    "mimeType": "text/markdown",
+    "file": "guides/vibe/backend-proof.md",
+    "guideId": "convertigo/vibe-start/backend-proof",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/vibe"
+  },
+  {
+    "uri": "convertigo://guides/vibe/payload-proof",
+    "name": "Convertigo Vibe Start — HTTP payload failures and UI entry gate",
+    "description": "Open for HTTP payload failures and UI entry gate.",
+    "mimeType": "text/markdown",
+    "file": "guides/vibe/payload-proof.md",
+    "guideId": "convertigo/vibe-start/payload-proof",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/vibe"
+  },
+  {
+    "uri": "convertigo://guides/vibe/locals",
+    "name": "Convertigo Vibe Start — Palette objects, locals and input bindings",
+    "description": "Open for Palette objects, locals and input bindings.",
+    "mimeType": "text/markdown",
+    "file": "guides/vibe/locals.md",
+    "guideId": "convertigo/vibe-start/locals",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/vibe"
+  },
+  {
+    "uri": "convertigo://guides/vibe/bindings",
+    "name": "Convertigo Vibe Start — SmartSource readback and iterator text",
+    "description": "Open for SmartSource readback and iterator text.",
+    "mimeType": "text/markdown",
+    "file": "guides/vibe/bindings.md",
+    "guideId": "convertigo/vibe-start/bindings",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/vibe"
+  },
+  {
+    "uri": "convertigo://guides/vibe/actions",
+    "name": "Convertigo Vibe Start — Conditions, action completion and starter cleanup",
+    "description": "Open for Conditions, action completion and starter cleanup.",
+    "mimeType": "text/markdown",
+    "file": "guides/vibe/actions.md",
+    "guideId": "convertigo/vibe-start/actions",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/vibe"
+  },
+  {
+    "uri": "convertigo://guides/vibe/output-shaping",
+    "name": "Convertigo Vibe Start — Cleanup, output shaping and XPath repair",
+    "description": "Open for Cleanup, output shaping and XPath repair.",
+    "mimeType": "text/markdown",
+    "file": "guides/vibe/output-shaping.md",
+    "guideId": "convertigo/vibe-start/output-shaping",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/vibe"
+  },
+  {
+    "uri": "convertigo://guides/vibe/result-state",
+    "name": "Convertigo Vibe Start — Result storage, SC values and visible state",
+    "description": "Open for Result storage, SC values and visible state.",
+    "mimeType": "text/markdown",
+    "file": "guides/vibe/result-state.md",
+    "guideId": "convertigo/vibe-start/result-state",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/vibe"
+  },
+  {
+    "uri": "convertigo://guides/vibe/validation",
+    "name": "Convertigo Vibe Start — Visible records, isolation and final evidence",
+    "description": "Open for Visible records, isolation and final evidence.",
+    "mimeType": "text/markdown",
+    "file": "guides/vibe/validation.md",
+    "guideId": "convertigo/vibe-start/validation",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/vibe"
+  },
+  {
+    "uri": "convertigo://guides/vibe/diagnostics",
+    "name": "Convertigo Vibe Start — Diagnose bootstrap, backend and binding failures",
+    "description": "Open for Diagnose bootstrap, backend and binding failures.",
+    "mimeType": "text/markdown",
+    "file": "guides/vibe/diagnostics.md",
+    "guideId": "convertigo/vibe-start/diagnostics",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/vibe"
+  },
+  {
+    "uri": "convertigo://guides/vibe/diagnostics-ui",
+    "name": "Convertigo Vibe Start — Diagnose public contract and visible UI failures",
+    "description": "Open for Diagnose public contract and visible UI failures.",
+    "mimeType": "text/markdown",
+    "file": "guides/vibe/diagnostics-ui.md",
+    "guideId": "convertigo/vibe-start/diagnostics-ui",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/vibe"
+  },
+  {
+    "uri": "convertigo://guides/vibe",
+    "name": "Convertigo Vibe Start",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/vibe.md",
+    "guideId": "convertigo/vibe-start/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/vibe/setup",
+      "convertigo://guides/vibe/calls",
+      "convertigo://guides/vibe/starter-http",
+      "convertigo://guides/vibe/http-variables",
+      "convertigo://guides/vibe/backend-proof",
+      "convertigo://guides/vibe/payload-proof",
+      "convertigo://guides/vibe/locals",
+      "convertigo://guides/vibe/bindings",
+      "convertigo://guides/vibe/actions",
+      "convertigo://guides/vibe/output-shaping",
+      "convertigo://guides/vibe/result-state",
+      "convertigo://guides/vibe/validation",
+      "convertigo://guides/vibe/diagnostics",
+      "convertigo://guides/vibe/diagnostics-ui"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/http-app/overview",
+    "name": "Convertigo Vibe HTTP NGX Fast Path — overview",
+    "description": "Open for overview.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-app/overview.md",
+    "guideId": "convertigo/vibe-http-ngx-fastpath/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-app"
+  },
+  {
+    "uri": "convertigo://guides/http-app/hard-rules",
+    "name": "Convertigo Vibe HTTP NGX Fast Path — Hard Rules",
+    "description": "Open for Hard Rules.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-app/hard-rules.md",
+    "guideId": "convertigo/vibe-http-ngx-fastpath/hard-rules",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-app"
+  },
+  {
+    "uri": "convertigo://guides/http-app/hard-rules-2",
+    "name": "Convertigo Vibe HTTP NGX Fast Path — ForEach aliases and row scope",
+    "description": "Open for ForEach aliases and row scope.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-app/hard-rules-2.md",
+    "guideId": "convertigo/vibe-http-ngx-fastpath/hard-rules-2",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-app"
+  },
+  {
+    "uri": "convertigo://guides/http-app/http-backend",
+    "name": "Convertigo Vibe HTTP NGX Fast Path — HTTP Backend",
+    "description": "Open for HTTP Backend.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-app/http-backend.md",
+    "guideId": "convertigo/vibe-http-ngx-fastpath/http-backend",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-app"
+  },
+  {
+    "uri": "convertigo://guides/http-app/http-backend-2",
+    "name": "Convertigo Vibe HTTP NGX Fast Path — Endpoint selection, transaction variables and direct proof",
+    "description": "Open for Endpoint selection, transaction variables and direct proof.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-app/http-backend-2.md",
+    "guideId": "convertigo/vibe-http-ngx-fastpath/http-backend-2",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-app"
+  },
+  {
+    "uri": "convertigo://guides/http-app/http-backend-3",
+    "name": "Convertigo Vibe HTTP NGX Fast Path — Same-rail repairs and HTTP proof failures",
+    "description": "Open for Same-rail repairs and HTTP proof failures.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-app/http-backend-3.md",
+    "guideId": "convertigo/vibe-http-ngx-fastpath/http-backend-3",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-app"
+  },
+  {
+    "uri": "convertigo://guides/http-app/business-sequence",
+    "name": "Convertigo Vibe HTTP NGX Fast Path — Business sequence",
+    "description": "Open for Business sequence.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-app/business-sequence.md",
+    "guideId": "convertigo/vibe-http-ngx-fastpath/business-sequence",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-app"
+  },
+  {
+    "uri": "convertigo://guides/http-app/ngx-page",
+    "name": "Convertigo Vibe HTTP NGX Fast Path — NGX Page",
+    "description": "Open for NGX Page.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-app/ngx-page.md",
+    "guideId": "convertigo/vibe-http-ngx-fastpath/ngx-page",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-app"
+  },
+  {
+    "uri": "convertigo://guides/http-app/ngx-page-2",
+    "name": "Convertigo Vibe HTTP NGX Fast Path — SmartSource JSON and visible search structure",
+    "description": "Open for SmartSource JSON and visible search structure.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-app/ngx-page-2.md",
+    "guideId": "convertigo/vibe-http-ngx-fastpath/ngx-page-2",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-app"
+  },
+  {
+    "uri": "convertigo://guides/http-app/ngx-page-3",
+    "name": "Convertigo Vibe HTTP NGX Fast Path — Submit chain, call variables and result storage",
+    "description": "Open for Submit chain, call variables and result storage.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-app/ngx-page-3.md",
+    "guideId": "convertigo/vibe-http-ngx-fastpath/ngx-page-3",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-app"
+  },
+  {
+    "uri": "convertigo://guides/http-app/ngx-page-4",
+    "name": "Convertigo Vibe HTTP NGX Fast Path — Iterator rows, visible proof and stop conditions",
+    "description": "Open for Iterator rows, visible proof and stop conditions.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-app/ngx-page-4.md",
+    "guideId": "convertigo/vibe-http-ngx-fastpath/ngx-page-4",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-app"
+  },
+  {
+    "uri": "convertigo://guides/http-app",
+    "name": "Convertigo Vibe HTTP NGX Fast Path",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-app.md",
+    "guideId": "convertigo/vibe-http-ngx-fastpath/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/http-app/overview",
+      "convertigo://guides/http-app/hard-rules",
+      "convertigo://guides/http-app/hard-rules-2",
+      "convertigo://guides/http-app/http-backend",
+      "convertigo://guides/http-app/http-backend-2",
+      "convertigo://guides/http-app/http-backend-3",
+      "convertigo://guides/http-app/business-sequence",
+      "convertigo://guides/http-app/ngx-page",
+      "convertigo://guides/http-app/ngx-page-2",
+      "convertigo://guides/http-app/ngx-page-3",
+      "convertigo://guides/http-app/ngx-page-4"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/review/overview",
+    "name": "Convertigo Project Review Guide — Overview",
+    "description": "Open for Overview.",
+    "mimeType": "text/markdown",
+    "file": "guides/review/overview.md",
+    "guideId": "convertigo/project-review/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/review"
+  },
+  {
+    "uri": "convertigo://guides/review/backend-review-doctrine",
+    "name": "Convertigo Project Review Guide — Backend review doctrine",
+    "description": "Open for Backend review doctrine.",
+    "mimeType": "text/markdown",
+    "file": "guides/review/backend-review-doctrine.md",
+    "guideId": "convertigo/project-review/backend-review-doctrine",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/review"
+  },
+  {
+    "uri": "convertigo://guides/review/frontend-review-doctrine",
+    "name": "Convertigo Project Review Guide — Frontend review doctrine",
+    "description": "Open for Frontend review doctrine.",
+    "mimeType": "text/markdown",
+    "file": "guides/review/frontend-review-doctrine.md",
+    "guideId": "convertigo/project-review/frontend-review-doctrine",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/review"
+  },
+  {
+    "uri": "convertigo://guides/review/static-review-limits",
+    "name": "Convertigo Project Review Guide — Static review limits",
+    "description": "Open for Static review limits.",
+    "mimeType": "text/markdown",
+    "file": "guides/review/static-review-limits.md",
+    "guideId": "convertigo/project-review/static-review-limits",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/review"
+  },
+  {
+    "uri": "convertigo://guides/review",
+    "name": "Convertigo Project Review Guide",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/review.md",
+    "guideId": "convertigo/project-review/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/review/overview",
+      "convertigo://guides/review/backend-review-doctrine",
+      "convertigo://guides/review/frontend-review-doctrine",
+      "convertigo://guides/review/static-review-limits"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/crud-edit/overview",
+    "name": "Convertigo CRUD Edit Fast Path — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/crud-edit/overview.md",
+    "guideId": "convertigo/crud-edit-fastpath/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/crud-edit"
+  },
+  {
+    "uri": "convertigo://guides/crud-edit/running-upsert-crud-again",
+    "name": "Convertigo CRUD Edit Fast Path — Running upsert-crud again",
+    "description": "Open for Running upsert-crud again.",
+    "mimeType": "text/markdown",
+    "file": "guides/crud-edit/running-upsert-crud-again.md",
+    "guideId": "convertigo/crud-edit-fastpath/running-upsert-crud-again",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/crud-edit"
+  },
+  {
+    "uri": "convertigo://guides/crud-edit/server-side-checks-validation",
+    "name": "Convertigo CRUD Edit Fast Path — Server-side checks (validation)",
+    "description": "Open for Server-side checks (validation).",
+    "mimeType": "text/markdown",
+    "file": "guides/crud-edit/server-side-checks-validation.md",
+    "guideId": "convertigo/crud-edit-fastpath/server-side-checks-validation",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/crud-edit"
+  },
+  {
+    "uri": "convertigo://guides/crud-edit/canonical-crud-additions-to-express-direct",
+    "name": "Convertigo CRUD Edit Fast Path — Canonical CRUD additions to express directly in the spec",
+    "description": "Open for Canonical CRUD additions to express directly in the spec.",
+    "mimeType": "text/markdown",
+    "file": "guides/crud-edit/canonical-crud-additions-to-express-direct.md",
+    "guideId": "convertigo/crud-edit-fastpath/canonical-crud-additions-to-express-direct",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/crud-edit"
+  },
+  {
+    "uri": "convertigo://guides/crud-edit/two-canonical-examples",
+    "name": "Convertigo CRUD Edit Fast Path — Two canonical examples",
+    "description": "Open for Two canonical examples.",
+    "mimeType": "text/markdown",
+    "file": "guides/crud-edit/two-canonical-examples.md",
+    "guideId": "convertigo/crud-edit-fastpath/two-canonical-examples",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/crud-edit"
+  },
+  {
+    "uri": "convertigo://guides/crud-edit",
+    "name": "Convertigo CRUD Edit Fast Path",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/crud-edit.md",
+    "guideId": "convertigo/crud-edit-fastpath/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/crud-edit/overview",
+      "convertigo://guides/crud-edit/running-upsert-crud-again",
+      "convertigo://guides/crud-edit/server-side-checks-validation",
+      "convertigo://guides/crud-edit/canonical-crud-additions-to-express-direct",
+      "convertigo://guides/crud-edit/two-canonical-examples"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/platform/overview",
+    "name": "Convertigo Platform Big Picture — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/platform/overview.md",
+    "guideId": "convertigo/platform-big-picture/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/platform"
+  },
+  {
+    "uri": "convertigo://guides/platform/mandatory-workflow",
+    "name": "Convertigo Platform Big Picture — Mandatory workflow",
+    "description": "Open for Mandatory workflow.",
+    "mimeType": "text/markdown",
+    "file": "guides/platform/mandatory-workflow.md",
+    "guideId": "convertigo/platform-big-picture/mandatory-workflow",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/platform"
+  },
+  {
+    "uri": "convertigo://guides/platform/mandatory-workflow-2",
+    "name": "Convertigo Platform Big Picture — Symbols, reusable components and platform completion",
+    "description": "Open for Symbols, reusable components and platform completion.",
+    "mimeType": "text/markdown",
+    "file": "guides/platform/mandatory-workflow-2.md",
+    "guideId": "convertigo/platform-big-picture/mandatory-workflow-2",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/platform"
+  },
+  {
+    "uri": "convertigo://guides/platform/recommended-guides-and-recipes",
+    "name": "Convertigo Platform Big Picture — Recommended guides and recipes",
+    "description": "Open for Recommended guides and recipes.",
+    "mimeType": "text/markdown",
+    "file": "guides/platform/recommended-guides-and-recipes.md",
+    "guideId": "convertigo/platform-big-picture/recommended-guides-and-recipes",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/platform"
+  },
+  {
+    "uri": "convertigo://guides/platform",
+    "name": "Convertigo Platform Big Picture",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/platform.md",
+    "guideId": "convertigo/platform-big-picture/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/platform/overview",
+      "convertigo://guides/platform/mandatory-workflow",
+      "convertigo://guides/platform/mandatory-workflow-2",
+      "convertigo://guides/platform/recommended-guides-and-recipes"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/workflow/overview",
+    "name": "Convertigo Engineering Workflow — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/workflow/overview.md",
+    "guideId": "convertigo/engineering-workflow/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/workflow"
+  },
+  {
+    "uri": "convertigo://guides/workflow/anti-patterns-do-not-do",
+    "name": "Convertigo Engineering Workflow — Anti-patterns / do not do",
+    "description": "Open for Anti-patterns / do not do.",
+    "mimeType": "text/markdown",
+    "file": "guides/workflow/anti-patterns-do-not-do.md",
+    "guideId": "convertigo/engineering-workflow/anti-patterns-do-not-do",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/workflow"
+  },
+  {
+    "uri": "convertigo://guides/workflow",
+    "name": "Convertigo Engineering Workflow",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/workflow.md",
+    "guideId": "convertigo/engineering-workflow/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/workflow/overview",
+      "convertigo://guides/workflow/anti-patterns-do-not-do"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/brief/overview",
+    "name": "Convertigo Bootstrap Decision Matrix — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/brief/overview.md",
+    "guideId": "convertigo/bootstrap-decision-matrix/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/brief"
+  },
+  {
+    "uri": "convertigo://guides/brief/who-asks-what",
+    "name": "Convertigo Bootstrap Decision Matrix — Who asks what",
+    "description": "Open for Who asks what.",
+    "mimeType": "text/markdown",
+    "file": "guides/brief/who-asks-what.md",
+    "guideId": "convertigo/bootstrap-decision-matrix/who-asks-what",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/brief"
+  },
+  {
+    "uri": "convertigo://guides/brief",
+    "name": "Convertigo Bootstrap Decision Matrix",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/brief.md",
+    "guideId": "convertigo/bootstrap-decision-matrix/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/brief/overview",
+      "convertigo://guides/brief/who-asks-what"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/contract/overview",
+    "name": "Convertigo Contract-First Delivery — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/contract/overview.md",
+    "guideId": "convertigo/contract-first-delivery/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/contract"
+  },
+  {
+    "uri": "convertigo://guides/contract/mandatory-workflow",
+    "name": "Convertigo Contract-First Delivery — Mandatory workflow",
+    "description": "Open for Mandatory workflow.",
+    "mimeType": "text/markdown",
+    "file": "guides/contract/mandatory-workflow.md",
+    "guideId": "convertigo/contract-first-delivery/mandatory-workflow",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/contract"
+  },
+  {
+    "uri": "convertigo://guides/contract/anti-patterns-do-not-do",
+    "name": "Convertigo Contract-First Delivery — Anti-patterns / do not do",
+    "description": "Open for Anti-patterns / do not do.",
+    "mimeType": "text/markdown",
+    "file": "guides/contract/anti-patterns-do-not-do.md",
+    "guideId": "convertigo/contract-first-delivery/anti-patterns-do-not-do",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/contract"
+  },
+  {
+    "uri": "convertigo://guides/contract",
+    "name": "Convertigo Contract-First Delivery",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/contract.md",
+    "guideId": "convertigo/contract-first-delivery/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/contract/overview",
+      "convertigo://guides/contract/mandatory-workflow",
+      "convertigo://guides/contract/anti-patterns-do-not-do"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/starter/overview",
+    "name": "Convertigo Starter Extension Recipe — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/starter/overview.md",
+    "guideId": "convertigo/recipe-starter-extension/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/starter"
+  },
+  {
+    "uri": "convertigo://guides/starter/mandatory-workflow",
+    "name": "Convertigo Starter Extension Recipe — Mandatory workflow",
+    "description": "Open for Mandatory workflow.",
+    "mimeType": "text/markdown",
+    "file": "guides/starter/mandatory-workflow.md",
+    "guideId": "convertigo/recipe-starter-extension/mandatory-workflow",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/starter"
+  },
+  {
+    "uri": "convertigo://guides/starter/mandatory-workflow-2",
+    "name": "Convertigo Starter Extension Recipe — Visible entry page, actions and starter cleanup",
+    "description": "Open for Visible entry page, actions and starter cleanup.",
+    "mimeType": "text/markdown",
+    "file": "guides/starter/mandatory-workflow-2.md",
+    "guideId": "convertigo/recipe-starter-extension/mandatory-workflow-2",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/starter"
+  },
+  {
+    "uri": "convertigo://guides/starter/mandatory-workflow-3",
+    "name": "Convertigo Starter Extension Recipe — Starter constraints and minimum runtime proof",
+    "description": "Open for Starter constraints and minimum runtime proof.",
+    "mimeType": "text/markdown",
+    "file": "guides/starter/mandatory-workflow-3.md",
+    "guideId": "convertigo/recipe-starter-extension/mandatory-workflow-3",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/starter"
+  },
+  {
+    "uri": "convertigo://guides/starter/minimum-validation-proof",
+    "name": "Convertigo Starter Extension Recipe — Minimum validation proof",
+    "description": "Open for Minimum validation proof.",
+    "mimeType": "text/markdown",
+    "file": "guides/starter/minimum-validation-proof.md",
+    "guideId": "convertigo/recipe-starter-extension/minimum-validation-proof",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/starter"
+  },
+  {
+    "uri": "convertigo://guides/starter",
+    "name": "Convertigo Starter Extension Recipe",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/starter.md",
+    "guideId": "convertigo/recipe-starter-extension/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/starter/overview",
+      "convertigo://guides/starter/mandatory-workflow",
+      "convertigo://guides/starter/mandatory-workflow-2",
+      "convertigo://guides/starter/mandatory-workflow-3",
+      "convertigo://guides/starter/minimum-validation-proof"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/sequence/overview",
+    "name": "Convertigo Business Sequence Stub Recipe — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/sequence/overview.md",
+    "guideId": "convertigo/recipe-business-sequence-stub/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/sequence"
+  },
+  {
+    "uri": "convertigo://guides/sequence/completion-checks",
+    "name": "Convertigo Business Sequence Stub Recipe — Completion checks",
+    "description": "Open for Completion checks.",
+    "mimeType": "text/markdown",
+    "file": "guides/sequence/completion-checks.md",
+    "guideId": "convertigo/recipe-business-sequence-stub/completion-checks",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/sequence"
+  },
+  {
+    "uri": "convertigo://guides/sequence",
+    "name": "Convertigo Business Sequence Stub Recipe",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/sequence.md",
+    "guideId": "convertigo/recipe-business-sequence-stub/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/sequence/overview",
+      "convertigo://guides/sequence/completion-checks"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/backend/overview",
+    "name": "Convertigo Backend Sequences — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/backend/overview.md",
+    "guideId": "convertigo/backend-sequences/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/backend"
+  },
+  {
+    "uri": "convertigo://guides/backend/step-taxonomy-that-matters-most",
+    "name": "Convertigo Backend Sequences — Step taxonomy that matters most",
+    "description": "Open for Step taxonomy that matters most.",
+    "mimeType": "text/markdown",
+    "file": "guides/backend/step-taxonomy-that-matters-most.md",
+    "guideId": "convertigo/backend-sequences/step-taxonomy-that-matters-most",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/backend"
+  },
+  {
+    "uri": "convertigo://guides/backend/step-taxonomy-that-matters-most-2",
+    "name": "Convertigo Backend Sequences — Public JSON fields and call-step output paths",
+    "description": "Open for Public JSON fields and call-step output paths.",
+    "mimeType": "text/markdown",
+    "file": "guides/backend/step-taxonomy-that-matters-most-2.md",
+    "guideId": "convertigo/backend-sequences/step-taxonomy-that-matters-most-2",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/backend"
+  },
+  {
+    "uri": "convertigo://guides/backend/step-taxonomy-that-matters-most-3",
+    "name": "Convertigo Backend Sequences — Called sequence paths and minimal shaping",
+    "description": "Open for Called sequence paths and minimal shaping.",
+    "mimeType": "text/markdown",
+    "file": "guides/backend/step-taxonomy-that-matters-most-3.md",
+    "guideId": "convertigo/backend-sequences/step-taxonomy-that-matters-most-3",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/backend"
+  },
+  {
+    "uri": "convertigo://guides/backend/step-taxonomy-that-matters-most-4",
+    "name": "Convertigo Backend Sequences — SmartType modes and source-picker tuples",
+    "description": "Open for SmartType modes and source-picker tuples.",
+    "mimeType": "text/markdown",
+    "file": "guides/backend/step-taxonomy-that-matters-most-4.md",
+    "guideId": "convertigo/backend-sequences/step-taxonomy-that-matters-most-4",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/backend"
+  },
+  {
+    "uri": "convertigo://guides/backend/schema-learning-when-mapping-matters",
+    "name": "Convertigo Backend Sequences — Schema learning when mapping matters",
+    "description": "Open for Schema learning when mapping matters.",
+    "mimeType": "text/markdown",
+    "file": "guides/backend/schema-learning-when-mapping-matters.md",
+    "guideId": "convertigo/backend-sequences/schema-learning-when-mapping-matters",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/backend"
+  },
+  {
+    "uri": "convertigo://guides/backend/schema-learning-when-mapping-matters-2",
+    "name": "Convertigo Backend Sequences — Multipart email example and iterator conditions",
+    "description": "Open for Multipart email example and iterator conditions.",
+    "mimeType": "text/markdown",
+    "file": "guides/backend/schema-learning-when-mapping-matters-2.md",
+    "guideId": "convertigo/backend-sequences/schema-learning-when-mapping-matters-2",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/backend"
+  },
+  {
+    "uri": "convertigo://guides/backend/schema-learning-when-mapping-matters-3",
+    "name": "Convertigo Backend Sequences — Public output flags and canonical backend patterns",
+    "description": "Open for Public output flags and canonical backend patterns.",
+    "mimeType": "text/markdown",
+    "file": "guides/backend/schema-learning-when-mapping-matters-3.md",
+    "guideId": "convertigo/backend-sequences/schema-learning-when-mapping-matters-3",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/backend"
+  },
+  {
+    "uri": "convertigo://guides/backend/when-to-escalate-to-references",
+    "name": "Convertigo Backend Sequences — When to escalate to references",
+    "description": "Open for When to escalate to references.",
+    "mimeType": "text/markdown",
+    "file": "guides/backend/when-to-escalate-to-references.md",
+    "guideId": "convertigo/backend-sequences/when-to-escalate-to-references",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/backend"
+  },
+  {
+    "uri": "convertigo://guides/backend",
+    "name": "Convertigo Backend Sequences",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/backend.md",
+    "guideId": "convertigo/backend-sequences/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/backend/overview",
+      "convertigo://guides/backend/step-taxonomy-that-matters-most",
+      "convertigo://guides/backend/step-taxonomy-that-matters-most-2",
+      "convertigo://guides/backend/step-taxonomy-that-matters-most-3",
+      "convertigo://guides/backend/step-taxonomy-that-matters-most-4",
+      "convertigo://guides/backend/schema-learning-when-mapping-matters",
+      "convertigo://guides/backend/schema-learning-when-mapping-matters-2",
+      "convertigo://guides/backend/schema-learning-when-mapping-matters-3",
+      "convertigo://guides/backend/when-to-escalate-to-references"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/http-sequence/overview",
+    "name": "Convertigo HTTP Business Sequence Recipe — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-sequence/overview.md",
+    "guideId": "convertigo/recipe-http-business-sequence/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-sequence"
+  },
+  {
+    "uri": "convertigo://guides/http-sequence/mandatory-workflow",
+    "name": "Convertigo HTTP Business Sequence Recipe — Mandatory workflow",
+    "description": "Open for Mandatory workflow.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-sequence/mandatory-workflow.md",
+    "guideId": "convertigo/recipe-http-business-sequence/mandatory-workflow",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-sequence"
+  },
+  {
+    "uri": "convertigo://guides/http-sequence/mandatory-workflow-2",
+    "name": "Convertigo HTTP Business Sequence Recipe — Transport failures and connector contracts",
+    "description": "Open for Transport failures and connector contracts.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-sequence/mandatory-workflow-2.md",
+    "guideId": "convertigo/recipe-http-business-sequence/mandatory-workflow-2",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-sequence"
+  },
+  {
+    "uri": "convertigo://guides/http-sequence/mandatory-workflow-3",
+    "name": "Convertigo HTTP Business Sequence Recipe — Transaction creation and public variable forwarding",
+    "description": "Open for Transaction creation and public variable forwarding.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-sequence/mandatory-workflow-3.md",
+    "guideId": "convertigo/recipe-http-business-sequence/mandatory-workflow-3",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-sequence"
+  },
+  {
+    "uri": "convertigo://guides/http-sequence/mandatory-workflow-4",
+    "name": "Convertigo HTTP Business Sequence Recipe — Repair missing query forwarding and metadata-only output",
+    "description": "Open for Repair missing query forwarding and metadata-only output.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-sequence/mandatory-workflow-4.md",
+    "guideId": "convertigo/recipe-http-business-sequence/mandatory-workflow-4",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-sequence"
+  },
+  {
+    "uri": "convertigo://guides/http-sequence/mandatory-workflow-5",
+    "name": "Convertigo HTTP Business Sequence Recipe — Early output proof and application-record contracts",
+    "description": "Open for Early output proof and application-record contracts.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-sequence/mandatory-workflow-5.md",
+    "guideId": "convertigo/recipe-http-business-sequence/mandatory-workflow-5",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-sequence"
+  },
+  {
+    "uri": "convertigo://guides/http-sequence/recommended-mcp-tools",
+    "name": "Convertigo HTTP Business Sequence Recipe — Recommended MCP tools",
+    "description": "Open for Recommended MCP tools.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-sequence/recommended-mcp-tools.md",
+    "guideId": "convertigo/recipe-http-business-sequence/recommended-mcp-tools",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-sequence"
+  },
+  {
+    "uri": "convertigo://guides/http-sequence/anti-patterns-do-not-do",
+    "name": "Convertigo HTTP Business Sequence Recipe — Anti-patterns / do not do",
+    "description": "Open for Anti-patterns / do not do.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-sequence/anti-patterns-do-not-do.md",
+    "guideId": "convertigo/recipe-http-business-sequence/anti-patterns-do-not-do",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-sequence"
+  },
+  {
+    "uri": "convertigo://guides/http-sequence/minimum-validation-proof",
+    "name": "Convertigo HTTP Business Sequence Recipe — Minimum validation proof",
+    "description": "Open for Minimum validation proof.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-sequence/minimum-validation-proof.md",
+    "guideId": "convertigo/recipe-http-business-sequence/minimum-validation-proof",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http-sequence"
+  },
+  {
+    "uri": "convertigo://guides/http-sequence",
+    "name": "Convertigo HTTP Business Sequence Recipe",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/http-sequence.md",
+    "guideId": "convertigo/recipe-http-business-sequence/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/http-sequence/overview",
+      "convertigo://guides/http-sequence/mandatory-workflow",
+      "convertigo://guides/http-sequence/mandatory-workflow-2",
+      "convertigo://guides/http-sequence/mandatory-workflow-3",
+      "convertigo://guides/http-sequence/mandatory-workflow-4",
+      "convertigo://guides/http-sequence/mandatory-workflow-5",
+      "convertigo://guides/http-sequence/recommended-mcp-tools",
+      "convertigo://guides/http-sequence/anti-patterns-do-not-do",
+      "convertigo://guides/http-sequence/minimum-validation-proof"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/http/overview",
+    "name": "Convertigo HTTP Integration — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/http/overview.md",
+    "guideId": "convertigo/integration-http/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http"
+  },
+  {
+    "uri": "convertigo://guides/http/connector-setup-rules-that-matter",
+    "name": "Convertigo HTTP Integration — Connector setup rules that matter",
+    "description": "Open for Connector setup rules that matter.",
+    "mimeType": "text/markdown",
+    "file": "guides/http/connector-setup-rules-that-matter.md",
+    "guideId": "convertigo/integration-http/connector-setup-rules-that-matter",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http"
+  },
+  {
+    "uri": "convertigo://guides/http/business-sequence-mapping-patterns",
+    "name": "Convertigo HTTP Integration — Business sequence mapping patterns",
+    "description": "Open for Business sequence mapping patterns.",
+    "mimeType": "text/markdown",
+    "file": "guides/http/business-sequence-mapping-patterns.md",
+    "guideId": "convertigo/integration-http/business-sequence-mapping-patterns",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http"
+  },
+  {
+    "uri": "convertigo://guides/http/anti-patterns-do-not-do",
+    "name": "Convertigo HTTP Integration — Anti-patterns / do not do",
+    "description": "Open for Anti-patterns / do not do.",
+    "mimeType": "text/markdown",
+    "file": "guides/http/anti-patterns-do-not-do.md",
+    "guideId": "convertigo/integration-http/anti-patterns-do-not-do",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/http"
+  },
+  {
+    "uri": "convertigo://guides/http",
+    "name": "Convertigo HTTP Integration",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/http.md",
+    "guideId": "convertigo/integration-http/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/http/overview",
+      "convertigo://guides/http/connector-setup-rules-that-matter",
+      "convertigo://guides/http/business-sequence-mapping-patterns",
+      "convertigo://guides/http/anti-patterns-do-not-do"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/sql-recipe/overview",
+    "name": "Convertigo SQL CRUD Recipe — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/sql-recipe/overview.md",
+    "guideId": "convertigo/recipe-sql-crud/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/sql-recipe"
+  },
+  {
+    "uri": "convertigo://guides/sql-recipe/mandatory-workflow",
+    "name": "Convertigo SQL CRUD Recipe — Mandatory workflow",
+    "description": "Open for Mandatory workflow.",
+    "mimeType": "text/markdown",
+    "file": "guides/sql-recipe/mandatory-workflow.md",
+    "guideId": "convertigo/recipe-sql-crud/mandatory-workflow",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/sql-recipe"
+  },
+  {
+    "uri": "convertigo://guides/sql-recipe/recommended-mcp-tools",
+    "name": "Convertigo SQL CRUD Recipe — Recommended MCP tools",
+    "description": "Open for Recommended MCP tools.",
+    "mimeType": "text/markdown",
+    "file": "guides/sql-recipe/recommended-mcp-tools.md",
+    "guideId": "convertigo/recipe-sql-crud/recommended-mcp-tools",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/sql-recipe"
+  },
+  {
+    "uri": "convertigo://guides/sql-recipe",
+    "name": "Convertigo SQL CRUD Recipe",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/sql-recipe.md",
+    "guideId": "convertigo/recipe-sql-crud/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/sql-recipe/overview",
+      "convertigo://guides/sql-recipe/mandatory-workflow",
+      "convertigo://guides/sql-recipe/recommended-mcp-tools"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/hsqldb/overview",
+    "name": "Convertigo Fast Path SQL HSQLDB — When to use this",
+    "description": "Open for When to use this.",
+    "mimeType": "text/markdown",
+    "file": "guides/hsqldb/overview.md",
+    "guideId": "convertigo/fast-path-sql-hsqldb/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/hsqldb"
+  },
+  {
+    "uri": "convertigo://guides/hsqldb/canonical-sql-statements",
+    "name": "Convertigo Fast Path SQL HSQLDB — Canonical SQL statements",
+    "description": "Open for Canonical SQL statements.",
+    "mimeType": "text/markdown",
+    "file": "guides/hsqldb/canonical-sql-statements.md",
+    "guideId": "convertigo/fast-path-sql-hsqldb/canonical-sql-statements",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/hsqldb"
+  },
+  {
+    "uri": "convertigo://guides/hsqldb/do-not-do-on-first-pass",
+    "name": "Convertigo Fast Path SQL HSQLDB — Do not do on first pass",
+    "description": "Open for Do not do on first pass.",
+    "mimeType": "text/markdown",
+    "file": "guides/hsqldb/do-not-do-on-first-pass.md",
+    "guideId": "convertigo/fast-path-sql-hsqldb/do-not-do-on-first-pass",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/hsqldb"
+  },
+  {
+    "uri": "convertigo://guides/hsqldb",
+    "name": "Convertigo Fast Path SQL HSQLDB",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/hsqldb.md",
+    "guideId": "convertigo/fast-path-sql-hsqldb/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/hsqldb/overview",
+      "convertigo://guides/hsqldb/canonical-sql-statements",
+      "convertigo://guides/hsqldb/do-not-do-on-first-pass"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/postgresql/overview",
+    "name": "Convertigo Fast Path SQL PostgreSQL — When to use this",
+    "description": "Open for When to use this.",
+    "mimeType": "text/markdown",
+    "file": "guides/postgresql/overview.md",
+    "guideId": "convertigo/fast-path-sql-postgresql/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/postgresql"
+  },
+  {
+    "uri": "convertigo://guides/postgresql/mandatory-proof-sequence",
+    "name": "Convertigo Fast Path SQL PostgreSQL — Mandatory proof sequence",
+    "description": "Open for Mandatory proof sequence.",
+    "mimeType": "text/markdown",
+    "file": "guides/postgresql/mandatory-proof-sequence.md",
+    "guideId": "convertigo/fast-path-sql-postgresql/mandatory-proof-sequence",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/postgresql"
+  },
+  {
+    "uri": "convertigo://guides/postgresql",
+    "name": "Convertigo Fast Path SQL PostgreSQL",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/postgresql.md",
+    "guideId": "convertigo/fast-path-sql-postgresql/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/postgresql/overview",
+      "convertigo://guides/postgresql/mandatory-proof-sequence"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/mariadb/overview",
+    "name": "Convertigo Fast Path SQL MariaDB — When to use this",
+    "description": "Open for When to use this.",
+    "mimeType": "text/markdown",
+    "file": "guides/mariadb/overview.md",
+    "guideId": "convertigo/fast-path-sql-mariadb/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/mariadb"
+  },
+  {
+    "uri": "convertigo://guides/mariadb/mandatory-proof-sequence",
+    "name": "Convertigo Fast Path SQL MariaDB — Mandatory proof sequence",
+    "description": "Open for Mandatory proof sequence.",
+    "mimeType": "text/markdown",
+    "file": "guides/mariadb/mandatory-proof-sequence.md",
+    "guideId": "convertigo/fast-path-sql-mariadb/mandatory-proof-sequence",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/mariadb"
+  },
+  {
+    "uri": "convertigo://guides/mariadb",
+    "name": "Convertigo Fast Path SQL MariaDB",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/mariadb.md",
+    "guideId": "convertigo/fast-path-sql-mariadb/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/mariadb/overview",
+      "convertigo://guides/mariadb/mandatory-proof-sequence"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/crud-cases/overview",
+    "name": "Convertigo CRUD Practical Cases — HSQLDB starter NGX",
+    "description": "Open for HSQLDB starter NGX.",
+    "mimeType": "text/markdown",
+    "file": "guides/crud-cases/overview.md",
+    "guideId": "convertigo/crud-practical-cases/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/crud-cases"
+  },
+  {
+    "uri": "convertigo://guides/crud-cases/postgresql-starter-ngx",
+    "name": "Convertigo CRUD Practical Cases — PostgreSQL starter NGX",
+    "description": "Open for PostgreSQL starter NGX.",
+    "mimeType": "text/markdown",
+    "file": "guides/crud-cases/postgresql-starter-ngx.md",
+    "guideId": "convertigo/crud-practical-cases/postgresql-starter-ngx",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/crud-cases"
+  },
+  {
+    "uri": "convertigo://guides/crud-cases",
+    "name": "Convertigo CRUD Practical Cases",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/crud-cases.md",
+    "guideId": "convertigo/crud-practical-cases/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/crud-cases/overview",
+      "convertigo://guides/crud-cases/postgresql-starter-ngx"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/sql/overview",
+    "name": "Convertigo SQL Integration — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/sql/overview.md",
+    "guideId": "convertigo/integration-sql/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/sql"
+  },
+  {
+    "uri": "convertigo://guides/sql/sql-connector-rules-that-matter",
+    "name": "Convertigo SQL Integration — SQL connector rules that matter",
+    "description": "Open for SQL connector rules that matter.",
+    "mimeType": "text/markdown",
+    "file": "guides/sql/sql-connector-rules-that-matter.md",
+    "guideId": "convertigo/integration-sql/sql-connector-rules-that-matter",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/sql"
+  },
+  {
+    "uri": "convertigo://guides/sql/sql-variable-semantics-you-must-not-guess",
+    "name": "Convertigo SQL Integration — SQL variable semantics you must not guess",
+    "description": "Open for SQL variable semantics you must not guess.",
+    "mimeType": "text/markdown",
+    "file": "guides/sql/sql-variable-semantics-you-must-not-guess.md",
+    "guideId": "convertigo/integration-sql/sql-variable-semantics-you-must-not-guess",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/sql"
+  },
+  {
+    "uri": "convertigo://guides/sql/sql-variable-semantics-you-must-not-guess-2",
+    "name": "Convertigo SQL Integration — Bound parameters and SQL validation failures",
+    "description": "Open for Bound parameters and SQL validation failures.",
+    "mimeType": "text/markdown",
+    "file": "guides/sql/sql-variable-semantics-you-must-not-guess-2.md",
+    "guideId": "convertigo/integration-sql/sql-variable-semantics-you-must-not-guess-2",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/sql"
+  },
+  {
+    "uri": "convertigo://guides/sql/sql-variable-semantics-you-must-not-guess-3",
+    "name": "Convertigo SQL Integration — Dialect functions and SQL variable handling",
+    "description": "Open for Dialect functions and SQL variable handling.",
+    "mimeType": "text/markdown",
+    "file": "guides/sql/sql-variable-semantics-you-must-not-guess-3.md",
+    "guideId": "convertigo/integration-sql/sql-variable-semantics-you-must-not-guess-3",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/sql"
+  },
+  {
+    "uri": "convertigo://guides/sql/sql-variable-semantics-you-must-not-guess-4",
+    "name": "Convertigo SQL Integration — Transaction authoring and schema-proof sequence",
+    "description": "Open for Transaction authoring and schema-proof sequence.",
+    "mimeType": "text/markdown",
+    "file": "guides/sql/sql-variable-semantics-you-must-not-guess-4.md",
+    "guideId": "convertigo/integration-sql/sql-variable-semantics-you-must-not-guess-4",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/sql"
+  },
+  {
+    "uri": "convertigo://guides/sql/schema-learning-workflow",
+    "name": "Convertigo SQL Integration — Schema learning workflow",
+    "description": "Open for Schema learning workflow.",
+    "mimeType": "text/markdown",
+    "file": "guides/sql/schema-learning-workflow.md",
+    "guideId": "convertigo/integration-sql/schema-learning-workflow",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/sql"
+  },
+  {
+    "uri": "convertigo://guides/sql/driver-specific-subtleties-to-teach-the-ag",
+    "name": "Convertigo SQL Integration — Driver-specific subtleties to teach the agent",
+    "description": "Open for Driver-specific subtleties to teach the agent.",
+    "mimeType": "text/markdown",
+    "file": "guides/sql/driver-specific-subtleties-to-teach-the-ag.md",
+    "guideId": "convertigo/integration-sql/driver-specific-subtleties-to-teach-the-ag",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/sql"
+  },
+  {
+    "uri": "convertigo://guides/sql",
+    "name": "Convertigo SQL Integration",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/sql.md",
+    "guideId": "convertigo/integration-sql/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/sql/overview",
+      "convertigo://guides/sql/sql-connector-rules-that-matter",
+      "convertigo://guides/sql/sql-variable-semantics-you-must-not-guess",
+      "convertigo://guides/sql/sql-variable-semantics-you-must-not-guess-2",
+      "convertigo://guides/sql/sql-variable-semantics-you-must-not-guess-3",
+      "convertigo://guides/sql/sql-variable-semantics-you-must-not-guess-4",
+      "convertigo://guides/sql/schema-learning-workflow",
+      "convertigo://guides/sql/driver-specific-subtleties-to-teach-the-ag"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/auth/overview",
+    "name": "Convertigo Authentication — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/auth/overview.md",
+    "guideId": "convertigo/authentication/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/auth"
+  },
+  {
+    "uri": "convertigo://guides/auth/choosing-a-flow",
+    "name": "Convertigo Authentication — Choosing a flow",
+    "description": "Open for Choosing a flow.",
+    "mimeType": "text/markdown",
+    "file": "guides/auth/choosing-a-flow.md",
+    "guideId": "convertigo/authentication/choosing-a-flow",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/auth"
+  },
+  {
+    "uri": "convertigo://guides/auth/golden-path-every-flow",
+    "name": "Convertigo Authentication — Golden path (every flow)",
+    "description": "Open for Golden path (every flow).",
+    "mimeType": "text/markdown",
+    "file": "guides/auth/golden-path-every-flow.md",
+    "guideId": "convertigo/authentication/golden-path-every-flow",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/auth"
+  },
+  {
+    "uri": "convertigo://guides/auth/oauth-openid-connect-with-lib-oauth",
+    "name": "Convertigo Authentication — OAuth / OpenID Connect with lib_OAuth",
+    "description": "Open for OAuth / OpenID Connect with lib_OAuth.",
+    "mimeType": "text/markdown",
+    "file": "guides/auth/oauth-openid-connect-with-lib-oauth.md",
+    "guideId": "convertigo/authentication/oauth-openid-connect-with-lib-oauth",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/auth"
+  },
+  {
+    "uri": "convertigo://guides/auth/email-password-with-lib-usermanager",
+    "name": "Convertigo Authentication — Email + password with lib_UserManager",
+    "description": "Open for Email + password with lib_UserManager.",
+    "mimeType": "text/markdown",
+    "file": "guides/auth/email-password-with-lib-usermanager.md",
+    "guideId": "convertigo/authentication/email-password-with-lib-usermanager",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/auth"
+  },
+  {
+    "uri": "convertigo://guides/auth/email-password-with-lib-usermanager-2",
+    "name": "Convertigo Authentication — Seed access control, role checks and demo-account proof",
+    "description": "Open for Seed access control, role checks and demo-account proof.",
+    "mimeType": "text/markdown",
+    "file": "guides/auth/email-password-with-lib-usermanager-2.md",
+    "guideId": "convertigo/authentication/email-password-with-lib-usermanager-2",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/auth"
+  },
+  {
+    "uri": "convertigo://guides/auth/ngx-client",
+    "name": "Convertigo Authentication — NGX client",
+    "description": "Open for NGX client.",
+    "mimeType": "text/markdown",
+    "file": "guides/auth/ngx-client.md",
+    "guideId": "convertigo/authentication/ngx-client",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/auth"
+  },
+  {
+    "uri": "convertigo://guides/auth/ngx-client-2",
+    "name": "Convertigo Authentication — OAuth redirect cleanup, secrets and final proof",
+    "description": "Open for OAuth redirect cleanup, secrets and final proof.",
+    "mimeType": "text/markdown",
+    "file": "guides/auth/ngx-client-2.md",
+    "guideId": "convertigo/authentication/ngx-client-2",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/auth"
+  },
+  {
+    "uri": "convertigo://guides/auth",
+    "name": "Convertigo Authentication",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/auth.md",
+    "guideId": "convertigo/authentication/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/auth/overview",
+      "convertigo://guides/auth/choosing-a-flow",
+      "convertigo://guides/auth/golden-path-every-flow",
+      "convertigo://guides/auth/oauth-openid-connect-with-lib-oauth",
+      "convertigo://guides/auth/email-password-with-lib-usermanager",
+      "convertigo://guides/auth/email-password-with-lib-usermanager-2",
+      "convertigo://guides/auth/ngx-client",
+      "convertigo://guides/auth/ngx-client-2"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/data-page/orientation",
+    "name": "Convertigo NGX Data Page Recipe — When to use the data-page recipe",
+    "description": "Open for When to use the data-page recipe.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/orientation.md",
+    "guideId": "convertigo/recipe-ngx-data-page/orientation",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/golden-path",
+    "name": "Convertigo NGX Data Page Recipe — Golden path and palette-first state",
+    "description": "Open for Golden path and palette-first state.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/golden-path.md",
+    "guideId": "convertigo/recipe-ngx-data-page/golden-path",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/input-binding",
+    "name": "Convertigo NGX Data Page Recipe — Input Local SmartSource and binding examples",
+    "description": "Open for Input Local SmartSource and binding examples.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/input-binding.md",
+    "guideId": "convertigo/recipe-ngx-data-page/input-binding",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/result-binding",
+    "name": "Convertigo NGX Data Page Recipe — Result storage and source binding examples",
+    "description": "Open for Result storage and source binding examples.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/result-binding.md",
+    "guideId": "convertigo/recipe-ngx-data-page/result-binding",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/action-chain",
+    "name": "Convertigo NGX Data Page Recipe — Action chain, custom action and output rules",
+    "description": "Open for Action chain, custom action and output rules.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/action-chain.md",
+    "guideId": "convertigo/recipe-ngx-data-page/action-chain",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/proof-gate",
+    "name": "Convertigo NGX Data Page Recipe — Contract proof before the structural gate",
+    "description": "Open for Contract proof before the structural gate.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/proof-gate.md",
+    "guideId": "convertigo/recipe-ngx-data-page/proof-gate",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/structure-gate",
+    "name": "Convertigo NGX Data Page Recipe — Mandatory palette-modeled data-page gate",
+    "description": "Open for Mandatory palette-modeled data-page gate.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/structure-gate.md",
+    "guideId": "convertigo/recipe-ngx-data-page/structure-gate",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/search-contract",
+    "name": "Convertigo NGX Data Page Recipe — Search input, public variables and shaping",
+    "description": "Open for Search input, public variables and shaping.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/search-contract.md",
+    "guideId": "convertigo/recipe-ngx-data-page/search-contract",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/search-input",
+    "name": "Convertigo NGX Data Page Recipe — Search input binding readback and repairs",
+    "description": "Open for Search input binding readback and repairs.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/search-input.md",
+    "guideId": "convertigo/recipe-ngx-data-page/search-input",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/search-call",
+    "name": "Convertigo NGX Data Page Recipe — CallSequenceAction and request variables",
+    "description": "Open for CallSequenceAction and request variables.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/search-call.md",
+    "guideId": "convertigo/recipe-ngx-data-page/search-call",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/search-results",
+    "name": "Convertigo NGX Data Page Recipe — Results, loading, error and empty state",
+    "description": "Open for Results, loading, error and empty state.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/search-results.md",
+    "guideId": "convertigo/recipe-ngx-data-page/search-results",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/search-iterator",
+    "name": "Convertigo NGX Data Page Recipe — ForEach sources and row field text",
+    "description": "Open for ForEach sources and row field text.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/search-iterator.md",
+    "guideId": "convertigo/recipe-ngx-data-page/search-iterator",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/search-ui",
+    "name": "Convertigo NGX Data Page Recipe — Input state and visible search behavior",
+    "description": "Open for Input state and visible search behavior.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/search-ui.md",
+    "guideId": "convertigo/recipe-ngx-data-page/search-ui",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/search-repair",
+    "name": "Convertigo NGX Data Page Recipe — Search readback and runtime repair",
+    "description": "Open for Search readback and runtime repair.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/search-repair.md",
+    "guideId": "convertigo/recipe-ngx-data-page/search-repair",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/state-model",
+    "name": "Convertigo NGX Data Page Recipe — Visible shell, templates and state model",
+    "description": "Open for Visible shell, templates and state model.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/state-model.md",
+    "guideId": "convertigo/recipe-ngx-data-page/state-model",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/events",
+    "name": "Convertigo NGX Data Page Recipe — Binding modes and event rules",
+    "description": "Open for Binding modes and event rules.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/events.md",
+    "guideId": "convertigo/recipe-ngx-data-page/events",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/failures",
+    "name": "Convertigo NGX Data Page Recipe — Anti-patterns and common failure modes",
+    "description": "Open for Anti-patterns and common failure modes.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/failures.md",
+    "guideId": "convertigo/recipe-ngx-data-page/failures",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page/proof",
+    "name": "Convertigo NGX Data Page Recipe — Runtime evidence and completion checks",
+    "description": "Open for Runtime evidence and completion checks.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page/proof.md",
+    "guideId": "convertigo/recipe-ngx-data-page/proof",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/data-page"
+  },
+  {
+    "uri": "convertigo://guides/data-page",
+    "name": "Convertigo NGX Data Page Recipe",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/data-page.md",
+    "guideId": "convertigo/recipe-ngx-data-page/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/data-page/orientation",
+      "convertigo://guides/data-page/golden-path",
+      "convertigo://guides/data-page/input-binding",
+      "convertigo://guides/data-page/result-binding",
+      "convertigo://guides/data-page/action-chain",
+      "convertigo://guides/data-page/proof-gate",
+      "convertigo://guides/data-page/structure-gate",
+      "convertigo://guides/data-page/search-contract",
+      "convertigo://guides/data-page/search-input",
+      "convertigo://guides/data-page/search-call",
+      "convertigo://guides/data-page/search-results",
+      "convertigo://guides/data-page/search-iterator",
+      "convertigo://guides/data-page/search-ui",
+      "convertigo://guides/data-page/search-repair",
+      "convertigo://guides/data-page/state-model",
+      "convertigo://guides/data-page/events",
+      "convertigo://guides/data-page/failures",
+      "convertigo://guides/data-page/proof"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/ngx/orientation",
+    "name": "Convertigo Frontend NGX — Choose the NGX recipe and handbook",
+    "description": "Open for Choose the NGX recipe and handbook.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/orientation.md",
+    "guideId": "convertigo/frontend-ngx/orientation",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/palette",
+    "name": "Convertigo Frontend NGX — Palette structure and source-object rules",
+    "description": "Open for Palette structure and source-object rules.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/palette.md",
+    "guideId": "convertigo/frontend-ngx/palette",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/components",
+    "name": "Convertigo Frontend NGX — Palette component names and visual design",
+    "description": "Open for Palette component names and visual design.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/components.md",
+    "guideId": "convertigo/frontend-ngx/components",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/design",
+    "name": "Convertigo Frontend NGX — Deliberate layouts and visual review",
+    "description": "Open for Deliberate layouts and visual review.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/design.md",
+    "guideId": "convertigo/frontend-ngx/design",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/presentation",
+    "name": "Convertigo Frontend NGX — Cards, labels and readable page structure",
+    "description": "Open for Cards, labels and readable page structure.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/presentation.md",
+    "guideId": "convertigo/frontend-ngx/presentation",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/page-structure",
+    "name": "Convertigo Frontend NGX — Viewer proof, pages and action paths",
+    "description": "Open for Viewer proof, pages and action paths.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/page-structure.md",
+    "guideId": "convertigo/frontend-ngx/page-structure",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/events",
+    "name": "Convertigo Frontend NGX — Action execution order and business errors",
+    "description": "Open for Action execution order and business errors.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/events.md",
+    "guideId": "convertigo/frontend-ngx/events",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/http-search",
+    "name": "Convertigo Frontend NGX — HTTP search page input and state",
+    "description": "Open for HTTP search page input and state.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/http-search.md",
+    "guideId": "convertigo/frontend-ngx/http-search",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/http-results",
+    "name": "Convertigo Frontend NGX — Application contract and result mapping",
+    "description": "Open for Application contract and result mapping.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/http-results.md",
+    "guideId": "convertigo/frontend-ngx/http-results",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/navigation",
+    "name": "Convertigo Frontend NGX — Noncompliant calls and page navigation",
+    "description": "Open for Noncompliant calls and page navigation.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/navigation.md",
+    "guideId": "convertigo/frontend-ngx/navigation",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/forms",
+    "name": "Convertigo Frontend NGX — Forms, labels, validation and Form SmartSources",
+    "description": "Open for Forms, labels, validation and Form SmartSources.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/forms.md",
+    "guideId": "convertigo/frontend-ngx/forms",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/form-submit",
+    "name": "Convertigo Frontend NGX — Existing form data and submit chains",
+    "description": "Open for Existing form data and submit chains.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/form-submit.md",
+    "guideId": "convertigo/frontend-ngx/form-submit",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/smartsource",
+    "name": "Convertigo Frontend NGX — SmartSource shapes, modes and directives",
+    "description": "Open for SmartSource shapes, modes and directives.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/smartsource.md",
+    "guideId": "convertigo/frontend-ngx/smartsource",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/action-data",
+    "name": "Convertigo Frontend NGX — Iterator scope and data along action chains",
+    "description": "Open for Iterator scope and data along action chains.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/action-data.md",
+    "guideId": "convertigo/frontend-ngx/action-data",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/custom-actions",
+    "name": "Convertigo Frontend NGX — Cache, expression contexts and custom actions",
+    "description": "Open for Cache, expression contexts and custom actions.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/custom-actions.md",
+    "guideId": "convertigo/frontend-ngx/custom-actions",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/dependencies",
+    "name": "Convertigo Frontend NGX — NPM dependencies and common data-page states",
+    "description": "Open for NPM dependencies and common data-page states.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/dependencies.md",
+    "guideId": "convertigo/frontend-ngx/dependencies",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/viewer",
+    "name": "Convertigo Frontend NGX — Builder launch and managed browser control",
+    "description": "Open for Builder launch and managed browser control.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/viewer.md",
+    "guideId": "convertigo/frontend-ngx/viewer",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/proof",
+    "name": "Convertigo Frontend NGX — Runtime proof, stubs and common drift",
+    "description": "Open for Runtime proof, stubs and common drift.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/proof.md",
+    "guideId": "convertigo/frontend-ngx/proof",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx/completion-checks",
+    "name": "Convertigo Frontend NGX — Completion checks",
+    "description": "Open for Completion checks.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/completion-checks.md",
+    "guideId": "convertigo/frontend-ngx/completion-checks",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
+    "uri": "convertigo://guides/ngx",
+    "name": "Convertigo Frontend NGX",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx.md",
+    "guideId": "convertigo/frontend-ngx/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/ngx/orientation",
+      "convertigo://guides/ngx/palette",
+      "convertigo://guides/ngx/components",
+      "convertigo://guides/ngx/design",
+      "convertigo://guides/ngx/presentation",
+      "convertigo://guides/ngx/page-structure",
+      "convertigo://guides/ngx/events",
+      "convertigo://guides/ngx/http-search",
+      "convertigo://guides/ngx/http-results",
+      "convertigo://guides/ngx/navigation",
+      "convertigo://guides/ngx/forms",
+      "convertigo://guides/ngx/form-submit",
+      "convertigo://guides/ngx/smartsource",
+      "convertigo://guides/ngx/action-data",
+      "convertigo://guides/ngx/custom-actions",
+      "convertigo://guides/ngx/dependencies",
+      "convertigo://guides/ngx/viewer",
+      "convertigo://guides/ngx/proof",
+      "convertigo://guides/ngx/completion-checks"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/proof/overview",
+    "name": "Convertigo Validation and Evidence — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/proof/overview.md",
+    "guideId": "convertigo/validation-and-evidence/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/proof"
+  },
+  {
+    "uri": "convertigo://guides/proof/mandatory-workflow",
+    "name": "Convertigo Validation and Evidence — Mandatory workflow",
+    "description": "Open for Mandatory workflow.",
+    "mimeType": "text/markdown",
+    "file": "guides/proof/mandatory-workflow.md",
+    "guideId": "convertigo/validation-and-evidence/mandatory-workflow",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/proof"
+  },
+  {
+    "uri": "convertigo://guides/proof/recommended-mcp-tools",
+    "name": "Convertigo Validation and Evidence — Recommended MCP tools",
+    "description": "Open for Recommended MCP tools.",
+    "mimeType": "text/markdown",
+    "file": "guides/proof/recommended-mcp-tools.md",
+    "guideId": "convertigo/validation-and-evidence/recommended-mcp-tools",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/proof"
+  },
+  {
+    "uri": "convertigo://guides/proof",
+    "name": "Convertigo Validation and Evidence",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/proof.md",
+    "guideId": "convertigo/validation-and-evidence/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/proof/overview",
+      "convertigo://guides/proof/mandatory-workflow",
+      "convertigo://guides/proof/recommended-mcp-tools"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/context/overview",
+    "name": "Convertigo Context API (minimal) — Frequently used fields (read/write when noted)",
+    "description": "Open for Frequently used fields (read/write when noted).",
+    "mimeType": "text/markdown",
+    "file": "guides/context/overview.md",
+    "guideId": "convertigo/context-api/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/context"
+  },
+  {
+    "uri": "convertigo://guides/context/sharing-data-safely",
+    "name": "Convertigo Context API (minimal) — Sharing data safely",
+    "description": "Open for Sharing data safely.",
+    "mimeType": "text/markdown",
+    "file": "guides/context/sharing-data-safely.md",
+    "guideId": "convertigo/context-api/sharing-data-safely",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/context"
+  },
+  {
+    "uri": "convertigo://guides/context",
+    "name": "Convertigo Context API (minimal)",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/context.md",
+    "guideId": "convertigo/context-api/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/context/overview",
+      "convertigo://guides/context/sharing-data-safely"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/multipage/overview",
+    "name": "Convertigo Recipe Multipage App — Scope, prerequisites and route selection",
+    "description": "Open for Scope, prerequisites and route selection.",
+    "mimeType": "text/markdown",
+    "file": "guides/multipage/overview.md",
+    "guideId": "convertigo/recipe-multipage-app/overview",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/multipage"
+  },
+  {
+    "uri": "convertigo://guides/multipage/generators-for-the-standard-objects",
+    "name": "Convertigo Recipe Multipage App — Generators for the standard objects",
+    "description": "Open for Generators for the standard objects.",
+    "mimeType": "text/markdown",
+    "file": "guides/multipage/generators-for-the-standard-objects.md",
+    "guideId": "convertigo/recipe-multipage-app/generators-for-the-standard-objects",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/multipage"
+  },
+  {
+    "uri": "convertigo://guides/multipage/generators-for-the-standard-objects-2",
+    "name": "Convertigo Recipe Multipage App — Generator limits and application architecture",
+    "description": "Open for Generator limits and application architecture.",
+    "mimeType": "text/markdown",
+    "file": "guides/multipage/generators-for-the-standard-objects-2.md",
+    "guideId": "convertigo/recipe-multipage-app/generators-for-the-standard-objects-2",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/multipage"
+  },
+  {
+    "uri": "convertigo://guides/multipage/architecture",
+    "name": "Convertigo Recipe Multipage App — Architecture",
+    "description": "Open for Architecture.",
+    "mimeType": "text/markdown",
+    "file": "guides/multipage/architecture.md",
+    "guideId": "convertigo/recipe-multipage-app/architecture",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/multipage"
+  },
+  {
+    "uri": "convertigo://guides/multipage/business-sequence-shape",
+    "name": "Convertigo Recipe Multipage App — Business sequence shape",
+    "description": "Open for Business sequence shape.",
+    "mimeType": "text/markdown",
+    "file": "guides/multipage/business-sequence-shape.md",
+    "guideId": "convertigo/recipe-multipage-app/business-sequence-shape",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/multipage"
+  },
+  {
+    "uri": "convertigo://guides/multipage/session",
+    "name": "Convertigo Recipe Multipage App — Session",
+    "description": "Open for Session.",
+    "mimeType": "text/markdown",
+    "file": "guides/multipage/session.md",
+    "guideId": "convertigo/recipe-multipage-app/session",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/multipage"
+  },
+  {
+    "uri": "convertigo://guides/multipage/ngx-pages",
+    "name": "Convertigo Recipe Multipage App — NGX pages",
+    "description": "Open for NGX pages.",
+    "mimeType": "text/markdown",
+    "file": "guides/multipage/ngx-pages.md",
+    "guideId": "convertigo/recipe-multipage-app/ngx-pages",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/multipage"
+  },
+  {
+    "uri": "convertigo://guides/multipage/ngx-pages-2",
+    "name": "Convertigo Recipe Multipage App — CRUD payload shapes, build order and application proof",
+    "description": "Open for CRUD payload shapes, build order and application proof.",
+    "mimeType": "text/markdown",
+    "file": "guides/multipage/ngx-pages-2.md",
+    "guideId": "convertigo/recipe-multipage-app/ngx-pages-2",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/multipage"
+  },
+  {
+    "uri": "convertigo://guides/multipage/order-of-work",
+    "name": "Convertigo Recipe Multipage App — Order of work",
+    "description": "Open for Order of work.",
+    "mimeType": "text/markdown",
+    "file": "guides/multipage/order-of-work.md",
+    "guideId": "convertigo/recipe-multipage-app/order-of-work",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/multipage"
+  },
+  {
+    "uri": "convertigo://guides/multipage/validation",
+    "name": "Convertigo Recipe Multipage App — Validation",
+    "description": "Open for Validation.",
+    "mimeType": "text/markdown",
+    "file": "guides/multipage/validation.md",
+    "guideId": "convertigo/recipe-multipage-app/validation",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/multipage"
+  },
+  {
+    "uri": "convertigo://guides/multipage",
+    "name": "Convertigo Recipe Multipage App",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/multipage.md",
+    "guideId": "convertigo/recipe-multipage-app/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/multipage/overview",
+      "convertigo://guides/multipage/generators-for-the-standard-objects",
+      "convertigo://guides/multipage/generators-for-the-standard-objects-2",
+      "convertigo://guides/multipage/architecture",
+      "convertigo://guides/multipage/business-sequence-shape",
+      "convertigo://guides/multipage/session",
+      "convertigo://guides/multipage/ngx-pages",
+      "convertigo://guides/multipage/ngx-pages-2",
+      "convertigo://guides/multipage/order-of-work",
+      "convertigo://guides/multipage/validation"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/common/mcp",
+    "name": "Convertigo common guidance — Guidance freshness and MCP-only authoring",
+    "description": "Open for Guidance freshness and MCP-only authoring.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/mcp.md",
+    "guideId": "convertigo/common/mcp",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/libraries",
+    "name": "Convertigo common guidance — Standard libraries and bootstrap decisions",
+    "description": "Open for Standard libraries and bootstrap decisions.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/libraries.md",
+    "guideId": "convertigo/common/libraries",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/batching",
+    "name": "Convertigo common guidance — Tree shortcuts and file-backed batch calls",
+    "description": "Open for Tree shortcuts and file-backed batch calls.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/batching.md",
+    "guideId": "convertigo/common/batching",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/readback",
+    "name": "Convertigo common guidance — QNames, source priorities and precise readback",
+    "description": "Open for QNames, source priorities and precise readback.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/readback.md",
+    "guideId": "convertigo/common/readback",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/progress",
+    "name": "Convertigo common guidance — Durable progress and resume",
+    "description": "Open for Durable progress and resume.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/progress.md",
+    "guideId": "convertigo/common/progress",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/subagents",
+    "name": "Convertigo common guidance — Constructor lots and verifier runs",
+    "description": "Open for Constructor lots and verifier runs.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/subagents.md",
+    "guideId": "convertigo/common/subagents",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/names-secrets",
+    "name": "Convertigo common guidance — Exact names, symbols and secret visibility",
+    "description": "Open for Exact names, symbols and secret visibility.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/names-secrets.md",
+    "guideId": "convertigo/common/names-secrets",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/ngx",
+    "name": "Convertigo common guidance — NGX forms, events and SmartSource invariants",
+    "description": "Open for NGX forms, events and SmartSource invariants.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/ngx.md",
+    "guideId": "convertigo/common/ngx",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/backend",
+    "name": "Convertigo common guidance — Iterators, dependencies and backend invariants",
+    "description": "Open for Iterators, dependencies and backend invariants.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/backend.md",
+    "guideId": "convertigo/common/backend",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/crud",
+    "name": "Convertigo common guidance — New and existing CRUD routing",
+    "description": "Open for New and existing CRUD routing.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/crud.md",
+    "guideId": "convertigo/common/crud",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/review",
+    "name": "Convertigo common guidance — Read-only reviews and French deliverables",
+    "description": "Open for Read-only reviews and French deliverables.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/review.md",
+    "guideId": "convertigo/common/review",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/auth",
+    "name": "Convertigo common guidance — Authentication libraries and seed safety",
+    "description": "Open for Authentication libraries and seed safety.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/auth.md",
+    "guideId": "convertigo/common/auth",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/viewer",
+    "name": "Convertigo common guidance — Viewer readiness and error diagnosis",
+    "description": "Open for Viewer readiness and error diagnosis.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/viewer.md",
+    "guideId": "convertigo/common/viewer",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/reveal",
+    "name": "Convertigo common guidance — Optional Studio reveal mode",
+    "description": "Open for Optional Studio reveal mode.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/reveal.md",
+    "guideId": "convertigo/common/reveal",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/proof",
+    "name": "Convertigo common guidance — Mutation failures and functional browser proof",
+    "description": "Open for Mutation failures and functional browser proof.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/proof.md",
+    "guideId": "convertigo/common/proof",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/proof-results",
+    "name": "Convertigo common guidance — Act on verifier reports and close the task",
+    "description": "Open for Act on verifier reports and close the task.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/proof-results.md",
+    "guideId": "convertigo/common/proof-results",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/seed",
+    "name": "Convertigo common guidance — Idempotent seeds, credentials and login proof",
+    "description": "Open for Idempotent seeds, credentials and login proof.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/seed.md",
+    "guideId": "convertigo/common/seed",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common/tigo",
+    "name": "Convertigo common guidance — User-requested Tigo library configuration",
+    "description": "Open for User-requested Tigo library configuration.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/tigo.md",
+    "guideId": "convertigo/common/tigo",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
+    "uri": "convertigo://guides/common",
+    "name": "Convertigo common guidance",
+    "description": "Essential rules and task-specific drawers.",
+    "mimeType": "text/markdown",
+    "file": "guides/common.md",
+    "guideId": "convertigo/common/summary",
+    "guidanceLevel": "summary",
+    "drawerUris": [
+      "convertigo://guides/common/mcp",
+      "convertigo://guides/common/libraries",
+      "convertigo://guides/common/batching",
+      "convertigo://guides/common/readback",
+      "convertigo://guides/common/progress",
+      "convertigo://guides/common/subagents",
+      "convertigo://guides/common/names-secrets",
+      "convertigo://guides/common/ngx",
+      "convertigo://guides/common/backend",
+      "convertigo://guides/common/crud",
+      "convertigo://guides/common/review",
+      "convertigo://guides/common/auth",
+      "convertigo://guides/common/viewer",
+      "convertigo://guides/common/reveal",
+      "convertigo://guides/common/proof",
+      "convertigo://guides/common/proof-results",
+      "convertigo://guides/common/seed",
+      "convertigo://guides/common/tigo"
+    ]
+  },
+  {
+    "uri": "convertigo://guides/capabilities/details-1",
+    "name": "Capabilities details 1",
+    "description": "Read for guidance handshake and the authoring/CRUD rails.",
+    "mimeType": "text/markdown",
+    "file": "guides/capabilities/details-1.md",
+    "guideId": "convertigo/capabilities/details-1",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://capabilities",
+    "expandGuidance": true,
+    "contentSha256": "2e3b0a5fbce6d89dfa53bf4905b0696092cb85067d29578de4fee4f282cfd773"
+  },
+  {
+    "uri": "convertigo://guides/capabilities/details-2",
+    "name": "Capabilities details 2",
+    "description": "Read for demo authentication, viewer readiness and browser rules.",
+    "mimeType": "text/markdown",
+    "file": "guides/capabilities/details-2.md",
+    "guideId": "convertigo/capabilities/details-2",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://capabilities",
+    "expandGuidance": true,
+    "contentSha256": "4b5eef948b701b512ad2be8d7da8eaf93c075d5618cd6ff4d259dbcd52feddf6"
+  },
+  {
+    "uri": "convertigo://guides/capabilities/details-3",
+    "name": "Capabilities details 3",
+    "description": "Read for generated artifacts and final validation rules.",
+    "mimeType": "text/markdown",
+    "file": "guides/capabilities/details-3.md",
+    "guideId": "convertigo/capabilities/details-3",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://capabilities",
+    "expandGuidance": true,
+    "contentSha256": "46cd8c3537723dea2bf71c738efdddf6566701efb33bf3d72e4ee74aa1fbdb3d"
   }
 ]

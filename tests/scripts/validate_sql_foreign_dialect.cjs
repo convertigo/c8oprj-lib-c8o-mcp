@@ -1,3 +1,4 @@
+const { guidanceText } = require('../helpers/guide_transport.cjs');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -105,7 +106,7 @@ test('the optional filter of the guide is never flagged: the engine binds an emp
 test('the SQL of the fast path guides passes in their own database', () => {
   for (const [file, d] of [['resources/convertigo_fast_path_sql_hsqldb.md', 'hsqldb'], ['resources/convertigo_fast_path_sql_postgresql.md', 'postgresql'],
     ['resources/convertigo_fast_path_sql_mariadb.md', 'mysql']]) {
-    const blocks = [...read(file).matchAll(/```sql\n([\s\S]*?)```/g)].map(m => m[1]);
+    const blocks = [...guidanceText(file).matchAll(/```sql\n([\s\S]*?)```/g)].map(m => m[1]);
     assert.ok(blocks.length > 0, file);
     blocks.forEach(sql => assert.deepEqual(names(d, sql), [], file + ': ' + sql.slice(0, 80)));
   }

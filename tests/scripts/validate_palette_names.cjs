@@ -1,3 +1,4 @@
+const { guidanceText } = require('../helpers/guide_transport.cjs');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -313,14 +314,14 @@ test('palette-list without target says where the NGX palette names are listed', 
 });
 
 test('the guidance gives the NGX naming rules', () => {
-  const guide = read('resources/convertigo_frontend_ngx.md');
+  const guide = guidanceText('resources/convertigo_frontend_ngx.md');
   const section = guide.slice(guide.indexOf('## NGX palette names'), guide.indexOf('## Basic presentation'));
   assert.match(section, /^## NGX palette names$/m);
   assert.match(section, /`ngx\.components\.<Class>#<logicalId>`, always written in full/);
   assert.match(section, /not the HTML tag \(`ion-button`/);
   assert.match(section, /`palette-list` with an NGX parent as `target`/);
   assert.match(section, /take one of the close entries it lists/);
-  const skill = read('resources/convertigo_common_skill.md');
+  const skill = guidanceText('resources/convertigo_common_skill.md');
   assert.match(skill, /An NGX palette name is written in full, `ngx\.components\.<Class>#<logicalId>`/);
   const index = JSON.parse(read('resources/resources_index.json'));
   assert.ok(index.find(entry => entry.guideId === 'convertigo/frontend-ngx').revision >= 36);

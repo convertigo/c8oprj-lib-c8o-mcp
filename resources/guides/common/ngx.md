@@ -1,0 +1,21 @@
+# NGX forms, events and SmartSource invariants
+
+Read when: NGX forms, events and SmartSource invariants. Summary: `convertigo://guides/common`.
+Previous: `convertigo://guides/common/names-secrets`. Next: `convertigo://guides/common/backend`.
+
+---
+
+## NGX authoring invariants
+
+- Pages load and send data through NGX events and actions (`CallSequenceAction` under a page or control event, results in locals bound with the `local` short form), never from `scriptContent` with `this.c8o.callJson`: a direct call runs outside Angular change detection, the view does not refresh, and `databaseobject-tree-apply` warns about it.
+- Use the exact SmartType shape reported by the live palette or a successful readback. Do not invent aliases such as `JS`, `SCRIPT`, `PLAIN`, `expression`, or `value` interchangeably.
+- Before changing a page `scriptContent`, read it with `properties:"all"`, preserve the complete existing string and every `Begin_c8o_...` / `End_c8o_...` section, and edit only the intended section. `mode:"merge"` replaces the whole string property; it does not merge script sections.
+- Do not declare framework lifecycle methods such as `ngOnDestroy` in page `scriptContent` unless the live Convertigo contract explicitly provides that extension point. Use a supported page event for cleanup instead of guessing a generated method name.
+- Sibling actions under the same event run in parallel (`Promise.all`). To run B after A, make B a child of A: children start once A resolves, read A's result as `out`, and run in parallel among themselves. Siblings start in tree order and read their properties when they start, so a `SetLocalAction` above a call has already set its local when the call reads its variables; what a sibling cannot see is another's asynchronous result.
+- An action's Failure handler only fires when the call is rejected (transport or engine error). A sequence that reports a business failure with an `error` element (for example `XMLErrorStep`) returns a normal response, so test `out?.error` in a child of the call to show the failure.
+- Inside the children of an `IfAction`, `out` is the `IfAction` result, not the call's. When those children need the call result, chain call -> `SetLocalAction` (or `SetGlobalAction`) storing `out` -> its child `IfAction` testing the stored value, and read the stored value in the toasts and state updates below it.
+- Every normal `UICustomAction` completion path must call `resolve(...)` or `reject(...)`; Convertigo wraps `actionValue` in a Promise and an unsettled action blocks its event chain even when TypeScript compilation is green. Use `UICustomAsyncAction` when the code contains `await`; plain `UICustomAction` code must not contain top-level `await`.
+- For page state changed outside an Angular/Ionic event, such as timers, external callbacks, or third-party subscriptions, update `page.local` and call `page.ref.detectChanges()` in the same callback. Never use `this.c8o.page.detectChanges()`.
+- Do not set labels by guessing `textValue` on every `UIDynamicElement`. Create the component with structural properties only, then create a child `ngx.components.UIText#UIText` for the visible text. A primary trigger without visible text is a failed UI proof. Form controls are the exception: their label is their `Label` property.
+- Forms: `UIForm` (with an `identifier`) > one `FormItem` per field > one control (`Input`, `Select`, `TextArea`, ...). Set the control `ControlName`, `Label`, and `LabelPlacement` (`stacked` or `floating`; the default `start` squeezes the field on the same line), and `Type` for email or password. Never place a separate `Label` or `UIText` next to a control as its label. Submit with a `SubmitButton` and the form `onSubmit` event, and pass values with `UIControlVariable` sourced from the Form SmartSource: `model.data` is `[{"priority":<UIForm priority>,"identifier":"<UIForm identifier>"}]` and `path` is `?.controls?.['<ControlName>']?.value`.
+- Never write SmartSource JSON from memory. Read back an existing valid SmartSource of the same filter with `databaseobject-tree-get` (`properties:"all"`), or copy it from Studio, and reproduce its exact shape, including internal model keys such as `priority`; change only the identifying values, then read the node back to compare.

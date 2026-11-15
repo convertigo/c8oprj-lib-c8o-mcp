@@ -10,71 +10,71 @@
       "id": "new-ngx-local-state",
       "match": "New NGX application using static content, local state, timers, subscriptions, or interactions without backend data",
       "required": [
-        "convertigo://resources/convertigo-recipe-starter-extension"
+        "convertigo://guides/starter"
       ],
       "fallback": [
-        "convertigo://resources/convertigo-frontend-ngx"
+        "convertigo://guides/ngx"
       ]
     },
     {
       "id": "new-ngx-http-data",
       "match": "New NGX application backed by a public HTTP web service",
       "required": [
-        "convertigo://resources/convertigo-vibe-http-ngx-fastpath"
+        "convertigo://guides/http-app"
       ],
       "fallback": [
-        "convertigo://resources/convertigo-recipe-http-business-sequence",
-        "convertigo://resources/convertigo-recipe-ngx-data-page"
+        "convertigo://guides/http-sequence",
+        "convertigo://guides/data-page"
       ]
     },
     {
       "id": "new-multipage-app",
       "match": "New NGX business application from a specification with several pages, roles or a session, and SQL persistence",
       "required": [
-        "convertigo://resources/convertigo-recipe-multipage-app"
+        "convertigo://guides/multipage"
       ],
       "fallback": [
-        "convertigo://resources/convertigo-backend-sequences",
-        "convertigo://resources/convertigo-frontend-ngx",
-        "convertigo://resources/convertigo-authentication"
+        "convertigo://guides/backend",
+        "convertigo://guides/ngx",
+        "convertigo://guides/auth"
       ]
     },
     {
       "id": "existing-ngx-ui",
       "match": "Create or modify an NGX page in an existing project",
       "required": [
-        "convertigo://resources/convertigo-recipe-ngx-data-page"
+        "convertigo://guides/data-page"
       ],
       "fallback": [
-        "convertigo://resources/convertigo-frontend-ngx"
+        "convertigo://guides/ngx"
       ]
     },
     {
       "id": "http-backend",
       "match": "Create or modify an HTTP connector, transaction, or business sequence without a new UI",
       "required": [
-        "convertigo://resources/convertigo-recipe-http-business-sequence"
+        "convertigo://guides/http-sequence"
       ],
       "fallback": [
-        "convertigo://resources/convertigo-integration-http",
-        "convertigo://resources/convertigo-backend-sequences"
+        "convertigo://guides/http",
+        "convertigo://guides/backend"
       ]
     },
     {
       "id": "sql-feature",
       "match": "Create or modify SQL integration or a SQL-backed feature",
       "required": [
-        "convertigo://resources/convertigo-recipe-sql-crud"
+        "convertigo://guides/sql-recipe"
       ],
       "fallback": [
-        "convertigo://resources/convertigo-integration-sql"
+        "convertigo://guides/sql"
       ]
     },
     {
       "id": "new-standard-crud",
       "match": "Create a new standard SQL CRUD application",
       "required": [
-        "convertigo://resources/convertigo-crud-fastpath"
+        "convertigo://guides/crud"
       ],
       "fallback": []
     },
@@ -82,7 +82,7 @@
       "id": "existing-standard-crud",
       "match": "Modify an existing deterministic CRUD application",
       "required": [
-        "convertigo://resources/convertigo-crud-edit-fastpath"
+        "convertigo://guides/crud-edit"
       ],
       "fallback": []
     },
@@ -90,38 +90,38 @@
       "id": "backend-sequence",
       "match": "Create or modify a sequence or business sequence without HTTP or SQL integration",
       "required": [
-        "convertigo://resources/convertigo-recipe-business-sequence-stub"
+        "convertigo://guides/sequence"
       ],
       "fallback": [
-        "convertigo://resources/convertigo-backend-sequences"
+        "convertigo://guides/backend"
       ]
     },
     {
       "id": "project-review",
       "match": "Review, audit, expertise report, hardening plan, recommendations, or version comparison",
       "required": [
-        "convertigo://resources/convertigo-project-review"
+        "convertigo://guides/review"
       ],
       "fallback": [
-        "convertigo://resources/convertigo-validation-and-evidence"
+        "convertigo://guides/proof"
       ]
     },
     {
       "id": "authentication",
       "match": "Add or change login, logout, sign-up, password reset, OAuth, OpenID Connect, FranceConnect, or access control on sequences",
       "required": [
-        "convertigo://resources/convertigo-authentication"
+        "convertigo://guides/auth"
       ],
       "fallback": [
-        "convertigo://resources/convertigo-backend-sequences",
-        "convertigo://resources/convertigo-context-api"
+        "convertigo://guides/backend",
+        "convertigo://guides/context"
       ]
     },
     {
       "id": "unknown",
       "match": "Convertigo task that does not match a route above",
       "required": [
-        "convertigo://resources/convertigo-start"
+        "convertigo://guides/start"
       ],
       "fallback": [
         "convertigo://recipes/quickstart"
