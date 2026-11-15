@@ -105,8 +105,23 @@ for (const marker of ["Convertigo_", "mcp__convertigo__", "~/.codex", "~/.vibe",
 // resource files at install time.
 assert.strictEqual(typeof setupCommon.copyResourceSkills, "function");
 assert.ok(setupCommon.resourceSkillFiles().length > 5, "No specialised guide found in the resources index");
-const installedSlugs = setupCommon.resourceSkillFiles().map(entry => entry.file.replace(/\.md$/i, '').replace(/[\\\/_]/g, '-'));
-assert.strictEqual(new Set(installedSlugs).size, installedSlugs.length, 'Copied drawer skills overwrite each other');
+// Exercise the actual generic installation path without writing any homes.
+// A flat basename used to overwrite overview/proof from other guide directories.
+sandbox.Packages = { java: { io: { File: class {
+  constructor(parent, name) { this.path = String(parent) + '/' + name; }
+  toString() { return this.path; }
+} } } };
+const copiedFiles = [];
+const copiedSlugs = setupCommon.copyResourceSkills('skills', 'generic', false, (file, content) => {
+  copiedFiles.push({ path: String(file), content });
+});
+assert.strictEqual(copiedFiles.length, setupCommon.resourceSkillFiles().length);
+assert.strictEqual(new Set(copiedFiles.map(file => file.path)).size, copiedFiles.length, 'Copied drawer skills overwrite each other');
+assert.strictEqual(new Set(copiedSlugs).size, copiedSlugs.length);
+for (const file of copiedFiles) {
+  assert.ok(file.content.length < 16000, file.path + ' is too long');
+  assert.doesNotMatch(file.content, /\{\{(?:GUIDANCE_VERSION|SETUP_SEQUENCE|TASK_ROUTES)\}\}/, file.path);
+}
 for (const harnessId of setupCommon.harnessIds()) {
   const harness = setupCommon.harness(harnessId);
   if (harness.readsMcpResources === true) {

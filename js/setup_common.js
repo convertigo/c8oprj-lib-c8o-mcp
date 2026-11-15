@@ -217,7 +217,7 @@ C8O.setupCommon = C8O.setupCommon || {};
     for (var i = 0; i < index.length; i++) {
       var entry = index[i];
       if (entry && trim(entry.file).length && /\.md$/i.test(trim(entry.file))) {
-        files.push({ uri: trim(entry.uri), file: trim(entry.file) });
+        files.push({ uri: trim(entry.uri), file: trim(entry.file), expandGuidance: entry.expandGuidance === true });
       }
     }
     return files;
@@ -238,6 +238,11 @@ C8O.setupCommon = C8O.setupCommon || {};
       var slug = trim(entry.file).replace(/\.md$/i, "").replace(/[\\\/_]/g, "-");
       var target = new File(new File(skillsDir, slug), "SKILL.md");
       var content = C8O.setupCommon.readProjectFile("resources", entry.file);
+      if (entry.expandGuidance) {
+        content = content.replace(/\{\{GUIDANCE_VERSION\}\}/g, String(C8O.MCP_GUIDANCE_VERSION))
+          .replace(/\{\{SETUP_SEQUENCE\}\}/g, harness.setupSequence)
+          .replace(/\{\{TASK_ROUTES\}\}/g, "Read `convertigo://resources/convertigo-task-routes` for the current routes.");
+      }
       writeManagedFile(target, content, dryRun);
       copied.push(slug);
     }
