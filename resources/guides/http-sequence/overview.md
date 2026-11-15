@@ -15,4 +15,3 @@ Read this when the feature needs data from a REST, SOAP, XML, JSON, raw HTTP, or
 - How to keep the HTTP world behind a business sequence.
 - How to shape payloads safely for the rest of the application.
 - What to validate before frontend or planner handoff.
-

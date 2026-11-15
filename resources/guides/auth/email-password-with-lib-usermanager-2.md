@@ -29,4 +29,3 @@ Rules:
 - Build links sent by email from a base-URL symbol, not from the request host: the host header is client-controlled.
 - Schedule `lib_UserManager.RemoveDraftedAccounts` to purge unconfirmed accounts.
 - Password hashing and comparison belong to the library. Application code never computes a password hash.
-

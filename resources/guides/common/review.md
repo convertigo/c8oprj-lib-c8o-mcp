@@ -19,4 +19,3 @@ Previous: `convertigo://guides/common/crud`. Next: `convertigo://guides/common/a
 - For V1/V2 comparisons, structure the review as: major V1 recommendations, current-state changes, `treated` / `partially treated` / `not treated` / `removed from the perimeter`, then new priorities.
 - For client-facing reports, avoid repository jargon such as `YAML`, `_c8oProject`, descriptor, or file-level paths unless implementation detail is requested. Use audience terms: sequence, transaction, page, shared component, shared action, backend service, flow, exposure, access control, delivery governance.
 - Suggested deliverables when files are requested: `revue_securite_qualite.md`, `revue_frontend_securite_qualite.md`, `synthese_client_backend_preconisations.md`, and `synthese_client_frontend_preconisations.md`; use `_v2` or `_v3` for explicit later passes.
-

@@ -33,4 +33,3 @@ The first pages of a two-entity app, one `ngx-page-create` call each (`<field>` 
  "detail":{"record":"row","fields":[{"label":"Email","field":"<field>"}]}}
 {"project":"<App>","name":"Logout","kind":"logout","title":"Sign out","sequence":"auth_logout","home":"Contacts","logout":{"page":"Login"}}
 ```
-

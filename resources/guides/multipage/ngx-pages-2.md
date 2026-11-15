@@ -12,4 +12,3 @@ Previous: `convertigo://guides/multipage/ngx-pages`. Next: `convertigo://guides/
 - Session-wide values (current user, role, flash message) go in global state with `SetGlobalAction`, read with the `global` short form; it is lost on a browser reload, so the entry page restores it.
 - Add one application-level `UIAppEvent` with `appEvent` `onSessionLost`: it clears the session globals and `RootPageAction` to the entry page when the SDK detects a lost session. Keep the per-page check on the auth error codes: the failing call still returns its error to its page.
 - Every form follows the Forms section of `convertigo-frontend-ngx`; a `Select` and its options share one value type.
-

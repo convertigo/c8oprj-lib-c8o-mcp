@@ -47,4 +47,3 @@ Global state:
 
 Common trap:
 - putting a whole record in `data` and binding the target page on it: it arrives as `"[object Object]"`
-

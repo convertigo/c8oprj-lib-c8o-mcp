@@ -66,4 +66,3 @@ Use source picker with this mindset:
 - source the exact producer step
 - source the exact node or text that represents the contract value
 - do not guess the XPath
-

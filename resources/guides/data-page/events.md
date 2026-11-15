@@ -36,4 +36,3 @@ Previous: `convertigo://guides/data-page/state-model`. Next: `convertigo://guide
 - `mobile-builder-open`
 - `log-view`
 - `project-save`
-

@@ -44,4 +44,3 @@ Error state must not silently masquerade as an empty list.
 
 ### Retry behavior
 Retry must re-enter the data-loading action path. A structural marker is not enough.
-

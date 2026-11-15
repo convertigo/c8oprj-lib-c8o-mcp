@@ -74,4 +74,3 @@ Use the literal tree pattern below as the starting point for the first `database
 ```
 
 Leave `systemTablesQuery` (the connection testing query) and `testOnBorrow` at their defaults. HSQLDB refuses a `SELECT` without `FROM`: with `SELECT 1` every connection fails with `unexpected end of statement`, and so does every transaction. When a test query is needed, write `SELECT 1 FROM INFORMATION_SCHEMA.SYSTEM_USERS`.
-

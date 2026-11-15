@@ -14,4 +14,3 @@ Previous: `convertigo://guides/common/review`. Next: `convertigo://guides/common
 - Logout runs `RemoveAuthenticatedUserStep` then `RemoveSessionStep`, and the client calls it with `__disableAutologin=true`.
 - A sequence that creates a demo or first account on a fresh server follows "Demo or first account created by a seed" in `convertigo://guides/auth`: each library answer checked, never public, the sign-in proven.
 - Finish with `project-security-audit`; an anonymous configuration or login sequence is recorded with `suppress` and its reason, never left unexplained. Report `grade` and `rawGrade` together. A sequence anyone can call that writes data is fixed, never suppressed: `Private` when only other sequences or the scheduler run it (a scheduled job runs a `Private` sequence), else `authenticatedContextRequired=true` with a role check.
-

@@ -58,4 +58,3 @@ When the send fails (no server, unknown host, closed port), `SmtpStep` logs an E
 Send from a `SimpleStep` with `javax.mail` only in two cases:
 - the sequence must know whether the mail left, to record a failed notification or retry it: `SmtpStep` gives no status;
 - the mail must carry a text and an HTML version (`multipart/alternative`): `SmtpStep` has one body.
-

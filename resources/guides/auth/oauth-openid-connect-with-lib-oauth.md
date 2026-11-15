@@ -33,4 +33,3 @@ Rules:
 - The NGX shared component `FranceConnect` drives the flow: it calls `getConfiguration`, redirects to the authorization endpoint, then calls `loginWithCode` with the `code` and `state` read from the callback URL and removes them from the address bar.
 
 Configuration symbols: `lib_franceconnect.clientid`, `lib_franceconnect.scopes`, `lib_franceconnect.authorize`, `lib_franceconnect.tokenendpoint`, `lib_franceconnect.issuer`, `lib_franceconnect.redirecturi`, `lib_franceconnect.endsession`, `lib_franceconnect.postlogouturi`, `lib_FranceConnect.client_secret.secret`, and `lib_FranceConnect.corsOrigin`. The library defaults target the FranceConnect sandbox; production must define every one of them on the engine.
-

@@ -97,4 +97,3 @@ Keep the top-level field names stable even when the real integration replaces th
 - `requestable-execute` returns the nominal contract shape.
 - If the task requires runtime stub behavior, `requestable-execute(..., {"__stub": true})` or the equivalent required variable returns the stub payload.
 - `databaseobject-schema` or focused tree readback confirms the intended contract shape when needed.
-

@@ -134,4 +134,3 @@ ORDER BY id ASC
 SELECT COUNT(*) AS total
 FROM companies
 ```
-

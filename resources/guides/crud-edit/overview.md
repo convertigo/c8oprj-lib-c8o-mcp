@@ -48,4 +48,3 @@ If those conditions do not hold, fall back to `convertigo://guides/crud`.
   `allowDataReset:true` is for a reset the user asked for in their own words.
 - A row you create to check a change (`requestable-execute`, a browser proof) lands among the user's rows: delete it by
   its id as soon as its check is done, before the next step, and say in the answer if one is left.
-

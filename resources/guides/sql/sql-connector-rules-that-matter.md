@@ -28,4 +28,3 @@ If the environment is new or driver-specific:
 - confirm the connection test behavior before writing a lot of transaction logic
 
 ## SQL transaction patterns
-

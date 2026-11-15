@@ -21,4 +21,3 @@ Previous: `convertigo://guides/common/ngx`. Next: `convertigo://guides/common/cr
 - Do not replace a live web-service integration with a `SimpleStep`, hard-coded records, or a stub after a runtime failure. DNS, TLS, timeout, and provider 4xx/5xx are live proof failures, not tool failures: keep the rail and report the proof incomplete.
 - Generated CRUD business sequences are hidden requestables that require an authenticated context. The app establishes that session once on its `Login` entry page, an `ngx-page-create` form page on `auth_login(username,password)` with `root:true`. That `auth_login` is a skeleton that accepts any password: before delivery, replace it through the `authentication` route.
 - Prefer best-case-first generated code. Trust the standard runtime error bubble for ordinary failures instead of adding defensive wrappers by default.
-

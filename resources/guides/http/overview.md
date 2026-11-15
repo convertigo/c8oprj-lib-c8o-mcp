@@ -54,4 +54,3 @@ Why this matters:
 
 Common trap:
 - forcing everything into JSON assumptions even when the endpoint is file- or text-oriented
-

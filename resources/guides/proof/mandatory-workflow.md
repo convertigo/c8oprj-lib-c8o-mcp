@@ -68,4 +68,3 @@ Noisy proof:
 - full raw logs without focus
 - repeated payload dumps for the same success
 - long commentary without one concrete runtime proof
-

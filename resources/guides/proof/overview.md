@@ -15,4 +15,3 @@ Read this before declaring a task done, and use it as the closure checklist for 
 - Save and reload discipline.
 - What evidence should appear in a final result.
 - How to capture failures or MCP friction without noise.
-

@@ -43,4 +43,3 @@ Previous: `convertigo://guides/starter/mandatory-workflow-2`. Next: `convertigo:
 - The builder is green but the page is a raw `UICustom` fragment, so the Convertigo NGX tree does not expose the feature controls and action chain.
 - A page method calls the business sequence directly from TypeScript, bypassing `CallSequenceAction` and `UIControlVariable`.
 - A secondary page is created while the default visible entry page still contains the starter body.
-

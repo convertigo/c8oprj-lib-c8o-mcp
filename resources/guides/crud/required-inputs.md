@@ -31,4 +31,3 @@ Default assumptions for the fast path:
 - generated CRUD business sequences are `hidden` and require an authenticated context; `auth_login(username,password)` and `auth_logout()` are hidden skeleton sequences (the generated `auth_login` accepts any password; replace it with a real check from `convertigo://guides/auth` before delivery). The app signs in once on its `Login` entry page before its pages call them, and each protected page takes `authRedirect:"Login"`
 - the upsert-crud business sequences answer their data itself: `{rows}` (list), `{row}` (read), `{total}` (count), `{message}` (create, update, delete), `{error}` when they fail; `ngx-page-create` reads that shape, so a list page takes `list.items:"rows"` and a detail page `detail.record:"row"`
 - prefer best-case-first generated code and trust the standard error bubble unless the user explicitly asked for special UX around failures
-

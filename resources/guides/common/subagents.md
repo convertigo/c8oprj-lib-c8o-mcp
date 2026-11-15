@@ -18,4 +18,3 @@ Every model step pays the whole conversation again: a build driven in one contex
 - A call answers within 45 s: on `status:"running"`, call `subagent-run({runId:"<the id>"})` alone until `status:"finished"`; `activity` shows its latest steps. That call is the wait: never poll the run folder with shell commands or sleeps. Never start a second sub-agent on the same browser or project meanwhile.
 - Keep the report, not the details: copy its verdict, findings and screenshot paths into `PROGRESS.md` for the lot. The run folder (`reportFile`) keeps the full trace if you need it later.
 - Limits per profile (`maxSteps`, `timeBudgetSec`, `maxCostUsd`) end a run with what it has (`stopReason`); a smaller piece is better than a larger budget.
-

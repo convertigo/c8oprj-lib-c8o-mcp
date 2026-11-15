@@ -16,4 +16,3 @@ A list business sequence and its page, two calls:
  "filters":[{"name":"search","label":"Search"}],
  "list":{"item":"order","title":"orderNumber","subtitle":"label","badge":{"field":"status","colors":{"LATE":"warning"}},"onItem":{"page":"OrderHistory","data":{"id":"id"}}}}
 ```
-

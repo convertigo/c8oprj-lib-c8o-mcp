@@ -20,4 +20,3 @@ Bad pattern:
 - a password `Input` with `Type` `text`
 - values read with `document.querySelector(...)` or copied into locals by `ionChange` instead of the Form SmartSource
 - a Form SmartSource without `priority` in `model.data`, or with a priority that is not the one of its `UIForm`
-

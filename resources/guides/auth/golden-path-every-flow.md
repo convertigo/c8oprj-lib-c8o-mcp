@@ -22,4 +22,3 @@ Previous: `convertigo://guides/auth/choosing-a-flow`. Next: `convertigo://guides
    - for a login checked by the application itself (its own user table or a library sequence that does not open the session), `business-sequence-create` with `auth:false` and `session:{login:"resp.data.email"}` opens the session when `logic` succeeds; without that option nothing calls `context.setAuthenticatedUser`.
 5. **Protect business sequences.** Every business sequence is `Hidden` with `authenticatedContextRequired=true`. Helpers and every transaction stay `Private`.
 6. **Log out by ending the session.** A logout sequence runs `RemoveAuthenticatedUserStep` then `RemoveSessionStep` (`business-sequence-create` with `session:{logout:true}` builds it). The client calls it with `__disableAutologin=true`; otherwise the SDK replays the last successful login request as soon as the session is lost.
-

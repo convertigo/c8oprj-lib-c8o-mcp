@@ -17,4 +17,3 @@ Keep your own context for the specification, the plan, the decisions and the rep
 5. Non-regression sequences that call the business sequences and assert the contract. A `Private` test sequence can open a session with `context.setAuthenticatedUser(<email>)` and call the protected business sequences through `SequenceStep`: the session reaches them, so one `requestable-execute` runs every acceptance case for one role, then for the next.
 
 In Studio mode the engine does not enforce `Private`: the test sequences, the reset sequence and the scheduled sequence answer a direct HTTP call there, and a test sequence that opens a session gives that session to its caller. A deployed server enforces `Private`. When one of them must not run on a shared or demo server either (a reset that erases the data), make its first step refuse unless a symbol allows it, for example `${app.demoMode=false}` read in a step expression.
-

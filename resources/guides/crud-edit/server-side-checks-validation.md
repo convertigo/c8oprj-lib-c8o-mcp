@@ -39,4 +39,3 @@ components nothing uses any more: `project-lint` reports them (NGX-UNUSED-SHARED
 - Do not import the starter again or create again a page that did not change.
 - Do not patch `init_schema` manually after `upsert-crud` just to inject better demo data.
 - Do not normalize `project-reload` into the edit flow; stale runtime behavior after a mutation is a tooling issue to surface, not the default rail.
-

@@ -12,4 +12,3 @@ Previous: `convertigo://guides/common/proof`. Next: `convertigo://guides/common/
 - If browser control is unavailable, report the result as implemented but functionally unvalidated. Do not claim success merely because compilation and server logs are green.
 - Stop after the requested behavior is green. Do not add an unsolicited polish pass, do not restart broad verification, and do not repeat proof that cannot change the conclusion.
 - When the MCP lists `report-create`, the user agreed to send feedback to Convertigo: file at most one short report per turn for a reusable friction of a Convertigo tool, guide or prompt that you had to work around (what you expected, what happened, how you got past it). Never report your own mistakes or a refusal you fixed at once, and never put project data, names or credentials in it.
-

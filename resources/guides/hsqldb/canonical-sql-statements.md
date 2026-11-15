@@ -100,4 +100,3 @@ Run these in order before claiming success:
 3. `requestable-execute` on `<PROJECT_NAME>.<CONNECTOR_NAME>.count_contacts`
 4. `requestable-execute` on `<PROJECT_NAME>.<CONNECTOR_NAME>.list_companies`
 5. `requestable-execute` on `<PROJECT_NAME>.<CONNECTOR_NAME>.count_companies`
-

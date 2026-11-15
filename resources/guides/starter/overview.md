@@ -14,4 +14,3 @@ Read this for new POCs, demos, or benchmarks that start from a marketplace start
 - How to use a starter project as the fast path instead of starting from a blank tree.
 - How to extend the starter safely with backend, integration, and UI work.
 - How to avoid starter-specific coupling.
-

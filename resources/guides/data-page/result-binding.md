@@ -37,4 +37,3 @@ Known-good input binding update:
 ```
 
 Known-good button event with backend handoff:
-

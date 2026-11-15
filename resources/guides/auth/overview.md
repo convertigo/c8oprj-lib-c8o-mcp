@@ -34,4 +34,3 @@ Consequences that are easy to miss:
 - The session id is not renewed at login. Always end the session at logout (see the golden path) so a session cannot be reused by another user.
 - With `corsOrigin` `=Origin` (the engine default through `=Global`) and the engine property `convertigo.xsrf.projects` off (its default), any website can call sequences in the browser of a logged-in user. Restrict `corsOrigin` to the known origins of the application.
 - `HttpConnector.trustAllServerCertificates` defaults to `true`. Every connector that talks to an identity provider or a mail relay must set it to `false`.
-

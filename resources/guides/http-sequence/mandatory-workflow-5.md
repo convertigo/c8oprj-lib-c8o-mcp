@@ -19,4 +19,3 @@ Previous: `convertigo://guides/http-sequence/mandatory-workflow-4`. Next: `conve
 - The upstream API can evolve without forcing the UI to change immediately.
 - Schema and source picker behavior remain usable for downstream steps.
 - Transport debugging happens where the problem actually is.
-

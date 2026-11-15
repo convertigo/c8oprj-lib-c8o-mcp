@@ -119,4 +119,3 @@ If an agent knows only a small set at first, prioritize these:
 - explicit error shaping steps
 
 These cover most enterprise business sequence work without forcing the agent to rediscover the whole step catalog.
-

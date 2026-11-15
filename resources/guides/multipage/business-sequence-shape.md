@@ -24,4 +24,3 @@ The generated error messages (unauthenticated, forbidden, notFound, readFailed, 
 - Check the role and the data perimeter in `logic`, from the user reloaded in the database on every call: a disabled account loses its rights at once. Hiding a button is not access control.
 - Refuse out-of-perimeter reads without returning the record (`FORBIDDEN`).
 - Variables read in JS are Java strings and rows come from another Rhino scope: see `convertigo-backend-sequences` section 5.
-

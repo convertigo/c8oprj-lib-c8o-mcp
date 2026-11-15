@@ -89,4 +89,3 @@ Rule of thumb:
 - pick the output mode deliberately
 - record the schema
 - source the exact text nodes or elements the business sequence needs
-

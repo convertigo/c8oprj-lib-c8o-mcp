@@ -103,4 +103,3 @@ Treat friction as non-blocking when:
 - `project-reload`
 - `rag-query`
 - `resources/templates/list` when a fast-path/template guide must be selected before reading it through `resources/read`
-

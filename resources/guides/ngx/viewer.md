@@ -46,4 +46,3 @@ Do not conclude success from tree shape alone when the build logs say otherwise.
 - The options of an `ion-select` and the buttons of an alert open in an overlay attached to `body`, outside the page: look for them in `ion-popover`, `ion-alert` or `ion-action-sheet`.
 - A `canvas` of 100×100 (Ionic's ripple effect in items, buttons and the options of a select popover, or a loading layer right after a navigation) can cover the element: Playwright reports that it intercepts pointer events and waits until its timeout, 30 s. Do not retry the same click: click through the page, `locator.evaluate(e => e.click())`.
 - A file that the page downloads (an export) is saved by the managed Playwright in `.playwright-mcp/downloads/` under its working directory, without any dialog: read it there. In a viewer that no managed Playwright drives, a download opens the Studio's native Save dialog, which blocks the whole Studio, the MCP included, until someone closes it.
-

@@ -26,4 +26,3 @@ Before the architecture, list what the specification needs and search for it: `m
 - admin lists: `lib_ExtendedComponents_ui_ngx` (AG Grid with sorting, filtering, paging and CSV export; `ngx-page-create` builds it on a list page with `list.grid`, and on its own for a table of 5 cells or more); charts: `libApexCharts`
 - documents: `lib_fill_odt_pdf` (fill Word/Excel/PowerPoint, PDF), `lib_JasperReports`
 If the specification limits dependencies, a marketplace library is still a standard Convertigo component: record the choice either way in the decision log.
-
