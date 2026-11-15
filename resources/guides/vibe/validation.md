@@ -40,4 +40,3 @@ For a successful Vibe benchmark run, collect:
 - runtime proof through `requestable-execute`, `mobile-builder-open`, or `crud-proof` depending on the recipe
 - a final `project-save` when mutations succeeded
 - one concise MCP critique item when the run reveals missing guidance
-

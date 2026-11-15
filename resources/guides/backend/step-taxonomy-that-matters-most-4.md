@@ -58,4 +58,3 @@ Why this matters:
 Minimum validation proof:
 - inspect the producer tree
 - run the sequence and confirm the sourced value materializes where expected
-

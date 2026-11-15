@@ -89,4 +89,3 @@ Why this matters:
 - the session becomes faster
 - repeated runs avoid asking for the same facts
 - the planner inherits a cleaner brief
-

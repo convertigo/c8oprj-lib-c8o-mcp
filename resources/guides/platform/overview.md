@@ -15,4 +15,3 @@ Read this before serious backend, integration, frontend, FullSync, marketplace, 
 - The main runtime layers: projects, connectors, transactions, sequences, URL mapper, NGX app, FullSync, symbols, marketplace libraries, and admin settings.
 - How backend, integration, and frontend responsibilities should be separated.
 - The practical consequences for LLM-driven work.
-

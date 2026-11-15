@@ -78,4 +78,3 @@ If the project itself is not governed by an identifiable branch/tag strategy, st
 
 - inability to reconstitute a delivered version reliably
 - inability to `checkout` and restore a known-good version cleanly
-

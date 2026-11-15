@@ -45,4 +45,3 @@ Refer to the official table “Context methods list” in the Convertigo Referen
 ## Reading the input variables
 
 Each variable declared on the running sequence or transaction is a JavaScript variable of the same name in its steps (`profile`): a Java string, or `undefined` when the call did not send it (`String(profile === undefined ? "" : profile)`). `context` has no getter for them: `context.get("profile")` returns `null`, and code built on it silently runs with its defaults. The raw values are also in `context.inputDocument`.
-

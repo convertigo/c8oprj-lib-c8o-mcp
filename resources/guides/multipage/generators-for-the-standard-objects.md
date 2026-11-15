@@ -18,4 +18,3 @@ Most of such an app is made of the fixed objects this recipe describes: SQL tran
 - `ngx-page-create`: a `list` (filters, badges colored by status, row click, `columns` for a table), `detail`, `form` (UIForm, Form SmartSources, toast and navigation) or `dashboard` (KPI cards with icons and accent colors, sections) page wired to its business sequence, with the lost-session redirect, the `local?.x` templates, an empty state with an icon, the menu icon and the `AppLayout` style.
 
 Each one validates the whole spec before writing and creates all or nothing: a refused call lists every problem and leaves the project untouched, so fix the spec and send it again. The answer lists the created QNames and the next proof to run. Pages may link to pages not created yet (a warning, not an error), so build them in any order.
-

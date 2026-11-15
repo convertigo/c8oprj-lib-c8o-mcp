@@ -17,4 +17,3 @@ Previous: `convertigo://guides/data-page/golden-path`. Next: `convertigo://guide
   "value": "{\"filter\":\"Local\",\"project\":\"<ProjectName>\",\"input\":\"\",\"model\":{\"data\":[{\"localObject\":\"local\"}],\"path\":\"?.searchQuery\",\"prefix\":\"\",\"suffix\":\"\",\"custom\":\"\",\"useCustom\":false}}"
 }
 ```
-

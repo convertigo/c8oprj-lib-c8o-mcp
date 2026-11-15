@@ -89,4 +89,3 @@ If the workflow uses a real Convertigo stub:
 
 Common trap:
 - assuming that “stub file exists” means runtime stub proof is already done
-

@@ -13,4 +13,3 @@ Previous: `convertigo://guides/common/batching`. Next: `convertigo://guides/comm
 - Property patches also belong under `tree`: use `databaseobject-tree-apply({target:"<qname>",mode:"merge",tree:{properties:{isEnabled:false}}})`. Never send `properties` beside `target`, because top-level `properties` is not a tree-apply argument.
 - `databaseobject-tree-apply` with `mode:"replace"` and an empty or qname-only `children` does not delete anything. Delete exact nodes with `databaseobject-delete` and read back the parent to require the QName is absent.
 - `mode:"merge"` updates properties but does not remove stale incompatible properties. When repairing an object whose shape changed, read it back and delete/recreate it if an incompatible property remains.
-

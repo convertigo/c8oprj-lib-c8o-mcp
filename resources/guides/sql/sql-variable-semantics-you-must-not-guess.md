@@ -65,4 +65,3 @@ Minimum validation proof:
 
 ### Result keys follow the database's identifier case
 `sql_output` rows are keyed by the column labels the driver returns. HSQLDB and Oracle upper-case unquoted identifiers, PostgreSQL lower-cases them (MariaDB/MySQL and SQL Server keep them as written): `SELECT id, order_number AS orderNum` gives `ID` and `ORDERNUM`, so JavaScript reading `row.id` gets `undefined`. Give every selected column a quoted alias in the case your code reads, `SELECT id AS "id", order_number AS "orderNumber"`, and read those exact keys (checked on HSQLDB: the quoted alias `"orderLabel"` keeps its case).
-

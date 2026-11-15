@@ -32,4 +32,3 @@ Out of scope:
 - broad planner/specialist handoff
 - complex handwritten NGX composition before proof
 - RAG-first exploration
-

@@ -45,4 +45,3 @@ VIBE_HOME=/path/to/isolated/vibe-home vibe \
 ```
 
 The JSON output includes `reasoning_content`, tool calls, tool results, and the final assistant answer. Use it as the primary evidence stream for Vibe-loop scoring.
-

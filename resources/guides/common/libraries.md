@@ -35,4 +35,3 @@ Bootstrap is required once per agent conversation for a given MCP endpoint and g
 ## Task routes
 
 {{TASK_ROUTES}}
-

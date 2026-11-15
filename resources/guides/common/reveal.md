@@ -11,4 +11,3 @@ Previous: `convertigo://guides/common/viewer`. Next: `convertigo://guides/common
 - If those mutations are grouped with `batch-call`, pass top-level `reveal:true`; the batch reveals the final touched object after its deferred refresh.
 - Do not add `reveal:true` to read-only calls. For `mobile-builder-open`, use `wait:false` for reveal/focus polls and omit `reveal` on long readiness calls.
 - Treat a `result.reveal.status` of `skipped`, `unsupported`, or `intent` as a UI hint, not as a mutation failure.
-

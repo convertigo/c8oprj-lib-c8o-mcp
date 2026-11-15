@@ -28,4 +28,3 @@ HSQLDB lacks these functions and clauses of other databases ("user lacks privile
 | `ON CONFLICT`, `ON DUPLICATE KEY UPDATE`, `INSERT IGNORE` | `MERGE INTO t USING (VALUES({id}, {name})) AS v(id, name) ON t.id = v.id WHEN MATCHED THEN UPDATE SET ... WHEN NOT MATCHED THEN INSERT ...` |
 | `DATE_TRUNC('month', d)`, `TRUNC(d, 'YEAR')` | `TRUNC(d, 'MM')`, `TRUNC(d, 'YYYY')` (`'DD'`, `'HH'`, `'IW'`) |
 | `GETDATE()`, `LEN(s)`, `NEWID()`, `RANDOM()`, `x::text`, `IIF`, `IF()` | `CURRENT_TIMESTAMP`, `LENGTH(s)`, `UUID()`, `RAND()`, `CAST(x AS VARCHAR(4000))`, `CASE WHEN` |
-

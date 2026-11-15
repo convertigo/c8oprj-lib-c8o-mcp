@@ -22,4 +22,3 @@ If the task is a classic data-backed page, read `convertigo/recipe-ngx-data-page
 For starter-based apps that display backend, HTTP web-service, SQL, or FullSync results, this handbook is not the entry point. Stop before any page mutation unless `convertigo://guides/data-page` has already been read in the current session.
 
 For data-backed pages, run the recipe's final tree-readback self-audit before any final response. If the readback shows a primary `UICustom`/`htmlTemplate` renderer, TypeScript page state, or direct `this.c8o.callJson*` transport, the page is still non-compliant even when the mobile builder is ready.
-

@@ -21,4 +21,3 @@ Previous: `convertigo://guides/common/subagents`. Next: `convertigo://guides/com
 - Never put a secret, token, password, API key, or customer credential in the default value. Keep the default a harmless placeholder and let the deployment provide the real value.
 - Use `project-list-symbols` to discover the symbols a project already declares before inventing a new one.
 - A variable `visibility` is a bitmask: Logs=1, Studio=2, Platform=4, XmlFile=8 (XmlFile also ciphers the value in the project file). Use `15` to mask a password, token, secret, or authorization header everywhere. An even value such as `30` or `62` leaves the value in the logs.
-

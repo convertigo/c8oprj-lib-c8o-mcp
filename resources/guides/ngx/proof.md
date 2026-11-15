@@ -98,4 +98,3 @@ For a credible NGX data page:
 - Do not treat structural UI presence as runtime proof.
 - Do not forget `__stub=true` when the requestable contract needs it.
 - Do not build a contract-backed data page mainly through one large `UICustom` body.
-

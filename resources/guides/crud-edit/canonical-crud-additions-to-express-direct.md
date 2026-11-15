@@ -78,4 +78,3 @@ Notes:
 - when an explicit row omits the integer identity primary key, the generator assigns sequential IDs starting at `1`
 - child rows can therefore reference parent rows deterministically through FK columns such as `region_id` or `primary_type_id`
 - entities not present in `seed.data` still fall back to synthetic rows from `seed.profile` / `seed.rowsPerEntity`
-

@@ -29,4 +29,3 @@ When the user wants the demo account created on a fresh server (a seed run once 
 3. Read the account again and source `./document/couchdb_output/account/passwordResetKey/text()` into the `passwordResetKey` variable of `lib_UserManager.ConfirmAccount` (a source: a step is not a JavaScript variable), then check its answer the same way.
 4. Give the role with `lib_UserManager.SetUserAttribute`, checking its answer too.
 5. Answer what was done (`created` or `existing`) from those answers, never a constant `ok`.
-

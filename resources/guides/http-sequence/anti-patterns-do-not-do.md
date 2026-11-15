@@ -34,4 +34,3 @@ Previous: `convertigo://guides/http-sequence/recommended-mcp-tools`. Next: `conv
 - A direct HTTP proof is counted as successful when the body is actually a provider error such as missing credentials, quota exceeded, login required, HTML documentation, or another payload outside the requested contract.
 - The UI is made to pass fixed provider constants such as `action`, `format`, `limit`, `type`, `mode`, or `fields` so that the business sequence works. That means the UI owns upstream transport details and the business sequence is not self-contained.
 - A direct HTTP proof is counted as successful after the endpoint advertises that it is deprecated and past its sunset date. That endpoint may still answer during a grace period, but generated applications should not be built on it.
-

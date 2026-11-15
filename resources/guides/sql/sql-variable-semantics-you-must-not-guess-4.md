@@ -101,4 +101,3 @@ After the first successful execution:
 
 Common trap:
 - writing a lot of business sequence mapping before the transaction has ever run once
-

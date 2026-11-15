@@ -65,4 +65,3 @@ Retry must be a real action path:
 - not only a placeholder event with no backend call
 
 The benchmark should be able to point to the actual action chain that retry executes.
-

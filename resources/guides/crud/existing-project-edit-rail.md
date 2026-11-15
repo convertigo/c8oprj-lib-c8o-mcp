@@ -46,4 +46,3 @@ For a generic many-to-one relation such as `employees.company_id -> companies.id
 - optionally choose the label field through `entities[].ui.relationFields.company_id.optionLabelField`
 - expect the backend to expose `company_id__label` in `list_employees` / `read_employee`
 - expect a derived CRUD business sequence such as `list_employees_by_company`
-

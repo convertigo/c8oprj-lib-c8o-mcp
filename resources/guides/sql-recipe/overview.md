@@ -15,4 +15,3 @@ Read this when you need to scaffold SQL-backed create, read, update, or delete b
 - Driver and typing caveats that matter immediately.
 - How to keep SQL details behind business sequences.
 - What a minimal CRUD setup should prove.
-

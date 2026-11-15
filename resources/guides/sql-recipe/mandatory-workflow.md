@@ -76,4 +76,3 @@ Not every POC needs all five immediately, but the contract should still anticipa
 - It preserves frontend stability.
 - It isolates driver differences and SQL casting quirks.
 - It keeps CRUD work understandable and benchmarkable.
-

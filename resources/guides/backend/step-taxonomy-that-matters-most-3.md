@@ -50,4 +50,3 @@ Prefer this:
 - one clear call path
 - one explicit shaping step
 - one validation proof
-

@@ -17,4 +17,3 @@ An app built only for readability looks like every other generated app: the star
 - **App shell.** The page toolbars take the theme's toolbar color, each menu page has an icon (`icon`, the base ionicons name such as `people` or `calendar`: the menu adds `-outline` or `-sharp`), the menu header shows `appName`.
 - **Consistency.** Hand-written rules read the tokens: spacing `--app-space-1` to `--app-space-6`, type `--app-font-size-xs` to `--app-font-size-2xl`, `--app-radius-sm`, `--app-radius`, `--app-radius-lg`, surfaces `--app-surface`, `--app-surface-2`, `--app-muted`, `--app-border`, colors `--ion-color-<name>`. Never a fixed color or pixel size the theme already gives.
 - **Check it.** `browser-verify` returns `designSuggestions`; check a phone width (`viewport: "mobile"`) as well as the desktop.
-

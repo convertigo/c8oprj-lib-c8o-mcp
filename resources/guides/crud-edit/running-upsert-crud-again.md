@@ -44,4 +44,3 @@ to the page with `filters:[{name, label, type:"select", options}]` or `type:"sea
 `ngx-page-create` writes the texts you give it: titles, labels, buttons, empty texts, success messages. Its defaults
 are English and its answer warns when one was used: give every text in the app's language. upsert-crud writes the
 required-field messages in French with `ui.language: "fr"` in the spec.
-

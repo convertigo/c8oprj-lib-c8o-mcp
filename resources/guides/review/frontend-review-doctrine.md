@@ -112,4 +112,3 @@ If the user asks for both detailed and client-facing material, split them:
 
 - detailed review: evidence, counts, rationale
 - client synthesis: short priorities, concrete recommendations, no repository jargon
-

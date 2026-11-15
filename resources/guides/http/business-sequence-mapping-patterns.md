@@ -130,4 +130,3 @@ For a credible HTTP-backed business sequence, you need:
 - `requestable-stub-set`
 - `log-view`
 - `project-save`
-

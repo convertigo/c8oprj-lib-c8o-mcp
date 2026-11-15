@@ -15,4 +15,3 @@ Read this before planning or implementing any feature that spans backend flow, S
 - How to define a business sequence requestable contract first.
 - How to use a stub response to unblock UI and tests.
 - How to replace a stub with a real integration without breaking consumers.
-

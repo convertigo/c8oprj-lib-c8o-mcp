@@ -77,4 +77,3 @@ Always validate on a fresh disposable project instead of a project already pollu
   }
 }
 ```
-

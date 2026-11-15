@@ -13,4 +13,3 @@ Previous: `convertigo://guides/common/backend`. Next: `convertigo://guides/commo
 - Treat `spec.relations[]`, `entities[].ui.relationFields`, and `seed.data` as first-class public CRUD inputs. Do not grep the local workspace to rediscover them once the CRUD guides were read. Prefer `seed.data` for demo rows instead of patching `init_schema` manually.
 - For a low-detail CRUD request, stop after the first green end-to-end scaffold plus seeded demo data. Do not start a second UX or layout pass unless the user asked for it.
 - The low-detail stop rule applies only to generic CRUD. Before mutation, list the explicit acceptance behaviors from the request. Filters, counters, domain actions, or dashboards are not proven by the presence of fields or a generic list/detail/form shell; implement and validate each one before claiming completion.
-

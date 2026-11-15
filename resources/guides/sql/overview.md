@@ -55,4 +55,3 @@ Why this matters:
 
 Common trap:
 - assuming one JDBC URL or driver family works the same everywhere
-

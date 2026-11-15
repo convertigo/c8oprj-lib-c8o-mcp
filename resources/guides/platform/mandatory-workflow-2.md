@@ -85,4 +85,3 @@ The MCP is not the product. It is the manipulation layer for product objects. It
 - record friction when MCP or docs are insufficient
 
 It should not force the agent to invent Convertigo from scratch.
-

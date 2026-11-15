@@ -30,4 +30,3 @@ Creating an `HttpConnector` commits the run to that HTTP rail. Do not create exp
 If the only endpoint you know requires uncertain dataset ids, fixed hidden variables, provider-specific headers, provider accounts, quota-limited demo credentials, catalog/discovery semantics, generic normalization or entity-lookup semantics, generic search semantics, or a static raw file URL with no server-side user filter variable, do not start mutating the project with that endpoint. Choose a simpler direct record endpoint when one is already known; otherwise report the HTTP proof incomplete.
 
 A static file endpoint such as a raw `.json`, `.csv`, `.ndjson`, or repository-hosted data file is not a web-service search/list endpoint for this fast path unless the user explicitly asked for static-file integration. Do not compensate by downloading all records and filtering them in the UI or business sequence; that hides the missing HTTP request contract and usually bloats the run.
-

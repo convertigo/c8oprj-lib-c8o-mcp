@@ -22,7 +22,7 @@ function guidanceText(sourceFile) {
   const manifest = JSON.parse(read('resources/guide_drawers.json'));
   const guide = manifest.find(g => 'resources/' + g.sourceFile === sourceFile);
   if (!guide) return read(sourceFile);
-  return guide.drawers.map(d => read('resources/' + d.file).slice(d.bodyOffset)).join('');
+  return guide.drawers.map(d => read('resources/' + d.file).slice(d.bodyOffset) + '\n'.repeat(d.trailingSourceNewlines || 0)).join('');
 }
 function resources() {
   const sandbox = {

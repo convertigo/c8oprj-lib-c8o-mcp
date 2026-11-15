@@ -45,4 +45,3 @@ Do not put a control directly under the page or a card without its `FormItem`, a
 ```
 
 - After applying it, read the `UIControlVariable` back and check that `model.data[0].priority` equals the `UIForm` priority and that `identifier` and `ControlName` match.
-

@@ -66,4 +66,3 @@ In client-facing reports, avoid internal implementation jargon such as `YAML`, `
    - removed because the perimeter changed
 5. Build findings from direct evidence, not assumptions.
 6. Produce priorities only after the current-state evidence and old-review comparison are clear.
-
