@@ -6,7 +6,7 @@ responseTimeout: 300
 ↓Include [steps.SimpleStep-1792270000001]: 
   expression: 'include("js/mcp_auth.js"); include("js/subagents.js"); include("js/tools_browser_verify.js"); include("js/viewer_session.js");'
 ↓Run [steps.SimpleStep-1792270000002]: 
-  expression: 'var browserVerifyResult = C8O.browserVerify.execute(context, {url: url, paths: paths, checks: checks, hints: hints, viewport: viewport, model: model, reasoning: reasoning, maxSteps: maxSteps, timeBudgetSec: timeBudgetSec, cdpEndpoint: cdpEndpoint, browserDebugPort: browserDebugPort, waitSec: waitSec, verificationId: verificationId, conversationId: conversationId, signInAs: signInAs});'
+  expression: 'var browserVerifyResult = C8O.browserVerify.execute(context, {url: url, paths: paths, checks: checks, hints: hints, viewport: viewport, model: model, reasoning: reasoning, maxSteps: maxSteps, timeBudgetSec: timeBudgetSec, cdpEndpoint: cdpEndpoint, browserDebugPort: browserDebugPort, waitSec: waitSec, verificationId: verificationId, conversationId: conversationId, signInAs: signInAs, design: design, pages: pages, maxPages: maxPages, userAsked: userAsked});'
 ↓result [steps.JsonToXmlStep-1792270000003]: 
   jsonObject: 
     - xmlizable: 
@@ -79,4 +79,20 @@ responseTimeout: 300
 ↓conversationId [variables.RequestableVariable-1792270000016]: 
   comment: 'Set by the MCP router from the X-Convertigo-Conversation-Id header of the managed agent hosts.'
   description: 'Set by the MCP router from the X-Convertigo-Conversation-Id header of the managed agent hosts.'
+  value: ''
+↓design [variables.RequestableVariable-1795300000011]: 
+  comment: 'true: the visual finishing pass of the pages (two widths, measured checks, a six-point checklist judged by the vision model) instead of a walk.'
+  description: 'true: the visual finishing pass of the pages (two widths, measured checks, a six-point checklist judged by the vision model) instead of a walk.'
+  value: ''
+↓pages [variables.RequestableVariable-1795300000012]: 
+  comment: 'With design: the pages to review, their addresses relative to url (6 by default, 8 at most).'
+  description: 'With design: the pages to review, their addresses relative to url (6 by default, 8 at most).'
+  value: ''
+↓maxPages [variables.RequestableVariable-1795300000013]: 
+  comment: 'With design: the pages reviewed at most (1 to 8, default 6).'
+  description: 'With design: the pages reviewed at most (1 to 8, default 6).'
+  value: ''
+↓userAsked [variables.RequestableVariable-1795300000014]: 
+  comment: 'With design: true only when the user asked for one more finishing pass after the two automatic rounds.'
+  description: 'With design: true only when the user asked for one more finishing pass after the two automatic rounds.'
   value: ''

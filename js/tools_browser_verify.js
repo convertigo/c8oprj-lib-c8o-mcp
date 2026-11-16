@@ -38,6 +38,12 @@ C8O.browserVerify = C8O.browserVerify || {};
 (function (api) {
   var MAX_PATHS = 8;
   var MAX_CHECKS = 20;
+  // The finishing pass (design: true): pages per call, automatic rounds per project, the window the rounds are counted in,
+  // and the global symbol that turns it off for a Studio or a server.
+  var MAX_DESIGN_PAGES = 8;
+  var DESIGN_ROUNDS = 2;
+  var DESIGN_WINDOW_MS = 6 * 3600 * 1000;
+  var DESIGN_SYMBOL = "convertigo.mcp.design.review";
 
   function sa() {
     return C8O.subagents;
@@ -182,9 +188,13 @@ C8O.browserVerify = C8O.browserVerify || {};
     if (!paths.length && str(params.task).length) {
       paths = [str(params.task)];
     }
+    var design = api.isDesign(params) || api.isDesign(inputs);
     return {
       url: str(pick("url")),
       project: str(pick("project")),
+      design: design,
+      pages: design ? api.parseList(pick("pages"), "pages", MAX_DESIGN_PAGES) : [],
+      maxPages: Math.max(1, Math.min(MAX_DESIGN_PAGES, parseInt(str(pick("maxPages")) || "6", 10) || 6)),
       viewport: api.parseViewport(pick("viewport")),
       paths: paths,
       checks: api.parseList(pick("checks"), "checks", MAX_CHECKS),
@@ -193,11 +203,44 @@ C8O.browserVerify = C8O.browserVerify || {};
     };
   }
 
+  api.isDesign = function (params) {
+    var value = params ? params.design : null;
+    return value === true || /^(true|1|yes)$/i.test(str(value));
+  };
+
+  // The project a design review is about: given, or the one of the viewer URL.
+  api.designProject = function (url, project) {
+    return str(project) || (/\/projects\/([A-Za-z_][A-Za-z0-9_]*)\//.exec(str(url)) || [])[1] || "";
+  };
+
+  // The rounds of the finishing pass for a project: two automatic ones (the review, then the re-check of the failed pages)
+  // in DESIGN_WINDOW_MS; a third only when the user asked for it. Returns {round, roundsLeft} once recorded, or {skip}.
+  api.designRound = function (ledger, project, userAsked, now) {
+    var data = ledger.read() || {};
+    var key = project || "(app)";
+    var kept = (data[key] || []).filter(function (t) { return now - Number(t) < DESIGN_WINDOW_MS; });
+    if (kept.length >= DESIGN_ROUNDS && !userAsked) {
+      return { skip: "The finishing pass of " + key + " already ran " + kept.length + " times: its rounds are used up (a review, then one re-check of " +
+        "the failed pages). Leave the remaining points in the final answer, or run it again with userAsked:true only if the user asks for another pass." };
+    }
+    kept.push(now);
+    data[key] = kept;
+    ledger.write(data);
+    return { round: kept.length, roundsLeft: Math.max(0, DESIGN_ROUNDS - kept.length) };
+  };
+
   // The runner of the verifier profile: the browser to drive, the Node agent and its configuration.
   api.runner = {
     prepare: function (params, profile, ctx, host) {
       var inputs = verifierInputs(params);
-      if (!inputs.paths.length) {
+      if (inputs.design && !inputs.pages.length) {
+        throw new Error("pages is required with design: the addresses of the pages to review, relative to url (the viewerHomeUrl of " +
+          "mobile-builder-open), for example [\"dashboard\", \"deals\", \"deal-form\"].");
+      }
+      if (inputs.design && !inputs.url.length) {
+        throw new Error("url is required with design: the viewerHomeUrl of mobile-builder-open, which the page addresses are relative to.");
+      }
+      if (!inputs.paths.length && !inputs.design) {
         throw new Error("paths is required: the paths to walk and check, in plain language, for example " +
           "[\"Log in as the demo user, open the orders list, check that 3 orders are shown\"].");
       }
@@ -233,8 +276,12 @@ C8O.browserVerify = C8O.browserVerify || {};
         command: [host.nodePath(), host.scriptPath()],
         env: { PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" },
         lockKey: cdpEndpoint,
-        task: str(params.task) || inputs.paths.map(function (p) { return typeof p === "string" ? p : p.name + ": " + p.steps; }).join(" / "),
+        task: str(params.task) || (inputs.design ? "Design review: " + inputs.pages.map(function (p) { return typeof p === "string" ? p : p.name + " " + p.steps; }).join(", ")
+          : inputs.paths.map(function (p) { return typeof p === "string" ? p : p.name + ": " + p.steps; }).join(" / ")),
         config: {
+          mode: inputs.design ? "design" : "walk",
+          pages: inputs.pages.map(function (p) { return typeof p === "string" ? p : { name: p.name, path: p.steps }; }),
+          maxPages: inputs.maxPages,
           gatewayUrl: ctx.gatewayUrl,
           model: profile.model,
           reasoning: reasoning || "none",
@@ -285,6 +332,7 @@ C8O.browserVerify = C8O.browserVerify || {};
             return { kind: str(d.kind), description: str(d.description), location: str(d.location) };
           }),
           designSuggestions: (report.designSuggestions || []).map(mapShot),
+          design: report.design ? api.designOf(report.design, rel) : undefined,
           screenshots: (output.screenshots || []).map(function (s) {
             return { name: str(s.name), path: rel(s.file), url: str(s.url) };
           }),
@@ -298,6 +346,20 @@ C8O.browserVerify = C8O.browserVerify || {};
         usage: sa().usageOf(usage, run, usage.tool)
       };
     }
+  };
+
+  // The design review with workspace-relative screenshots, the failed points major first.
+  api.designOf = function (design, rel) {
+    var pages = (design.pages || []).map(function (p) {
+      return { name: str(p.name), url: str(p.url), title: str(p.title), summary: str(p.summary),
+        checks: (p.checks || []).map(function (c) { return { id: str(c.id), status: str(c.status), severity: str(c.severity), finding: str(c.finding), fix: str(c.fix) }; }),
+        measured: (p.measured || []).slice(0, 20).map(function (m) { return { check: str(m.check), issue: str(m.issue), where: str(m.where) }; }),
+        screenshots: { desktop: rel(p.screenshots && p.screenshots.desktop), phone: rel(p.screenshots && p.screenshots.phone) } };
+    });
+    var toFix = (design.toFix || []).map(function (f) { return { page: str(f.page), id: str(f.id), severity: str(f.severity), finding: str(f.finding), fix: str(f.fix) }; });
+    toFix.sort(function (a, b) { return (a.severity === "major" ? 0 : 1) - (b.severity === "major" ? 0 : 1); });
+    return { checklist: (design.checklist || []).map(function (c) { return { id: str(c.id), text: str(c.text) }; }), toFix: toFix, pages: pages,
+      skipped: (design.skipped || []).map(str), errors: (design.errors || []).map(str), consoleErrors: (design.consoleErrors || []).map(str) };
   };
 
   api.runners = function () {
@@ -327,6 +389,7 @@ C8O.browserVerify = C8O.browserVerify || {};
       visualDefects: report.visualDefects,
       autoDefects: report.autoDefects || [],
       designSuggestions: report.designSuggestions || [],
+      design: report.design,
       screenshots: report.screenshots,
       reportFile: result.reportFile,
       finalUrl: report.finalUrl,
@@ -347,7 +410,32 @@ C8O.browserVerify = C8O.browserVerify || {};
       }
     }
     call.runId = params.verificationId;
-    return api.flatten(sa().run(call, host, api.runners(), { profile: "verifier", usageTool: "browser-verify" }));
+    // The finishing pass: turned off by the global symbol, or its rounds used up for this project. Only a new review counts.
+    var round = null;
+    if (api.isDesign(params) && !str(params.verificationId).length) {
+      var setting = typeof host.designSetting === "function" ? str(host.designSetting()).toLowerCase() : "";
+      if (/^(off|false|no|0|disabled)$/.test(setting)) {
+        return { status: "skipped", reason: "The finishing pass is turned off in this Studio or server (global symbol " + DESIGN_SYMBOL + "=" + setting + "): do not run it." };
+      }
+      // A call that would be refused (no pages, no url) uses no round.
+      if (!api.parseList(params.pages, "pages", MAX_DESIGN_PAGES).length || !str(params.url).length) {
+        throw new Error("design needs url (the viewerHomeUrl of mobile-builder-open) and pages (their addresses relative to it, for example [\"dashboard\", \"deals\"]).");
+      }
+      if (host.designLedger) {
+        round = api.designRound(host.designLedger, api.designProject(params.url, params.project), params.userAsked === true || /^true$/i.test(str(params.userAsked)), host.now());
+        if (round.skip) {
+          return { status: "skipped", reason: round.skip };
+        }
+      }
+    }
+    var result = api.flatten(sa().run(call, host, api.runners(), { profile: "verifier", usageTool: "browser-verify" }));
+    if (round && result && result.design) {
+      result.design.round = round.round;
+      result.design.roundsLeft = round.roundsLeft;
+    } else if (round && result && result.status === "running") {
+      result.message = result.message + " This is round " + round.round + " of the finishing pass (" + round.roundsLeft + " left).";
+    }
+    return result;
   };
 
   // The verifier's part of the Studio host: the conversation's viewer, Node.js, playwright-core and the agent script.
@@ -454,6 +542,34 @@ C8O.browserVerify = C8O.browserVerify || {};
       }
       throw new Error("Playwright is not installed in this Studio's agent runtimes (" + workspace.getPath() +
         "/agents/*/npm): start a Tigo conversation once so the Agent Bridge installs the Playwright MCP.");
+    };
+    host.designSetting = function () {
+      try {
+        var value = Engine.theApp.databaseObjectsManager.symbolsGetValue(DESIGN_SYMBOL);
+        return value == null ? "" : String(value);
+      } catch (_noSymbol) {
+        return "";
+      }
+    };
+    var ledgerFile = function () {
+      return new File(new File(C8O.tigoAgentsDirectory(workspace, File), "convertigo"), "design-rounds.json");
+    };
+    host.designLedger = {
+      read: function () {
+        try {
+          var file = ledgerFile();
+          return file.isFile() ? JSON.parse(String(new java.lang.String(java.nio.file.Files.readAllBytes(file.toPath()), "UTF-8"))) : {};
+        } catch (_unreadable) {
+          return {};
+        }
+      },
+      write: function (data) {
+        try {
+          var file = ledgerFile();
+          file.getParentFile().mkdirs();
+          java.nio.file.Files.write(file.toPath(), new java.lang.String(JSON.stringify(data)).getBytes("UTF-8"));
+        } catch (_unwritable) {}
+      }
     };
     host.scriptPath = function () {
       var project = Engine.theApp.databaseObjectsManager.getOriginalProjectByName("lib_ConvertigoMCP");

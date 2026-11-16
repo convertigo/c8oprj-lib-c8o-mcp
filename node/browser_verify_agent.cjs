@@ -75,7 +75,8 @@ function normalizeConfig(raw) {
     }
     return { name: "Path " + (index + 1), steps: str(item) };
   }).filter(function (item) { return item.steps.length > 0; });
-  if (!paths.length) {
+  var design = str(raw.mode) === "design";
+  if (!paths.length && !design) {
     throw new Error("paths is required: at least one path to check, in plain language.");
   }
   if (!str(raw.cdpEndpoint).length && !(raw.launch && typeof raw.launch === "object")) {
@@ -95,6 +96,9 @@ function normalizeConfig(raw) {
     cdpEndpoint: str(raw.cdpEndpoint),
     launch: raw.launch && typeof raw.launch === "object" ? raw.launch : null,
     url: str(raw.url),
+    mode: design ? "design" : "walk",
+    pages: design ? (Array.isArray(raw.pages) ? raw.pages : asList(raw.pages)) : [],
+    maxPages: clampInt(raw.maxPages, 6, 1, 8),
     paths: paths,
     checks: asList(raw.checks).map(str).filter(function (c) { return c.length > 0; }),
     context: str(raw.context),
@@ -395,9 +399,9 @@ function createGateway(config, key, fetchImpl) {
     complete: function (messages, options) {
       var request = {
         model: config.model,
-        max_tokens: config.maxTokens,
+        max_tokens: (options && options.maxTokens) || config.maxTokens,
         messages: messages,
-        tools: TOOLS,
+        tools: (options && options.tools) || TOOLS,
         tool_choice: (options && options.toolChoice) || "auto"
       };
       if (reasoning) {
@@ -1341,6 +1345,13 @@ async function run(rawConfig, deps) {
     throw new Error("No gateway key.");
   }
   fs.mkdirSync(config.outDir, { recursive: true });
+  // The finishing pass: the pages by their address at two widths, a scan and one vision call per page (design_review.cjs).
+  if (config.mode === "design") {
+    return require("./design_review.cjs").runDesign(config, deps, {
+      createGateway: createGateway, openBrowser: openBrowser, restoreViewport: restoreViewport, settle: settle, sleep: sleep,
+      shortError: shortError, parseArgs: parseArgs
+    });
+  }
   var gateway = createGateway(config, key, deps.fetch || fetch);
   var browserState = await openBrowser(config, deps.playwright);
   try {
