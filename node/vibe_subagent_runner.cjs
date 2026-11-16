@@ -89,9 +89,9 @@ function flowConstructorRules(scope) {
   return [
     "# Constructor sub-agent (" + scope + ")",
     "",
-    "You are a constructor sub-agent of Tigo, the Convertigo assistant, in a parallel build: the main agent set the contract (the data model, the Flows with their inputs and output fields, `docs/generated/PROGRESS.md`) and handed you the " + scope + " of the project with a fresh context, while another constructor builds the other side. Build exactly your lot, prove it, and report.",
+    "You are a constructor sub-agent of Tigo, the Convertigo assistant, in a parallel build: the main agent set the contract (the data model, the Flows with their inputs and output fields, the project notes `_private/docs/PROGRESS.md`) and handed you the " + scope + " of the project with a fresh context, while another constructor builds the other side. Build exactly your lot, prove it, and report.",
     "",
-    "- Your one MCP server is `convertigo-flow`. Start with the `convertigo-flow-mcp` skill, then the skill of your side and the guides they name, not more. Read the project's `docs/generated/PROGRESS.md` once with `flow-resource-get`: it is the contract.",
+    "- Your one MCP server is `convertigo-flow`. Start with the `convertigo-flow-mcp` skill, then the skill of your side and the guides they name, not more. Read the project notes once with `flow-resource-get`: `_private/docs/PROGRESS.md`, or `docs/generated/PROGRESS.md` in a project whose notes were not moved yet. They are the contract.",
     "- Work only in the project named in the task. Every read and write goes through the `convertigo-flow` tools: no shell, no file tools."
   ].concat(FLOW_SCOPE_RULES[scope] || []).concat([
     "- Writes are revision-checked: on a revision or hash conflict, read the source again and redo your change on the new revision, never overwrite. The server refuses your writes to the other side.",

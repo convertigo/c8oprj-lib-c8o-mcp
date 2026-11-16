@@ -11,7 +11,8 @@
  * - the sequences with who can call them, the tables and their fields, the sign-in flow and the roles, the references;
  * - the style index: each CSS class the pages use, where it is defined (an app style such as AppLayout, the theme, a
  *   page style) and, for the classes asked or used by the detailed page, its rules; the pages without a style of their own;
- * - the project notes (docs/generated/PROGRESS.md), written by earlier turns, with their secrets masked.
+ * - the project notes (_private/docs/PROGRESS.md, never served; docs/generated/PROGRESS.md before 0.3.0-beta.31),
+ *   written by earlier turns, with their secrets masked.
  *
  * The pure helpers (CSS parsing, the style index, masking, value rendering) run without an engine and are tested by
  * tests/scripts/validate_project_brief.cjs; build() reads the engine objects.
@@ -20,7 +21,26 @@ if (typeof C8O === "undefined") { var C8O = {}; }
 C8O.projectBrief = C8O.projectBrief || {};
 
 (function (api) {
-  api.NOTES_PATH = "docs/generated/PROGRESS.md";
+  // The notes of a project and the documents its builds write live under _private/docs: the engine never serves
+  // _private (403) and leaves it out of the CAR. docs/ is served as static files (anyone could read notes there on a
+  // deployed server, 16/11): notes written there up to 0.3.0-beta.30 are read as a fallback and moved by the next
+  // project-notes-write.
+  api.DOCS_DIR = "_private/docs";
+  api.NOTES_PATH = api.DOCS_DIR + "/PROGRESS.md";
+  api.LEGACY_NOTES_PATH = "docs/generated/PROGRESS.md";
+  // the folders whose text files a deployed server serves, where builds used to write their documents
+  api.SERVED_DOCS_DIRS = ["docs", "docs/generated"];
+
+  // Where the notes are read from: the private file, else the legacy served one. isFile(relativePath) -> boolean.
+  api.notesSource = function (isFile) {
+    if (isFile(api.NOTES_PATH)) {
+      return { path: api.NOTES_PATH, legacy: false, present: true };
+    }
+    if (isFile(api.LEGACY_NOTES_PATH)) {
+      return { path: api.LEGACY_NOTES_PATH, legacy: true, present: true };
+    }
+    return { path: api.NOTES_PATH, legacy: false, present: false };
+  };
   var MAX_NOTES_CHARS = 4000;
   var MAX_OUTLINE_LINES = 400;
   var MAX_VALUE_CHARS = 120;
@@ -802,29 +822,36 @@ C8O.projectBrief = C8O.projectBrief || {};
   }
 
   function readNotes(project) {
-    var out = { path: api.NOTES_PATH, present: false, chars: 0, text: "", truncated: false, masked: 0, otherFiles: [] };
+    var out = { path: api.NOTES_PATH, present: false, chars: 0, text: "", truncated: false, masked: 0, otherFiles: [], servedDocs: [] };
     try {
       var dir = new java.io.File(String(project.getDirPath()));
-      var file = new java.io.File(dir, api.NOTES_PATH);
-      if (file.isFile()) {
-        var text = String(new java.lang.String(java.nio.file.Files.readAllBytes(file.toPath()), "UTF-8"));
+      var source = api.notesSource(function (relativePath) { return new java.io.File(dir, relativePath).isFile(); });
+      if (source.present) {
+        var text = readUtf8(new java.io.File(dir, source.path));
         var masked = api.maskSecrets(text);
+        out.path = source.path;
         out.present = true;
+        if (source.legacy) {
+          out.legacy = true;
+        }
         out.chars = text.length;
         out.masked = masked.masked;
         out.truncated = masked.text.length > MAX_NOTES_CHARS;
         out.text = out.truncated ? masked.text.substring(0, MAX_NOTES_CHARS) + "\n…" : masked.text;
       }
-      var docs = new java.io.File(dir, "docs/generated");
-      var listed = docs.isDirectory() ? docs.listFiles() : null;
-      if (listed !== null) {
-        for (var i = 0; i < listed.length && out.otherFiles.length < 10; i++) {
+      var listMarkdown = function (folder, into, skip) {
+        var listed = new java.io.File(dir, folder).listFiles();
+        for (var i = 0; listed !== null && i < listed.length && into.length < 10; i++) {
           var name = String(listed[i].getName());
-          if (/\.md$/i.test(name) && "docs/generated/" + name !== api.NOTES_PATH) {
-            out.otherFiles.push("docs/generated/" + name);
+          if (listed[i].isFile() && /\.(md|txt)$/i.test(name) && folder + "/" + name !== skip) {
+            into.push(folder + "/" + name);
           }
         }
-      }
+      };
+      listMarkdown(api.DOCS_DIR, out.otherFiles, api.NOTES_PATH);
+      api.SERVED_DOCS_DIRS.forEach(function (folder) {
+        listMarkdown(folder, out.servedDocs, source.legacy ? "" : api.LEGACY_NOTES_PATH);
+      });
     } catch (_noNotes) {}
     return out;
   }
@@ -988,7 +1015,7 @@ C8O.projectBrief = C8O.projectBrief || {};
       result = {
         project: name,
         version: str(call(project, "getVersion", "")),
-        notes: { path: notes.path, present: notes.present, chars: notes.chars },
+        notes: notes.legacy ? { path: notes.path, present: notes.present, chars: notes.chars, legacy: true } : { path: notes.path, present: notes.present, chars: notes.chars },
         page: frontend.detail,
         pageSummary: pageEntry,
         sequences: sequences.filter(function (s) { return called[s.name] === true; }),
@@ -1073,7 +1100,13 @@ C8O.projectBrief = C8O.projectBrief || {};
         ". Reuse the classes listed and the theme variables (--app-*, --ion-color-<name>, -rgb) before new colours.");
     }
     if (brief.notes.present && brief.notes.text !== undefined) {
-      hints.push("notes.text is the project's " + api.NOTES_PATH + ": follow its conventions, and add what this turn decides with project-notes-write.");
+      hints.push("notes.text is the project's " + brief.notes.path + ": follow its conventions, and add what this turn decides with project-notes-write.");
+    }
+    if (brief.notes.legacy) {
+      hints.push("The notes are still in " + api.LEGACY_NOTES_PATH + ", which a deployed server serves to anyone: the next project-notes-write moves them to " + api.NOTES_PATH + ".");
+    }
+    if (brief.notes.servedDocs && brief.notes.servedDocs.length) {
+      hints.push("servedDocs are text files that a deployed server serves to anyone (" + brief.notes.servedDocs.join(", ") + "): keep build documents under " + api.DOCS_DIR + "/, never a password or key in a served file.");
     }
     return hints;
   }
@@ -1082,7 +1115,7 @@ C8O.projectBrief = C8O.projectBrief || {};
 
   var MAX_NOTES_WRITE = 20000;
 
-  // The notes of a project, written in docs/generated/PROGRESS.md: replace (the whole file) or append (a section at the
+  // The notes of a project, written in _private/docs/PROGRESS.md: replace (the whole file) or append (a section at the
   // end). A text holding a secret is refused, never written masked: the agent rewrites it without the value.
   api.checkNotesText = function (text) {
     var value = str(text).replace(/\r\n?/g, "\n");
@@ -1106,25 +1139,71 @@ C8O.projectBrief = C8O.projectBrief || {};
     return value;
   };
 
-  api.writeNotes = function (projectName, text, mode) {
+  // What a write of the notes does, from the texts of the private file and of the legacy served one (null when absent).
+  // The legacy file is removed by any write: it is served. Its text, when it is the one appended to, moves masked: it
+  // was written before the secret check and may hold a password.
+  api.planNotesWrite = function (privateText, legacyText, text, mode) {
     var value = api.checkNotesText(text);
     var how = trim(mode || "replace").toLowerCase();
     if (how !== "replace" && how !== "append") {
       throw new Error("mode must be replace or append.");
     }
-    var project = C8O.dbo.resolve(projectName, { messagePrefix: "project" });
-    var file = new java.io.File(new java.io.File(String(project.getDirPath())), api.NOTES_PATH);
-    var previous = "";
-    if (file.isFile()) {
-      previous = String(new java.lang.String(java.nio.file.Files.readAllBytes(file.toPath()), "UTF-8"));
+    var hasPrivate = privateText !== null && privateText !== undefined;
+    var hasLegacy = legacyText !== null && legacyText !== undefined;
+    var previous = hasPrivate ? str(privateText) : "";
+    var maskedOnMove = 0;
+    if (!hasPrivate && hasLegacy) {
+      var moved = api.maskSecrets(str(legacyText));
+      previous = moved.text;
+      maskedOnMove = moved.masked;
     }
-    var next = how === "append" && previous.length ? previous.replace(/\n*$/, "\n\n") + value.replace(/\n*$/, "\n") : value.replace(/\n*$/, "\n");
+    var next = how === "append" && trim(previous).length ? previous.replace(/\n*$/, "\n\n") + value.replace(/\n*$/, "\n") : value.replace(/\n*$/, "\n");
     if (next.length > MAX_NOTES_WRITE * 2) {
       throw new Error("The notes would have " + next.length + " characters: rewrite them shorter with mode replace.");
     }
+    var plan = {
+      next: next,
+      status: trim(previous).length ? (how === "append" ? "appended" : "replaced") : "created",
+      removeLegacy: hasLegacy
+    };
+    if (hasLegacy) {
+      plan.movedFrom = api.LEGACY_NOTES_PATH;
+      if (how === "append" && maskedOnMove > 0) {
+        plan.maskedOnMove = maskedOnMove;
+      }
+    }
+    return plan;
+  };
+
+  function readUtf8(file) {
+    return String(new java.lang.String(java.nio.file.Files.readAllBytes(file.toPath()), "UTF-8"));
+  }
+
+  api.writeNotes = function (projectName, text, mode) {
+    var project = C8O.dbo.resolve(projectName, { messagePrefix: "project" });
+    var dir = new java.io.File(String(project.getDirPath()));
+    var file = new java.io.File(dir, api.NOTES_PATH);
+    var legacy = new java.io.File(dir, api.LEGACY_NOTES_PATH);
+    var plan = api.planNotesWrite(file.isFile() ? readUtf8(file) : null, legacy.isFile() ? readUtf8(legacy) : null, text, mode);
     file.getParentFile().mkdirs();
-    java.nio.file.Files.write(file.toPath(), new java.lang.String(next).getBytes("UTF-8"));
-    return { project: nameOf(project), path: api.NOTES_PATH, status: previous.length ? (how === "append" ? "appended" : "replaced") : "created", chars: next.length };
+    java.nio.file.Files.write(file.toPath(), new java.lang.String(plan.next).getBytes("UTF-8"));
+    var out = { project: nameOf(project), path: api.NOTES_PATH, status: plan.status, chars: plan.next.length };
+    if (plan.removeLegacy) {
+      if (legacy["delete"]()) {
+        out.movedFrom = plan.movedFrom;
+        var parent = legacy.getParentFile();
+        var left = parent.list();
+        if (left !== null && left.length === 0) {
+          parent["delete"]();
+        }
+        if (plan.maskedOnMove) {
+          out.maskedOnMove = plan.maskedOnMove;
+        }
+      } else {
+        out.warning = api.LEGACY_NOTES_PATH + " could not be removed: the web server still serves it. Delete it.";
+      }
+    }
+    return out;
   };
 
   // --- tool entry points ---------------------------------------------------------------------------------------------

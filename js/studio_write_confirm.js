@@ -47,7 +47,7 @@ C8O.studioWriteConfirm = C8O.studioWriteConfirm || {};
     tools_ngx_page_create: "ngx-page-create",
     tools_ngx_theme_apply: "ngx-theme-apply",
     tools_project_js_set: "project-js-set",
-    // the notes of the project (docs/generated/PROGRESS.md), not a project object
+    // the notes of the project (_private/docs/PROGRESS.md), not a project object
     tools_project_notes_write: "project-notes-write",
     tools_project_save: "project-save",
     tools_project_delete: "project-delete",

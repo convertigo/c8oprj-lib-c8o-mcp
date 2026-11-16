@@ -209,8 +209,13 @@ Measured on SalesPipeline in the A/B harness of the Electron Studio (16/11, MCP 
   `page`: one line per object of that page with its QName suffix (built from `C8O.dbo.getCanonicalPropertiesMap`, the
   view of tree-get), and the CSS rules of its classes. Generic: nothing in it knows a generated app; checked on
   SalesPipeline, PipelineCrm3, TaskFlow and MiniCrm.
-- `project-notes-write` (write, not in `YAML_REFUSED`): `<project>/docs/generated/PROGRESS.md`, `replace` or `append`;
-  a text holding a password, token or key is refused (`checkNotesText`). The Agent Bridge puts those notes at the start of
+- `project-notes-write` (write, not in `YAML_REFUSED`): `<project>/_private/docs/PROGRESS.md`, `replace` or `append`;
+  a text holding a password, token or key is refused (`checkNotesText`). `_private/` is never served (the engine
+  answers 403) and stays out of the CAR; `docs/` is served as static files, so notes left in
+  `docs/generated/PROGRESS.md` (up to 0.3.0-beta.30) are read as a fallback, flagged `legacy`, and moved by the next
+  write, which deletes the old file (`planNotesWrite`; an appended legacy text moves masked). `project-brief` lists the
+  text files of `docs/` and `docs/generated/` as `servedDocs`. Generated projects git-ignore `/_private/`: the notes
+  stay in the Studio workspace. The Agent Bridge puts those notes at the start of
   each Studio turn about the project (`withProjectNotesPrompt`).
 - `viewer-sign-in` (read, local Studio only, full bearer): a one-time ticket (32 random bytes, 60 s, single use, in
   `context.server`) that `node/viewer_session.cjs` makes the viewer page POST to the Hidden sequence

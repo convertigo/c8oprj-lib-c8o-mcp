@@ -112,6 +112,39 @@ test('notes: secrets masked when read, a text holding one refused when written',
     '# Notes\n- Styles live in AppLayout.\n- Demo account demo@x.io (password given to the user).');
 });
 
+test('notes live under _private/docs, never served; the legacy served file is read, then moved by the next write', () => {
+  const brief = load();
+  assert.equal(brief.NOTES_PATH, '_private/docs/PROGRESS.md');
+  assert.equal(brief.LEGACY_NOTES_PATH, 'docs/generated/PROGRESS.md');
+  same(brief.notesSource((p) => p === '_private/docs/PROGRESS.md' || p === 'docs/generated/PROGRESS.md'),
+    { path: '_private/docs/PROGRESS.md', legacy: false, present: true });
+  same(brief.notesSource((p) => p === 'docs/generated/PROGRESS.md'), { path: 'docs/generated/PROGRESS.md', legacy: true, present: true });
+  same(brief.notesSource(() => false), { path: '_private/docs/PROGRESS.md', legacy: false, present: false });
+  // a first write
+  same(brief.planNotesWrite(null, null, '# Notes', 'replace'), { next: '# Notes\n', status: 'created', removeLegacy: false });
+  // append onto the legacy file: its text moves, masked (written before the secret check), and the file is removed
+  const moved = brief.planNotesWrite(null, '# Old\n- demo password: Demo2026!\n', '## Lot 2', 'append');
+  assert.equal(moved.status, 'appended');
+  assert.equal(moved.removeLegacy, true);
+  assert.equal(moved.movedFrom, 'docs/generated/PROGRESS.md');
+  assert.ok(!moved.next.includes('Demo2026!'));
+  assert.match(moved.next, /^# Old\n[\s\S]*\n\n## Lot 2\n$/);
+  assert.equal(moved.maskedOnMove, 1);
+  // replace: the legacy text is dropped, the file still removed
+  const replaced = brief.planNotesWrite(null, '# Old', '# New', 'replace');
+  same([replaced.next, replaced.status, replaced.removeLegacy], ['# New\n', 'replaced', true]);
+  assert.equal(replaced.maskedOnMove, undefined);
+  // both files: the private one is the notes, the served copy is removed
+  const both = brief.planNotesWrite('# Private\n', '# Stale served copy', '- step 3', 'append');
+  same([both.next, both.removeLegacy], ['# Private\n\n- step 3\n', true]);
+  assert.throws(() => brief.planNotesWrite(null, null, '# x', 'merge'), /mode must be replace or append/);
+  assert.throws(() => brief.planNotesWrite(null, null, 'token: abcdefghijklmnop0123', 'replace'), /never write a secret/);
+  // the tool, the docs and the agents say the new path
+  assert.match(read('_c8oProject/sequences/tools_project_notes_write.yaml'), /Writes _private\/docs\/PROGRESS\.md/);
+  assert.match(read('AGENT.md'), /<project>\/_private\/docs\/PROGRESS\.md/);
+  assert.match(read('node/vibe_subagent_runner.cjs'), /_private\/docs\/PROGRESS\.md/);
+});
+
 test('the three tools are registered, classified and described with closed input schemas', () => {
   const project = read('c8oProject.yaml');
   for (const seq of ['tools_project_brief', 'tools_project_notes_write', 'tools_viewer_sign_in', 'viewer_session_claim']) {

@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Write the project notes kept for the next turns
-  Writes docs/generated/PROGRESS.md in the project: the notes that project-brief returns and the next turns of Tigo read first. Keep there the conventions and decisions of the app (where its styles live, its design classes, its naming, its demo accounts by name), the object inventory and the next step, not a log. mode replace (default) writes the whole file, append adds a section at its end. A text holding a password, token or key is refused: name the account only. Writes no project object and needs no project-save.
+  Writes _private/docs/PROGRESS.md in the project, a folder the web server never serves (notes still in docs/generated/PROGRESS.md, which it serves, are moved there and the old file deleted): the notes that project-brief returns and the next turns of Tigo read first. Keep there the conventions and decisions of the app (where its styles live, its design classes, its naming, its demo accounts by name), the object inventory and the next step, not a log. mode replace (default) writes the whole file, append adds a section at its end. A text holding a password, token or key is refused: name the account only. Writes no project object and needs no project-save.
 ↓Include [steps.SimpleStep-1794900000101]: 
   expression: 'include("js/mcp_auth.js"); include("js/project_brief.js");'
 ↓Run [steps.SimpleStep-1794900000102]: 
