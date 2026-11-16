@@ -202,7 +202,8 @@ test('the guides of a profile are listed in that profile only, and readable by u
 
 test('the served guides hold no stray tool-call markup', () => {
   const markup = /<\/?(antml|invoke|parameter|function_calls|function_results|result|output)\b|\bantml:|<\/?tool_use|\[TOOL_CALLS\]|<\|.*?\|>/;
-  for (const file of fs.readdirSync(path.join(root, 'resources')).filter(name => /\.(md|json)$/.test(name))) {
+  // recursive: the guide text lives in the summaries and drawers under resources/guides
+  for (const file of fs.readdirSync(path.join(root, 'resources'), { recursive: true }).filter(name => /\.(md|json)$/.test(name))) {
     assert.doesNotMatch(read('resources/' + file), markup, file);
   }
 });

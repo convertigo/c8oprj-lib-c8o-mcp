@@ -23,7 +23,7 @@ Previous: `convertigo://guides/crud-edit/running-upsert-crud-again`. Next: `conv
 5. If the task includes UI, run `ngx-page-create` once per new page (a new entity: its list, detail and form pages, with `home` and `authRedirect`). A page to change: delete it and create it again (`ngx-page-create` never overwrites an existing page), or patch it with `databaseobject-tree-apply`.
 6. Run `mobile-builder-open(stateOnly=true, wait=true)` if the viewer was already warmed up, or a normal waited `mobile-builder-open` otherwise.
 7. Run `project-lint` and fix what it reports.
-8. Prove the changed paths with `browser-verify` (`url` the `viewerHomeUrl`). Without it, use the Playwright tools as the common skill says; if those MCP browser tools are unavailable, disabled, stale, or attached elsewhere, report the managed Playwright MCP configuration problem instead of using Node scripts, raw CDP, or a separate browser.
+8. Prove the changed paths with `browser-verify` (`url` the `viewerHomeUrl`). Without it, use the Playwright tools as the common skill says (`convertigo://guides/common/proof-results`); if those MCP browser tools are unavailable, disabled, stale, or attached elsewhere, report the managed Playwright MCP configuration problem instead of using Node scripts, raw CDP, or a separate browser.
 9. Save with `project-save` if a final save is still needed.
 10. Stop after the first final green proof.
 

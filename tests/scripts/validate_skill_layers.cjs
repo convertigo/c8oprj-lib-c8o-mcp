@@ -118,6 +118,13 @@ const copiedSlugs = setupCommon.copyResourceSkills('skills', 'generic', false, (
 assert.strictEqual(copiedFiles.length, setupCommon.resourceSkillFiles().length);
 assert.strictEqual(new Set(copiedFiles.map(file => file.path)).size, copiedFiles.length, 'Copied drawer skills overwrite each other');
 assert.strictEqual(new Set(copiedSlugs).size, copiedSlugs.length);
+// The generic bootstrap tells the agent where a cited guide URI was copied.
+assert.match(setupCommon.bootstrapLines('generic').join('\n'), /`convertigo:\/\/guides\/<a>\/<b>` is `guides-<a>-<b>\/SKILL\.md`/);
+setupCommon.resourceSkillFiles().forEach((entry, i) => {
+  const guide = /^convertigo:\/\/guides\/(.+)$/.exec(entry.uri);
+  const expected = guide ? 'guides-' + guide[1].replace(/\//g, '-') : entry.uri.replace(/^convertigo:\/\/resources\//, '');
+  assert.strictEqual(copiedSlugs[i], expected, entry.uri + ' is not copied where the generic bootstrap says');
+});
 for (const file of copiedFiles) {
   assert.ok(file.content.length < 16000, file.path + ' is too long');
   assert.doesNotMatch(file.content, /\{\{(?:GUIDANCE_VERSION|SETUP_SEQUENCE|TASK_ROUTES)\}\}/, file.path);

@@ -79,7 +79,7 @@
         "when": "Deterministic rail",
         "sha256": "ecaccdb59595e30be2e785c63aaa474ef3aabc730b062588ffe7724a314bb8fb",
         "bodyOffset": 211,
-        "servedSha256": "00ac67171a7941c971de741ff4dfa3c22a1f7983f60197e65eff66c54d753e56",
+        "servedSha256": "ca488057772d4153d8df5a8ad63c0833562bdbeda11b8df6073683fe8465f34b",
         "trailingSourceNewlines": 1
       },
       {
@@ -123,7 +123,7 @@
         "when": "Setup, isolation and bootstrap",
         "sha256": "06d79775d0c1cbe27d297d0d5e44eb8f6727d008706fb8d7e65fc21c1517d49b",
         "bodyOffset": 160,
-        "servedSha256": "a8fe8b8d67f44e495af916fdd5657f99d6d0815d435413665204267d5b4c7088",
+        "servedSha256": "b76ce9f66669626c4b9e8d3531f416b01cac5f73f86442932c4701382da50646",
         "trailingSourceNewlines": 1
       },
       {
@@ -412,7 +412,7 @@
         "when": "Server-side checks (validation)",
         "sha256": "9094241336f224def9942b53f1d99f47b7962da79a0a499106e8bcede3eb37bd",
         "bodyOffset": 278,
-        "servedSha256": "15aee11bee33e6fefe2cce69be9ec9fd84ef87cef43f4cf6e7da52b454a8d3b0",
+        "servedSha256": "3bdfa43644c015ce2bcb1134e26c854d8fc0b664fc06663a60bc0fb484fdf96b",
         "trailingSourceNewlines": 1
       },
       {
@@ -1369,7 +1369,7 @@
         "when": "Cards, labels and readable page structure",
         "sha256": "bc47e31b85aac5497060f35ccfdb19aebb97238328363d643523653c079a7dbe",
         "bodyOffset": 233,
-        "servedSha256": "ded0317bed841ade542a68333a91025cb25e174b0c884aa248c935548b73bf06"
+        "servedSha256": "215eff50443b78d7b6c916cbfec910d4cf205cde70015480c3fe9fd79a0f3382"
       },
       {
         "uri": "convertigo://guides/ngx/page-structure",
@@ -1637,7 +1637,7 @@
         "when": "Order of work",
         "sha256": "27cc00253d8599c8fbc866c2a983f5cae073e44fd25311f811c6ac3d3eb62315",
         "bodyOffset": 196,
-        "servedSha256": "f83e5bad255fe2c132dbb7262eaec43a01e8911153f34ea77731433f2040887c",
+        "servedSha256": "6f611498327ff08d9181bd6819cdc4108a57fe76790c18a7cd30a8e963e2b373",
         "trailingSourceNewlines": 1
       },
       {

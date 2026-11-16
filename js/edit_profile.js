@@ -3,8 +3,8 @@
 // user switched ("/profil yaml|html" in the Tigo panel, kept per conversation by lib_ConvertigoAssistant). Without the
 // header, or with any other value, nothing changes: that default is the MCP edit tools.
 // - yaml: the tools that change a project are neither listed nor run. The agent edits c8oProject.yaml, _c8oProject/**
-//   and js/** of the project with its own file tools, then calls project-reload (convertigo://guides/
-//   yaml-editing). project-reload and mobile-builder-build stay (a reload of the edited files, a build
+//   and js/** of the project with its own file tools, then calls project-reload (convertigo://guides/yaml-editing).
+//   project-reload and mobile-builder-build stay (a reload of the edited files, a build
 //   check); batch-call, requestable-execute and subagent-run stay for what changes nothing.
 // - html: every tool stays; project-reload imports the edited generated files of the NGX pages (fromIonic,
 //   js/ionic_roundtrip.js), mobile-builder-open lists them, and a tree change of a page waits for its file edits to be

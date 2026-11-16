@@ -26,7 +26,8 @@ test('callsFile and contentFile read the projects workspace and the temporary fo
 });
 
 test('the guides send payloads to the temporary folder, and never to browser_run_code_unsafe', () => {
-  const texts = fs.readdirSync(path.join(root, 'resources')).filter(f => /\.(md|json)$/.test(f)).map(f => read('resources/' + f))
+  // recursive: the guide text lives in the summaries and drawers under resources/guides
+  const texts = fs.readdirSync(path.join(root, 'resources'), { recursive: true }).filter(f => /\.(md|json)$/.test(f)).map(f => read('resources/' + f))
     .concat(['js/schema_overrides.js', 'js/resources.js', 'js/setup_common.js', 'js/setup_vibe.js', 'TOOLS.md'].map(read))
     .concat(fs.readdirSync(path.join(root, '_c8oProject/sequences')).map(f => read('_c8oProject/sequences/' + f)));
   const all = texts.join('\n');
