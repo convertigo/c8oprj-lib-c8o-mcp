@@ -335,10 +335,12 @@ include("js/sequence_response.js");
   // app showed who is signed in, generated ones did not (CRM comparison 16/11).
   var APP_USER_KEY = "app-user";
   function rememberUser(name, outExpr, typedExpr) {
-    return setLocal(name, "signedIn", "((o: any, typed: any) => { const d = o?.data ?? o ?? {}; const u = d?.user ?? d?.me ?? d?.account ?? d?.profile ?? d; " +
+    // The user is an object of the answer ({user: {name, role}}), or its identifier as a text next to the role ({user: "a@b.c", role}).
+    return setLocal(name, "signedIn", "((o: any, typed: any) => { const d = o?.data ?? o ?? {}; const u0 = d?.user ?? d?.me ?? d?.account ?? d?.profile; " +
+      "const u = u0 && typeof u0 === 'object' ? u0 : d; const id = typeof u0 === 'string' ? u0 : ''; " +
       "const full = [u?.firstName ?? u?.first_name ?? u?.firstname ?? u?.prenom, u?.lastName ?? u?.last_name ?? u?.lastname ?? u?.nom].filter((x: any) => !!x).join(' '); " +
-      "const shown = u?.name ?? u?.fullName ?? u?.full_name ?? u?.displayName ?? u?.display_name ?? (full || u?.email || u?.login || typed || ''); " +
-      "const role = u?.role ?? u?.roleLabel ?? (Array.isArray(u?.roles) ? u.roles[0] : '') ?? ''; " +
+      "const shown = u?.name ?? u?.fullName ?? u?.full_name ?? u?.displayName ?? u?.display_name ?? (full || u?.email || u?.login || id || typed || ''); " +
+      "const role = u?.role ?? d?.role ?? u?.roleLabel ?? (Array.isArray(u?.roles) ? u.roles[0] : '') ?? ''; " +
       "try { localStorage.setItem('" + APP_USER_KEY + "', JSON.stringify({ name: String(shown ?? ''), role: String(role ?? '') })); } catch (e) {} return true; })(" +
       outExpr + ", " + (typedExpr || "''") + ")");
   }
