@@ -1470,7 +1470,7 @@
         "when": "Builder launch and managed browser control",
         "sha256": "058ee9de80465ac91f635e6ef7b839023eda6e3ba7e3612eb95b588bec13fc64",
         "bodyOffset": 232,
-        "servedSha256": "1d6a3ff5806e79d2aab866ba391c014d6b02592d451f3c11b1d35c380791ff45",
+        "servedSha256": "270823c4d1b1d0787c1afa53a6f067a2c1d1b0bd94690aa35455f544389e8297",
         "trailingSourceNewlines": 1
       },
       {
@@ -1637,7 +1637,7 @@
         "when": "Order of work",
         "sha256": "27cc00253d8599c8fbc866c2a983f5cae073e44fd25311f811c6ac3d3eb62315",
         "bodyOffset": 196,
-        "servedSha256": "6f611498327ff08d9181bd6819cdc4108a57fe76790c18a7cd30a8e963e2b373",
+        "servedSha256": "56fbc8e475d4af13aeb0f49cc2b62be15811fd7abc7c8d9f27b45ccc4d2b54d5",
         "trailingSourceNewlines": 1
       },
       {
@@ -1681,7 +1681,7 @@
         "when": "Existing project: notes, brief and frequent changes",
         "sha256": "89eb32151916eed92e7c9b42bb9a57a3d8451921724c3acdf8b1ce8e70c34c5e",
         "bodyOffset": 259,
-        "servedSha256": "1fe88290f710ad3119764398d3c24dfb1ce41ce4cdec47578a06b327140703aa",
+        "servedSha256": "9b00ae70ca5acea66675e9636069b76284bb5c6c0a5c5a034375b5f4479c15a5",
         "trailingSourceNewlines": 1
       },
       {
@@ -1707,7 +1707,7 @@
         "when": "Project notes and resume",
         "sha256": "152614ec1b7e2e5dce8ff32bb5ad58bf9aea145faa68f7828b4d0c100cb167d7",
         "bodyOffset": 205,
-        "servedSha256": "593160a733c0875a7b99515c906685e7277d72f10100802c2cc45c55c19aabc5",
+        "servedSha256": "9cfbea2f80771629d8cb04b7b2e7f0a5fc9541c08e33ffe0a9024a2f37bd2585",
         "trailingSourceNewlines": 1
       },
       {
@@ -1804,7 +1804,7 @@
         "when": "Act on verifier reports and close the task",
         "sha256": "69d6fe6dfe75c6dba617a233c960dad6d2334260760bddc28a2eaffee055fa88",
         "bodyOffset": 233,
-        "servedSha256": "0b7e55d13fcab4678351b300865760027ad000a92e7e384ea8cbf97c643e8374",
+        "servedSha256": "e96c80b683034a2db17627235553d4050f54b8897674ba7d8d82ac9e13c1d74a",
         "trailingSourceNewlines": 1
       },
       {
