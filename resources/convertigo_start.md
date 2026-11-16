@@ -64,7 +64,8 @@ tree/palette contract, not by writing a project metadata file manually.
 3. Read one matching entry recipe. Use this start guide for an unknown route, `convertigo://recipes/quickstart` for unresolved route selection, and `convertigo://resources/convertigo-platform-big-picture` only for platform orientation.
 4. Inspect the target workspace or subtree before any write call:
    - `project-list`
-   - `databaseobject-tree-get`
+   - on an existing project, `project-brief({project})` once, then `project-brief({project, page})` for the page you change: pages, sequences, tables, sign-in, references, style index, project notes, and the objects of the page with their QNames; patch from them instead of searching
+   - `databaseobject-tree-get` for what the brief does not answer
    - `databaseobject-search` when discovery is uncertain
 5. If you need to create an object whose contract is not already known from a successful readback or the selected recipe, confirm the allowed entry with:
    - `palette-list`
@@ -101,6 +102,10 @@ tree/palette contract, not by writing a project metadata file manually.
 
 ```json
 {"name":"project-list","arguments":{"limit":10}}
+```
+
+```json
+{"name":"project-brief","arguments":{"project":"<project>","page":"<Page>"}}
 ```
 
 ```json

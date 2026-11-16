@@ -104,7 +104,7 @@ Every page below is built from events and actions: no page loads data from `scri
 - Every form follows the Forms section of `convertigo-frontend-ngx`; a `Select` and its options share one value type.
 
 ## Order of work
-Keep `docs/generated/PROGRESS.md` up to date after each step below (object inventory, checks, next step), as the common skill's "Long tasks" section says: it is what a resumed or compacted conversation starts from.
+Keep `docs/generated/PROGRESS.md` up to date with `project-notes-write` after each step below (conventions and decisions, object inventory, checks, next step), as the common skill's "Project notes and resume" section says: it is what a resumed or compacted conversation and every later change of the app start from. Name the demo account there, never its password.
 
 Keep your own context for the specification, the plan, the decisions and the reports, and delegate the heavy work to sub-agents (common skill, "Sub-agents"): build each lot below with a constructor run (one per coherent piece: the transactions and business sequences of a lot, one page, the test sequences), read back the QNames it reports, and close each page lot with one verifier run (`subagent-run`, profile `verifier`) whose paths are the user journeys through that page and whose checks are the specification's acceptance criteria with their exact texts. Copy its verdict and findings into `PROGRESS.md`; fix, rebuild and verify again only the paths that failed.
 
