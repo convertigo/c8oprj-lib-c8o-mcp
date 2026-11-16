@@ -25,6 +25,8 @@ include("js/user_key_server_policy.js");
 include("js/mcp_repeated_failures.js");
 include("js/retired_tools.js");
 include("js/edit_profile.js");
+// An answer over the budget a client shows at once is answered by its first page (BoundAnswer of mcp_endpoint).
+include("js/mcp_answer_pages.js");
 var paramsJson = "{}";
 try {
   paramsJson = JSON.stringify(paramsObject);
@@ -741,9 +743,11 @@ if (methodName === "initialize") {
   var targetSequence = "";
   var mappingError = null;
   var normalizedRequestedTool = String(toolNameRaw || "").trim().toLowerCase();
+  // A No Code token calls the no-code tools, and the tools they share with every agent (answer-page).
   if (typeof mcpAuthentication !== "undefined" && mcpAuthentication && mcpAuthentication.kind === "nocode"
       && normalizedRequestedTool.indexOf("nocode-") !== 0
-      && normalizedRequestedTool.indexOf("nocode.") !== 0) {
+      && normalizedRequestedTool.indexOf("nocode.") !== 0
+      && !C8O.nocodeToolPolicy.sharedToolName(normalizedRequestedTool)) {
     mappingError = {
       status: "403",
       code: "-32003",

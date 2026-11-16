@@ -281,17 +281,20 @@ var hasMore = false;
 var stopTraversal = false;
 var fullyScanned = true;
 // A deep tree with its properties went over 60 000 characters within the node limit (preflight checks: a project at
-// childrenDepth 20, 66 kB; an NgxApp, 86 kB). The page also stops near 20 000 characters of nodes; nextCursor goes on.
-var MAX_PAGE_CHARS = 20000;
+// childrenDepth 20, 66 kB; an NgxApp, 86 kB). The page also stops near 10 000 characters of nodes; nextCursor goes on.
+// A node weighs its JSON indented by 2 and the indentation of its depth: Vibe weighs a script's return that way against
+// its 16 000 (a page of 16.6 kB compact weighed 31.9 kB indented); a larger answer comes in pages of answer-page.
+var MAX_PAGE_CHARS = 10000;
 var pageChars = 0;
 
-function nodeChars(qname) {
+function nodeChars(qname, depth) {
   var node = nodeMap[qname];
   if (!node) {
     return 0;
   }
   try {
-    return JSON.stringify({ q: node.qname, c: node.className, p: node.properties, h: node.handlers }).length + 120;
+    var indented = JSON.stringify({ q: node.qname, c: node.className, p: node.properties, h: node.handlers }, null, 2);
+    return indented.length + indented.split("\n").length * 4 * Math.max(1, depth || 1) + 160;
   } catch (_noSize) {
     return 200;
   }
@@ -322,7 +325,7 @@ function visitChildren(parentDbo, depth, pathItems) {
       if (returnedNodes < limitValue && (returnedNodes === 0 || pageChars < MAX_PAGE_CHARS)) {
         includeNode(pathItems, meta, child);
         returnedNodes += 1;
-        pageChars += nodeChars(meta.qname);
+        pageChars += nodeChars(meta.qname, depth);
       } else {
         hasMore = true;
         fullyScanned = false;

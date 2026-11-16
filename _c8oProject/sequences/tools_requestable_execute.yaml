@@ -253,12 +253,14 @@ comment: |
         }
       }
       var jsonText = JSON.stringify(payloadCopy);
-      if (jsonText.length > 24000) {
+      // An answer over 15 000 characters comes in pages (js/mcp_answer_pages.js): the payload stays whole up to a size
+      // an agent can page through, then it is a preview a client shows at once.
+      if (jsonText.length > 1000000) {
         // The preview is JSON text inside a JSON string: its escaped quotes made 24 000 characters weigh 29 000
         // (preflight checks). It is cut on its encoded size.
-        var preview = jsonText.substring(0, 24000);
-        while (preview.length > 2000 && JSON.stringify(preview).length > 22000) {
-          preview = preview.substring(0, preview.length - 2000);
+        var preview = jsonText.substring(0, 12000);
+        while (preview.length > 1000 && JSON.stringify(preview).length > 11000) {
+          preview = preview.substring(0, preview.length - 1000);
         }
         out.payloadPreview = preview;
         out.payloadBytes = jsonText.length;
@@ -272,12 +274,12 @@ comment: |
     if (executionPlan && executionPlan.beforeResults && executionPlan.beforeResults.length) {
         requestableExecutionResult.before = executionPlan.beforeResults;
     }
-    // The payload (up to 24 000 characters) and the logs (up to 16 000) together passed 35 000 (preflight checks): the
-    // logs keep the latest lines that fit beside the payload, 2 000 characters at least.
+    // The payload and the logs (up to 16 000) together passed 35 000 (preflight checks): the logs keep the latest lines
+    // that fit beside the payload in one answer a client shows at once (15 000), 2 000 characters at least.
     try {
       if (executionLogsPayload && executionLogsPayload.lines && executionLogsPayload.lines.length) {
         var resultChars = JSON.stringify(requestableExecutionResult).length;
-        var logsRoom = Math.max(2000, 25000 - resultChars);
+        var logsRoom = Math.max(2000, 12000 - resultChars);
         var logsChars = JSON.stringify(executionLogsPayload.lines).length;
         var droppedMore = 0;
         while (executionLogsPayload.lines.length > 1 && logsChars > logsRoom) {

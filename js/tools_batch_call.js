@@ -681,8 +681,9 @@ if (typeof C8O.editProfile === "undefined") {
       return reports;
     }
     var compactReports = [];
-    // 40 reads in one call answered 32 000 characters (preflight checks): past about 20 000 characters of reports, a
-    // report keeps its status and says how much of its payload it left out.
+    // 40 reads in one call answered 32 000 characters (preflight checks): past about 10 000 characters of reports
+    // indented by 2 (Vibe weighs a script's return that way against its 16 000), a report keeps its status and says how
+    // much of its payload it left out. A first payload larger than that comes in pages (js/mcp_answer_pages.js).
     var payloadChars = 0;
     var omittedNoted = false;
     for (var i = 0; i < reports.length; i++) {
@@ -722,12 +723,12 @@ if (typeof C8O.editProfile === "undefined") {
         var payloadOut = outputPayload(report.sequence, report.payload, responseDetail);
         var payloadSize = 0;
         try {
-          payloadSize = JSON.stringify(payloadOut).length;
+          payloadSize = JSON.stringify(payloadOut, null, 2).length;
         } catch (_noSize) {}
-        if (payloadChars > 0 && payloadChars + payloadSize > 20000) {
+        if (payloadChars > 0 && payloadChars + payloadSize > 10000) {
           compact.payloadOmitted = omittedNoted
             ? { characters: payloadSize }
-            : { characters: payloadSize, reason: "The answer reached about 20 000 characters: call these tools alone, or batch fewer calls." };
+            : { characters: payloadSize, reason: "The answer reached about 10 000 characters: call these tools alone, or batch fewer calls." };
           omittedNoted = true;
         } else {
           compact.payload = payloadOut;
@@ -736,7 +737,7 @@ if (typeof C8O.editProfile === "undefined") {
       }
       compactReports.push(compact);
       try {
-        payloadChars += JSON.stringify(compact).length - (compact.payload !== undefined ? JSON.stringify(compact.payload).length : 0);
+        payloadChars += JSON.stringify(compact, null, 2).length - (compact.payload !== undefined ? JSON.stringify(compact.payload, null, 2).length : 0);
       } catch (_noReportSize) {}
     }
     return compactReports;

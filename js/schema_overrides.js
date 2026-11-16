@@ -1672,6 +1672,47 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  // answer-page (js/mcp_answer_pages.js): the pages of an answer over the budget a client shows at once.
+  function answerPageInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        answerId: { type: "string", description: "partialAnswer.answerId of the answer to read." },
+        page: { type: "integer", minimum: 1, default: 2, description: "The page to read, 1 to partialAnswer.pages, in order (default 2)." }
+      },
+      required: ["answerId"],
+      additionalProperties: false
+    };
+  }
+
+  // Every field typed: Vibe types a tool's answer for its scripts from the output schema. described adds the
+  // descriptions (answer-page's own schema); every other output schema declares it without them (decorateOutput).
+  function partialAnswerSchema(described) {
+    var schema = openObjectSchema({
+      tool: { type: "string" },
+      answerId: { type: "string" },
+      page: { type: "integer" },
+      pages: { type: "integer" },
+      chars: { type: "integer" },
+      howTo: { type: "string" },
+      next: { type: "string" },
+      last: { type: "boolean" },
+      kept: { type: "boolean" },
+      text: { type: "string" }
+    });
+    if (described) {
+      schema.properties.chars.description = "Characters of the whole answer's JSON text.";
+      schema.properties.next.description = "The call that reads the next page.";
+      schema.properties.kept.description = "false: too large to keep, this is its beginning only.";
+      schema.properties.text.description = "A piece of the answer's JSON text: the texts of pages 1 to pages joined in order are the whole answer.";
+    }
+    return schema;
+  }
+
+  function answerPageOutputSchema() {
+    return openObjectSchema({ partialAnswer: partialAnswerSchema(true) });
+  }
+
   // project-brief, project-notes-write and viewer-sign-in (js/project_brief.js, js/viewer_session.js).
   function projectBriefInputSchema() {
     return {
@@ -2840,6 +2881,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       };
     }
 
+    if (seq === "tools_answer_page") {
+      return answerPageInputSchema();
+    }
     if (seq === "tools_project_brief") {
       return projectBriefInputSchema();
     }
@@ -3221,6 +3265,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_browser_verify") {
       return browserVerifyOutputSchema();
     }
+    if (seq === "tools_answer_page") {
+      return answerPageOutputSchema();
+    }
     if (seq === "tools_project_brief") {
       return projectBriefOutputSchema();
     }
@@ -3298,6 +3345,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       outputSchema.properties.argumentWarning = { type: "string", description: "The arguments the tool ignored, and the ones it takes." };
       outputSchema.properties.operatorNote = { type: "string", description: "A note from the person who supervises the agent." };
       outputSchema.properties.repeatedFailure = { type: "string", description: "Set when an identical call of this session already failed with the same error." };
+      // An answer over 14,000 characters comes as its first page (js/mcp_answer_pages.js), which every tool may answer.
+      if (!outputSchema.properties.partialAnswer) {
+        outputSchema.properties.partialAnswer = partialAnswerSchema(false);
+        outputSchema.properties.partialAnswer.description = "Set instead of the answer when it is over 14,000 characters: its first page; answer-page gives the next.";
+      }
     }
     return outputSchema;
   };

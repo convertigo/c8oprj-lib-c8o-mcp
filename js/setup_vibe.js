@@ -201,6 +201,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       "Convertigo_project-save",
       "Convertigo_project-reload",
       "Convertigo_log-view",
+      "Convertigo_answer-page",
       "Convertigo_image-describe",
       "Convertigo_attachment-read",
       "Convertigo_browser-verify",

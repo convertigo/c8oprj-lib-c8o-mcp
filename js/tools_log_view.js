@@ -326,10 +326,11 @@ if (endOffset > allLines.length) {
 }
 
 // A log line can hold a whole SQL result or a stack trace: 20 lines once made 80 000 characters, more than an
-// agent can read in one tool result. Long messages keep their start and end, and the page stops at ~24 000
-// characters; the cursor continues from the first line left out.
+// agent can read in one tool result. Long messages keep their start and end, and the page stops at ~10 000
+// characters of lines indented by 2, as Vibe weighs a script's return against its 16 000 (a larger answer comes in
+// pages of answer-page, js/mcp_answer_pages.js); the cursor continues from the first line left out.
 var MAX_MESSAGE_CHARS = 2000;
-var MAX_PAGE_CHARS = 24000;
+var MAX_PAGE_CHARS = 10000;
 var returnedLines = [];
 var pageChars = 0;
 var cutMessages = 0;
@@ -340,7 +341,7 @@ for (var p = effectiveStart; p < endOffset; p++) {
     line.message = line.message.substring(0, 1500) + " … [" + cut + " characters cut] … " + line.message.substring(line.message.length - 400);
     cutMessages++;
   }
-  var size = JSON.stringify(line).length;
+  var size = JSON.stringify(line, null, 2).length + 6;
   if (returnedLines.length && pageChars + size > MAX_PAGE_CHARS) {
     endOffset = p;
     break;

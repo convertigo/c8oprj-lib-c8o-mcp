@@ -213,6 +213,27 @@ one, each of those sessions would also open a GET stream and send a DELETE), and
   `tools/list` is always checked in full.
 Tests: `node --test tests/scripts/validate_tools_list_cache.cjs tests/scripts/validate_handshake_auth.cjs`.
 
+## Long tool answers in pages (answer-page)
+
+Vibe 3.1 sets aside a tool answer over 16,000 characters and shows its model about 8,000 of it; it weighs what a
+`run_typescript` script returns as JSON indented by 2 (each set-aside file is exactly its indent=2 size), and a No Code
+agent cannot read the file it saves. `js/mcp_answer_pages.js` bounds every tool answer:
+- `BoundAnswer` of `mcp_endpoint` (after the notes of the call, before the result is built) measures the answer as the
+  client gets it: its text content, and its structured content indented by 2, notes and guidance warning included. Over
+  `BUDGET` (14,000), the answer's JSON text is kept in `context.server` (`lib_ConvertigoMCP.answerPages`) under a random
+  id bound to a digest of the bearer, 10 minutes, 32 answers and 8 M characters at most, 2 M per answer; the call
+  answers its first page `{partialAnswer: {tool, answerId, page, pages, chars, howTo, next, text}}` (`PartialAnswer`).
+  Pages stay under `PAGE_ROOM` (12,500, escaping counted) and cut after a comma between values when they can; the texts
+  of pages 1 to `pages` joined are the answer's JSON. Without the store, or past 2 M, the first page only (`kept:false`).
+- `answer-page {answerId, page}` (read, `tools_answer_page`) gives the others to the same bearer. Every output schema
+  declares `partialAnswer` with typed fields (`decorateOutput`): the MCP client of Vibe checks a structured answer
+  against its tool's schema, and an empty sub-schema in a schema dropped the whole connector (0.3.0-beta.33).
+- A No Code token and the No Code profile call it too (`C8O.nocodeToolPolicy.SHARED_TOOLS`: the router, `mcp_tools_list`).
+- Tools page their own big answers where natural, under the budget: `nocode-form-contract-get` (sections in parts
+  `section.part`, `remaining` for what does not fit, `includeAllTypes` with `page`), `log-view`, `databaseobject-tree-get`
+  and `batch-call` (page caps on the indented size).
+Tests: `node --test tests/scripts/validate_answer_pages.cjs`.
+
 ## project-brief, project-notes-write and viewer-sign-in (an existing project from the first step)
 
 Measured on SalesPipeline in the A/B harness of the Electron Studio (16/11, MCP 0.3.0-beta.28): a one-column change took

@@ -78,7 +78,8 @@ comment: Handles MCP tools/list calls
             if (C8O.retiredTools[seqName]) {
               continue;
             }
-            if (mcpAuthKind === "nocode" && seqName.indexOf("tools_nocode_") !== 0) {
+            // A No Code token sees the no-code tools and the ones every agent shares (answer-page).
+            if (mcpAuthKind === "nocode" && seqName.indexOf("tools_nocode_") !== 0 && !C8O.nocodeToolPolicy.shared(seqName)) {
               continue;
             }
             if (feedbackMode == "off" && (seqName == "tools_report_create" || seqName == "tools_nocode_report_create")) {

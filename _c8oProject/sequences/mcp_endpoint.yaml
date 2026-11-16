@@ -88,6 +88,7 @@ responseTimeout: 300
     var mcpAuthentication = null;
     var toolsListCached = null;
     var toolsListCacheKey = "";
+    var mcpPartialAnswer = null;
     '
 ↓Parse [steps.SimpleStep-1762187729773]: 
   expression: |
@@ -734,6 +735,91 @@ responseTimeout: 300
         ↓NoteRepeatedFailure [steps.SimpleStep-1793350000005]: 
           comment: Says when an identical call of the same MCP session already failed with this error; a call that worked forgets its failures.
           expression: mcpRepeatNote = C8O.mcpRepeat.afterCall(context, mcpCallKey, C8O.mcpRepeat.failureOf(result));
+        ↓BoundAnswer [steps.SimpleStep-1796200000001]: 
+          comment: An answer over the budget a client shows at once is kept for answer-page and the call answers its first page (js/mcp_answer_pages.js).
+          expression: 'if (typeof C8O.mcpAnswerPages === "undefined") { include("js/mcp_answer_pages.js"); } mcpPartialAnswer = C8O.mcpAnswerPages.bound(context, {sequence: callSequence, value: result, guidanceWarning: mcpGuidanceWarning, argumentWarning: mcpArgumentWarning, operatorNote: mcpOperatorNote, repeatedFailure: mcpRepeatNote, jsonOnly: notEmpty(jsonOnly) && String(jsonOnly).toLowerCase() === "true"});'
+        ↓PartialAnswer [steps.IfStep-1796200000003]: 
+          comment: The first page of an answer over the budget, instead of the answer
+          condition: mcpPartialAnswer != null
+          ↓result [steps.JsonObjectStep-1796200000005]: 
+            key: 
+              - xmlizable: 
+                - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                - SmartType: 
+                  - ↑mode: PLAIN
+                  - →→: result
+            ↓ContentIf [steps.IfStep-1796200000007]: 
+              condition: '!(notEmpty(jsonOnly) && String(jsonOnly).toLowerCase() === "true")'
+              ↓content [steps.JsonArrayStep-1796200000009]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: content
+                ↓object [steps.JsonObjectStep-1796200000011]: 
+                  ↓type [steps.JsonFieldStep-1796200000013]: 
+                    key: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                        - SmartType: 
+                          - ↑mode: PLAIN
+                          - →→: type
+                    value: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                        - SmartType: 
+                          - ↑mode: PLAIN
+                          - →→: text
+                  ↓text [steps.JsonFieldStep-1796200000015]: 
+                    key: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                        - SmartType: 
+                          - ↑mode: PLAIN
+                          - →→: text
+                    value: 
+                      - xmlizable: 
+                        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                        - SmartType: 
+                          - ↑mode: JS
+                          - →→: mcpPartialAnswer.text
+            ↓structuredContent [steps.JsonToXmlStep-1796200000017]: 
+              jsonObject: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: JS
+                    - →→: mcpPartialAnswer.structured
+              key: 
+                - xmlizable: 
+                  - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                  - SmartType: 
+                    - ↑mode: PLAIN
+                    - →→: structuredContent
+            ↓GuidanceMetaIf [steps.IfStep-1796200000019]: 
+              condition: mcpGuidanceWarning !== null && mcpGuidanceWarning !== undefined && String(mcpGuidanceWarning).length > 0
+              ↓_meta [steps.JsonObjectStep-1796200000021]: 
+                key: 
+                  - xmlizable: 
+                    - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                    - SmartType: 
+                      - ↑mode: PLAIN
+                      - →→: _meta
+                ↓convertigoGuidanceWarning [steps.JsonFieldStep-1796200000023]: 
+                  key: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: PLAIN
+                        - →→: convertigoGuidanceWarning
+                  value: 
+                    - xmlizable: 
+                      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+                      - SmartType: 
+                        - ↑mode: JS
+                        - →→: mcpGuidanceWarning
+          ↓ReturnPartialAnswer [steps.ReturnStep-1796200000025]: 
         ↓result [steps.JsonObjectStep-1762256093362]: 
           key: 
             - xmlizable: 

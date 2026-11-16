@@ -127,7 +127,8 @@ test('both tool error answers and the tool result note the repeat before they ar
   for (const note of notes.slice(0, 2)) {
     assert.match(note, /^\d+\]: \n[^\n]*\n          expression: mcpRepeatNote = C8O\.mcpRepeat\.afterCall\(context, mcpCallKey, C8O\.mcpRepeat\.errorSignature\(formatToolErrorObject\(toolError\)\)\);\n        ↓result \[/);
   }
-  assert.match(notes[2], /expression: mcpRepeatNote = C8O\.mcpRepeat\.afterCall\(context, mcpCallKey, C8O\.mcpRepeat\.failureOf\(result\)\);\n        ↓result \[/);
+  // the paging of a long answer (BoundAnswer, js/mcp_answer_pages.js) comes after the note and carries it
+  assert.match(notes[2], /expression: mcpRepeatNote = C8O\.mcpRepeat\.afterCall\(context, mcpCallKey, C8O\.mcpRepeat\.failureOf\(result\)\);\n        ↓BoundAnswer \[[^\n]*\n[^\n]*\n[^\n]*repeatedFailure: mcpRepeatNote/);
   assert.equal(endpoint.split('formatToolErrorText(toolError, mcpRepeatNote)').length, 3);
   assert.equal(endpoint.split('formatToolErrorObject(toolError, mcpRepeatNote)').length, 3);
   assert.match(endpoint, /↓repeatedFailure \[steps\.JsonFieldStep-\d+\]: \n(?:.*\n){5}\s+- →→: repeatedFailure\n(?:.*\n){5}\s+- →→: mcpRepeatNote\n/);

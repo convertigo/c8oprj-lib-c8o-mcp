@@ -18,3 +18,20 @@ C8O.nocodeToolPolicy = {
     ].indexOf(String(sequence)) !== -1;
   }
 };
+// Tools every agent needs, No Code ones included: answer-page reads the pages of a long answer of the caller's own call
+// (js/mcp_answer_pages.js). A No Code token may call them (the router), they are listed to it (mcp_tools_list), and the
+// No Code profile allows them.
+C8O.nocodeToolPolicy.SHARED_TOOLS = ["tools_answer_page"];
+C8O.nocodeToolPolicy.shared = function (sequence) {
+  return C8O.nocodeToolPolicy.SHARED_TOOLS.indexOf(String(sequence)) !== -1;
+};
+// The same for a tool name as called: answer-page, answer_page or answer.page.
+C8O.nocodeToolPolicy.sharedToolName = function (name) {
+  return C8O.nocodeToolPolicy.shared("tools_" + String(name || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_"));
+};
+(function (policy) {
+  var allowsNoCode = policy.allows;
+  policy.allows = function (sequence) {
+    return allowsNoCode.call(policy, sequence) || policy.shared(sequence);
+  };
+})(C8O.nocodeToolPolicy);

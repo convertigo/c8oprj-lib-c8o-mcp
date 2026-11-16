@@ -1,0 +1,29 @@
+accessibility: Private
+comment: |
+  Read the next page of a long tool answer
+  A tool answer over 14,000 characters comes as its first page: {partialAnswer: {answerId, page, pages, next, text}}. Call answer-page with that answerId and page 2, 3... up to pages, in order: the texts of the pages joined in order are the whole answer as JSON (in a script, join them, then JSON.parse). An answer is kept 10 minutes, for the caller that got it. Read-only.
+↓Include [steps.SimpleStep-1796200000101]: 
+  expression: 'include("js/mcp_auth.js"); include("js/mcp_answer_pages.js");'
+↓Run [steps.SimpleStep-1796200000103]: 
+  expression: 'var answerPageResult = C8O.mcpAnswerPages.execute(context, {answerId: answerId, page: page});'
+↓result [steps.JsonToXmlStep-1796200000105]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: answerPageResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓answerId [variables.RequestableVariable-1796200000111]: 
+  comment: 'The partialAnswer.answerId of the answer to read.'
+  description: 'The partialAnswer.answerId of the answer to read.'
+  value: ''
+↓page [variables.RequestableVariable-1796200000113]: 
+  comment: 'The page to read, from 1 to partialAnswer.pages (default 2: the one after the first answer).'
+  description: 'The page to read, from 1 to partialAnswer.pages (default 2: the one after the first answer).'
+  value: ''
