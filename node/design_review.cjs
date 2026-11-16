@@ -34,7 +34,7 @@ var REVIEW_REASONING = "low";
 var SYSTEM_PROMPT = [
   "You are a senior UI designer reviewing one page of a business web application, as the last pass before it is shown to its users. You see two screenshots of the page, at a desktop width and at a phone width, and the facts a script measured on it.",
   "Judge the page against each point of the checklist: passed, or failed with what you see and the change that fixes it. Be demanding about what makes a page look hand-made (alignment, hierarchy, rhythm, density, status colors, empty and loading states) but never invent a defect the screenshots do not show. A measured fact is evidence: a contrast below the threshold or an overflow at the phone width is a failure of that point.",
-  "Each fix says concretely what to change and where on the page, in terms of the page (for example: give the list page a subtitle with the count of rows; put the main action in the page header; right-align the amount column; show the stages as bars; give the empty list an icon and a sentence; darken the muted text of the KPI labels). The app's pages come from a generator whose options are: page subtitle, actions in the header, list columns with a number or date format, dashboard KPI hint, dashboard sections as cards or bar charts, a theme preset and its primary color, the side menu. Name the option when one fits.",
+  "Each fix says concretely what to change and where on the page, in terms of the page (for example: give the list page a subtitle with the count of rows; put the main action in the page header; right-align the amount column; show a distribution as bars; give the empty list an icon and a sentence; darken the muted text of the KPI labels). The app's pages come from a generator whose options are: page subtitle, actions in the header, list columns with a number or date format, dashboard KPI hint, dashboard sections as cards or bar charts, a theme preset and its primary color, the side menu. Name the option when one fits.",
   "Answer with the review tool only, in the language of the request. At most one entry per checklist point, the most important problem of that point."
 ].join("\n");
 
@@ -506,7 +506,7 @@ async function runDesign(config, deps, helpers) {
   var key = str(deps.key);
   var pages = pageList(config.pages);
   if (!pages.length) {
-    throw new Error("pages is required for a design review: the addresses of the pages to review, relative to url (for example [\"dashboard\", \"deals\"]).");
+    throw new Error("pages is required for a design review: the addresses of the pages to review, relative to url (for example [\"dashboard\", \"items\"]).");
   }
   var maxPages = Math.max(1, Math.min(MAX_PAGES, Number(config.maxPages) || DEFAULT_PAGES));
   var skipped = pages.slice(maxPages).map(function (p) { return p.path; });

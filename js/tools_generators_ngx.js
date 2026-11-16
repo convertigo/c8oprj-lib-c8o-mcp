@@ -43,7 +43,7 @@ include("js/sequence_response.js");
       "--padding-start: var(--app-page-gutter); --padding-end: var(--app-page-gutter); --padding-top: var(--app-space-5, 24px); --padding-bottom: var(--app-space-6, 32px); }"],
     [".app-title", ".app-title { margin: 0 0 var(--app-space-4, 16px); font-size: var(--app-font-size-2xl, 28px); font-weight: var(--app-heading-weight, 700); letter-spacing: -0.02em; line-height: 1.2; }"],
     // The page header: the title and a line under it on the left, the page's actions on the right (wrapping under it on a
-    // phone). A hand-made app puts its main action there; generated pages had their buttons at the bottom (CRM comparison 16/11).
+    // phone). A hand-made app puts its main action there; generated pages had their buttons at the bottom (comparison with a hand-made app, 16/11).
     [".app-page-header", ".app-page-header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--app-space-3, 12px) var(--app-space-4, 16px); margin: 0 0 var(--app-space-5, 24px); }\n" +
       ".app-page-header .app-title { margin: 0; }\n" +
       ".app-page-heading { flex: 1 1 260px; min-width: 0; }"],
@@ -74,7 +74,7 @@ include("js/sequence_response.js");
     [".app-sections", ".app-sections { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--app-space-4, 16px); margin-top: var(--app-space-5, 24px); align-items: start; }\n" +
       "@media (min-width: 992px) { .app-sections { grid-template-columns: repeat(2, minmax(0, 1fr)); } .app-sections .app-card-wide { grid-column: 1 / -1; } }"],
     // Filters in one bar: the fields keep a readable width, the search takes the room left, the button its own width (a
-    // Filter button as wide as a field read as a banner, CRM comparison 16/11).
+    // Filter button as wide as a field read as a banner, comparison with a hand-made app, 16/11).
     [".app-filters", ".app-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--app-space-2, 8px) var(--app-space-3, 12px); margin-bottom: var(--app-space-4, 16px); " +
       "padding: var(--app-space-3, 12px) var(--app-space-4, 16px); " + CARD + " }\n" +
       ".app-filters > ion-button { flex: 0 0 auto; margin: 0 0 var(--app-space-1, 4px); }"],
@@ -333,7 +333,7 @@ include("js/sequence_response.js");
 
   // The signed-in user, for the user chip of the top bar: remembered in the browser when a sign-in succeeds (the name the
   // sign-in answer gives, else the identifier typed), forgotten by the logout page. The backend needs no change: a hand-made
-  // app showed who is signed in, generated ones did not (CRM comparison 16/11).
+  // app showed who is signed in, generated ones did not (comparison with a hand-made app, 16/11).
   var APP_USER_KEY = "app-user";
   function rememberUser(name, outExpr, typedExpr) {
     // The user is an object of the answer ({user: {name, role}}), or its identifier as a text next to the role ({user: "a@b.c", role}).
@@ -413,7 +413,7 @@ include("js/sequence_response.js");
   // The fields named as money shown as plain numbers by this call, the app having no currency.
   var moneyAsNumber = [];
   // A date shown as the database sends it ("2026-10-18", "2026-10-18 00:00:00.0") read as a technical value next to a
-  // hand-made app's "Oct 18, 2026" (CRM comparison 16/11). format date or datetime, or a field named as a date, shows it in
+  // hand-made app's "Oct 18, 2026" (comparison with a hand-made app, 16/11). format date or datetime, or a field named as a date, shows it in
   // the app's language; a value that is not an ISO date stays as it is, so a name that only looks like a date changes nothing.
   var DATE_WORDS = /(^|[._])(date|dates|deadline|due|echeance|expiry|expiration|expires|birthday|birthdate|dob|start|end|close|closing|opened|closed|created|updated|modified|scheduled|planned|since|until)([._]|$)|_(date|at|on)$/i;
   // camelCase: dueDate, createdAt, closedOn, dateNaissance.
@@ -1481,8 +1481,8 @@ include("js/sequence_response.js");
 
     // A chart section {chart: "bars", items, label?, badge?, value, note?, color?, empty?}: one row per record, its label (and
     // its badge), its value and a bar as long as its share of the largest value. The largest value is a page local computed
-    // when the data arrives; the template only divides. A hand-made dashboard showed its stages as bars, the generated one as
-    // a list of rows (CRM comparison 16/11).
+    // when the data arrives; the template only divides. A hand-made dashboard showed a distribution as bars, the generated one as
+    // a list of rows (comparison with a hand-made app, 16/11).
     function barsBlock(prefix, s2, label) {
       if (str(s2.chart) !== "bars") {
         errors.push(label + ".chart must be bars (one bar per record, as long as its value's share of the largest).");
@@ -1934,7 +1934,7 @@ include("js/sequence_response.js");
       } else {
         content.push(ifDirective("IfError", "!!local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
         var kpis = list(dash.kpis);
-        // A line of context under a KPI's figure: a text, or a value of the page data ("13 open deals").
+        // A line of context under a KPI's figure: a text, or a value of the page data ("13 open").
         var kpiHint = function (k, i) {
           if (k.hint === undefined || k.hint === null || (!isObj(k.hint) && !str(k.hint).length)) {
             return [];
@@ -2197,7 +2197,7 @@ include("js/sequence_response.js");
       logoutPlan = { page: loginPage };
       content.push(nx("Paragraph", "SigningOut", {}, [cls("app-empty"), txt(textOr(logoutSpec.message, "Signing out...", "logout.message"))]));
     }
-    // The subtitle under the title: a text, a value of the page data, or the number of rows of the list ("20 deals").
+    // The subtitle under the title: a text, a value of the page data, or the number of rows of the list ("20 records").
     var subSpec = spec.subtitle;
     if (subSpec !== undefined && subSpec !== null && str(isObj(subSpec) ? "x" : subSpec).length) {
       var subNode = null;
@@ -2220,7 +2220,7 @@ include("js/sequence_response.js");
           errors.push("subtitle must be a text, {field, format?, prefix?, suffix?} (a value of the page data) or {count: true, prefix?, suffix?} (the rows of the page's list).");
         }
         if (subValue.length) {
-          // Shown once the data is there: "0 deals" while the page loads would be false.
+          // Shown once the data is there: "0 records" while the page loads would be false.
           subNode = ifDirective("IfSubtitle", "local?.loading === false && !local?.error", [nx("Paragraph", "Subtitle", {}, [cls("app-subtitle"), expr(subValue)])]);
         }
       }

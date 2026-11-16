@@ -126,7 +126,7 @@ include("js/tools_generators.js");
   var MODES = ["light", "auto", "dark"];
   var TOOLBARS = ["primary", "surface", "dark"];
   // The side menu stays open beside the pages from this screen width (Ionic split pane breakpoints): a menu hidden behind a
-  // button on a desktop made every generated app look like a phone app (CRM comparison 16/11). never keeps the button only.
+  // button on a desktop made every generated app look like a phone app (comparison with a hand-made app, 16/11). never keeps the button only.
   var SIDE_MENUS = ["md", "lg", "xl", "never"];
   G.THEME_DEFAULT_PRESET = DEFAULT_PRESET;
   G.THEME_PRESETS = PRESETS;

@@ -241,7 +241,7 @@ C8O.browserVerify = C8O.browserVerify || {};
       var inputs = verifierInputs(params);
       if (inputs.design && !inputs.pages.length) {
         throw new Error("pages is required with design: the addresses of the pages to review, relative to url (the viewerHomeUrl of " +
-          "mobile-builder-open), for example [\"dashboard\", \"deals\", \"deal-form\"].");
+          "mobile-builder-open), for example [\"dashboard\", \"items\", \"item-form\"].");
       }
       if (inputs.design && !inputs.url.length) {
         throw new Error("url is required with design: the viewerHomeUrl of mobile-builder-open, which the page addresses are relative to.");
@@ -443,7 +443,7 @@ C8O.browserVerify = C8O.browserVerify || {};
       }
       // A call that would be refused (no pages, no url) uses no round.
       if (!api.parseList(params.pages, "pages", MAX_DESIGN_PAGES).length || !str(params.url).length) {
-        throw new Error("design needs url (the viewerHomeUrl of mobile-builder-open) and pages (their addresses relative to it, for example [\"dashboard\", \"deals\"]).");
+        throw new Error("design needs url (the viewerHomeUrl of mobile-builder-open) and pages (their addresses relative to it, for example [\"dashboard\", \"items\"]).");
       }
       if (host.designLedger) {
         round = api.designRound(host.designLedger, api.designProject(params.url, params.project), params.userAsked === true || /^true$/i.test(str(params.userAsked)), host.now());
