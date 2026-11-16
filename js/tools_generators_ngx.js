@@ -1843,8 +1843,12 @@ include("js/sequence_response.js");
           chain = null;
         }
         var props = {};
-        if (str(a.fill).length) {
-          props.IonFill = { mode: "PLAIN", value: str(a.fill) };
+        // fill true meant a filled button (agents wrote it): Ionic only knows solid, outline, clear and default.
+        var fill = a.fill === true || str(a.fill) === "true" ? "solid" : str(a.fill);
+        if (fill.length && ["solid", "outline", "clear", "default"].indexOf(fill) < 0) {
+          errors.push(label + "[" + i + "].fill must be solid, outline, clear or default (given " + str(a.fill) + ").");
+        } else if (fill.length) {
+          props.IonFill = { mode: "PLAIN", value: fill };
         }
         if (str(a.color).length) {
           props.IonColor = { mode: "PLAIN", value: str(a.color) };

@@ -2226,7 +2226,7 @@ test('a page header holds the title, a subtitle and the page actions on the righ
   const world = makeWorld();
   const G = load(world);
   G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', subtitle: { count: true, suffix: ' postes' },
-    actions: [{ label: 'Nouveau', page: 'Plist' }, { label: 'Exporter', page: 'Plist', fill: 'clear' }, { label: 'Aide', page: 'Plist' }],
+    actions: [{ label: 'Nouveau', page: 'Plist', fill: true }, { label: 'Exporter', page: 'Plist', fill: 'clear' }, { label: 'Aide', page: 'Plist' }],
     list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
   const nodes = nodesOf(world, 'Plist');
   assert.equal(classOf(nodes.PageHeader), 'app-page-header');
@@ -2236,7 +2236,7 @@ test('a page header holds the title, a subtitle and the page actions on the righ
   assert.match(JSON.stringify(nodes.Subtitle), /'' \+ \(local\?\.data\?\.[A-Za-z.?]+\?\.length \?\? 0\) \+ ' postes'/);
   assert.equal(classOf(nodes.HeaderActions), 'app-header-actions');
   const buttons = nodes.HeaderActions.children.slice(1);
-  assert.equal(buttons[0].properties.IonFill, undefined, 'the main action stays filled');
+  assert.equal(buttons[0].properties.IonFill.value, 'solid', 'fill true is a filled button');
   assert.equal(buttons[1].properties.IonFill.value, 'clear', 'a given fill is kept');
   assert.equal(buttons[2].properties.IonFill.value, 'outline');
   assert.equal(classOf(nodes.Loading), 'app-loading', 'a spinner while the data loads');
@@ -2254,7 +2254,7 @@ test('a page header holds the title, a subtitle and the page actions on the righ
   const det = JSON.stringify(nodesOf(world, 'Det').Subtitle);
   assert.match(det, /'Né le ' \+ \(local\?\.fmtDate \? local\.fmtDate\(local\?\.data\?\.agent\?\.dateNaissance, 'date'\)/);
   assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Bad', kind: 'list', sequence: 'poste_list', actionsAt: 'top', subtitle: { nope: 1 },
-    list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } }), e => /actionsAt must be header/.test(e.message) && /subtitle must be a text/.test(e.message));
+    actions: [{ label: 'X', page: 'Plist', fill: 'filled' }], list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } }), e => /actionsAt must be header/.test(e.message) && /subtitle must be a text/.test(e.message) && /actions\[0\]\.fill must be solid, outline, clear or default/.test(e.message));
   const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
   assert.match(css, /\.app-page-header \{ display: flex;/);
   assert.match(css, /\.ion-page:has\(\.app-page-header\) > ion-header ion-toolbar ion-title \{ visibility: hidden; \}/);

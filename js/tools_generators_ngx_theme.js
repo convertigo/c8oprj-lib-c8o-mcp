@@ -346,8 +346,11 @@ include("js/tools_generators.js");
       // The side menu: open beside the pages on a wide screen (sideMenu), the app name in the brand color as its header.
       "ion-split-pane { --side-width: 256px; --side-min-width: 232px; --side-max-width: 288px; --border: 1px solid var(--app-border); }",
       "ion-menu ion-header ion-toolbar ion-title { color: var(--app-menu-title); --color: var(--app-menu-title); font-size: var(--app-font-size-lg); font-weight: 750; }",
-      "ion-menu ion-content { --background: var(--app-surface); }",
-      "ion-menu ion-list { background: transparent; padding: var(--app-space-2) var(--app-space-2) 0; }",
+      // html:root: the template's own menu rules (a gradient behind the menu, a margin around every item) come after this
+      // style with the same weight.
+      "html:root ion-menu ion-content, html:root ion-menu ion-content::part(background) { --background: var(--app-surface); --padding-top: 0; --padding-bottom: var(--app-space-4); }",
+      "html:root ion-menu ion-list { background: transparent; padding: var(--app-space-2) var(--app-space-2) 0; margin: 0; }",
+      "html:root ion-menu ion-item { margin: 0 0 2px; padding: 0; }",
       "ion-menu.md ion-item, ion-menu.ios ion-item { --min-height: 44px; --background: transparent; --background-hover: rgba(var(--ion-text-color-rgb), 0.06); font-weight: 500; }",
       "ion-menu.md ion-item, ion-menu.ios ion-item { --border-radius: var(--app-radius-sm); margin-bottom: 2px; --border-width: 0; --inner-border-width: 0; }",
       "ion-menu.md ion-item ion-icon, ion-menu.ios ion-item ion-icon { color: var(--app-muted); }",
