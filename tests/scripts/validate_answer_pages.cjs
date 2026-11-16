@@ -399,7 +399,13 @@ const KNOWN_EMPTY = [
   'tools_batch_call output.calls[].payload',
   'tools_browser_verify input.hints|oneOf2[]',
   'tools_databaseobject_tree_apply output.operations[].payload',
-  'tools_nocode_baserow_schema_apply input.schema|oneOf0.tables[].views[].filters[].value'
+  'tools_nocode_baserow_schema_apply input.schema|oneOf0.tables[].views[].filters[].value',
+  // the cells of an attached sheet are of any type (0.3.0-beta.33); Vibe 3.0.1's models and core accept them, checked
+  // on test-nocode, and tests/scripts/validate_tool_schemas.cjs keeps every schema strict otherwise
+  'tools_attachment_read output.sheet.header[]',
+  'tools_attachment_read output.sheet.rows[][]',
+  'tools_nocode_attachment_read output.sheet.header[]',
+  'tools_nocode_attachment_read output.sheet.rows[][]'
 ];
 
 test('no tool schema adds an empty sub-schema; answer-page and partialAnswer type every field', () => {
