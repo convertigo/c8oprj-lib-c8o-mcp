@@ -3339,18 +3339,134 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       if (!outputSchema.properties || typeof outputSchema.properties !== "object") {
         outputSchema.properties = {};
       }
-      outputSchema.properties.error = { type: "object", description: "Set instead of the result when the tool failed: {code, message, details}." };
+      outputSchema.properties.error = { type: "object", description: "When the tool failed: {code, message, details}" };
       // The endpoint puts these at the top of a successful answer: a client that checks the answer against a schema
       // without additional properties (Vibe and the MCP SDKs do) refused the whole call when they were not declared.
-      outputSchema.properties.argumentWarning = { type: "string", description: "The arguments the tool ignored, and the ones it takes." };
-      outputSchema.properties.operatorNote = { type: "string", description: "A note from the person who supervises the agent." };
-      outputSchema.properties.repeatedFailure = { type: "string", description: "Set when an identical call of this session already failed with the same error." };
+      // Their names say what they are; every declaration carries them, so no description.
+      outputSchema.properties.argumentWarning = { type: "string" };
+      outputSchema.properties.operatorNote = { type: "string" };
+      outputSchema.properties.repeatedFailure = { type: "string" };
       // An answer over 14,000 characters comes as its first page (js/mcp_answer_pages.js), which every tool may answer.
       if (!outputSchema.properties.partialAnswer) {
         outputSchema.properties.partialAnswer = partialAnswerSchema(false);
         outputSchema.properties.partialAnswer.description = "Set instead of the answer when it is over 14,000 characters: its first page; answer-page gives the next.";
       }
     }
-    return outputSchema;
+    return slimOutputSchema(outputSchema);
   };
+
+  // A Vibe agent reads a tool's declaration as TypeScript types, input and output, in a search_tool_functions "details"
+  // answer that stays in its context for the rest of the turn and is read again by every later request. The output
+  // types made 92 000 of the 233 000 characters of the 59 Convertigo declarations (16/11): mobile-builder-open alone
+  // 11 000, project-security-audit 7 000, browser-verify 5 500. A declared answer keeps its top-level fields, each with
+  // its type, its values when they are few and the first sentence of its description; a nested object or array is any
+  // object or array. That only widens what a client accepts (Vibe checks answers against the schema), never narrows it.
+  var SLIM_DESCRIPTION = 90;
+
+  function shortDescription(text) {
+    var t = String(text || "").replace(/\s+/g, " ").trim();
+    var stop = t.search(/[.;](\s|$)/);
+    if (stop > 0) {
+      t = t.substring(0, stop);
+    }
+    if (t.length > SLIM_DESCRIPTION) {
+      var cut = t.lastIndexOf(" ", SLIM_DESCRIPTION - 3);
+      t = t.substring(0, cut > 40 ? cut : SLIM_DESCRIPTION - 3) + "...";
+    }
+    return t;
+  }
+
+  function slimType(schema) {
+    if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+      return {};
+    }
+    var out = {};
+    var type = schema.type;
+    if (type === undefined) {
+      var alternatives = schema.anyOf || schema.oneOf;
+      if (Array.isArray(alternatives)) {
+        var types = [];
+        for (var i = 0; i < alternatives.length; i++) {
+          var t = alternatives[i] && alternatives[i].type;
+          if (typeof t === "string" && types.indexOf(t) < 0) {
+            types.push(t);
+          }
+        }
+        if (types.length && types.length === alternatives.length) {
+          type = types.length === 1 ? types[0] : types;
+        }
+      }
+    }
+    if (type === undefined && schema.properties && typeof schema.properties === "object") {
+      type = "object";
+    }
+    if (type === undefined && schema.items !== undefined) {
+      type = "array";
+    }
+    if (type !== undefined) {
+      out.type = type;
+    }
+    if (Array.isArray(schema["enum"]) && schema["enum"].length <= 12) {
+      out["enum"] = schema["enum"];
+    }
+    if (schema["const"] !== undefined) {
+      out["const"] = schema["const"];
+    }
+    var items = schema.items;
+    var isArray = type === "array" || (Array.isArray(type) && type.indexOf("array") >= 0);
+    if (isArray && items && typeof items === "object" && !Array.isArray(items) && typeof items.type === "string" &&
+        items.type !== "object" && items.type !== "array") {
+      out.items = { type: items.type };
+    }
+    return out;
+  }
+
+  function slimOutputSchema(schema) {
+    if (!schema || typeof schema !== "object" || Array.isArray(schema) || !schema.properties ||
+        typeof schema.properties !== "object") {
+      return schema;
+    }
+    var out = {};
+    for (var key in schema) {
+      if (Object.prototype.hasOwnProperty.call(schema, key) && key !== "properties" && key !== "$defs" &&
+          key !== "definitions" && key !== "description") {
+        out[key] = schema[key];
+      }
+    }
+    if (out.additionalProperties && typeof out.additionalProperties === "object") {
+      out.additionalProperties = true;
+    }
+    out.properties = {};
+    for (var name in schema.properties) {
+      if (Object.prototype.hasOwnProperty.call(schema.properties, name)) {
+        var prop = schema.properties[name];
+        var slim = slimType(prop);
+        if (slim.type === undefined && slim["enum"] === undefined && slim["const"] === undefined) {
+          // A field the schema leaves untyped stays as declared: never an empty sub-schema, which cost a No Code Vibe
+          // session its whole Convertigo connector (0.3.0-beta.33).
+          out.properties[name] = prop;
+          continue;
+        }
+        if (prop && typeof prop.description === "string" && prop.description.trim().length) {
+          slim.description = shortDescription(prop.description);
+        }
+        if (KEEP_FIELDS[name] === true && prop && prop.properties && typeof prop.properties === "object") {
+          // The paging protocol every tool may answer: code reads its fields, so they keep their types.
+          slim.properties = {};
+          for (var field in prop.properties) {
+            if (Object.prototype.hasOwnProperty.call(prop.properties, field)) {
+              slim.properties[field] = slimType(prop.properties[field]);
+              if (slim.properties[field].type === undefined) {
+                slim.properties[field] = prop.properties[field];
+              }
+            }
+          }
+        }
+        out.properties[name] = slim;
+      }
+    }
+    return out;
+  }
+  var KEEP_FIELDS = { partialAnswer: true };
+  C8O.schemaOverrides.slimOutputSchema = slimOutputSchema;
 })();

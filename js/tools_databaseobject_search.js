@@ -64,8 +64,10 @@ var matchesWindow = [];
 var scanned = 0;
 var totalMatches = 0;
 // A common word matched 200 objects with their comments and snippets: 50 000 characters (preflight checks). The page
-// also stops near 20 000 characters of matches; nextCursor goes on.
-var MAX_MATCHES_CHARS = 20000;
+// also stops near MAX_MATCHES_CHARS of matches as Vibe 3.1 prints them, indented by 2 (each record measured so, plus
+// its place in the matches array), under the 16 000 characters over which Vibe saves the answer to a file the agent
+// then reads with bash; nextCursor goes on.
+var MAX_MATCHES_CHARS = 13000;
 var matchesChars = 0;
 var hasMore = false;
 var snippetRadius = 20;
@@ -261,7 +263,7 @@ if (searchActive) {
       if (currentIndex >= startIndex && matchesWindow.length < limitValue) {
         var record = buildRecord(dbo, depth, snippet);
         matchesWindow.push(record);
-        matchesChars += JSON.stringify(record).length;
+        matchesChars += JSON.stringify(record, null, 2).length + 60;
       } else if (currentIndex >= pageUpperBound) {
         hasMore = true;
         abortSearch = true;

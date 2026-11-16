@@ -374,7 +374,8 @@ test('the guides say to return the answer itself and to read the next page or se
   assert.match(summary, /An answer listing `remaining` \(contract sections\) or a `next` page says what to ask in the next call\./);
   assert.match(skillText(), /names the others in `remaining`: ask them in the next call/);
   const setup = read('js/setup_common.js');
-  assert.match(setup, /never only its keys[^"]*`Convertigo_answer-page` `\{answerId, page\}`/);
+  // In Vibe the tools are called from run_typescript: tools.mcp_Convertigo.answer_page({answerId, page}).
+  assert.match(setup, /never only its keys[^"]*answer_page\(\{answerId, page\}\)/);
   assert.match(read('js/tool_description_notes.js'), /answer-page gives the next/);
 });
 

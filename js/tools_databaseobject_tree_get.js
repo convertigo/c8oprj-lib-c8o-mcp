@@ -110,12 +110,12 @@ function countSubtreeNodes(dbo) {
 
 function buildNodeMeta(dbo, depth) {
   var children = C8O.dbo.getDirectChildren(dbo);
+  // depth and hasChildren are not answered: the nesting gives the depth, directChildrenCount the children (see trimCounts).
   var meta = {
     qname: C8O.dbo.safeFullQName ? C8O.dbo.safeFullQName(dbo) : C8O.dbo.safeQName(dbo),
     name: C8O.dbo.safeName(dbo),
     className: C8O.dbo.logicalClassNameForDbo(dbo),
     depth: depth,
-    hasChildren: children.length > 0,
     directChildrenCount: children.length,
     subtreeCount: countSubtreeNodes(dbo)
   };
@@ -197,8 +197,6 @@ treeData = {
   qname: rootMeta.qname,
   name: rootMeta.name,
   className: rootMeta.className,
-  depth: 0,
-  hasChildren: rootMeta.hasChildren,
   directChildrenCount: rootMeta.directChildrenCount,
   subtreeCount: rootMeta.subtreeCount
 };
@@ -222,8 +220,6 @@ function ensureNode(meta, dbo, partial) {
       qname: meta.qname,
       name: meta.name,
       className: meta.className,
-      depth: meta.depth,
-      hasChildren: meta.hasChildren,
       directChildrenCount: meta.directChildrenCount,
       subtreeCount: meta.subtreeCount
     };
@@ -296,7 +292,7 @@ function nodeChars(qname, depth) {
     var indented = JSON.stringify({ q: node.qname, c: node.className, p: node.properties, h: node.handlers }, null, 2);
     return indented.length + indented.split("\n").length * 4 * Math.max(1, depth || 1) + 160;
   } catch (_noSize) {
-    return 200;
+    return 300;
   }
 }
 
@@ -345,6 +341,20 @@ function visitChildren(parentDbo, depth, pathItems) {
 if (childrenDepthValue > 0) {
   visitChildren(root, 1, []);
 }
+
+// Counts only where they tell something the answer does not show: on the target, and on a node whose children are not
+// all in the answer (depth limit or page end). A leaf and a node with all its children listed carry none.
+function trimCounts(node, isRoot) {
+  var listed = Array.isArray(node.children) ? node.children.length : 0;
+  if (!isRoot && (!node.directChildrenCount || listed >= node.directChildrenCount)) {
+    delete node.directChildrenCount;
+    delete node.subtreeCount;
+  }
+  for (var i = 0; i < listed; i++) {
+    trimCounts(node.children[i], false);
+  }
+}
+trimCounts(treeData, true);
 
 treeRootQName = rootQName;
 treeView = "tree";

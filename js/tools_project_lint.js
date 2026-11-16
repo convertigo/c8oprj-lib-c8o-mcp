@@ -10,6 +10,8 @@ if (typeof include === "function") {
   C8O.lint = C8O.lint || {};
 
   var MAX_FINDINGS = 300;
+  // Findings listed in an answer; counts cover them all (C8O.lint.listFindings).
+  var LISTED_FINDINGS = 25;
   // Ionic and action properties that hold text shown to the user.
   var CONTROL_BEANS = /^(Input|Textarea|TextArea|Select|Searchbar|DateTime|Datetime|InputOtp)$/;
   var TEXT_PROPERTIES = /^(Label|label|placeholder|Placeholder|message|Message|header|Header|subHeader|SubHeader|title|Title|text|Text|cancelText|okText|buttonText|ButtonText|helperText|errorText|HelperText|ErrorText|closeButtonText)$/;
@@ -2047,13 +2049,67 @@ if (typeof include === "function") {
     textReview.texts = shownOrder.length;
     textReview.i18nFiles = i18n.files;
 
-    return {
+    var listed = C8O.lint.listFindings(findings, (options || {}).rule, LISTED_FINDINGS);
+    var answer = {
       project: String(project.getName()),
       textReview: textReview,
       scanned: scanned,
       counts: counts,
       truncated: findings.length >= MAX_FINDINGS,
-      findings: findings
+      findings: listed.findings
     };
+    if (listed.more) {
+      answer.more = listed.more;
+    }
+    return answer;
+  };
+
+  // The answer stays in the agent's context and is read again by each of its later requests: the counts cover every
+  // finding, the list gives the first LISTED_FINDINGS (errors, then warnings, then the rest), and a rule's fix is written
+  // on its first finding only. rule (a rule id or a severity) lists that part alone.
+  C8O.lint.listFindings = function (findings, rule, max) {
+    var want = String(rule || "").trim();
+    var order = { error: 0, warning: 1, info: 2 };
+    var chosen = [];
+    for (var i = 0; i < findings.length; i++) {
+      var f = findings[i];
+      if (!want.length || f.rule === want || f.severity === want.toLowerCase()) {
+        chosen.push({ f: f, i: i });
+      }
+    }
+    chosen.sort(function (a, b) {
+      var sa = order[a.f.severity] !== undefined ? order[a.f.severity] : 3;
+      var sb = order[b.f.severity] !== undefined ? order[b.f.severity] : 3;
+      return sa - sb || a.i - b.i;
+    });
+    var out = [];
+    var fixed = {};
+    for (var j = 0; j < chosen.length && j < max; j++) {
+      var copy = {};
+      for (var key in chosen[j].f) {
+        if (Object.prototype.hasOwnProperty.call(chosen[j].f, key)) {
+          copy[key] = chosen[j].f[key];
+        }
+      }
+      if (copy.fix && fixed[copy.rule] === copy.fix) {
+        delete copy.fix;
+      } else if (copy.fix) {
+        fixed[copy.rule] = copy.fix;
+      }
+      out.push(copy);
+    }
+    var rest = {};
+    for (var k = max; k < chosen.length; k++) {
+      rest[chosen[k].f.rule] = (rest[chosen[k].f.rule] || 0) + 1;
+    }
+    var names = Object.keys(rest);
+    var more = "";
+    if (names.length) {
+      more = (chosen.length - out.length) + " more finding" + (chosen.length - out.length > 1 ? "s" : "") + " not listed (" +
+        names.map(function (n) { return n + ": " + rest[n]; }).join(", ") + "). List one rule with project-lint rule:\"<rule>\".";
+    } else if (want.length && !chosen.length) {
+      more = "No finding of " + want + ".";
+    }
+    return { findings: out, more: more };
   };
 })();

@@ -30,7 +30,9 @@ const printed = cats => JSON.stringify(cats.map(c => ({ name: c.name, items: c.i
   shortDescription: it.shortDescription, nameSuggestion: it.nameSuggestion, propertyCount: it.propertyCount })) }))).length;
 
 function workspace(sharedProjects, perProject) {
-  const builtIn = ['Buttons', 'Cards', 'Containers', 'Forms', 'HTML', 'Lists', 'Menus'].map(n => category(n, 15, true));
+  // Six built-in entries per category: the budget is now the answer as Vibe prints it, indented (13 000), so a workspace
+  // whose built-in entries alone pass it answers the first categories and names the others with their filter.
+  const builtIn = ['Buttons', 'Cards', 'Containers', 'Forms', 'HTML', 'Lists', 'Menus'].map(n => category(n, 6, true));
   const shared = Array.from({ length: sharedProjects }, (_, p) => category('lib_Shared' + p, perProject, false));
   return builtIn.concat(shared);
 }
@@ -52,6 +54,11 @@ test('many shared components keep the answer under the budget and say how to lis
     const r = P.boundCategories(cats);
     assert.ok(printed(r.categories) <= P.LIST_BUDGET, projects + 'x' + per + ': ' + printed(r.categories));
     assert.ok(printed(r.categories) + r.omittedText.length < 30000);
+    // Vibe 3.1 measures its 16 000 characters on the answer indented by 2.
+    const indented = JSON.stringify({ categories: r.categories.map(c => ({ name: c.name, items: c.items.map(it => ({ name: it.name,
+      className: it.className, shortDescription: it.shortDescription, nameSuggestion: it.nameSuggestion, propertyCount: it.propertyCount })) })),
+      omitted: r.omittedText }, null, 2).length;
+    assert.ok(indented < 16000, projects + 'x' + per + ' indented: ' + indented);
     assert.ok(r.omittedCount > 0);
     assert.match(r.omittedText, /^This answer is kept short\. /);
     // Built-in entries stay listed: shared categories leave first.

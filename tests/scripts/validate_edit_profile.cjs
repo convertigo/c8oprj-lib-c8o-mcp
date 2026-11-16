@@ -239,11 +239,12 @@ test('project-reload declares and answers the ionic fields in the html profile o
   const input = html.decorateInput('tools_project_reload', derivedInput(), null);
   assert.equal(input.properties.fromIonic.type, 'boolean');
   assert.equal(input.properties.ionicTarget.type, 'string');
+  // Declared answers keep their top-level fields; nested ones are any object (schemaOverrides.slimOutputSchema).
   const output = html.decorateOutput('tools_project_reload', derivedOutput(), null, null);
-  assert.ok(output.properties.ionicReport.properties.skipped);
-  assert.ok(output.properties.ionicReport.properties.warnings);
+  assert.equal(output.properties.ionicReport.type, 'object');
+  assert.equal(output.properties.ionicImported.type, 'boolean');
   const open = html.decorateOutput('tools_mobile_builder_open', { type: 'object', properties: { status: { type: 'string' } } }, null, null);
-  assert.ok(open.properties.ionicFiles.properties.pages);
+  assert.equal(open.properties.ionicFiles.type, 'object');
 });
 
 test('project-reload imports from the generated files in the html profile only, through the engine entry point', () => {

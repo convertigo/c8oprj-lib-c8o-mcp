@@ -352,7 +352,9 @@ test("project-lint run: the LIB-* findings of an app built by hand, once per obj
   assert.match(of("LIB-NPM-DUPLICATE")[0].message, /^package_dependencies adds ag-grid-community, ag-grid-angular, which the library lib_ExtendedComponents_ui_ngx already wraps/);
   assert.match(of("LIB-NPM-DUPLICATE")[0].fix, /Then take these packages out of package_dependencies\.$/);
   assert.deepStrictEqual(of("LIB-HANDMADE-AUTH").map(f => f.qname), ["App.db.q_login", "js/auth.js"]);
-  of("LIB-HANDMADE-AUTH").forEach(f => assert.match(f.fix, /^The app references lib_UserManager: call its sequences \(SignIn, CreateAccount, ForgotPassword\.\.\.\) instead/));
+  // A rule's fix is written on its first listed finding only (C8O.lint.listFindings).
+  assert.match(of("LIB-HANDMADE-AUTH")[0].fix, /^The app references lib_UserManager: call its sequences \(SignIn, CreateAccount, ForgotPassword\.\.\.\) instead/);
+  assert.equal(of("LIB-HANDMADE-AUTH")[1].fix, undefined);
   result.findings.filter(f => /^LIB-/.test(f.rule)).forEach(f => assert.strictEqual(f.severity, "warning", f.rule));
 });
 

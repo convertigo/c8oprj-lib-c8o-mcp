@@ -8,7 +8,7 @@ comment: |
 ↓Include [steps.SimpleStep-1792272000001]: 
   expression: 'include("js/mcp_auth.js"); include("js/tools_image_describe.js"); include("js/sql_dialect.js"); include("js/sequence_response.js"); include("js/project_brief.js"); include("js/tools_project_lint.js");'
 ↓Run [steps.SimpleStep-1792272000002]: 
-  expression: 'var lintResult = C8O.lint.run(project, {checkTexts: String(checkTexts) !== "false", context: context});'
+  expression: 'var lintResult = C8O.lint.run(project, {checkTexts: String(checkTexts) !== "false", context: context, rule: typeof rule === "undefined" || rule === null ? "" : String(rule)});'
 ↓result [steps.JsonToXmlStep-1792272000003]: 
   jsonObject: 
     - xmlizable: 
@@ -29,4 +29,8 @@ comment: |
 ↓checkTexts [variables.RequestableVariable-1792272000006]: 
   comment: 'false skips the text review (spelling, accents, language) by the gateway model; default true. An agent that calls no gateway model (Claude) always gets false: review the texts the user sees yourself.'
   description: 'false skips the text review (spelling, accents, language) by the gateway model; default true. An agent that calls no gateway model (Claude) always gets false: review the texts the user sees yourself.'
+  value: ''
+↓rule [variables.RequestableVariable-1792272000007]: 
+  comment: 'Optional: list only the findings of this rule (DOC-NO-COMMENT...) or severity (error, warning, info). The answer lists the first 25 findings, errors first; counts cover them all.'
+  description: 'Optional: list only the findings of this rule (DOC-NO-COMMENT...) or severity (error, warning, info). The answer lists the first 25 findings, errors first; counts cover them all.'
   value: ''

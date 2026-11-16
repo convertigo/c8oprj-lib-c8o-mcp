@@ -737,8 +737,11 @@ C8O.palette.listEntries = function (options) {
 // The palette-list answer stays under a size budget whatever the workspace holds. The shared components and actions of
 // the loaded projects grew it past the 30 000 characters an agent's client takes (33 051 with one app loaded, 83 650 with
 // C8Oforms). Over the budget, whole categories are left out, shared ones (largest first) before built-in ones, and named
-// with their count: a filter on that name lists them. The size is the one of the fields the answer gives for each item.
-C8O.palette.LIST_BUDGET = 24000;
+// with their count: a filter on that name lists them. The size is the one of the fields the answer gives for each item,
+// as Vibe 3.1 prints them (JSON indented by 2, a category nested in the categories of the answer): Vibe saves a tool result
+// over 16 000 indented characters to a file the agent then greps with bash, once per look (8 jq calls on one palette
+// in T3 of 16/11).
+C8O.palette.LIST_BUDGET = 13000;
 
 C8O.palette._listedSize = function (category) {
   var items = category && category.items ? category.items : [];
@@ -748,7 +751,8 @@ C8O.palette._listedSize = function (category) {
     listed.push({ name: it.name || "", className: it.className || "", shortDescription: it.shortDescription || "",
       nameSuggestion: it.nameSuggestion || "", propertyCount: it.propertyCount || 0 });
   }
-  return JSON.stringify({ name: category ? category.name || "" : "", items: listed }).length + 1;
+  var text = JSON.stringify({ name: category ? category.name || "" : "", items: listed }, null, 2);
+  return text.length + 4 * text.split("\n").length + 2;
 };
 
 C8O.palette.boundCategories = function (categories, budget) {
