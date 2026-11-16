@@ -35,7 +35,8 @@ test('the Vibe bootstrap keeps run_typescript returns small enough to come back 
 // program has 60 s, so one waiting call per program.
 test('the Vibe bootstrap chains dependent steps in one program and loads declarations at once', () => {
   const vibe = bootstrap('vibe');
-  assert.match(vibe, /search_tool_functions\(\{mode:\\?"details\\?", functions:\[/);
+  // Vibe 3.1 refuses a details call of more than 10 names (FieldFix, 16/11).
+  assert.match(vibe, /in one call \(10 names at most\), `search_tool_functions\(\{mode:\\?"details\\?", functions:\[/);
   assert.match(vibe, /Every `run_typescript` call is one more request that reads your whole context again/);
   assert.match(vibe, /chain dependent steps there \(a write, its save, the call that proves it\)/);
   assert.match(vibe, /A `run_typescript` program stops after 60 s/);
