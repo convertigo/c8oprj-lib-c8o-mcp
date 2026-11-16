@@ -618,6 +618,175 @@ if (typeof include === "function") {
     return out;
   };
 
+  // A "data-reset: <reason>" line in a transaction's comment: the reason, "" for a line without one, null without the line.
+  C8O.lint.dataResetReason = function (comment) {
+    var match = /^[ \t]*data-reset[ \t]*:(.*)$/im.exec(String(comment || ""));
+    return match ? match[1].trim() : null;
+  };
+
+  var MAKE_PRIVATE = "Make it Private: delete its accessibility line (a transaction without one is Private since engine 8.0.0, so the saved " +
+    "YAML never keeps an explicit Private line) or set accessibility Private with databaseobject-tree-apply. The pages call a " +
+    "sequence that checks the session, and the role for a write, and calls the transaction.";
+
+  // Transactions that clients call directly, and transactions whose SQL empties or drops a table (review of a generated CRM,
+  // 16/11: its SQL transactions looked public, init_schema included; they were Private by default, as the audit model reads
+  // a transaction without an accessibility line). requestables: the audit model's ({qname, kind, accessibility,
+  // authenticatedContextRequired, writes}); commentOf(qname): the comment; resetTablesOf(qname): the tables its SQL
+  // empties or drops (DELETE without WHERE, TRUNCATE, DROP). One finding per transaction: [{rule, severity, qname, message,
+  // fix}].
+  C8O.lint.transactionFindings = function (requestables, commentOf, resetTablesOf) {
+    var out = [];
+    (requestables || []).forEach(function (r) {
+      if (!r || r.kind !== "transaction") {
+        return;
+      }
+      var qname = String(r.qname);
+      var comment = typeof commentOf === "function" ? commentOf(qname) : "";
+      var reset = typeof resetTablesOf === "function" ? (resetTablesOf(qname) || []) : [];
+      var writes = (r.writes || []).slice();
+      var resetText = reset.length ? (reset[0] === "*" ? "a whole schema" : "the table" + (reset.length > 1 ? "s " : " ") + reset.join(", ")) : "";
+      if (r.accessibility !== "Private") {
+        var who = r.authenticatedContextRequired === true ? "any signed-in user" : "anyone, without signing in,";
+        if (writes.length || reset.length) {
+          var reason = C8O.lint.publicWriteReason(comment);
+          var message = qname + " is " + r.accessibility + ": " + who + " can call it directly, and it writes (" +
+            (writes.length ? writes.join(", ") : "SQL") + ")" + (reset.length ? " and empties or drops " + resetText : "") + ".";
+          if (reason && !reset.length) {
+            out.push({ rule: "SEC-CLIENT-TRANSACTION", severity: "warning", qname: qname, message: message + " Declared public write: \"" + reason + "\".",
+              fix: "Keep it only if anyone must be able to write here; otherwise " + MAKE_PRIVATE.charAt(0).toLowerCase() + MAKE_PRIVATE.substring(1) });
+          } else {
+            out.push({ rule: "SEC-CLIENT-TRANSACTION", severity: "error", qname: qname, message: message, fix: MAKE_PRIVATE });
+          }
+        } else {
+          out.push({ rule: "SEC-CLIENT-TRANSACTION", severity: "warning", qname: qname,
+            message: qname + " is " + r.accessibility + ": " + who + " can call it directly and read what it returns, with no check in a sequence.",
+            fix: MAKE_PRIVATE });
+        }
+        return;
+      }
+      if (reset.length) {
+        var why = C8O.lint.dataResetReason(comment);
+        if (why === null || !why.length) {
+          out.push({ rule: "SQL-DATA-RESET", severity: "warning", qname: qname,
+            message: qname + " empties or drops " + resetText + " (DELETE without WHERE, TRUNCATE or DROP): run on an app in use, it loses its data." +
+              (why === "" ? " Its data-reset line gives no reason." : ""),
+            fix: "Keep it only for a schema init or a reset the user asked for: Private, called only by the scheduler or by an admin " +
+              "sequence that checks the role, never by a page (requestable-execute runs it only with allowDataReset:true), and say so " +
+              "with a line \"data-reset: <reason>\" in its comment. Otherwise delete with a WHERE, or create the schema with " +
+              "CREATE TABLE IF NOT EXISTS." });
+        }
+      }
+    });
+    return out;
+  };
+
+  // --- text files a deployed server serves ---------------------------------------------------------------------------
+
+  // The folders of a project the engine never serves (ProjectsDataFilter answers 403: _c8oProject, libs, .git, _private) or
+  // never deploys (CarUtils: _data, build, oas2, oas3, node_modules), and the built app, which the build rewrites.
+  C8O.lint.SERVED_SCAN_SKIPPED = ["_private", "_c8oProject", "libs", ".git", ".gradle", ".settings", "node_modules", "_data", "build",
+    "oas2", "oas3", "DisplayObjects", "Flashupdate"];
+  C8O.lint.SERVED_TEXT = /\.(md|markdown|txt|csv|log|env|properties|ini|conf|cfg|ya?ml|json|xml|html?)$/i;
+
+  // The paths a project's .httpignore hides (gitignore-like: # comments, ! negation, a trailing / for a folder, a leading /
+  // or an inner / anchors the pattern at the project root, * ** ?): function (relativePath, isDirectory) -> boolean.
+  C8O.lint.httpIgnoreMatcher = function (text) {
+    var rules = [];
+    String(text || "").split(/\r?\n/).forEach(function (raw) {
+      var line = raw.replace(/\s+$/, "");
+      if (!line.length || line.charAt(0) === "#") {
+        return;
+      }
+      var negate = line.charAt(0) === "!";
+      if (negate) {
+        line = line.substring(1);
+      }
+      var dirOnly = /\/$/.test(line);
+      line = line.replace(/\/+$/, "");
+      var anchored = line.charAt(0) === "/" || line.indexOf("/") > 0;
+      line = line.replace(/^\/+/, "");
+      if (!line.length) {
+        return;
+      }
+      var body = line.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*\*\/?/g, "\u0000").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]")
+        .replace(/\u0000/g, "(?:.*/)?");
+      rules.push({ negate: negate, dirOnly: dirOnly, regex: new RegExp((anchored ? "^" : "(?:^|/)") + body + "$") });
+    });
+    return function (relativePath, isDirectory) {
+      var parts = String(relativePath).replace(/^\/+/, "").split("/");
+      var hidden = false;
+      // a path is hidden when it, or a folder above it, matches
+      for (var depth = 1; depth <= parts.length && !hidden; depth++) {
+        var sub = parts.slice(0, depth).join("/");
+        var isDir = depth < parts.length || isDirectory === true;
+        var state = false;
+        rules.forEach(function (rule) {
+          if ((!rule.dirOnly || isDir) && rule.regex.test(sub)) {
+            state = !rule.negate;
+          }
+        });
+        hidden = state;
+      }
+      return hidden;
+    };
+  };
+
+  // The line numbers of a text that hold a credential-like value, by the masking of project-brief (a value after a password,
+  // secret, token or key label, a bearer token, a URL with credentials, a private key, a known token format).
+  C8O.lint.secretLines = function (text, mask) {
+    var lines = [];
+    if (typeof mask !== "function") {
+      return lines;
+    }
+    String(text || "").split(/\r?\n/).forEach(function (line, i) {
+      // placeholders are no secret: ${symbol}, {{value}}, <your key>, YOUR_API_KEY, xxx, ***
+      var scanned = line.replace(/\$\{[^}]*\}|\{\{[^}]*\}\}|<[^<>]+>|\b[A-Z]+(?:_[A-Z]+)+\b|\bx{3,}\b|\*{3,}|•+/g, "");
+      // a private key block spans lines: its BEGIN line counts
+      if (mask(scanned).masked > 0 || /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(line)) {
+        lines.push(i + 1);
+      }
+    });
+    return lines;
+  };
+
+  // The text files of a project that a deployed server serves and that hold a credential-like value: [{path, lines}].
+  function servedSecretFiles(project) {
+    var out = [];
+    var mask = C8O.projectBrief && typeof C8O.projectBrief.maskSecrets === "function" ? C8O.projectBrief.maskSecrets : null;
+    if (!mask) {
+      return out;
+    }
+    var root = new java.io.File(String(project.getDirPath()));
+    var ignoreFile = new java.io.File(root, ".httpignore");
+    var ignored = C8O.lint.httpIgnoreMatcher(ignoreFile.isFile() ? String(new java.lang.String(java.nio.file.Files.readAllBytes(ignoreFile.toPath()), "UTF-8")) : "");
+    var budget = { files: 400 };
+    var walk = function (dir, prefix, depth) {
+      var listed = dir.listFiles();
+      if (listed === null || depth > 6) {
+        return;
+      }
+      for (var i = 0; i < listed.length && budget.files > 0 && out.length < 20; i++) {
+        var f = listed[i];
+        var name = String(f.getName());
+        var rel = prefix + name;
+        if (f.isDirectory()) {
+          if ((depth === 0 && C8O.lint.SERVED_SCAN_SKIPPED.indexOf(name) >= 0) || name === "_private" || name === ".git" || name === "node_modules" || ignored(rel, true)) {
+            continue;
+          }
+          walk(f, rel + "/", depth + 1);
+        } else if (C8O.lint.SERVED_TEXT.test(name) && !(depth === 0 && /^(c8oProject\.yaml|.*\.xml)$/i.test(name)) && f.length() <= 262144 && !ignored(rel, false)) {
+          budget.files--;
+          var lines = C8O.lint.secretLines(String(new java.lang.String(java.nio.file.Files.readAllBytes(f.toPath()), "UTF-8")), mask);
+          if (lines.length) {
+            out.push({ path: rel, lines: lines });
+          }
+        }
+      }
+    };
+    walk(root, "", 0);
+    return out;
+  }
+
   // The comment of a requestable of the project from the audit's QName: "P.sequence" or "P.connector.transaction".
   function requestableComment(project, qname) {
     var parts = String(qname).split(".");
@@ -1844,6 +2013,34 @@ if (typeof include === "function") {
             "gives the full report.");
       });
     } catch (_ignoreAudit) {}
+
+    if (auditModel) {
+      try {
+        var resetTablesOf = function (qname) {
+          var parts = String(qname).split(".");
+          try {
+            var tx = parts.length === 3 ? project.getConnectorByName(parts[1]).getTransactionByName(parts[2]) : null;
+            return tx && typeof tx.getSqlQuery === "function" ? C8O.requestable.resetTables(String(tx.getSqlQuery())) : [];
+          } catch (_noTransaction) {
+            return [];
+          }
+        };
+        C8O.lint.transactionFindings((auditModel.requestables || []).filter(function (r) {
+          return String(r.qname).indexOf(String(project.getName()) + ".") === 0;
+        }), function (qname) { return requestableComment(project, qname); }, resetTablesOf).forEach(function (f) {
+          add(f.rule, f.severity, f.qname, f.message, f.fix);
+        });
+      } catch (_ignoreTransactions) {}
+    }
+
+    try {
+      servedSecretFiles(project).forEach(function (s) {
+        add("SEC-SERVED-SECRET", "error", String(project.getName()) + "/" + s.path, "The file " + s.path + " holds a password, token or key (line " +
+          s.lines.slice(0, 5).join(", ") + ") and a deployed server serves it to anyone: everything outside _private/, _c8oProject/ and libs/ is a static file.",
+          "Remove the value (name the account only, \"password given to the user\") and change the secret if the project was deployed. Keep build " +
+          "documents and notes under _private/docs/ (project-notes-write writes the notes there), or hide the folder with a line in .httpignore.");
+      });
+    } catch (_ignoreServedFiles) {}
 
     var textReview = C8O.lint.reviewTexts(options || {}, shownOrder, shownTexts, i18n, add, project);
     textReview.texts = shownOrder.length;
