@@ -208,6 +208,7 @@ test('the scan on a real page: contrast, raw values, an empty list, two titles, 
       '<h2 class="app-title" style="font-size:28px">Deals</h2><h2>Other title</h2>' +
       '<div style="background:#fff;padding:12px"><span style="color:#bbbbbb">Muted label</span> <span>Amount</span> <span>185000.00</span> <span>2026-10-18</span> <span>undefined</span></div>' +
       '<ion-list style="display:block;min-height:10px"></ion-list>' +
+      '<div style="background:#3b5bdb;padding:8px"><span style="display:inline-block;background:color(srgb 0.99 0.99 1);padding:4px"><span style="color:#3b5bdb;background:rgba(59,91,219,0.1)">Role pill</span></span></div>' +
       '<div style="width:600px;background:#eef">A very wide block that does not fit a phone</div>' +
       '</ion-content></body>';
     await page.setContent(html);
@@ -220,6 +221,7 @@ test('the scan on a real page: contrast, raw values, an empty list, two titles, 
     assert.ok(issues.some(i => /^states: A list shows no row and no empty state/.test(i)), issues.join('\n'));
     assert.ok(issues.some(i => /^hierarchy: 2 page titles/.test(i)), issues.join('\n'));
     assert.ok(!issues.some(i => /"Amount"/.test(i)), 'a readable text is not reported');
+    assert.ok(!issues.some(i => /"Role pill"/.test(i)), 'a background in color(srgb ...) is read: the pill sits on white, not on the blue bar');
     assert.equal(desktop.signature.titleSize, 28);
     await page.setViewportSize({ width: 390, height: 844 });
     const phone = await page.evaluate(design.designScan, true);

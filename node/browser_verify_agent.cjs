@@ -1349,7 +1349,7 @@ async function run(rawConfig, deps) {
   if (config.mode === "design") {
     return require("./design_review.cjs").runDesign(config, deps, {
       createGateway: createGateway, openBrowser: openBrowser, restoreViewport: restoreViewport, settle: settle, sleep: sleep,
-      shortError: shortError, parseArgs: parseArgs
+      shortError: shortError, parseArgs: parseArgs, logActivity: logActivity
     });
   }
   var gateway = createGateway(config, key, deps.fetch || fetch);

@@ -26,6 +26,7 @@ var DESKTOP = { width: 1280, height: 800 };
 var PHONE = { width: 390, height: 844 };
 var MAX_PAGES = 8;
 var DEFAULT_PAGES = 6;
+var REVIEW_MAX_TOKENS = 6000;
 
 var SYSTEM_PROMPT = [
   "You are a senior UI designer reviewing one page of a business web application, as the last pass before it is shown to its users. You see two screenshots of the page, at a desktop width and at a phone width, and the facts a script measured on it.",
@@ -77,6 +78,13 @@ function designScan(phone) {
   function norm(color) {
     if (!color) {
       return null;
+    }
+    // Chrome computes color-mix() and some theme colors as color(srgb r g b / a), with channels from 0 to 1: a canvas
+    // does not read it, and a white chip was taken for the toolbar behind it (a 1:1 contrast, 16/11).
+    var srgb = /color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+%?))?\s*\)/.exec(String(color));
+    if (srgb) {
+      var alpha = srgb[4] === undefined ? 1 : (/%$/.test(srgb[4]) ? parseFloat(srgb[4]) / 100 : +srgb[4]);
+      return { r: +srgb[1] * 255, g: +srgb[2] * 255, b: +srgb[3] * 255, a: alpha };
     }
     try {
       canvas.fillStyle = "#010203";
@@ -367,6 +375,15 @@ function consistencyFindings(pages) {
   return byPage;
 }
 
+// One line per step in activity.jsonl, as the walk writes it: the calling agent and Tigo follow the review page by page.
+function activity(helpers, config, text) {
+  if (typeof helpers.logActivity === "function") {
+    try {
+      helpers.logActivity(config, { at: Date.now(), turn: 0, text: text });
+    } catch (_noActivity) {}
+  }
+}
+
 function pageList(value) {
   var items = Array.isArray(value) ? value : str(value).split(/\r?\n|,/);
   var out = [];
@@ -515,8 +532,10 @@ async function runDesign(config, deps, helpers) {
       }
       try {
         captured.push(await capturePage(state, pages[i], i, config, helpers));
+        activity(helpers, config, "Page " + pages[i].name + ": captured at " + DESKTOP.width + " and " + PHONE.width + " px, measured.");
       } catch (e) {
         errors.push(pages[i].path + ": " + helpers.shortError(e));
+        activity(helpers, config, "Page " + pages[i].name + ": could not be opened (" + helpers.shortError(e) + ").");
       }
     }
   } finally {
@@ -533,9 +552,14 @@ async function runDesign(config, deps, helpers) {
     var overCost = config.maxCostUsd > 0 && gateway.spentCost() >= config.maxCostUsd * 0.9;
     if (!overCost && Date.now() - started < config.timeBudgetMs - 5000) {
       try {
-        var body = await gateway.complete(reviewMessages(page, measured, config), { tools: [REVIEW_TOOL], toolChoice: { type: "function", "function": { name: "review" } }, maxTokens: 1600 });
-        var call = (((body.choices || [])[0] || {}).message || {}).tool_calls;
+        // A model that reasons before it answers spent 1600 tokens thinking and gave no review (16/11): room for both.
+        var body = await gateway.complete(reviewMessages(page, measured, config), { tools: [REVIEW_TOOL], toolChoice: { type: "function", "function": { name: "review" } }, maxTokens: REVIEW_MAX_TOKENS });
+        var choice = (body.choices || [])[0] || {};
+        var call = (choice.message || {}).tool_calls;
         args = call && call[0] ? helpers.parseArgs(call[0]["function"].arguments) : null;
+        if (!args) {
+          errors.push(page.path + " review: the model gave no review" + (choice.finish_reason === "length" ? " (its answer was cut at " + REVIEW_MAX_TOKENS + " tokens)" : "") + "; only the measures count for this page.");
+        }
       } catch (e) {
         errors.push(page.path + " review: " + helpers.shortError(e));
       }
@@ -543,6 +567,7 @@ async function runDesign(config, deps, helpers) {
       stopReason = overCost ? "cost budget" : "time budget";
     }
     var checks = normalizeChecks(args, measured);
+    activity(helpers, config, "Page " + page.name + " reviewed: " + checks.filter(function (c) { return c.status === "failed"; }).length + " point(s) to fix.");
     results.push({
       name: page.name,
       url: page.url,
