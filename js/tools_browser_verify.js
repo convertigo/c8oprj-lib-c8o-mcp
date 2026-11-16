@@ -471,11 +471,15 @@ C8O.browserVerify = C8O.browserVerify || {};
     }
     var url = str(params.url);
     var project = (/\/projects\/([A-Za-z_][A-Za-z0-9_]*)\/DisplayObjects\//.exec(url) || [])[1] || "";
-    if (!project.length) {
-      throw new Error("signInAs needs url: the viewerHomeUrl of mobile-builder-open, which names the project.");
-    }
     if (!C8O.viewerSession || typeof C8O.viewerSession.signIn !== "function") {
       include("js/viewer_session.js");
+    }
+    if (!project.length && url.length && typeof C8O.viewerSession.devProject === "function") {
+      // The Eclipse Studio's viewer, http://localhost:<port>/...: its dev server names the project in /env.json.
+      project = C8O.viewerSession.devProject(url);
+    }
+    if (!project.length) {
+      throw new Error("signInAs needs url: the viewerHomeUrl of mobile-builder-open, which names the project.");
     }
     var signIn = C8O.viewerSession.signIn(contextObject, {
       project: project, user: account, url: url, browserDebugPort: params.browserDebugPort, cdpEndpoint: params.cdpEndpoint

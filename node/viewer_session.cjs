@@ -32,6 +32,30 @@ function appBase(url, project) {
   return { origin: m[1], engine: (m[2] || ""), base: m[1] + (m[2] || "") + "/projects/" + project + "/DisplayObjects/" + m[3] + "/" };
 }
 
+// The application on a dev server of the Studio (the Eclipse Studio's viewer: http://localhost:<port>/login), served at
+// the root with its engine named in /env.json: {remoteBase: "<engine>/projects/<P>/_private"}. The base and the engine,
+// for the project asked only.
+function devAppBase(pageUrl, env, project) {
+  var origin = /^(https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]|[a-z0-9-]+\.localhost)(?::\d+)?)(?:\/|$)/i.exec(str(pageUrl));
+  var remote = /^(https?:\/\/.+?)\/projects\/([A-Za-z_][A-Za-z0-9_]*)\/_private\/?$/.exec(str(env && env.remoteBase));
+  if (!origin || !remote || remote[2] !== project) {
+    return null;
+  }
+  return { origin: origin[1], engine: remote[1], base: origin[1] + "/" };
+}
+
+async function devApp(page, project) {
+  try {
+    var env = await page.evaluate(async function () {
+      var response = await fetch("/env.json", { cache: "no-store" });
+      return response.ok ? await response.json() : null;
+    });
+    return devAppBase(page.url(), env, project);
+  } catch (_noEnv) {
+    return null;
+  }
+}
+
 // The route segment the app shows, after its base (no query, no hash).
 function routeOf(url, base) {
   var rest = str(url).substring(base.length).replace(/[?#].*$/, "");
@@ -78,6 +102,16 @@ async function main() {
     }
     var target = appBase(input.url, project);
     var current = appBase(page.url(), project);
+    if (!current && !target) {
+      // An Eclipse Studio shows the app on its dev server: open the url given (viewerHomeUrl), then ask its env.json.
+      var asked = /^(https?:\/\/[^/]+)/.exec(str(input.url));
+      var shown = /^(https?:\/\/[^/]+)/.exec(page.url());
+      if (asked && (!shown || shown[1] !== asked[1])) {
+        await page.goto(str(input.url), { waitUntil: "domcontentloaded", timeout: timeout });
+        await settle(page, 4000);
+      }
+      current = await devApp(page, project);
+    }
     if (!current && !target) {
       return { status: "no_viewer", signedIn: false, url: page.url(),
         message: "The Studio browser does not show the application of " + project + ": pass url (the viewerHomeUrl of mobile-builder-open)." };
@@ -141,7 +175,9 @@ async function main() {
   }
 }
 
-main().then(function (result) {
+if (require.main !== module) {
+  module.exports = { appBase: appBase, devAppBase: devAppBase };
+} else main().then(function (result) {
   process.stdout.write(JSON.stringify(result) + "\n");
   process.exit(0);
 }, function (error) {

@@ -197,6 +197,41 @@ C8O.viewerSession = C8O.viewerSession || {};
     return host;
   };
 
+  // The project of an app on a dev server of the Studio (the Eclipse Studio's viewer, http://localhost:<port>/...): the
+  // server answers /env.json with remoteBase "<engine>/projects/<P>/_private". "" for any other address or no answer.
+  api.devProjectOfEnv = function (text) {
+    try {
+      var env = JSON.parse(String(text || ""));
+      var m = /\/projects\/([A-Za-z_][A-Za-z0-9_]*)\/_private\/?$/.exec(String(env && env.remoteBase || ""));
+      return m ? m[1] : "";
+    } catch (_notJson) {
+      return "";
+    }
+  };
+
+  api.devProject = function (url, fetchText) {
+    var origin = /^(https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]|[a-z0-9-]+\.localhost)(?::\d+)?)(?:\/|$)/i.exec(trim(url));
+    if (!origin || /\/projects\/[^/]+\/DisplayObjects\//.test(trim(url))) {
+      return "";
+    }
+    var read = fetchText || function (address) {
+      var connection = new java.net.URL(address).openConnection();
+      connection.setConnectTimeout(2000);
+      connection.setReadTimeout(3000);
+      var stream = connection.getInputStream();
+      try {
+        return String(new java.lang.String(stream.readAllBytes(), "UTF-8"));
+      } finally {
+        stream.close();
+      }
+    };
+    try {
+      return api.devProjectOfEnv(read(origin[1] + "/env.json"));
+    } catch (_noServer) {
+      return "";
+    }
+  };
+
   // params: {project, user, page, url, browserDebugPort, cdpEndpoint}
   api.signIn = function (contextObject, params, host) {
     var p = params || {};

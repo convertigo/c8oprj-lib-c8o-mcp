@@ -161,3 +161,41 @@ test('the browser helper posts the ticket from the viewer page and never opens a
   assert.doesNotMatch(helper, /newPage\(|newContext\(/);
   assert.doesNotMatch(helper, /\.fill\(|\.type\(|keyboard/, 'it types nothing in the page');
 });
+
+// The Eclipse Studio shows the app on its dev server, http://localhost:<port>/login, without /projects/<P>/DisplayObjects/:
+// viewer-sign-in answered no_viewer and browser-verify's signInAs refused the url, call after call (T3 and T4 of 16/11 on
+// a Studio 8.4: 8 to 10 sign-in calls each, then the checks by hand with Playwright). The dev server names the project
+// and its engine in /env.json (remoteBase "<engine>/projects/<P>/_private").
+test('a dev server of the Studio is the app of the project its env.json names', () => {
+  const helper = require(path.join(root, 'node/viewer_session.cjs'));
+  const env = { remoteBase: 'http://localhost:18118/convertigo/projects/SalesPipeline/_private' };
+  assert.deepEqual(JSON.parse(JSON.stringify(helper.devAppBase('http://localhost:43754/login', env, 'SalesPipeline'))),
+    { origin: 'http://localhost:43754', engine: 'http://localhost:18118/convertigo', base: 'http://localhost:43754/' });
+  assert.equal(helper.devAppBase('http://localhost:43754/login', env, 'Other'), null, 'another project');
+  assert.equal(helper.devAppBase('https://example.com/login', env, 'SalesPipeline'), null, 'not a local address');
+  assert.equal(helper.devAppBase('http://localhost:43754/', {}, 'SalesPipeline'), null, 'no env');
+  assert.ok(helper.appBase('http://localhost:18080/convertigo/projects/P/DisplayObjects/mobile/home', 'P'), 'the engine path still works');
+  assert.match(read('node/viewer_session.cjs'), /current = await devApp\(page, project\);/);
+});
+
+test('viewer-sign-in and signInAs find the project of a dev server by its env.json', () => {
+  const context = { C8O: {}, include() {}, java: { lang: { String: function () {} } } };
+  vm.createContext(context);
+  context.Packages = { com: { twinsoft: { convertigo: { engine: { Engine: { isStudioMode: () => true } } } } } };
+  vm.runInContext(read('js/viewer_session.js'), context);
+  const vs = context.C8O.viewerSession;
+  const env = JSON.stringify({ remoteBase: 'http://localhost:18118/convertigo/projects/SalesPipeline/_private' });
+  let asked = '';
+  assert.equal(vs.devProject('http://localhost:43754/companies', u => { asked = u; return env; }), 'SalesPipeline');
+  assert.equal(asked, 'http://localhost:43754/env.json');
+  assert.equal(vs.devProject('https://example.com/companies', () => env), '', 'only a local address');
+  assert.equal(vs.devProject('http://localhost:18080/convertigo/projects/P/DisplayObjects/mobile/', () => env), '', 'the path names it already');
+  assert.equal(vs.devProject('http://localhost:43754/', () => { throw new Error('refused'); }), '', 'no server');
+  vm.runInContext(read('js/tools_browser_verify.js'), context, { filename: 'tools_browser_verify.js' });
+  let call = null;
+  vs.signIn = (_ctx, p) => { call = p; return { signedIn: true, sessionUser: p.user, status: 'signed_in', message: '' }; };
+  vs.devProject = url => (url.indexOf('localhost:43754') >= 0 ? 'SalesPipeline' : '');
+  assert.equal(context.C8O.browserVerify.signInFirst({}, { signInAs: 'demo@x.io', url: 'http://localhost:43754/login' }), 'demo@x.io');
+  assert.equal(call.project, 'SalesPipeline');
+  assert.throws(() => context.C8O.browserVerify.signInFirst({}, { signInAs: 'demo@x.io', url: 'http://localhost:9/login' }), /signInAs needs url/);
+});
