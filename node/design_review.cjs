@@ -26,7 +26,10 @@ var DESKTOP = { width: 1280, height: 800 };
 var PHONE = { width: 390, height: 844 };
 var MAX_PAGES = 8;
 var DEFAULT_PAGES = 6;
-var REVIEW_MAX_TOKENS = 6000;
+var REVIEW_MAX_TOKENS = 8000;
+// The reviews run side by side (one per page) and reason little: a page took 90 s and 6000 tokens of thinking (16/11).
+var REVIEW_CONCURRENCY = 3;
+var REVIEW_REASONING = "low";
 
 var SYSTEM_PROMPT = [
   "You are a senior UI designer reviewing one page of a business web application, as the last pass before it is shown to its users. You see two screenshots of the page, at a desktop width and at a phone width, and the facts a script measured on it.",
@@ -542,18 +545,18 @@ async function runDesign(config, deps, helpers) {
     await helpers.restoreViewport({ emulation: state.cdp });
   }
   var across = consistencyFindings(captured);
-  var results = [];
-  for (var p = 0; p < captured.length; p++) {
+  async function reviewPage(p) {
     var page = captured[p];
     var measured = page.scans.desktop.findings.concat(page.scans.phone.findings.filter(function (f) {
       return !page.scans.desktop.findings.some(function (d) { return d.issue === f.issue; });
     })).concat(across[p]);
     var args = null;
     var overCost = config.maxCostUsd > 0 && gateway.spentCost() >= config.maxCostUsd * 0.9;
-    if (!overCost && Date.now() - started < config.timeBudgetMs - 5000) {
+    if (!overCost && Date.now() - started < config.timeBudgetMs - 20000) {
       try {
         // A model that reasons before it answers spent 1600 tokens thinking and gave no review (16/11): room for both.
-        var body = await gateway.complete(reviewMessages(page, measured, config), { tools: [REVIEW_TOOL], toolChoice: { type: "function", "function": { name: "review" } }, maxTokens: REVIEW_MAX_TOKENS });
+        var body = await gateway.complete(reviewMessages(page, measured, config), { tools: [REVIEW_TOOL], toolChoice: { type: "function", "function": { name: "review" } },
+          maxTokens: REVIEW_MAX_TOKENS, reasoning: REVIEW_REASONING });
         var choice = (body.choices || [])[0] || {};
         var call = (choice.message || {}).tool_calls;
         args = call && call[0] ? helpers.parseArgs(call[0]["function"].arguments) : null;
@@ -565,10 +568,11 @@ async function runDesign(config, deps, helpers) {
       }
     } else {
       stopReason = overCost ? "cost budget" : "time budget";
+      errors.push(page.path + " review: not done (" + stopReason + "); only the measures count for this page.");
     }
     var checks = normalizeChecks(args, measured);
     activity(helpers, config, "Page " + page.name + " reviewed: " + checks.filter(function (c) { return c.status === "failed"; }).length + " point(s) to fix.");
-    results.push({
+    results[p] = {
       name: page.name,
       url: page.url,
       title: page.title,
@@ -576,8 +580,21 @@ async function runDesign(config, deps, helpers) {
       checks: checks,
       measured: measured,
       screenshots: { desktop: page.shots.desktop.file, phone: page.shots.phone.file }
-    });
+    };
   }
+  var results = new Array(captured.length);
+  var next = 0;
+  async function worker() {
+    while (next < captured.length) {
+      var p = next++;
+      await reviewPage(p);
+    }
+  }
+  var workers = [];
+  for (var w = 0; w < Math.min(REVIEW_CONCURRENCY, captured.length); w++) {
+    workers.push(worker());
+  }
+  await Promise.all(workers);
   var failed = [];
   results.forEach(function (r) {
     r.checks.forEach(function (c) {

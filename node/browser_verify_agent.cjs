@@ -404,8 +404,10 @@ function createGateway(config, key, fetchImpl) {
         tools: (options && options.tools) || TOOLS,
         tool_choice: (options && options.toolChoice) || "auto"
       };
-      if (reasoning) {
-        request.reasoning_effort = reasoning;
+      // A call may ask its own reasoning level (the design review asks low); a level the model refuses is dropped as usual.
+      var effort = options && options.reasoning ? options.reasoning : reasoning;
+      if (effort) {
+        request.reasoning_effort = effort;
       }
       return post(request);
     },

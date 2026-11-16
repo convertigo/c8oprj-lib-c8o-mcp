@@ -151,8 +151,8 @@ C8O.subagents = C8O.subagents || {};
       } catch (_notJson) {}
     }
     var count = Array.isArray(raw) ? raw.length : (str(raw).length ? str(raw).split(/\r?\n/).filter(function (line) { return str(line).length; }).length : 0);
-    // A design review opens each page at two widths and spends one model call on it: about 35 s per page.
-    scaled.timeBudgetSec = Math.max(limits.timeBudgetSec, (design ? 35 : 40) * count);
+    // A design review opens each page at two widths (a few seconds) and reviews three pages at a time (about a minute each).
+    scaled.timeBudgetSec = Math.max(limits.timeBudgetSec, design ? 90 + 25 * count : 40 * count);
     scaled.maxSteps = Math.max(limits.maxSteps, 9 * count);
     return scaled;
   };

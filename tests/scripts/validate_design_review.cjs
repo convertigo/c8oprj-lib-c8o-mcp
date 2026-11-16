@@ -80,7 +80,7 @@ test('a design review runs the agent in design mode with the pages, 35 s per pag
   const config = seen.starts[0].config;
   assert.equal(config.mode, 'design');
   assert.deepEqual(plain(config.pages), ['dashboard', 'deals', { name: 'Deal form', path: 'deal-form' }, 'companies', 'contacts']);
-  assert.equal(config.timeBudgetMs, 175000, '5 pages x 35 s');
+  assert.equal(config.timeBudgetMs, 215000, '90 s and 25 s a page');
   assert.match(seen.starts[0].meta.task, /^Design review: dashboard, deals, Deal form deal-form/);
   assert.equal(result.status, 'finished');
   assert.equal(result.design.round, 1);
