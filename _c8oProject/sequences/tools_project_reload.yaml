@@ -7,7 +7,8 @@ comment: |
   expression: |
     'include("js/databaseobject.js");
     include("js/edit_profile.js");
-    include("js/ionic_roundtrip.js");'
+    include("js/ionic_roundtrip.js");
+    include("js/yaml_line_check.js");'
 ↓Init [steps.SimpleStep-1762445709653]: 
   comment: Resolve project and perform reload
   expression: |
@@ -25,6 +26,15 @@ comment: |
     
     var errorEntries = [];
     var reloadResult;
+    /* the yaml edit profile (js/edit_profile.js): the agent wrote the files, their line grammar is checked first (js/yaml_line_check.js) */
+    var yamlLineErrors = [];
+    if (!fromIonicFlag && providedName.length && providedName !== currentProjectName && !!C8O.editProfile && C8O.editProfile.current() === "yaml" && C8O.yamlLineCheck) {
+      try {
+        yamlLineErrors = C8O.yamlLineCheck.checkProject(String(Packages.com.twinsoft.convertigo.engine.Engine.projectDir(providedName)));
+      } catch (_ignoreYamlLineCheck) {
+        yamlLineErrors = [];
+      }
+    }
     if (providedName.length) {
       if (currentProjectName.length && providedName === currentProjectName) {
         var forbiddenMessage = "Reloading the active MCP server project is forbidden because it unloads the running endpoint. Use project-save if you need to persist changes.";
@@ -32,6 +42,13 @@ comment: |
         reloadResult = { reloaded: false, message: forbiddenMessage, status: "forbidden" };
       } else if (fromIonicFlag) {
         reloadResult = C8O.ionicRoundTrip.importIntoLoadedProject(providedName, ionicTargetPath, errorEntries);
+      } else if (yamlLineErrors.length) {
+        /* the yaml edit profile: files the engine cannot read are named before the reload, the project stays loaded */
+        for (var yamlErrorIndex = 0; yamlErrorIndex < yamlLineErrors.length; yamlErrorIndex++) {
+          var yamlError = yamlLineErrors[yamlErrorIndex];
+          errorEntries.push({ name: yamlError.file + ":" + yamlError.line, message: yamlError.message + " | " + yamlError.text });
+        }
+        reloadResult = { reloaded: false, status: "invalid_yaml", message: yamlLineErrors.length + " line(s) the engine cannot read: fix them (errors names each file:line), then call project-reload again. Nothing was reloaded: the project is still the one loaded before." };
       } else {
         reloadResult = C8O.dbo.reloadProject(providedName, errorEntries);
       }

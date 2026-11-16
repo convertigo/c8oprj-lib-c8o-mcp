@@ -307,3 +307,42 @@ test('a tree change waits for imported file edits in the html profile only', () 
   assert.match(read('js/tools_databaseobject_tree_apply.js'), /if \(C8O\.editProfile\.current\(\) === "html" && !\(dryRunInput/);
   assert.equal((read('js/databaseobject_ops.js').match(/_c8oPendingIonicEdits\(/g) || []).length, 5);
 });
+
+// js/yaml_line_check.js: the line grammar checked before project-reload in the yaml profile.
+function lineCheck() {
+  const sandbox = {};
+  vm.runInNewContext(read('js/yaml_line_check.js'), sandbox);
+  return sandbox.C8O.yamlLineCheck;
+}
+
+test('the line check finds what makes the engine fail, and passes every file of this project', () => {
+  const check = lineCheck();
+  const good = ['accessibility: Public', '↓compute [steps.SimpleStep-1816000000301]: ', '  expression: |', "    'label = ''ok'';", "    var x = 1;'",
+    '↓out [steps.JsonToXmlStep-1816000000302]: ', '  key: ', '    - xmlizable: ', '      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType',
+    "        - →→: '({ total: 40 + 2 })'", '  ↓seq [sequences.GenericSequence]: 🗏 sequences/seq.yaml', ''].join('\n');
+  assert.deepEqual(Array.from(check.checkText(good, (rel) => rel === 'sequences/seq.yaml')), []);
+  const errorsOf = (text, exists) => Array.from(check.checkText(text, exists || (() => true))).map((e) => [e.line, e.message.split(':')[0]]);
+  assert.deepEqual(errorsOf('accessibility: Public\n↓compute [steps.SimpleStep-1]:\n  expression: x'), [[2, 'no space after the colon']]);
+  assert.deepEqual(errorsOf('a: b\n\nc: d'), [[2, 'blank line']]);
+  assert.deepEqual(errorsOf('a: b\n\tc: d'), [[2, 'tab in the indentation']]);
+  assert.deepEqual(errorsOf("a: 'open"), [[1, 'single-quoted value not closed on its line (a multi-line value is a | block)']]);
+  assert.deepEqual(errorsOf('a: |\nb: c'), [[1, '| block without content']]);
+  assert.deepEqual(errorsOf('  ↓s [sequences.GenericSequence]: 🗏 sequences/missing.yaml', () => false), [[1, 'the referenced file does not exist']]);
+  assert.deepEqual(errorsOf('just text'), [[1, 'not a \'key']]);
+  assert.equal(check.format('↑convertigo: 8.4.0.m006'), 'legacy');
+  assert.equal(check.format('convertigo: 8.5.0.m006'), 'standard');
+  // no false positive on the files of this project
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : (e.name.endsWith('.yaml') ? [path.join(dir, e.name)] : [])));
+  for (const file of [path.join(root, 'c8oProject.yaml'), ...walk(path.join(root, '_c8oProject'))]) {
+    const found = Array.from(check.checkText(fs.readFileSync(file, 'utf8'), (rel) => fs.existsSync(path.join(root, '_c8oProject', rel))));
+    assert.deepEqual(found, [], path.relative(root, file));
+  }
+});
+
+test('project-reload checks the lines in the yaml profile only, before reloading', () => {
+  const reload = read('_c8oProject/sequences/tools_project_reload.yaml');
+  assert.match(reload, /include\("js\/yaml_line_check\.js"\);/);
+  assert.match(reload, /C8O\.editProfile\.current\(\) === "yaml" && C8O\.yamlLineCheck\) \{\n\s+try \{\n\s+yamlLineErrors = C8O\.yamlLineCheck\.checkProject\(/);
+  assert.match(reload, /status: "invalid_yaml"/);
+  assert.match(read('resources/convertigo_yaml_editing.md'), /invalid_yaml/);
+});
