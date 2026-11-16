@@ -208,9 +208,15 @@ C8O.browserVerify = C8O.browserVerify || {};
     return value === true || /^(true|1|yes)$/i.test(str(value));
   };
 
-  // The project a design review is about: given, or the one of the viewer URL.
+  // The project a design review is about: given, the one of the viewer URL, else the viewer's own address (the Studio's
+  // dev viewer serves each project on its own port: two apps shared one count of rounds, 16/11).
   api.designProject = function (url, project) {
-    return str(project) || (/\/projects\/([A-Za-z_][A-Za-z0-9_]*)\//.exec(str(url)) || [])[1] || "";
+    var named = str(project) || (/\/projects\/([A-Za-z_][A-Za-z0-9_]*)\//.exec(str(url)) || [])[1] || "";
+    if (named.length) {
+      return named;
+    }
+    var origin = /^https?:\/\/([^\/?#]+)/i.exec(str(url));
+    return origin ? origin[1].toLowerCase() : "";
   };
 
   // The rounds of the finishing pass for a project: two automatic ones (the review, then the re-check of the failed pages)

@@ -104,6 +104,10 @@ test('two automatic rounds per project, a third only when the user asks; a refus
   // Another project has its own rounds; the user can ask for one more.
   assert.equal(api.run({ url: 'http://h/projects/Maint/DisplayObjects/mobile/', design: true, pages: ['orders'] }, h).design.round, 1);
   assert.equal(api.run(Object.assign({ userAsked: 'true' }, call), h).design.round, 3);
+  // Two apps of the Studio's dev viewer, each on its own port, have their own rounds.
+  assert.equal(api.designProject('http://localhost:43091/dashboard'), 'localhost:43091');
+  assert.equal(api.designProject('http://localhost:46847/sites', ''), 'localhost:46847');
+  assert.equal(api.designProject('http://h/projects/Crm/DisplayObjects/mobile/'), 'Crm');
   // A walk is not a round.
   assert.equal(api.designRound({ read: () => ({ Crm: [1, 2] }), write: () => {} }, 'Crm', false, 1000 + 7 * 3600 * 1000).round, 1, 'rounds older than 6 h are forgotten');
 });
