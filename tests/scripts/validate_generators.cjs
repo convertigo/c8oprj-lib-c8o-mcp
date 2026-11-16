@@ -1468,7 +1468,7 @@ test('generated pages carry the design classes: title, list and field panels, fo
   assert.ok(css.indexOf('.app-list ion-note {') < css.indexOf('.app-fields ion-note {'));
 });
 
-test('dashboard KPIs take an icon and an accent color, and get them from their label when the spec gives none', () => {
+test('dashboard KPIs: an icon only when given, an accent color from the spec or the words of the label', () => {
   const world = makeWorld();
   const G = load(world);
   G.ngxPageCreate({ project: 'App', name: 'Dash', kind: 'dashboard', sequence: 'poste_list', dashboard: { kpis: [
@@ -1479,14 +1479,15 @@ test('dashboard KPIs take an icon and an accent color, and get them from their l
   assert.equal(classOf(nodes.KpiPostes), 'app-kpi app-kpi-iconed app-accent-tertiary');
   assert.equal(nodes.KpiPostes.children[1].properties.IconName.value, 'briefcase-outline');
   assert.equal(classOf(nodes.KpiPostes.children[1]), 'app-kpi-icon');
-  // A spec that says nothing about the look still gets a card per counter with a meaningful accent (31/10 re-run rule).
-  assert.equal(classOf(nodes.KpiRetard), 'app-kpi app-kpi-iconed app-accent-danger');
-  assert.equal(nodes.KpiRetard.children[1].properties.IconName.value, 'alert-circle-outline');
-  assert.equal(classOf(nodes.KpiTotal), 'app-kpi app-kpi-iconed app-accent-primary');
-  assert.equal(nodes.KpiTotal.children[1].properties.IconName.value, 'stats-chart-outline');
-  assert.equal(classOf(nodes.KpiAJour), 'app-kpi app-kpi-iconed app-accent-success');
-  assert.equal(classOf(nodes.KpiLate), 'app-kpi app-kpi-iconed app-accent-danger');
+  // A hand-made card is its label, its figure and a line of context: no icon unless the spec gives one (16/11).
+  assert.equal(classOf(nodes.KpiRetard), 'app-kpi app-accent-danger');
+  assert.equal(nodes.KpiRetard.children.filter(c => /#Icon$/.test(c.className)).length, 0);
+  assert.equal(classOf(nodes.KpiTotal), 'app-kpi app-accent-primary');
+  assert.equal(classOf(nodes.KpiAJour), 'app-kpi app-accent-success');
+  assert.equal(classOf(nodes.KpiLate), 'app-kpi app-accent-danger');
   assert.equal(classOf(nodes.KpiRelance), 'app-kpi app-accent-warning', 'icon none: no icon');
+  const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
+  assert.match(css, /\.app-kpis \.app-kpi-value \{ min-width: 0; font-size: min\(var\(--app-font-size-2xl, 28px\), 13cqi\); white-space: nowrap; \}/, 'a figure never breaks inside');
   assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Dash2', kind: 'dashboard', sequence: 'poste_list',
     dashboard: { kpis: [{ label: 'X', field: 'x', color: 'pink' }] } }), /kpis\[0\]\.color must be primary, secondary, tertiary, success, warning, danger, medium/);
 });
@@ -1913,10 +1914,11 @@ test('a logout page sits in the menu, ends the session with noAutoLogin, then op
   assert.equal(call.name, 'Logout');
   assert.deepEqual(plain(call.properties), { requestable: { mode: 'PLAIN', value: 'App.auth_logout' }, noAutoLogin: { mode: 'PLAIN', value: 'true' },
     cacheTtl: { mode: 'PLAIN', value: '0' } }, 'without noAutoLogin the SDK replays the last login at once');
-  assert.deepEqual(plain(call.children.map(c => c.name)), ['IfKo', 'ToLogin']);
-  assert.equal(call.children[0].children[0].properties.message.value, "stack['Logout'].out?.errors?.[0]?.message || 'Error'");
-  assert.deepEqual(plain(call.children[1].properties.page), { mode: 'PLAIN', value: 'Login' });
-  assert.match(call.children[1].className, /RootPageAction$/);
+  assert.deepEqual(plain(call.children.map(c => c.name)), ['ForgetUser', 'IfKo', 'ToLogin'], 'the signed-in user is forgotten first');
+  assert.equal(call.children[1].children[0].properties.message.value, "stack['Logout'].out?.errors?.[0]?.message || 'Error'");
+  assert.deepEqual(plain(call.children[2].properties.page), { mode: 'PLAIN', value: 'Login' });
+  assert.match(call.children[2].className, /RootPageAction$/);
+  assert.match(call.children[0].properties.Value.value, /localStorage\.removeItem\('app-user'\)/);
   assert.ok(!events.some(c => c.name === 'Load' || c.name === 'Loaded'), 'no data call');
   assert.deepEqual(plain(out.calls), ['App.auth_logout at page enter (noAutoLogin), then Login as root']);
   assert.doesNotMatch(out.warnings.join(' '), /does not end the session|English default/);
@@ -1929,7 +1931,7 @@ test('a logout page needs the logout sequence and the login page; a sequence tha
   assert.match(out.warnings.join(' '), /sequence auth_logout does not end the session: no RemoveAuthenticatedUserStep, RemoveSessionStep or context\.removeAuthenticatedUser\(\)/);
   assert.match(out.warnings.join(' '), /English default texts were used for logout\.message "Signing out\.\.\."/);
   const events = world.ops.filter(o => o.type === 'create' && o.name === 'Sortie')[0].children.filter(c => c.name === 'PageEvent')[0].children;
-  assert.deepEqual(plain(events[events.length - 1].children[1].properties.page), { mode: 'PLAIN', value: 'Login' }, 'authRedirect gives the login page');
+  assert.deepEqual(plain(events[events.length - 1].children.find(c => c.name === 'ToLogin').properties.page), { mode: 'PLAIN', value: 'Login' }, 'authRedirect gives the login page');
   assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Sortie2', kind: 'logout', title: 'Quitter' }),
     /sequence is required for a logout page: the business sequence that ends the session \(business-sequence-create with session:\{logout:true\}\)[\s\S]*logout\.page is required/);
   assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Sortie3', kind: 'logout', sequence: 'auth_logout', logout: { page: 'Sortie3' } }),
@@ -2316,5 +2318,45 @@ test('a form of many short fields gets two columns, a long text the whole row', 
   assert.equal(classOf(nodes.Form), 'app-form app-form-grid app-form-cols');
   assert.match(JSON.stringify(nodes.FiCommentaire), /app-form-wide/);
   assert.equal(nodes.Buttons.children[2].name, 'BtnSubmit', 'the submit last, on the right');
+});
+
+test('the top bar shows who is signed in: remembered at sign-in, read on protected pages, forgotten at logout, with a sign-out button', () => {
+  const world = makeWorld();
+  const signIn = bean('auth_signin', JAVA['sequences.GenericSequence'], world.project);
+  ['email', 'password'].forEach(v => bean(v, JAVA['variables.RequestableVariable'], signIn));
+  bean('SetUser', 'com.twinsoft.convertigo.beans.steps.SetAuthenticatedUserStep', signIn);
+  const logout = find(world.project, 'App.auth_logout');
+  bean('logout', 'com.twinsoft.convertigo.beans.steps.SimpleStep', logout).getExpression = () => 'context.removeAuthenticatedUser();';
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'SignIn', kind: 'form', root: true, form: { submit: 'auth_signin', submitLabel: 'Sign in', cancel: false,
+    success: { message: 'Welcome', page: 'Plist', kind: 'root' }, fields: [{ name: 'email', label: 'Email', type: 'email' }, { name: 'password', label: 'Password', type: 'password' }] } });
+  let remember = null;
+  walk(world.ops.filter(op => op.type === 'create' && op.name === 'EventonSubmit').pop(), n => { if (n.name === 'RememberUser') remember = n; });
+  assert.ok(remember, 'the sign-in success remembers the user');
+  assert.match(remember.properties.Value.value, /localStorage\.setItem\('app-user'/);
+  assert.match(remember.properties.Value.value, /\(stack\['Submit'\]\.out, c8oPage\.signInForm\?\.controls\?\.\['email'\]\?\.value\)$/);
+  const login = world.ops.filter(o => o.type === 'create' && o.name === 'SignIn')[0];
+  assert.match(JSON.stringify(login), /"value":"app-page app-page-form app-page-bare"/, 'no menu beside a sign-in page');
+  assert.doesNotMatch(JSON.stringify(login), /app-user-chip/, 'no user chip before the sign-in');
+  // A protected page made before the logout page: the chip, no sign-out button yet.
+  G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', authRedirect: 'SignIn', list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  let nodes = nodesOf(world, 'Plist');
+  assert.equal(nodes.IfUser.properties.directiveExpression, '!!local?.appUser?.name');
+  assert.equal(classOf(nodes.User), 'app-user-chip');
+  assert.equal(nodes.SignOut, undefined);
+  const plist = JSON.stringify(world.ops.filter(o => o.type === 'create' && o.name === 'Plist')[0]);
+  assert.match(plist, /"Property":\{"mode":"PLAIN","value":"appUser"\},"Value":\{"mode":"SCRIPT","value":"\(\(\) => \{ try \{ return JSON\.parse\(localStorage\.getItem\('app-user'\)/);
+  // The logout page adds the sign-out button to the pages made before it; the pages after it get it at once.
+  const out = G.ngxPageCreate({ project: 'App', name: 'Logout', kind: 'logout', sequence: 'auth_logout', logout: { page: 'SignIn', message: 'Bye' } });
+  const added = world.ops.filter(o => o.type === 'create' && o.name === 'SignOut');
+  assert.equal(added.length, 1);
+  assert.match(added[0].related, /Plist\.Header\.ToolBar\.End/);
+  assert.match(JSON.stringify(added[0]), /"page":\{"mode":"PLAIN","value":"Logout"\}/);
+  assert.ok(out);
+  G.ngxPageCreate({ project: 'App', name: 'Plist2', kind: 'list', sequence: 'poste_list', authRedirect: 'SignIn', list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  nodes = nodesOf(world, 'Plist2');
+  assert.match(JSON.stringify(nodes.SignOut), /log-out-outline/);
+  const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
+  assert.match(css, /\.app-user-chip \{/);
 });
 

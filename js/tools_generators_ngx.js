@@ -56,6 +56,12 @@ include("js/sequence_response.js");
     ["@media (min-width: 992px) { .ion-page:has(.app-page-header)", "@media (min-width: 992px) { .ion-page:has(.app-page-header) > ion-header ion-toolbar ion-title { visibility: hidden; } }"],
     // A sign-in or sign-out page shows no menu beside it: nothing in the menu opens before the sign-in.
     [".app-page-bare", "ion-split-pane:has(.ion-page:not(.ion-page-hidden) ion-content.app-page-bare) > ion-menu { display: none; }"],
+    // Who is signed in, on the right of the top bar: the name and the role; the icon alone on a phone.
+    [".app-user-chip", ".app-user-chip { --background: transparent; --color: var(--app-toolbar-color, inherit); margin: 0 var(--app-space-1, 4px); font-weight: 500; cursor: default; }\n" +
+      ".app-user-chip ion-icon { color: var(--app-toolbar-color, inherit); font-size: 24px; }\n" +
+      "@media (max-width: 575px) { .app-user-chip ion-label, .app-user-chip .app-user-role { display: none; } }"],
+    [".app-user-role", ".app-user-role { margin-inline-start: var(--app-space-2, 8px); padding: 2px 8px; border-radius: 999px; font-size: var(--app-font-size-xs, 12px); " +
+      "font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; background: var(--app-primary-soft, rgba(var(--ion-color-primary-rgb), 0.1)); color: var(--ion-color-primary); }"],
     [".app-section", ".app-section { margin: var(--app-space-6, 32px) 0 var(--app-space-3, 12px); font-size: var(--app-font-size-lg, 18px); font-weight: var(--app-heading-weight, 650); letter-spacing: -0.01em; }"],
     // A card: a dashboard section, a chart. Its list or grid runs to the card's edges, under the card's title.
     [".app-card", ".app-card { min-width: 0; padding: var(--app-space-4, 16px) var(--app-space-5, 20px); " + CARD + " }\n" +
@@ -86,7 +92,9 @@ include("js/sequence_response.js");
     // A long value ("$791,500") overflowed its card: the card's value column may shrink and the value takes a size that
     // fits the card (container units), wrapping only as a last resort. Added to an AppLayout written before too.
     [".app-kpis .app-kpi-value", ".app-kpis .app-kpi { min-width: 0; container-type: inline-size; } .app-kpis .app-kpi.app-kpi-iconed { grid-template-columns: minmax(0, 1fr) auto; } " +
-      ".app-kpis .app-kpi-value { min-width: 0; font-size: min(var(--app-font-size-2xl, 28px), 11cqi); overflow-wrap: anywhere; }"],
+      ".app-kpis .app-kpi-value { min-width: 0; font-size: min(var(--app-font-size-2xl, 28px), 13cqi); white-space: nowrap; }\n" +
+      // A figure never breaks inside ("$97 9,00 0" on a phone, 16/11): it shrinks with its card; a label breaks between words only.
+      ".app-kpis .app-kpi-label { overflow-wrap: break-word; }"],
     // A form page (a login) centers its title and its form in the page: on a wide screen the form stood at the left of
     // the content (PipelineCrm2, 13/11).
     [".app-page-form .app-form", ".app-page-form .app-form, .app-page-form .app-title, .app-page-form .app-page-header, .app-page-form .app-error { max-width: 760px; margin-inline: auto; }"]
@@ -321,6 +329,40 @@ include("js/sequence_response.js");
   function setLocal(name, property, value) {
     return nxAction("SetLocalAction", name, { Property: { mode: "PLAIN", value: property }, Value: { mode: "SCRIPT", value: value } });
   }
+
+  // The signed-in user, for the user chip of the top bar: remembered in the browser when a sign-in succeeds (the name the
+  // sign-in answer gives, else the identifier typed), forgotten by the logout page. The backend needs no change: a hand-made
+  // app showed who is signed in, generated ones did not (CRM comparison 16/11).
+  var APP_USER_KEY = "app-user";
+  function rememberUser(name, outExpr, typedExpr) {
+    return setLocal(name, "signedIn", "((o: any, typed: any) => { const d = o?.data ?? o ?? {}; const u = d?.user ?? d?.me ?? d?.account ?? d?.profile ?? d; " +
+      "const full = [u?.firstName ?? u?.first_name ?? u?.firstname ?? u?.prenom, u?.lastName ?? u?.last_name ?? u?.lastname ?? u?.nom].filter((x: any) => !!x).join(' '); " +
+      "const shown = u?.name ?? u?.fullName ?? u?.full_name ?? u?.displayName ?? u?.display_name ?? (full || u?.email || u?.login || typed || ''); " +
+      "const role = u?.role ?? u?.roleLabel ?? (Array.isArray(u?.roles) ? u.roles[0] : '') ?? ''; " +
+      "try { localStorage.setItem('" + APP_USER_KEY + "', JSON.stringify({ name: String(shown ?? ''), role: String(role ?? '') })); } catch (e) {} return true; })(" +
+      outExpr + ", " + (typedExpr || "''") + ")");
+  }
+  // The sign-out button of the top bar: an icon (no text to translate) that opens the logout page as root.
+  function signOutButton(logoutPage) {
+    return nx("Button", "SignOut", { IonFill: { mode: "PLAIN", value: "clear" } }, [cls("app-sign-out"),
+      plainAttr("title", "Attr_title", "Sign out"), plainAttr("aria-label", "Attr_aria", "Sign out"),
+      nx("Icon", "Icon", { IconName: { mode: "PLAIN", value: "log-out-outline" } }),
+      controlEvent("EventonClick", "onClick", [navAction("GoSignOut", { page: logoutPage, kind: "root" })])]);
+  }
+  function directChildrenOf(dbo) {
+    var out = [];
+    try {
+      var all = dbo.getAllChildren();
+      for (var i = 0; i < all.size(); i++) {
+        out.push(all.get(i));
+      }
+    } catch (_noChildren) {}
+    return out;
+  }
+  function forgetUser(name) {
+    return setLocal(name, "signedIn", "(() => { try { localStorage.removeItem('" + APP_USER_KEY + "'); } catch (e) {} return false; })()");
+  }
+  var READ_APP_USER = "(() => { try { return JSON.parse(localStorage.getItem('" + APP_USER_KEY + "') || 'null'); } catch (e) { return null; } })()";
 
   // A value set deep in an action chain (under an IfAction, after a call) showed only at the next change detection: the
   // form's error stayed hidden after a refusal (runs 9b and 10). The same custom action the guide gives renders it now.
@@ -1173,6 +1215,7 @@ include("js/sequence_response.js");
     // page opened as root in any case, so the user is never left on a page of the signed-in app.
     function logoutCall(loginPage) {
       var children = dataCallVariables();
+      children.push(forgetUser("ForgetUser"));
       var callError = answer.errorOf("stack['Logout'].out");
       children.push(nxAction("IfAction", "IfKo", { condition: { mode: "SCRIPT", value: "!" + answer.ok } }, [
         nxAction("ToastAction", "ToastKo", { message: { mode: "SCRIPT", value: callError }, IonColor: { mode: "PLAIN", value: "danger" },
@@ -1776,6 +1819,9 @@ include("js/sequence_response.js");
           }
           var callError = actionAnswer.errorOf("stack['Call'].out");
           var okChildren = str(a.page).length ? [navAction("Go", { page: a.page, kind: a.kind || "root", data: pageExpressions(withSelection(a.data), label + "[" + i + "].data") })] : [];
+          if (opensSession(childNamed(projectDbo, str(a.sequence)))) {
+            okChildren.unshift(rememberUser("RememberUser", "stack['Call'].out", "''"));
+          }
           if (okChildren.length) {
             callChildren.push(nxAction("IfAction", "IfOk", { condition: { mode: "SCRIPT", value: actionAnswer.ok } }, okChildren));
           }
@@ -1911,7 +1957,8 @@ include("js/sequence_response.js");
             if (ACCENTS.indexOf(kpiColor) < 0) {
               errors.push("dashboard.kpis[" + i + "].color must be " + ACCENTS.join(", ") + ".");
             }
-            var kpiIcon = k.icon === undefined || k.icon === null || str(k.icon) === "" ? (KPI_ICONS[kpiColor] || KPI_ICONS.primary)
+            // An icon only when the spec gives one: a hand-made card is its label, its figure and a line of context.
+            var kpiIcon = k.icon === undefined || k.icon === null || str(k.icon) === "" ? ""
               : (str(k.icon) === "none" ? "" : menuIcon(str(k.icon)));
             var kpiChildren = [cls("app-kpi" + (kpiIcon.length ? " app-kpi-iconed" : "") + " app-accent-" + kpiColor)];
             if (kpiIcon.length) {
@@ -2187,6 +2234,12 @@ include("js/sequence_response.js");
     } else if (actions) {
       content.push(actions);
     }
+    var opensFromHere = sessionActions || (formPlan && childNamed(projectDbo, str(formPlan.submit)) && opensSession(childNamed(projectDbo, str(formPlan.submit))));
+    // A page behind the sign-in shows who is signed in on the right of its toolbar, with a sign-out button.
+    var showUser = authRedirect.length > 0 && kind !== "logout" && !opensFromHere;
+    if (showUser) {
+      locals.appUser = READ_APP_USER;
+    }
     // A header with nothing in it is left out.
     if (pageHeading.children.length === 1 && pageHeader.children.length === 2) {
       content.splice(content.indexOf(pageHeader), 1);
@@ -2197,7 +2250,6 @@ include("js/sequence_response.js");
         [nx("DivTag", "Loading", {}, [cls("app-loading"), nx("Spinner", "Spinner", {})])]));
     }
     // A sign-in page (its form or a button opens a session) and the logout page show no menu beside them on a wide screen.
-    var opensFromHere = sessionActions || (formPlan && childNamed(projectDbo, str(formPlan.submit)) && opensSession(childNamed(projectDbo, str(formPlan.submit))));
     if (kind === "logout" || opensFromHere) {
       content[0] = cls((kind === "form" ? "app-page app-page-form" : "app-page") + " app-page-bare");
     }
@@ -2311,11 +2363,23 @@ include("js/sequence_response.js");
       nx("ButtonSet", "Start", { SetPosition: { mode: "PLAIN", value: "start" } }, [nx("MenuButton", "Menu", {}), nx("BackButton", "Back", backProps)]),
       nx("BarTitle", "BarTitle", {}, [txt(title)])
     ];
+    var endButtons = [];
+    if (showUser) {
+      endButtons.push(ifDirective("IfUser", "!!local?.appUser?.name", [nx("Chip", "User", {}, [cls("app-user-chip"),
+        nx("Icon", "Icon", { IconName: { mode: "PLAIN", value: "person-circle-outline" } }),
+        nx("Label", "Name", {}, [expr("local?.appUser?.name")]),
+        ifDirective("IfRole", "!!local?.appUser?.role", [nx("SpanTag", "Role", {}, [cls("app-user-role"), expr("local?.appUser?.role")])])])]));
+      var signOutPage = generatedLogoutPage(app);
+      if (signOutPage) {
+        endButtons.push(signOutButton(String(signOutPage.getName())));
+      }
+    }
     if (home.length && home !== name) {
-      headerChildren.push(nx("ButtonSet", "End", { SetPosition: { mode: "PLAIN", value: "end" } }, [
-        nx("Button", "Home", {}, [nx("Icon", "Icon", { IconName: { mode: "PLAIN", value: "home" } }),
-          controlEvent("EventonClick", "onClick", [navAction("GoHome", { page: home, kind: "root" })])])
-      ]));
+      endButtons.push(nx("Button", "Home", {}, [nx("Icon", "Icon", { IconName: { mode: "PLAIN", value: "home" } }),
+        controlEvent("EventonClick", "onClick", [navAction("GoHome", { page: home, kind: "root" })])]));
+    }
+    if (endButtons.length) {
+      headerChildren.push(nx("ButtonSet", "End", { SetPosition: { mode: "PLAIN", value: "end" } }, endButtons));
     }
     var pageNode = {
       className: "ngx.components.PageComponent#PageComponent", name: name, properties: pageProps, children: [
@@ -2377,6 +2441,23 @@ include("js/sequence_response.js");
     var fallbackBefore = segment === FALLBACK_SEGMENT ? null : fallbackPageOf(app);
     var page = session.create(appQName, pageNode, logoutPage ? qnameOf(logoutPage) : (fallbackBefore ? qnameOf(fallbackBefore) : null));
     var pageQName = qnameOf(page);
+    // The logout page often comes last: the pages made before it show the user chip without a sign-out button. They get one.
+    var signOutAdded = [];
+    if (kind === "logout") {
+      appPages(app).forEach(function (other) {
+        var end = C8O.dbo.resolve(qnameOf(other) + ".Header.ToolBar.End", { optional: true });
+        if (end && childNamed(end, "IfUser") && !childNamed(end, "SignOut")) {
+          var firstAfter = null;
+          var chips = directChildrenOf(end);
+          var at = chips.map(function (c) { return String(c.getName()); }).indexOf("IfUser");
+          if (at >= 0 && at + 1 < chips.length) {
+            firstAfter = qnameOf(chips[at + 1]);
+          }
+          session.create(qnameOf(end), signOutButton(name), firstAfter);
+          signOutAdded.push(String(other.getName()));
+        }
+      });
+    }
     if (formPlan) {
       // The Form SmartSource needs the priority of the created UIForm: wire the submit chain now.
       var formDbo = C8O.dbo.resolve(pageQName + ".Content.Form", { optional: true });
@@ -2411,6 +2492,12 @@ include("js/sequence_response.js");
       var submitAnswer = answerOf(submitResponse);
       if (answerText(formPlan.submit, submitResponse)) {
         answers[formPlan.submit] = answerText(formPlan.submit, submitResponse);
+      }
+      var signInSequence = childNamed(projectDbo, formPlan.submit);
+      if (signInSequence && opensSession(signInSequence)) {
+        // The identifier typed: the field named as an e-mail or a login.
+        var typedField = formPlan.fields.filter(function (x) { return /e-?mail|login|user|username|identifiant|courriel/i.test(str(x.name)); })[0];
+        ok.unshift(rememberUser("RememberUser", "stack['Submit'].out", typedField ? "c8oPage." + formPlan.identifier + "?.controls?.['" + str(typedField.name) + "']?.value" : "''"));
       }
       submitChildren.push(nxAction("IfAction", "IfOk", { condition: { mode: "SCRIPT", value: submitAnswer.ok } }, ok));
       // Under an IfAction, out is the If's own result: the call's response is stack["Submit"].out.
