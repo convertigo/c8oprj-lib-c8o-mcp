@@ -2843,8 +2843,108 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
   };
 
   C8O.schemaOverrides.decorateInput = function (_sequenceName, inputSchema, requestable) {
-    return decorateInputSchemaFromVariables(inputSchema, requestable);
+    return adaptInputToEditProfile(_sequenceName, decorateInputSchemaFromVariables(inputSchema, requestable));
   };
+
+  // The edit profile of the request being served (js/edit_profile.js): "" (the default) when it cannot be read.
+  function currentEditProfile() {
+    try {
+      if ((!C8O.editProfile || typeof C8O.editProfile.current !== "function") && typeof include === "function") {
+        include("js/edit_profile.js");
+      }
+      return C8O.editProfile && typeof C8O.editProfile.current === "function" ? String(C8O.editProfile.current()) : "";
+    } catch (_noEditProfile) {
+      return "";
+    }
+  }
+
+  // project-reload takes fromIonic and ionicTarget, and answers the ionic fields, in the html edit profile only;
+  // mobile-builder-open answers ionicFiles there. Without that profile their schemas are the ones they had before.
+  var PROJECT_RELOAD_IONIC_INPUTS = ["fromIonic", "ionicTarget"];
+  var PROJECT_RELOAD_IONIC_OUTPUTS = ["fromIonic", "ionicImported", "ionicSource", "ionicTarget", "ionicReport"];
+
+  function withoutProperties(schema, names) {
+    if (!schema || typeof schema !== "object" || !schema.properties || typeof schema.properties !== "object") {
+      return schema;
+    }
+    for (var i = 0; i < names.length; i++) {
+      delete schema.properties[names[i]];
+    }
+    if (Array.isArray(schema.required)) {
+      schema.required = schema.required.filter(function (name) { return names.indexOf(name) < 0; });
+      if (!schema.required.length) {
+        delete schema.required;
+      }
+    }
+    return schema;
+  }
+
+  function ionicReportSchema() {
+    return openObjectSchema({
+      processed: { type: "number" },
+      pagesUpdated: { type: "number" },
+      sharedComponentsUpdated: { type: "number" },
+      templatesUpdated: { type: "number" },
+      stylesUpdated: { type: "number" },
+      scriptsUpdated: { type: "number" },
+      skipped: { type: "number", description: "Maps whose html could not be mapped to the existing tree: nothing of them changed." },
+      warnings: stringArraySchema(),
+      changedObjects: stringArraySchema()
+    });
+  }
+
+  function ionicFilesSchema() {
+    var listed = { type: "array", description: "At most 60.", items: openObjectSchema({ qname: { type: "string" }, html: { type: "string" } }) };
+    return openObjectSchema({
+      available: { type: "boolean" },
+      supported: { type: "boolean", description: "false on an engine without the Ionic round-trip import." },
+      sidecars: { type: "number" },
+      appDir: { type: "string" },
+      pages: listed,
+      sharedComponents: listed,
+      guide: { type: "string" },
+      hint: { type: "string" }
+    });
+  }
+
+  function adaptInputToEditProfile(sequenceName, schema) {
+    var seq = String(sequenceName || "").toLowerCase();
+    if (seq !== "tools_project_reload" || !schema || typeof schema !== "object") {
+      return schema;
+    }
+    if (currentEditProfile() !== "html") {
+      return withoutProperties(schema, PROJECT_RELOAD_IONIC_INPUTS);
+    }
+    schema.properties = schema.properties || {};
+    schema.properties.fromIonic = booleanFlagSchema(false, "true imports the edited generated files of the NGX pages and shared components (_private/ionic/src/app, with their .c8o-map.json sidecars) into the loaded project instead of reloading it, and answers ionicReport.");
+    schema.properties.ionicTarget = { type: "string", description: "With fromIonic: a generated file, its .c8o-map.json sidecar or a folder to import alone (relative to the project folder, or absolute); empty imports every sidecar of the project." };
+    return schema;
+  }
+
+  function adaptOutputToEditProfile(sequenceName, schema) {
+    var seq = String(sequenceName || "").toLowerCase();
+    if (!schema || typeof schema !== "object" || (seq !== "tools_project_reload" && seq !== "tools_mobile_builder_open")) {
+      return schema;
+    }
+    var html = currentEditProfile() === "html";
+    if (seq === "tools_project_reload") {
+      if (!html) {
+        return withoutProperties(schema, PROJECT_RELOAD_IONIC_OUTPUTS);
+      }
+      schema.properties = schema.properties || {};
+      schema.properties.fromIonic = { type: "boolean" };
+      schema.properties.ionicImported = { type: "boolean" };
+      schema.properties.ionicSource = { type: "string" };
+      schema.properties.ionicTarget = { type: "string" };
+      schema.properties.ionicReport = ionicReportSchema();
+      return schema;
+    }
+    if (html) {
+      schema.properties = schema.properties || {};
+      schema.properties.ionicFiles = ionicFilesSchema();
+    }
+    return schema;
+  }
 
   C8O.schemaOverrides.applyOutput = function (sequenceName, outputSchema, requestable, _responseSample) {
     var seq = sequenceName || "";
@@ -2943,6 +3043,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (!outputSchema || typeof outputSchema !== "object" || Array.isArray(outputSchema)) {
       return outputSchema;
     }
+    outputSchema = adaptOutputToEditProfile(_sequenceName, outputSchema);
     if (outputSchema.type === undefined || outputSchema.type === "object") {
       if (!outputSchema.properties || typeof outputSchema.properties !== "object") {
         outputSchema.properties = {};

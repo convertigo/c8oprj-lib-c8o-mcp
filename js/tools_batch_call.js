@@ -14,6 +14,10 @@ if (typeof C8O.retiredToolRefusal !== "function") {
   include("js/retired_tools.js");
 }
 
+if (typeof C8O.editProfile === "undefined") {
+  include("js/edit_profile.js");
+}
+
 (function () {
   C8O.mcp = C8O.mcp || {};
 
@@ -1052,6 +1056,8 @@ if (typeof C8O.retiredToolRefusal !== "function") {
         }
 
         var callArguments = resolveRefsInValue(refs, normalized.arguments);
+        // the edit profile of the conversation (js/edit_profile.js): yaml runs no inner call that changes a project
+        C8O.editProfile.assertAllowed(sequenceName, callArguments);
         if (
           revealRequested &&
           isRevealSequence(sequenceName) &&

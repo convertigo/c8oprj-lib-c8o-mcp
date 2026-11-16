@@ -6,6 +6,8 @@
 include("js/util.js");
 include("js/mobile_builder_common.js");
 include("js/ui_reveal.js");
+include("js/edit_profile.js");
+include("js/ionic_roundtrip.js");
 
 if (typeof C8O === "undefined") {
   var C8O = {};
@@ -1765,6 +1767,13 @@ var openMobileBuilderResult = C8O.mobileBuilder.open({
 });
 if (openMobileBuilderResult && C8O.uiReveal && C8O.uiReveal.enabled((typeof reveal !== "undefined") ? reveal : false, false) === true) {
   openMobileBuilderResult.reveal = C8O.uiReveal.mobileBuilder(project, openMobileBuilderResult, { reveal: true });
+}
+// The html edit profile (js/edit_profile.js): the generated files of the pages and shared components it edits
+if (openMobileBuilderResult && C8O.editProfile.current() === "html") {
+  var openMobileBuilderIonicFiles = C8O.ionicRoundTrip.projectSummary(project);
+  if (openMobileBuilderIonicFiles) {
+    openMobileBuilderResult.ionicFiles = openMobileBuilderIonicFiles;
+  }
 }
 var openMobileBuilderLogs = openMobileBuilderResult && openMobileBuilderResult.logs ? openMobileBuilderResult.logs : [];
 var openMobileBuilderLogQuery = openMobileBuilderResult && openMobileBuilderResult.logQuery ? openMobileBuilderResult.logQuery : {};

@@ -7,6 +7,9 @@ comment: Handles MCP resources/list requests
   comment: Load resources catalog page
   expression: |
     'var catalog = c8oLoadResourcesIndex();
+    /* the guides of an edit profile (resources_index.json "profile") are listed in that profile only (js/edit_profile.js) */
+    include("js/edit_profile.js");
+    catalog = catalog.filter(function (entry) { return C8O.editProfile.listsResource(entry); });
     var pageSize = 25;
     var cursorText = C8O.util.toTrimmedString(cursor || "");
     if (!cursorText.length && typeof _nextCursor !== "undefined") {

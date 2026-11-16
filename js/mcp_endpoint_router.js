@@ -24,6 +24,7 @@ include("js/gateway_tool_policy.js");
 include("js/user_key_server_policy.js");
 include("js/mcp_repeated_failures.js");
 include("js/retired_tools.js");
+include("js/edit_profile.js");
 var paramsJson = "{}";
 try {
   paramsJson = JSON.stringify(paramsObject);
@@ -825,6 +826,13 @@ if (methodName === "initialize") {
   var userKeyServer = C8O.userKeyServerPolicy || null;
   if (!mappingError && userKeyServer && !userKeyServer.allows(targetSequence)) {
     mappingError = { status: "403", code: "-32601", message: userKeyServer.refusal(targetSequence), data: { code: userKeyServer.CODE } };
+  }
+  // The edit profile of the conversation (js/edit_profile.js): yaml runs no tool that changes a project, nor such a
+  // tool through requestable-execute or a constructor sub-agent (batch-call refuses its inner calls itself).
+  var editProfilePolicy = C8O.editProfile || null;
+  var editProfileRefused = !mappingError && editProfilePolicy ? editProfilePolicy.refused(targetSequence, toolArgs) : "";
+  if (editProfileRefused.length) {
+    mappingError = { status: "403", code: "-32601", message: editProfilePolicy.refusal(editProfileRefused), data: { editProfile: editProfilePolicy.current() } };
   }
   // The text review of project-lint calls a gateway model too: the agent reviews the texts itself.
   if (!mappingError && targetSequence === "tools_project_lint" && gatewayPolicy && gatewayPolicy.active() && toolArgs) {

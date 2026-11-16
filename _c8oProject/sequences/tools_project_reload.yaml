@@ -4,11 +4,17 @@ comment: |
   Reloads one project and discards unsaved in-memory changes. Use only when you explicitly want disk state to win.
 ↓IncludeHelpers [steps.SimpleStep-1762445690829]: 
   comment: Load shared database helpers
-  expression: include("js/databaseobject.js");
+  expression: |
+    'include("js/databaseobject.js");
+    include("js/edit_profile.js");
+    include("js/ionic_roundtrip.js");'
 ↓Init [steps.SimpleStep-1762445709653]: 
   comment: Resolve project and perform reload
   expression: |
     'var providedName = C8O.util.toTrimmedString(project);
+    /* fromIonic is the import of the html edit profile (js/edit_profile.js, js/ionic_roundtrip.js); without that profile it is ignored */
+    var fromIonicFlag = !!C8O.editProfile && C8O.editProfile.current() === "html" && typeof fromIonic !== "undefined" && C8O.util.toBoolean(fromIonic, false) === true;
+    var ionicTargetPath = typeof ionicTarget !== "undefined" ? C8O.util.toTrimmedString(ionicTarget) : "";
     var currentProjectName = "";
     if (context && context.project) {
       currentProjectName = String(context.project.getName());
@@ -24,6 +30,8 @@ comment: |
         var forbiddenMessage = "Reloading the active MCP server project is forbidden because it unloads the running endpoint. Use project-save if you need to persist changes.";
         errorEntries.push({ name: "__forbidden__", message: forbiddenMessage });
         reloadResult = { reloaded: false, message: forbiddenMessage, status: "forbidden" };
+      } else if (fromIonicFlag) {
+        reloadResult = C8O.ionicRoundTrip.importIntoLoadedProject(providedName, ionicTargetPath, errorEntries);
       } else {
         reloadResult = C8O.dbo.reloadProject(providedName, errorEntries);
       }
@@ -43,6 +51,13 @@ comment: |
     projectReloadTimestamp = java.lang.System.currentTimeMillis();
     projectReloadErrors = errorEntries;
     projectReloadStatus = statusText;
+    projectReloadIonic = fromIonicFlag ? {
+      fromIonic: true,
+      ionicImported: reloadResult.ionicImported === true,
+      ionicSource: reloadResult.ionicSource || "",
+      ionicTarget: reloadResult.ionicTarget || ionicTargetPath,
+      ionicReport: reloadResult.ionicReport || { processed: 0, pagesUpdated: 0, sharedComponentsUpdated: 0, templatesUpdated: 0, stylesUpdated: 0, scriptsUpdated: 0, skipped: 0, warnings: [], changedObjects: [] }
+    } : null;
     '
 ↓Result [steps.JsonObjectStep-1762445747313]: 
   key: 
@@ -173,6 +188,83 @@ comment: |
               - SmartType: 
                 - ↑mode: JS
                 - →→: 'item && item.message ? String(item.message) : ""'
+  ↓IfIonic [steps.IfStep-1816000000001]: 
+    comment: The import of the html edit profile (fromIonic) only.
+    condition: projectReloadIonic != null
+    ↓fromIonic [steps.JsonFieldStep-1816000000002]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: fromIonic
+      type: bool
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: projectReloadIonic.fromIonic
+    ↓ionicImported [steps.JsonFieldStep-1816000000003]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: ionicImported
+      type: bool
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: projectReloadIonic.ionicImported
+    ↓ionicSource [steps.JsonFieldStep-1816000000004]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: ionicSource
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: projectReloadIonic.ionicSource
+    ↓ionicTarget [steps.JsonFieldStep-1816000000005]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: ionicTarget
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: projectReloadIonic.ionicTarget
+    ↓ionicReport [steps.JsonToXmlStep-1816000000006]: 
+      jsonObject: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: projectReloadIonic.ionicReport
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: ionicReport
 ↓project [variables.RequestableVariable-1762445963717]: 
   comment: Project technical name (project-list gives them).
   description: Project technical name (project-list gives them).
+↓fromIonic [variables.RequestableVariable-1816000000007]: 
+  comment: 'Only in the html edit profile of a Tigo conversation: true imports the edited generated files of the NGX pages and shared components (_private/ionic/src/app, with their .c8o-map.json sidecars) into the loaded project instead of reloading it, and answers ionicReport. Ignored otherwise.'
+  description: 'Only in the html edit profile of a Tigo conversation: true imports the edited generated files of the NGX pages and shared components (_private/ionic/src/app, with their .c8o-map.json sidecars) into the loaded project instead of reloading it, and answers ionicReport. Ignored otherwise.'
+  value: false
+↓ionicTarget [variables.RequestableVariable-1816000000008]: 
+  comment: With fromIonic, a generated file, its .c8o-map.json sidecar or a folder to import alone (relative to the project folder, or absolute); empty imports every sidecar of the project.
+  description: With fromIonic, a generated file, its .c8o-map.json sidecar or a folder to import alone (relative to the project folder, or absolute); empty imports every sidecar of the project.

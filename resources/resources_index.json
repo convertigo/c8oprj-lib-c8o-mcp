@@ -1120,5 +1120,62 @@
     ],
     "guidanceLevel": "workflow",
     "fallbackToRag": false
+  },
+  {
+    "uri": "convertigo://resources/convertigo-yaml-editing",
+    "name": "Convertigo YAML Editing",
+    "title": "Convertigo YAML Editing",
+    "description": "The yaml edit profile of a Tigo conversation: change a project by editing c8oProject.yaml, _c8oProject/** and js/** with the file tools, then project-reload.",
+    "mimeType": "text/markdown",
+    "file": "convertigo_yaml_editing.md",
+    "guideId": "convertigo/yaml-editing",
+    "revision": 1,
+    "profile": "yaml",
+    "scopeTags": [
+      "workflow",
+      "yaml",
+      "edit-profile"
+    ],
+    "prerequisites": [],
+    "recommendedTools": [
+      "databaseobject-tree-get",
+      "palette-describe",
+      "project-reload",
+      "project-lint",
+      "requestable-execute",
+      "mobile-builder-open"
+    ],
+    "promptNames": [],
+    "guidanceLevel": "workflow",
+    "fallbackToRag": false
+  },
+  {
+    "uri": "convertigo://resources/convertigo-ngx-html-roundtrip",
+    "name": "Convertigo NGX HTML Round-Trip",
+    "title": "Convertigo NGX HTML Round-Trip",
+    "description": "The html edit profile of a Tigo conversation: edit the generated html, scss and ts of NGX pages and shared components, then import them with project-reload(fromIonic).",
+    "mimeType": "text/markdown",
+    "file": "convertigo_ngx_html_roundtrip.md",
+    "guideId": "convertigo/ngx-html-roundtrip",
+    "revision": 1,
+    "profile": "html",
+    "scopeTags": [
+      "workflow",
+      "frontend",
+      "ngx",
+      "html-roundtrip",
+      "edit-profile"
+    ],
+    "prerequisites": [],
+    "recommendedTools": [
+      "mobile-builder-open",
+      "palette-list",
+      "palette-describe",
+      "project-reload",
+      "databaseobject-search"
+    ],
+    "promptNames": [],
+    "guidanceLevel": "workflow",
+    "fallbackToRag": false
   }
 ]

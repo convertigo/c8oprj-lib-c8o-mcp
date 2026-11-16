@@ -3,6 +3,8 @@ if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
 }
 include("js/databaseobject_batch.js");
 include("js/ui_reveal.js");
+include("js/edit_profile.js");
+include("js/ionic_roundtrip.js");
 
 function _treeApplyRequireHelper(name) {
   if (!C8O.dbo || typeof C8O.dbo[name] !== "function") {
@@ -287,6 +289,12 @@ if (treeQName.length) {
   } else if (treeQName !== targetInput) {
     treeApplyWarnings.push("tree.qname differs from target; target is used as the apply root.");
   }
+}
+
+// The html edit profile: a tree change writes the files of its page or shared component again, so edits of these files
+// not imported yet would be lost (js/ionic_roundtrip.js).
+if (C8O.editProfile.current() === "html" && !(dryRunInput === true || String(dryRunInput) === "true")) {
+  C8O.ionicRoundTrip.assertNoPendingEdits(C8O.dbo.resolve(targetInput, { optional: true }), "This tree change");
 }
 
 var op = null;

@@ -6,6 +6,19 @@
 if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
   include("js/databaseobject.js");
 }
+// the html edit profile: a change waits for the file edits of its page to be imported (js/ionic_roundtrip.js)
+if (typeof include === "function" && (typeof C8O.ionicRoundTrip === "undefined" || typeof C8O.editProfile === "undefined")) {
+  include("js/edit_profile.js");
+  include("js/ionic_roundtrip.js");
+}
+
+// Refuses, in the html edit profile, a change of a page or shared component whose generated files hold edits not imported
+// yet (C8O.ionicRoundTrip.assertNoPendingEdits); nothing elsewhere.
+function _c8oPendingIonicEdits(dbo, action) {
+  if (typeof C8O !== "undefined" && C8O.ionicRoundTrip && typeof C8O.ionicRoundTrip.assertNoPendingEdits === "function") {
+    C8O.ionicRoundTrip.assertNoPendingEdits(dbo, action);
+  }
+}
 
 (function () {
   if (typeof C8O === "undefined") {
@@ -70,6 +83,7 @@ if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
     if (!dbo) {
       throw new Error("Database object not found: " + qname);
     }
+    _c8oPendingIonicEdits(dbo, "This deletion");
 
     var parent = dbo.getParent();
     if (parent == null) {
@@ -127,6 +141,7 @@ if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
     if (!dbo) {
       throw new Error("Database object not found: " + qname);
     }
+    _c8oPendingIonicEdits(dbo, "This rename");
 
     var project = null;
     try {
@@ -210,6 +225,8 @@ if (typeof C8O === "undefined" || typeof C8O.dbo === "undefined") {
     if (!targetDbo) {
       throw new Error("Target database object not found: " + targetQName);
     }
+    _c8oPendingIonicEdits(dbo, "This move");
+    _c8oPendingIonicEdits(targetDbo, "This move");
 
     var parentDestination = null;
     var afterPriority = null;

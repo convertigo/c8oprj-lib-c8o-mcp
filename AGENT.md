@@ -175,6 +175,25 @@ request, whatever the switch.
   (`#experimental` key suffix).
 - Covered by `tests/scripts/validate_experimental_features.cjs`.
 
+## X-Convertigo-Edit-Profile (edit profiles of a Tigo conversation)
+
+lib_ConvertigoAgentBridge sends `X-Convertigo-Edit-Profile: yaml|html` on the MCP connection of a Studio Vibe conversation
+switched with `/profil` (lib_ConvertigoAssistant `docs/edit-profiles.md`), for the A/B of the editing surfaces.
+`js/edit_profile.js` reads it; without it (or with any other value) nothing changes: same tools, schemas, resources and
+answers.
+- `yaml`: `C8O.editProfile.YAML_REFUSED` (the writers of `js/subagents.js` WRITE_SEQUENCES but `project-reload` and
+  `mobile-builder-build`, plus `project-delete`) is left out of `tools/list` (`mcp_tools_list.yaml`) and refused by the
+  router, by `batch-call` for its inner calls, by `requestable-execute` of those sequences or of the Tigo projects, and for
+  a constructor `subagent-run`. The agent edits the YAML files and calls `project-reload`
+  (`resources/convertigo_yaml_editing.md`).
+- `html`: `project-reload` takes `fromIonic`/`ionicTarget` and answers `ionicReport` (`js/ionic_roundtrip.js`, through the
+  engine's `NgxIonicRoundTripConverter.importIntoLoadedProject`, `unsupported` without it); `mobile-builder-open`
+  answers `ionicFiles`; tree-apply, delete, move and rename refuse a page whose generated files hold edits not imported
+  (`resources/convertigo_ngx_html_roundtrip.md`). `js/schema_overrides.js` declares these fields in that profile only.
+- The two guides carry `"profile"` in `resources/resources_index.json`: `resources/list` shows them in their profile only,
+  `resources/read` serves them by uri in any, and the generic harness never copies them as skills.
+Tests: `node --test tests/scripts/validate_edit_profile.cjs`.
+
 ## Files That Matter Most
 
 - `_c8oProject/sequences/mcp_endpoint.yaml`
