@@ -12,3 +12,12 @@ yet. A beta reaches the **Pre-releases** update channel of Studios only once
 been installed and checked together with the Assistant and the Bridge on test-nocode.
 Releasing this project does not do it: updating that manifest is the last step of the
 checked set, see [the Assistant procedure](https://github.com/convertigo/c8oprj-lib-convertigo-assistant/blob/master/RELEASING.md#preview-manifest-after-a-checked-pre-release-set).
+
+## Checks before a tag
+
+- `node --test tests/scripts/validate_tool_schemas.cjs`: every tool's input and output schemas, as `tools/list`
+  answers them, read by a strict JSON Schema client. The CI runs it before it builds the archive.
+- Install a pre-release on test-nocode with the Tigo panel closed: a Vibe session started while
+  `lib_ConvertigoMCP` is being replaced keeps no Convertigo MCP tool for its whole life (Vibe resolves its MCP
+  servers when the session starts and does not reconfigure them during a turn). After the install, open a new
+  conversation and check that the agent lists the No Code tools before going on.

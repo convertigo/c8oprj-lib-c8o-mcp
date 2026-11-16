@@ -23,6 +23,11 @@ jobs:
         with:
           ssh-key: ${{ secrets.SSH_KEY }}
 
+      # A tool schema a strict MCP client cannot read can cost the agent the whole server: check every tool's input
+      # and output schemas before an archive is built (tests/scripts/validate_tool_schemas.cjs).
+      - name: Check the tool schemas
+        run: node --test tests/scripts/validate_tool_schemas.cjs
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
