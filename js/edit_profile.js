@@ -3,12 +3,12 @@
 // user switched ("/profil yaml|html" in the Tigo panel, kept per conversation by lib_ConvertigoAssistant). Without the
 // header, or with any other value, nothing changes: that default is the MCP edit tools.
 // - yaml: the tools that change a project are neither listed nor run. The agent edits c8oProject.yaml, _c8oProject/**
-//   and js/** of the project with its own file tools, then calls project-reload (convertigo://resources/
-//   convertigo-yaml-editing). project-reload and mobile-builder-build stay (a reload of the edited files, a build
+//   and js/** of the project with its own file tools, then calls project-reload (convertigo://guides/
+//   yaml-editing). project-reload and mobile-builder-build stay (a reload of the edited files, a build
 //   check); batch-call, requestable-execute and subagent-run stay for what changes nothing.
 // - html: every tool stays; project-reload imports the edited generated files of the NGX pages (fromIonic,
 //   js/ionic_roundtrip.js), mobile-builder-open lists them, and a tree change of a page waits for its file edits to be
-//   imported (convertigo://resources/convertigo-ngx-html-roundtrip). Only on an engine of 8.5.0 or more whose
+//   imported (convertigo://guides/html-roundtrip). Only on an engine of 8.5.0 or more whose
 //   NgxIonicRoundTripConverter has importIntoLoadedProject(String, String) (htmlAvailable): elsewhere (every 8.4 engine,
 //   an 8.4 Studio patched with an older round-trip, an 8.5 without it) html is the default, nothing of it shows.
 if (typeof C8O === "undefined") { var C8O = {}; }
@@ -16,8 +16,8 @@ C8O.editProfile = (function () {
   var api = {};
   api.HEADER = "X-Convertigo-Edit-Profile";
   api.PROFILES = { yaml: true, html: true };
-  api.YAML_GUIDE = "convertigo://resources/convertigo-yaml-editing";
-  api.HTML_GUIDE = "convertigo://resources/convertigo-ngx-html-roundtrip";
+  api.YAML_GUIDE = "convertigo://guides/yaml-editing";
+  api.HTML_GUIDE = "convertigo://guides/html-roundtrip";
 
   // What the yaml profile takes away: the writers of js/subagents.js WRITE_SEQUENCES but project-reload and
   // mobile-builder-build, and project-delete. batch-call, requestable-execute and subagent-run are refused for what

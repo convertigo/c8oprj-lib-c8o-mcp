@@ -126,5 +126,13 @@
   {
     "uri": "convertigo://recipes/quickstart",
     "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-yaml-editing",
+    "aliases": []
+  },
+  {
+    "uri": "convertigo://resources/convertigo-ngx-html-roundtrip",
+    "aliases": []
   }
 ]

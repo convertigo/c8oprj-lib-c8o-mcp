@@ -17,7 +17,7 @@ C8O.ionicRoundTrip = C8O.ionicRoundTrip || {};
 
   var File = typeof Packages !== "undefined" ? Packages.java.io.File : null;
   var SIDECAR_SUFFIX = ".c8o-map.json";
-  var GUIDE = "convertigo://resources/convertigo-ngx-html-roundtrip";
+  var GUIDE = "convertigo://guides/html-roundtrip";
   var MAX_LISTED_PAGES = 60;
   var UNSUPPORTED_MESSAGE = "This engine has no Ionic round-trip import (a Convertigo 8.5 engine whose "
     + "NgxIonicRoundTripConverter has importIntoLoadedProject): make the change with the tree tools.";

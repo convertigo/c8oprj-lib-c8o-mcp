@@ -7,6 +7,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root = path.resolve(__dirname, '../..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+const { guidanceText } = require('../helpers/guide_transport.cjs');
 
 function requestWith(headers) {
   return { getHeader: name => (headers && headers[name] != null ? headers[name] : null) };
@@ -133,7 +134,7 @@ test('yaml refuses the edits made another way: a constructor sub-agent, requesta
   assert.equal(policy.refused('tools_requestable_execute', { requestable: 'lib_ConvertigoMCP.mcp_resources_read', variables: { uri: 'x' } }), '');
   assert.equal(policy.refused('tools_requestable_execute', { requestable: 'SalesPipeline.crm_list_companies' }), '');
   assert.equal(policy.refused('tools_requestable_execute', { requestable: 'lib_ConvertigoMCP.tools_databaseobject_tree_get' }), '');
-  assert.match(policy.refusal('databaseobject-tree-apply'), /yaml edit profile.+project-reload.+convertigo-yaml-editing/);
+  assert.match(policy.refusal('databaseobject-tree-apply'), /yaml edit profile.+project-reload.+convertigo:\/\/guides\/yaml-editing/);
 });
 
 test('the router answers the yaml refusal for a tool that changes a project, and nothing else changes', () => {
@@ -180,16 +181,23 @@ test('the guides of a profile are listed in that profile only, and readable by u
   assert.ok(fs.existsSync(path.join(root, 'resources', htmlGuide.file)));
   const listed = profile => index.filter(entry => loadPolicy(profile ? { 'X-Convertigo-Edit-Profile': profile } : {}, ENGINE_85).listsResource(entry)).map(entry => entry.uri);
   const byDefault = listed('');
-  assert.equal(byDefault.length, index.length - 2);
-  assert.ok(byDefault.indexOf(yamlGuide.uri) < 0 && byDefault.indexOf(htmlGuide.uri) < 0);
-  assert.ok(listed('yaml').indexOf(yamlGuide.uri) >= 0 && listed('yaml').indexOf(htmlGuide.uri) < 0);
-  assert.ok(listed('html').indexOf(htmlGuide.uri) >= 0 && listed('html').indexOf(yamlGuide.uri) < 0);
+  // the former URI, the summary and the drawers of each profile guide (resources/guide_drawers.json)
+  const ofProfile = profile => index.filter(entry => entry.profile === profile).map(entry => entry.uri);
+  assert.ok(ofProfile('yaml').includes('convertigo://guides/yaml-editing') && ofProfile('yaml').length > 2);
+  assert.ok(ofProfile('html').includes('convertigo://guides/html-roundtrip') && ofProfile('html').length > 2);
+  assert.equal(byDefault.length, index.length - ofProfile('yaml').length - ofProfile('html').length);
+  for (const uri of ofProfile('yaml').concat(ofProfile('html'))) assert.ok(byDefault.indexOf(uri) < 0, uri);
+  assert.ok(ofProfile('yaml').every(uri => listed('yaml').includes(uri)) && ofProfile('html').every(uri => !listed('yaml').includes(uri)));
+  assert.ok(ofProfile('html').every(uri => listed('html').includes(uri)) && ofProfile('yaml').every(uri => !listed('html').includes(uri)));
   assert.match(read('_c8oProject/sequences/mcp_resources_list.yaml'), /C8O\.editProfile\.listsResource\(entry\)/);
   // the generic harness copies the guides of no profile as skills
   assert.match(read('js/setup_common.js'), /!trim\(entry\.profile\)\.length && trim\(entry\.file\)\.length/);
   // the guides name tools that exist and the routes of their profile
-  assert.match(read('resources/convertigo_yaml_editing.md'), /project-reload/);
-  assert.match(read('resources/convertigo_ngx_html_roundtrip.md'), /project-reload\(project=<project>, fromIonic=true, ionicTarget=/);
+  assert.match(guidanceText('resources/convertigo_yaml_editing.md'), /project-reload/);
+  assert.match(guidanceText('resources/convertigo_ngx_html_roundtrip.md'), /project-reload\(project=<project>, fromIonic=true, ionicTarget=/);
+  // the answers of the MCP point at the summaries, not at the former URIs that only redirect
+  assert.match(read('js/edit_profile.js'), /YAML_GUIDE = "convertigo:\/\/guides\/yaml-editing"/);
+  assert.match(read('js/ionic_roundtrip.js'), /GUIDE = "convertigo:\/\/guides\/html-roundtrip"/);
 });
 
 test('the served guides hold no stray tool-call markup', () => {
@@ -359,7 +367,7 @@ test('project-reload checks the lines in the yaml profile only, before reloading
   assert.match(reload, /include\("js\/yaml_line_check\.js"\);/);
   assert.match(reload, /C8O\.editProfile\.current\(\) === "yaml" && C8O\.yamlLineCheck\) \{\n\s+try \{\n\s+yamlLineErrors = C8O\.yamlLineCheck\.checkProject\(/);
   assert.match(reload, /status: "invalid_yaml"/);
-  assert.match(read('resources/convertigo_yaml_editing.md'), /invalid_yaml/);
+  assert.match(guidanceText('resources/convertigo_yaml_editing.md'), /invalid_yaml/);
 });
 
 // html is offered by an engine of 8.5.0 or more whose NgxIonicRoundTripConverter has importIntoLoadedProject(String,

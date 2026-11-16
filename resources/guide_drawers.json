@@ -1826,5 +1826,111 @@
       }
     ],
     "summarySha256": "4b2570781131d44201b5ccf32086af80e78ea5ff09d4aa3ba30ed234cd427972"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-yaml-editing",
+    "summaryUri": "convertigo://guides/yaml-editing",
+    "sourceFile": "convertigo_yaml_editing.md",
+    "originalSha256": "ee2632f2d9a93fabb761bea3219ec0907e6c62bbf18a6c3831e402e64b69fc58",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/yaml-editing/files",
+        "file": "guides/yaml-editing/files.md",
+        "when": "What you may write, the two formats and the line grammar",
+        "sha256": "44c456533c4922c81df19dbeba913d816f1f56213ade4165a131c91113b5bf71",
+        "bodyOffset": 233,
+        "servedSha256": "2d816fc56870c8b77b831e3cb7bbc3e200276dc14096a6174a538a83d4258f54",
+        "trailingSourceNewlines": 1
+      },
+      {
+        "uri": "convertigo://guides/yaml-editing/references",
+        "file": "guides/yaml-editing/references.md",
+        "when": "Files, references, priorities and names",
+        "sha256": "ea2af69068aa2bdcd6e062d3775ee0f4e04f09e2745b0da397c35714bb4f4184",
+        "bodyOffset": 249,
+        "servedSha256": "e1f77c79a5686c44a880bd9ecd33485464e042342e3190a5a74a4a7ccb4848f5",
+        "trailingSourceNewlines": 1
+      },
+      {
+        "uri": "convertigo://guides/yaml-editing/sequence",
+        "file": "guides/yaml-editing/sequence.md",
+        "when": "Add a business sequence",
+        "sha256": "32271142feacb3446e97e461ab45bb26ea0a3b51c87deb7575ec3816ed1852db",
+        "bodyOffset": 222,
+        "servedSha256": "73b4894f9240dfee2e8ee83b1ce69a60aa5854c80ebf2fe38b5cd74f148d4ad7",
+        "trailingSourceNewlines": 1
+      },
+      {
+        "uri": "convertigo://guides/yaml-editing/ngx-page",
+        "file": "guides/yaml-editing/ngx-page.md",
+        "when": "Add an NGX page and its menu entry",
+        "sha256": "5daca91ec79f502229e59658634e92e51c917fbf16834dde591ffd5d1e87a0f9",
+        "bodyOffset": 240,
+        "servedSha256": "a78e6a01186410ced6353116c2a8d40062484f3328442afdb8defcf049d92253",
+        "trailingSourceNewlines": 1
+      },
+      {
+        "uri": "convertigo://guides/yaml-editing/reload",
+        "file": "guides/yaml-editing/reload.md",
+        "when": "Reload, read the errors and check",
+        "sha256": "7158f51be10931d9f89af018821234956e540a4769b5e5136a6fa5cdfced039f",
+        "bodyOffset": 189,
+        "servedSha256": "29b9b213c72b7cdd0ae9cb40f552c937b8a607796260cd888a553b411e7eba76"
+      }
+    ],
+    "summarySha256": "fdcdce69501c419397f8f3d9cb6cb6be77c9d102bfb514320970533383f2c9ed"
+  },
+  {
+    "oldUri": "convertigo://resources/convertigo-ngx-html-roundtrip",
+    "summaryUri": "convertigo://guides/html-roundtrip",
+    "sourceFile": "convertigo_ngx_html_roundtrip.md",
+    "originalSha256": "23ccab30aa16641816ac2743baecc5e7a9e4fe85c6afc43a38775991a04e0100",
+    "drawers": [
+      {
+        "uri": "convertigo://guides/html-roundtrip/scope",
+        "file": "guides/html-roundtrip/scope.md",
+        "when": "Files or tree: what this profile edits",
+        "sha256": "32ee17d2d0c57c4486faf7757883f3feedd0a38db51dc1291b2fff7e1f27ce60",
+        "bodyOffset": 199,
+        "servedSha256": "4aa03fd73a3c087fcac8a89e9cdf0464a3275cf31e64be4b86d4fc414940b135",
+        "trailingSourceNewlines": 1
+      },
+      {
+        "uri": "convertigo://guides/html-roundtrip/workflow",
+        "file": "guides/html-roundtrip/workflow.md",
+        "when": "Workflow, import and its report",
+        "sha256": "b1b964c877d071899e69aeb6b760e159f9e4ff5d29f5803954c9f555ca01ae42",
+        "bodyOffset": 235,
+        "servedSha256": "a1d23599f16b5b8b7172e68f7885990125ddfc66c4e5ed1b108ec417e5cd1be0",
+        "trailingSourceNewlines": 1
+      },
+      {
+        "uri": "convertigo://guides/html-roundtrip/html",
+        "file": "guides/html-roundtrip/html.md",
+        "when": "HTML rules: anchors, attributes, directives and events",
+        "sha256": "f67410f8abce05792cd8f0ad08328acdce1024a9c71b95c6feec8db965779d70",
+        "bodyOffset": 287,
+        "servedSha256": "24293f7eb2e64e48be591846b8a2dac1967e7d3b4b7a22eb67101e94d46f8183",
+        "trailingSourceNewlines": 1
+      },
+      {
+        "uri": "convertigo://guides/html-roundtrip/scss-ts",
+        "file": "guides/html-roundtrip/scss-ts.md",
+        "when": "SCSS and TypeScript rules",
+        "sha256": "25a6369011bbda1f96e0c3605e651b2aa390580b033185d681daebe59e342d1a",
+        "bodyOffset": 235,
+        "servedSha256": "20b4cc847b49834d64d80882755acf8d7f9a0fd19843e19112238434a45bd2e2",
+        "trailingSourceNewlines": 1
+      },
+      {
+        "uri": "convertigo://guides/html-roundtrip/shared-components",
+        "file": "guides/html-roundtrip/shared-components.md",
+        "when": "Creating and placing shared components, boundaries",
+        "sha256": "2ba1480575cb68d931dd6b5c8ae32a08f495c8aea4cebe4c29c82451bd10d132",
+        "bodyOffset": 226,
+        "servedSha256": "2dd3502ea959c681870d36eb6ad9daa1777e3f1779917cd990f1abf6bdb87847"
+      }
+    ],
+    "summarySha256": "a957d341f1bbab83af4a71b0dd42d84dab82ee626fea8700401dd35d342f827d"
   }
 ]
