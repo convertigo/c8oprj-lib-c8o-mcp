@@ -911,7 +911,7 @@ if (methodName === "initialize") {
       // Sub-agents drive the same viewer as the agent's Playwright MCP (the conversation's debug port) and are recorded
       // under the conversation.
       var subagentSequence = targetSequence === "tools_browser_verify" || targetSequence === "tools_subagent_run";
-      if ((targetSequence === "tools_mobile_builder_open" || subagentSequence) && managedViewerDebugPort > 0) {
+      if ((targetSequence === "tools_mobile_builder_open" || targetSequence === "tools_viewer_sign_in" || subagentSequence) && managedViewerDebugPort > 0) {
         callVariables.browserDebugPort = managedViewerDebugPort;
       }
       if (subagentSequence && managedConversationId.length) {

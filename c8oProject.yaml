@@ -81,12 +81,14 @@
   ↓tools_nocode_report_create [sequences.GenericSequence]: 🗏 sequences/tools_nocode_report_create.yaml
   ↓tools_palette_describe [sequences.GenericSequence]: 🗏 sequences/tools_palette_describe.yaml
   ↓tools_palette_list [sequences.GenericSequence]: 🗏 sequences/tools_palette_list.yaml
+  ↓tools_project_brief [sequences.GenericSequence]: 🗏 sequences/tools_project_brief.yaml
   ↓tools_project_delete [sequences.GenericSequence]: 🗏 sequences/tools_project_delete.yaml
   ↓tools_project_js_get [sequences.GenericSequence]: 🗏 sequences/tools_project_js_get.yaml
   ↓tools_project_js_set [sequences.GenericSequence]: 🗏 sequences/tools_project_js_set.yaml
   ↓tools_project_lint [sequences.GenericSequence]: 🗏 sequences/tools_project_lint.yaml
   ↓tools_project_list [sequences.GenericSequence]: 🗏 sequences/tools_project_list.yaml
   ↓tools_project_list_symbols [sequences.GenericSequence]: 🗏 sequences/tools_project_list_symbols.yaml
+  ↓tools_project_notes_write [sequences.GenericSequence]: 🗏 sequences/tools_project_notes_write.yaml
   ↓tools_project_reload [sequences.GenericSequence]: 🗏 sequences/tools_project_reload.yaml
   ↓tools_project_save [sequences.GenericSequence]: 🗏 sequences/tools_project_save.yaml
   ↓tools_project_security_audit [sequences.GenericSequence]: 🗏 sequences/tools_project_security_audit.yaml
@@ -104,6 +106,8 @@
   ↓tools_tags_get [sequences.GenericSequence]: 🗏 sequences/tools_tags_get.yaml
   ↓tools_tigo_resources [sequences.GenericSequence]: 🗏 sequences/tools_tigo_resources.yaml
   ↓tools_upsert_crud [sequences.GenericSequence]: 🗏 sequences/tools_upsert_crud.yaml
+  ↓tools_viewer_sign_in [sequences.GenericSequence]: 🗏 sequences/tools_viewer_sign_in.yaml
+  ↓viewer_session_claim [sequences.GenericSequence]: 🗏 sequences/viewer_session_claim.yaml
   ↓project1 [references.ProjectSchemaReference]: 
     projectName: mobilebuilder_tpl_8_4_0_ngx_legacy=https://github.com/convertigo/c8oprj-mobilebuilder-tpl/archive/8ca383ae844129df72bd3436a7869bfdc0a69d5c.zip
   ↓UrlMapper [core.UrlMapper]: 🗏 urlMapper.yaml

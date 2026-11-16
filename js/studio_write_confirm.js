@@ -47,6 +47,8 @@ C8O.studioWriteConfirm = C8O.studioWriteConfirm || {};
     tools_ngx_page_create: "ngx-page-create",
     tools_ngx_theme_apply: "ngx-theme-apply",
     tools_project_js_set: "project-js-set",
+    // the notes of the project (docs/generated/PROGRESS.md), not a project object
+    tools_project_notes_write: "project-notes-write",
     tools_project_save: "project-save",
     tools_project_delete: "project-delete",
     // discards the changes not saved yet, and loads what was written in the project's files
@@ -97,6 +99,7 @@ C8O.studioWriteConfirm = C8O.studioWriteConfirm || {};
     tools_report_create: true,
     tools_palette_describe: true,
     tools_palette_list: true,
+    tools_project_brief: true,
     tools_project_js_get: true,
     tools_project_lint: true,
     tools_project_list: true,
@@ -107,7 +110,9 @@ C8O.studioWriteConfirm = C8O.studioWriteConfirm || {};
     tools_scheduler_list: true,
     tools_sql_select: true,
     tools_tags_get: true,
-    tools_tigo_resources: true
+    tools_tigo_resources: true,
+    // signs the Studio browser in as an account of the app: its session only, never the project
+    tools_viewer_sign_in: true
   };
 
   // requestable-execute of these projects changes Tigo itself.

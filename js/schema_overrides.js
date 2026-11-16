@@ -1613,6 +1613,165 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  // project-brief, project-notes-write and viewer-sign-in (js/project_brief.js, js/viewer_session.js).
+  function projectBriefInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "The project to describe (exact technical name)." },
+        page: { type: "string", description: "A page name: adds every object of that page, one line each with its QName suffix, and the CSS rules of the classes it uses." },
+        classes: {
+          description: "CSS classes whose rules to add, for example [\"app-kpi\", \"app-cols-4\"].",
+          oneOf: [{ type: "array", items: { type: "string" } }, { type: "string" }]
+        },
+        tables: { type: "boolean", default: true, description: "false skips reading the tables and fields of the SQL connectors." }
+      },
+      required: ["project"],
+      additionalProperties: false
+    };
+  }
+
+  function projectBriefOutputSchema() {
+    var str = { type: "string" };
+    var strings = stringArraySchema();
+    var rule = closedObjectSchema({ source: str, selector: str, media: str, declarations: str });
+    return openObjectSchema({
+      project: str,
+      version: str,
+      notes: openObjectSchema({
+        path: { type: "string", description: "The notes file of the project, written with project-notes-write." },
+        present: { type: "boolean" },
+        chars: { type: "number" },
+        text: { type: "string", description: "The notes (secrets masked): the conventions and decisions of earlier turns. Follow them." },
+        truncated: { type: "boolean" },
+        masked: { type: "number", description: "Values masked as secrets." },
+        otherFiles: strings
+      }),
+      app: {
+        description: "The NGX application, null when the project has none.",
+        oneOf: [{ type: "null" }, openObjectSchema({
+          qname: str,
+          rootPage: str,
+          menus: { type: "array", items: openObjectSchema({ name: str, qname: str, pages: strings }) },
+          guard: { oneOf: [{ type: "null" }, openObjectSchema({ qname: str, type: str, redirectUnauthenticatedTo: str, protectedPages: strings, guestOnlyPages: strings, allowByDefault: { type: ["boolean", "null"] } })] },
+          sharedComponents: strings
+        })]
+      },
+      pages: {
+        type: "array",
+        items: openObjectSchema({
+          name: str,
+          qname: str,
+          segment: { type: "string", description: "Route segment of the page." },
+          title: str,
+          inMenu: { type: "boolean" },
+          calls: { type: "array", items: str, description: "Requestables the page calls (CallSequenceAction)." },
+          opens: { type: "array", items: str, description: "Pages it navigates to." },
+          ownStyle: { type: "boolean", description: "true when the page has a style of its own." },
+          components: { type: "array", items: str, description: "Its main components: lists with their columns and fields, KPI cards, forms, buttons." }
+        })
+      },
+      page: openObjectSchema({
+        page: str,
+        qname: { type: "string", description: "The QName of the page: an object's QName is this, a dot, and the path at the start of its line." },
+        lines: { type: "array", items: str, description: "One object per line: its QName suffix, then <tag> bean props {attribute QName suffix name=value}, text, event or action." },
+        truncated: { type: "boolean" }
+      }),
+      pageSummary: { oneOf: [{ type: "null" }, openObjectSchema({ name: str, qname: str, segment: str, title: str, inMenu: { type: "boolean" }, calls: strings, opens: strings, ownStyle: { type: "boolean" }, components: strings })] },
+      sequences: {
+        type: "array",
+        items: openObjectSchema({
+          name: str,
+          access: { type: "string", description: "roleChecked, signedInOnly, anonymous or private." },
+          inputs: strings,
+          calls: strings,
+          session: { type: "string", description: "open (signs a user in), close (signs out) or empty." }
+        })
+      },
+      data: {
+        type: "array",
+        items: openObjectSchema({
+          name: str,
+          kind: str,
+          transactions: { type: "number" },
+          tables: { type: "array", items: openObjectSchema({ name: str, view: { type: "boolean" }, fields: strings }) },
+          error: str
+        })
+      },
+      auth: openObjectSchema({
+        signIn: strings,
+        signOut: strings,
+        loginPages: strings,
+        roles: strings,
+        testSession: { type: "string", description: "How to check the pages behind the sign-in in the Studio browser." }
+      }),
+      references: { type: "array", items: openObjectSchema({ project: str, used: { type: "boolean" } }) },
+      styles: openObjectSchema({
+        sources: { type: "array", items: openObjectSchema({ name: str, qname: str, kind: { type: "string", description: "app, theme, page or shared." }, page: str, chars: { type: "number" }, rules: { type: "number" } }) },
+        classes: { type: "array", items: openObjectSchema({ name: str, definedIn: strings, usedIn: strings, rules: { type: "array", items: rule } }) },
+        undefinedClasses: strings,
+        variables: openObjectSchema({ app: strings, ionColors: strings, other: { type: "number" } }),
+        pagesWithoutStyle: strings,
+        appStyles: strings,
+        mainAppStyle: { type: "string", description: "The app style the pages' classes come from: where a style shared by several pages goes." },
+        pageStyle: { type: "string", description: "With page: the UIStyle of that page, empty when it has none." },
+        theme: strings
+      }),
+      warnings: strings,
+      next: strings
+    });
+  }
+
+  function projectNotesWriteInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "The project whose notes to write." },
+        text: { type: "string", description: "The Markdown of the notes (replace) or of the section to add (append). Never a password, token or key." },
+        mode: { type: "string", enum: ["replace", "append"], default: "replace" }
+      },
+      required: ["project", "text"],
+      additionalProperties: false
+    };
+  }
+
+  function projectNotesWriteOutputSchema() {
+    return openObjectSchema({
+      project: { type: "string" },
+      path: { type: "string" },
+      status: { type: "string", enum: ["created", "replaced", "appended"] },
+      chars: { type: "number" }
+    });
+  }
+
+  function viewerSignInInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "The project whose application is open in the Studio browser." },
+        user: { type: "string", description: "The account to sign in as: its login, usually an e-mail. No password." },
+        page: { type: "string", description: "Route segment to open once signed in, such as dashboard." },
+        url: { type: "string", description: "The viewerHomeUrl of mobile-builder-open, when the browser does not show the application yet." },
+        cdpEndpoint: { type: "string", description: "Only when the agent host sends no viewer debug port: the loopback CDP endpoint of the Studio browser (browserDebugUrl of mobile-builder-open)." }
+      },
+      required: ["project", "user"],
+      additionalProperties: false
+    };
+  }
+
+  function viewerSignInOutputSchema() {
+    return openObjectSchema({
+      status: { type: "string", description: "signed_in, signed_in_page_asks_sign_in, refused, no_viewer or failed." },
+      project: { type: "string" },
+      user: { type: "string" },
+      signedIn: { type: "boolean", description: "The engine session of the browser is signed in." },
+      sessionUser: { type: "string", description: "The user the engine sees for the browser (user.Get)." },
+      url: { type: "string", description: "The page the browser shows now." },
+      signInPageShown: { type: "boolean", description: "The page still shows a password field." },
+      message: { type: "string" }
+    });
+  }
+
   function errorEntrySchema() {
     return openObjectSchema({
       code: { type: "string" },
@@ -2029,6 +2188,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return closedObjectSchema({
       status: { type: "string", enum: ["finished", "running"], description: "running: call browser-verify again with verificationId alone to get the report." },
       verificationId: { type: "string" },
+      signedInAs: { type: "string", description: "The account the browser was signed in as before the walk (signInAs)." },
       elapsedMs: { type: "number", description: "With status running: time since the verification started." },
       message: { type: "string", description: "With status running: what to do next." },
       activity: subagentActivitySchema(),
@@ -2621,6 +2781,15 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       };
     }
 
+    if (seq === "tools_project_brief") {
+      return projectBriefInputSchema();
+    }
+    if (seq === "tools_project_notes_write") {
+      return projectNotesWriteInputSchema();
+    }
+    if (seq === "tools_viewer_sign_in") {
+      return viewerSignInInputSchema();
+    }
     if (seq === "tools_browser_verify") {
       return {
         type: "object",
@@ -2638,9 +2807,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
             oneOf: [{ type: "array", items: { type: "string" } }, { type: "string" }]
           },
           hints: {
-            description: "Facts the sub-agent needs and cannot guess: demo accounts and passwords, expected values, what just changed. A text, or {name: value} facts, or a list: they reach it one per line.",
+            description: "Facts the sub-agent needs and cannot guess: expected values, what just changed, a demo password only when the user gave it (prefer signInAs). A text, or {name: value} facts, or a list: they reach it one per line.",
             oneOf: [{ type: "string" }, { type: "object", additionalProperties: true }, { type: "array", items: {} }]
           },
+          signInAs: { type: "string", description: "Studio only: an account of the app (its login or e-mail) to sign the browser in as before the walk, without its password (as viewer-sign-in). Needs url. Use it for every page behind the sign-in instead of a password in hints." },
           viewport: { type: "string", description: "Window of the verification: desktop (default, 1280x800), mobile (390x844) or <width>x<height>. The Studio viewer gets its own size back afterwards." },
           model: { type: "string", default: "mistral/mistral-large-4", description: "Vision model of the Convertigo LLM gateway." },
           reasoning: { type: "string", enum: ["none", "high"], default: "none", description: "none is fast and cheap; high only for a hard case." },
@@ -2988,6 +3158,15 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_browser_verify") {
       return browserVerifyOutputSchema();
+    }
+    if (seq === "tools_project_brief") {
+      return projectBriefOutputSchema();
+    }
+    if (seq === "tools_project_notes_write") {
+      return projectNotesWriteOutputSchema();
+    }
+    if (seq === "tools_viewer_sign_in") {
+      return viewerSignInOutputSchema();
     }
     if (seq === "tools_subagent_run") {
       return subagentRunOutputSchema();

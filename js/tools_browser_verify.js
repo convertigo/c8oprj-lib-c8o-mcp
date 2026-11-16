@@ -462,6 +462,34 @@ C8O.browserVerify = C8O.browserVerify || {};
     return host;
   };
 
+  // signInAs: the browser signs in as that account before the walk (js/viewer_session.js), so the verifier never meets
+  // the sign-in page and nobody hands it a password. Only a new verification (not the collection of a running one).
+  api.signInFirst = function (contextObject, params) {
+    var account = str(params.signInAs);
+    if (!account.length || account === "null" || str(params.verificationId).length) {
+      return "";
+    }
+    var url = str(params.url);
+    var project = (/\/projects\/([A-Za-z_][A-Za-z0-9_]*)\/DisplayObjects\//.exec(url) || [])[1] || "";
+    if (!project.length) {
+      throw new Error("signInAs needs url: the viewerHomeUrl of mobile-builder-open, which names the project.");
+    }
+    if (!C8O.viewerSession || typeof C8O.viewerSession.signIn !== "function") {
+      include("js/viewer_session.js");
+    }
+    var signIn = C8O.viewerSession.signIn(contextObject, {
+      project: project, user: account, url: url, browserDebugPort: params.browserDebugPort, cdpEndpoint: params.cdpEndpoint
+    });
+    if (!signIn.signedIn) {
+      throw new Error("signInAs " + account + " failed (" + signIn.status + "): " + signIn.message);
+    }
+    var note = "The browser is already signed in as " + account + ": never type a password; if a sign-in form shows, open the page by its address or the menu.";
+    var hints = params.hints;
+    var hintsText = hints == null ? "" : (typeof hints === "string" || hints instanceof java.lang.String ? String(hints) : JSON.stringify(hints));
+    params.hints = hintsText.length && hintsText !== "null" ? note + "\n" + hintsText : note;
+    return signIn.sessionUser || account;
+  };
+
   // Private alone is not an HTTP authentication boundary in Eclipse Studio, and this tool spends gateway credits:
   // the full MCP bearer is checked again here, as image-describe does.
   api.execute = function (contextObject, params) {
@@ -473,6 +501,11 @@ C8O.browserVerify = C8O.browserVerify || {};
     if (C8O.userKeyServerPolicy) {
       C8O.userKeyServerPolicy.assertAllows("tools_browser_verify", contextObject);
     }
-    return api.run(params, api.javaHost());
+    var signedIn = api.signInFirst(contextObject, params || {});
+    var result = api.run(params, api.javaHost());
+    if (signedIn && result && typeof result === "object") {
+      result.signedInAs = signedIn;
+    }
+    return result;
   };
 })(C8O.browserVerify);

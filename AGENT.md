@@ -196,6 +196,31 @@ answers.
   `resources/read` serves them by uri in any, and the generic harness never copies them as skills.
 Tests: `node --test tests/scripts/validate_edit_profile.cjs`.
 
+## project-brief, project-notes-write and viewer-sign-in (an existing project from the first step)
+
+Measured on SalesPipeline in the A/B harness of the Electron Studio (16/11, MCP 0.3.0-beta.28): a one-column change took
+15 min with 8 s of editing and 6.2 min of exploring (52 reading calls), a KPI restyle 30 min with 16 s of editing, and
+20 of those minutes went into guessing the demo password. Three tools answer what the agent was looking for:
+- `project-brief` (`js/project_brief.js`, read): computed from the loaded project at each call (0.1 to 0.4 s, so never
+  stale): pages (route segment, sequences called, pages opened, main components), sequences with their access lists and
+  session change (`js/security_audit_collect.js`, `accessSummary`, `sessionChange`), SQL tables and fields (JDBC
+  metadata), roles (literals of the role checks), references used, the style index (each class the pages use, where it
+  is defined, `mainAppStyle`, `undefinedClasses`, pages without a style) and the project notes, secrets masked. With
+  `page`: one line per object of that page with its QName suffix (built from `C8O.dbo.getCanonicalPropertiesMap`, the
+  view of tree-get), and the CSS rules of its classes. Generic: nothing in it knows a generated app; checked on
+  SalesPipeline, PipelineCrm3, TaskFlow and MiniCrm.
+- `project-notes-write` (write, not in `YAML_REFUSED`): `<project>/docs/generated/PROGRESS.md`, `replace` or `append`;
+  a text holding a password, token or key is refused (`checkNotesText`). The Agent Bridge puts those notes at the start of
+  each Studio turn about the project (`withProjectNotesPrompt`).
+- `viewer-sign-in` (read, local Studio only, full bearer): a one-time ticket (32 random bytes, 60 s, single use, in
+  `context.server`) that `node/viewer_session.cjs` makes the viewer page POST to the Hidden sequence
+  `viewer_session_claim` in its own HTTP session, which calls `context.setAuthenticatedUser`; the app's AuthorizePages
+  guard reads `user.Get`, so the pages behind the sign-in open. No password anywhere, no account written. The app's own
+  sign-in sequence does not run: what it stores besides the user is not set (the answer says when the page still asks to
+  sign in). `browser-verify` takes `signInAs` and does the same before its walk.
+The guides forbid guessing, cracking or resetting a password (common skill, Validation and evidence; authentication
+guide). Tests: `tests/scripts/validate_project_brief.cjs`, `tests/scripts/validate_viewer_session.cjs`.
+
 ## Files That Matter Most
 
 - `_c8oProject/sequences/mcp_endpoint.yaml`

@@ -1,0 +1,25 @@
+accessibility: Hidden
+comment: |
+  Internal: the Studio browser takes the one-time ticket of viewer-sign-in and its HTTP session signs in. Local Studio only; refused without a valid ticket.
+↓Include [steps.SimpleStep-1794900000301]: 
+  expression: 'include("js/viewer_session.js");'
+↓Run [steps.SimpleStep-1794900000302]: 
+  expression: 'var viewerSessionClaim = C8O.viewerSession.claim(context, ticket);'
+↓result [steps.JsonToXmlStep-1794900000303]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: viewerSessionClaim
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓ticket [variables.RequestableVariable-1794900000310]: 
+  comment: 'The one-time ticket of viewer-sign-in.'
+  description: 'The one-time ticket of viewer-sign-in.'
+  value: ''
+  visibility: 15

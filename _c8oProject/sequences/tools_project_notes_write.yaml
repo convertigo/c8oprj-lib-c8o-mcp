@@ -1,0 +1,33 @@
+accessibility: Private
+comment: |
+  Write the project notes kept for the next turns
+  Writes docs/generated/PROGRESS.md in the project: the notes that project-brief returns and the next turns of Tigo read first. Keep there the conventions and decisions of the app (where its styles live, its design classes, its naming, its demo accounts by name), the object inventory and the next step, not a log. mode replace (default) writes the whole file, append adds a section at its end. A text holding a password, token or key is refused: name the account only. Writes no project object and needs no project-save.
+↓Include [steps.SimpleStep-1794900000101]: 
+  expression: 'include("js/mcp_auth.js"); include("js/project_brief.js");'
+↓Run [steps.SimpleStep-1794900000102]: 
+  expression: 'var projectNotesResult = C8O.projectBrief.executeWrite(context, {project: project, text: text, mode: mode});'
+↓result [steps.JsonToXmlStep-1794900000103]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: projectNotesResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1794900000111]: 
+  comment: 'The project whose notes to write.'
+  description: 'The project whose notes to write.'
+  value: ''
+↓text [variables.RequestableVariable-1794900000112]: 
+  comment: 'The Markdown of the notes (mode replace) or of the section to add (mode append). No secret: name accounts, never their passwords.'
+  description: 'The Markdown of the notes (mode replace) or of the section to add (mode append). No secret: name accounts, never their passwords.'
+  value: ''
+↓mode [variables.RequestableVariable-1794900000113]: 
+  comment: 'replace (default): the whole file; append: a section added at the end.'
+  description: 'replace (default): the whole file; append: a section added at the end.'
+  value: ''

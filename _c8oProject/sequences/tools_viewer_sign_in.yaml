@@ -1,0 +1,46 @@
+accessibility: Private
+comment: |
+  Sign the Studio browser in as an account of the application
+  Studio only. Signs the Studio browser (the browser of your Playwright tools and of browser-verify) in as the account you name, without its password, then opens the page asked: use it to check the pages behind the sign-in of the app you change. Takes the project, the account (its login or e-mail, from the project notes, the brief or the user) and the route segment to open; url is the viewerHomeUrl of mobile-builder-open when the browser does not show the app yet. The app's own sign-in sequence does not run, so what it stores besides the user is not set. Never guess, crack or reset a password instead.
+responseTimeout: 60
+↓Include [steps.SimpleStep-1794900000201]: 
+  expression: 'include("js/mcp_auth.js"); include("js/viewer_session.js");'
+↓Run [steps.SimpleStep-1794900000202]: 
+  expression: 'var viewerSignInResult = C8O.viewerSession.execute(context, {project: project, user: user, page: page, url: url, cdpEndpoint: cdpEndpoint, browserDebugPort: browserDebugPort});'
+↓result [steps.JsonToXmlStep-1794900000203]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: viewerSignInResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1794900000211]: 
+  comment: 'The project whose application is open in the Studio browser.'
+  description: 'The project whose application is open in the Studio browser.'
+  value: ''
+↓user [variables.RequestableVariable-1794900000212]: 
+  comment: 'The account to sign in as: its login, usually an e-mail (the demo account of the project notes).'
+  description: 'The account to sign in as: its login, usually an e-mail (the demo account of the project notes).'
+  value: ''
+↓page [variables.RequestableVariable-1794900000213]: 
+  comment: 'Route segment to open once signed in, such as dashboard or companies; empty keeps the page shown (the entry page when it is the sign-in).'
+  description: 'Route segment to open once signed in, such as dashboard or companies; empty keeps the page shown (the entry page when it is the sign-in).'
+  value: ''
+↓url [variables.RequestableVariable-1794900000214]: 
+  comment: 'The viewerHomeUrl of mobile-builder-open, when the browser does not show the application yet.'
+  description: 'The viewerHomeUrl of mobile-builder-open, when the browser does not show the application yet.'
+  value: ''
+↓cdpEndpoint [variables.RequestableVariable-1794900000215]: 
+  comment: 'Loopback CDP endpoint of the Studio browser when the agent host does not send the viewer debug port.'
+  description: 'Loopback CDP endpoint of the Studio browser when the agent host does not send the viewer debug port.'
+  value: ''
+↓browserDebugPort [variables.RequestableVariable-1794900000216]: 
+  comment: 'Set by the MCP router from the X-Convertigo-Viewer-Debug-Port header of the managed agent hosts.'
+  description: 'Set by the MCP router from the X-Convertigo-Viewer-Debug-Port header of the managed agent hosts.'
+  value: ''

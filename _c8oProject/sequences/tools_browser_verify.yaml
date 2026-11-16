@@ -4,9 +4,9 @@ comment: |
   A vision model of the Convertigo LLM gateway (default mistral/mistral-large-4) drives the Studio browser of the conversation (the viewer opened by mobile-builder-open), walks the paths given in plain language, looks at its screenshots and returns a short report: each check passed or failed with evidence, the visual defects seen, the screenshots saved in the Studio workspace, and the usage of its model calls. It only observes and never edits the project. One call replaces a whole functional and visual browser proof. A call waits up to waitSec (50 s) for the report; a longer verification answers status running with a verificationId to collect the report with.
 responseTimeout: 300
 ↓Include [steps.SimpleStep-1792270000001]: 
-  expression: 'include("js/mcp_auth.js"); include("js/subagents.js"); include("js/tools_browser_verify.js");'
+  expression: 'include("js/mcp_auth.js"); include("js/subagents.js"); include("js/tools_browser_verify.js"); include("js/viewer_session.js");'
 ↓Run [steps.SimpleStep-1792270000002]: 
-  expression: 'var browserVerifyResult = C8O.browserVerify.execute(context, {url: url, paths: paths, checks: checks, hints: hints, viewport: viewport, model: model, reasoning: reasoning, maxSteps: maxSteps, timeBudgetSec: timeBudgetSec, cdpEndpoint: cdpEndpoint, browserDebugPort: browserDebugPort, waitSec: waitSec, verificationId: verificationId, conversationId: conversationId});'
+  expression: 'var browserVerifyResult = C8O.browserVerify.execute(context, {url: url, paths: paths, checks: checks, hints: hints, viewport: viewport, model: model, reasoning: reasoning, maxSteps: maxSteps, timeBudgetSec: timeBudgetSec, cdpEndpoint: cdpEndpoint, browserDebugPort: browserDebugPort, waitSec: waitSec, verificationId: verificationId, conversationId: conversationId, signInAs: signInAs});'
 ↓result [steps.JsonToXmlStep-1792270000003]: 
   jsonObject: 
     - xmlizable: 
@@ -35,6 +35,10 @@ responseTimeout: 300
 ↓hints [variables.RequestableVariable-1792270000007]: 
   comment: 'Optional facts the sub-agent needs: demo accounts, expected values, what changed.'
   description: 'Optional facts the sub-agent needs: demo accounts, expected values, what changed.'
+  value: ''
+↓signInAs [variables.RequestableVariable-1794900000401]: 
+  comment: 'Studio only: an account of the app (its login or e-mail) to sign the browser in as before the walk, without its password (as viewer-sign-in). Needs url.'
+  description: 'Studio only: an account of the app (its login or e-mail) to sign the browser in as before the walk, without its password (as viewer-sign-in). Needs url.'
   value: ''
 ↓viewport [variables.RequestableVariable-1792282000001]: 
   comment: 'Window of the verification: desktop (default, 1280x800), mobile (390x844) or <width>x<height>.'
