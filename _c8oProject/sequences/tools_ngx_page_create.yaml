@@ -5,7 +5,7 @@ comment: |
 ↓Include [steps.SimpleStep-1792270100034]: 
   expression: include("js/tools_generators_ngx.js");
 ↓Run [steps.SimpleStep-1792270100035]: 
-  expression: 'var generatorResult = C8O.generators.ngxPageCreate({project: project, name: name, title: title, kind: kind, sequence: sequence, facade: facade, params: params, vars: vars, filters: filters, filterLabel: filterLabel, list: list, detail: detail, form: form, dashboard: dashboard, logout: logout, actions: actions, authRedirect: authRedirect, authCodes: authCodes, heading: heading, inMenu: inMenu, segment: segment, icon: icon, locals: locals, home: home, comment: comment, root: root, theme: theme, locale: locale, currency: currency});'
+  expression: 'var generatorResult = C8O.generators.ngxPageCreate({project: project, name: name, title: title, kind: kind, sequence: sequence, facade: facade, params: params, vars: vars, filters: filters, filterLabel: filterLabel, list: list, detail: detail, form: form, dashboard: dashboard, logout: logout, actions: actions, authRedirect: authRedirect, authCodes: authCodes, heading: heading, inMenu: inMenu, segment: segment, icon: icon, locals: locals, home: home, comment: comment, root: root, theme: theme, locale: locale, currency: currency, subtitle: subtitle, actionsAt: actionsAt});'
 ↓result [steps.JsonToXmlStep-1792270100036]: 
   jsonObject: 
     - xmlizable: 
@@ -134,4 +134,12 @@ comment: |
 ↓currency [variables.RequestableVariable-1794700000103]: 
   comment: 'Currency of the app amounts (USD, EUR), kept in AppLayout for the next pages.'
   description: 'Currency of the app amounts (USD, EUR), kept in AppLayout for the next pages.'
+  value: ''
+↓subtitle [variables.RequestableVariable-1795300000001]: 
+  comment: 'Line under the page title: a text, {field, format?, prefix?, suffix?} (a value of the page data) or {count: true, prefix?, suffix?} (the rows of the list).'
+  description: 'Line under the page title: a text, {field, format?, prefix?, suffix?} (a value of the page data) or {count: true, prefix?, suffix?} (the rows of the list).'
+  value: ''
+↓actionsAt [variables.RequestableVariable-1795300000002]: 
+  comment: 'Where the page actions go: header (on the right of the title, the default) or bottom (under the content, the default of a form or logout page).'
+  description: 'Where the page actions go: header (on the right of the title, the default) or bottom (under the content, the default of a form or logout page).'
   value: ''

@@ -1877,7 +1877,7 @@ if (typeof include === "function") {
       var themeMessage = C8O.lint.defaultTheme(appStyles);
       if (themeMessage.length) {
         add("NGX-DEFAULT-THEME", "warning", appComponent, themeMessage,
-          "Choose the tokens before the pages: ngx-theme-apply with the user's brand color, or the preset that fits the app (institutional, modern, dense), " +
+          "Choose the tokens before the pages: ngx-theme-apply with the user's brand color, or the preset that fits the app (clean, fresh, warm, institutional, modern, dense), " +
           "light for a business app. See Visual design in convertigo-frontend-ngx.");
       }
     }

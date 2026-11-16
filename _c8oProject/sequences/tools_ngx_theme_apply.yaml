@@ -5,7 +5,7 @@ comment: |
 ↓Include [steps.SimpleStep-1793450000101]: 
   expression: include("js/tools_generators_ngx_theme.js");
 ↓Run [steps.SimpleStep-1793450000102]: 
-  expression: 'var generatorResult = C8O.generators.ngxThemeApply({project: project, preset: preset, primary: primary, secondary: secondary, tertiary: tertiary, background: background, surface: surface, text: text, radius: radius, density: density, toolbar: toolbar, mode: mode, font: font, appName: appName});'
+  expression: 'var generatorResult = C8O.generators.ngxThemeApply({project: project, preset: preset, primary: primary, secondary: secondary, tertiary: tertiary, background: background, surface: surface, text: text, radius: radius, density: density, toolbar: toolbar, mode: mode, font: font, appName: appName, sideMenu: sideMenu});'
 ↓result [steps.JsonToXmlStep-1793450000103]: 
   jsonObject: 
     - xmlizable: 
@@ -74,4 +74,8 @@ comment: |
 ↓appName [variables.RequestableVariable-1793450000014]: 
   comment: 'Name shown in the menu header instead of the starter key Navigation.'
   description: 'Name shown in the menu header instead of the starter key Navigation.'
+  value: ''
+↓sideMenu [variables.RequestableVariable-1795300000003]: 
+  comment: 'Screen width from which the menu stays open beside the pages: md, lg (the default), xl, or never (menu button only).'
+  description: 'Screen width from which the menu stays open beside the pages: md, lg (the default), xl, or never (menu button only).'
   value: ''

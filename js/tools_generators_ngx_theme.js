@@ -92,10 +92,21 @@ include("js/tools_generators.js");
 
   // --- tokens ------------------------------------------------------------------------------------
 
-  var FONT = "\"IBM Plex Sans\", \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif";
+  // The system's own UI font (San Francisco, Segoe UI, Roboto) after Inter when it is installed: no web font to download, and
+  // the app reads like the other applications of the device.
+  var FONT = "Inter, system-ui, -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif";
 
   // Presets: a starting point, never the brand. Each one differs by color, toolbar, radius and density.
   var PRESETS = {
+    clean: { description: "clean and neutral, the default: indigo primary on white cards over a light grey page, white toolbar, medium radius, soft shadows",
+      primary: "#4f46e5", secondary: "#0f766e", tertiary: "#c2410c", background: "#f6f7fb", surface: "#ffffff", text: "#111827",
+      radius: 10, density: "comfortable", toolbar: "surface", headingWeight: 700 },
+    fresh: { description: "fresh and friendly: teal-green primary, white toolbar, rounded cards, for field, health or education apps",
+      primary: "#0f766e", secondary: "#4f46e5", tertiary: "#b45309", background: "#f4f8f7", surface: "#ffffff", text: "#0f1f1c",
+      radius: 12, density: "comfortable", toolbar: "surface", headingWeight: 700 },
+    warm: { description: "warm: terracotta primary, white toolbar, rounded cards, for retail, hospitality or events",
+      primary: "#c2410c", secondary: "#0f766e", tertiary: "#7c3aed", background: "#faf7f4", surface: "#ffffff", text: "#1c1917",
+      radius: 12, density: "comfortable", toolbar: "surface", headingWeight: 700 },
     institutional: { description: "sober and institutional: deep blue-grey primary, colored toolbar, small radius, comfortable spacing",
       primary: "#1f4e79", secondary: "#56738f", tertiary: "#a35c00", background: "#f3f5f8", surface: "#ffffff", text: "#17212e",
       radius: 6, density: "comfortable", toolbar: "primary", headingWeight: 600 },
@@ -106,7 +117,7 @@ include("js/tools_generators.js");
       primary: "#0b7285", secondary: "#5c6b7a", tertiary: "#b8460b", background: "#eef1f4", surface: "#ffffff", text: "#1b2430",
       radius: 4, density: "compact", toolbar: "dark", headingWeight: 600 }
   };
-  var DEFAULT_PRESET = "institutional";
+  var DEFAULT_PRESET = "clean";
   var STATUS = { success: "#2b8a3e", warning: "#e8a317", danger: "#c92a2a", medium: "#64748b" };
   var SCALES = {
     comfortable: { space: [4, 8, 12, 16, 24, 32], font: { xs: 12, sm: 14, base: 16, lg: 18, xl: 22, "2xl": 28 }, row: 52 },
@@ -114,6 +125,10 @@ include("js/tools_generators.js");
   };
   var MODES = ["light", "auto", "dark"];
   var TOOLBARS = ["primary", "surface", "dark"];
+  // The side menu stays open beside the pages from this screen width (Ionic split pane breakpoints): a menu hidden behind a
+  // button on a desktop made every generated app look like a phone app (CRM comparison 16/11). never keeps the button only.
+  var SIDE_MENUS = ["md", "lg", "xl", "never"];
+  G.THEME_DEFAULT_PRESET = DEFAULT_PRESET;
   G.THEME_PRESETS = PRESETS;
 
   // The token set: the preset, then what the call gives. Errors are collected, nothing is written.
@@ -161,6 +176,11 @@ include("js/tools_generators.js");
     }
     t.headingWeight = preset.headingWeight;
     t.appName = str(spec.appName);
+    t.sideMenu = str(spec.sideMenu);
+    if (t.sideMenu.length && SIDE_MENUS.indexOf(t.sideMenu) < 0) {
+      errors.push("sideMenu must be " + SIDE_MENUS.join(", ") + " (the screen width from which the menu stays open beside the pages; never keeps it behind the menu button).");
+      t.sideMenu = "";
+    }
     return t;
   };
 
@@ -191,6 +211,8 @@ include("js/tools_generators.js");
       light.toolbar = t.surface;
     }
     light.toolbarText = t.toolbar === "surface" ? t.text : readableOn(light.toolbar, t.text);
+    // The app name in the menu header: the brand color on a white toolbar, the toolbar text on a colored one.
+    light.menuTitle = t.toolbar === "surface" ? primary : light.toolbarText;
     light.toolbarBorder = t.toolbar === "surface" ? light.border : light.toolbar;
     light.ink = ink;
 
@@ -210,6 +232,7 @@ include("js/tools_generators.js");
     dark.colors.dark = "#f1f5f9";
     dark.toolbar = t.toolbar === "primary" ? mix(dark.background, t.brand, 0.45) : (t.toolbar === "dark" ? mix(dark.background, "#000000", 0.35) : dark.surface);
     dark.toolbarText = readableOn(dark.toolbar, dark.background);
+    dark.menuTitle = t.toolbar === "surface" ? dark.colors.primary : dark.toolbarText;
     dark.toolbarBorder = t.toolbar === "surface" ? dark.border : dark.toolbar;
 
     var report = function (p) {
@@ -246,6 +269,7 @@ include("js/tools_generators.js");
     }
     pairs.push(["--app-surface", p.surface], ["--app-surface-2", p.surface2], ["--app-muted", p.muted], ["--app-border", p.border],
       ["--app-toolbar-background", p.toolbar], ["--app-toolbar-color", p.toolbarText], ["--app-toolbar-border", p.toolbarBorder],
+      ["--app-menu-title", p.menuTitle], ["--app-primary-soft", "rgba(" + rgb(p.colors.primary) + ", " + (scheme === "dark" ? "0.18" : "0.10") + ")"],
       ["--app-shadow-sm", scheme === "dark" ? "0 1px 2px rgba(0,0,0,.45)" : "0 1px 2px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.08)"],
       ["--app-shadow-md", scheme === "dark" ? "0 6px 16px rgba(0,0,0,.45)" : "0 6px 16px rgba(15,23,42,.10)"],
       ["--tw-shadow-sm", "var(--app-shadow-sm)"], ["--tw-shadow-md", "var(--app-shadow-md)"],
@@ -313,10 +337,19 @@ include("js/tools_generators.js");
       // ion-toolbar ion-icon { color: var(--tw-text) } left the home icon dark on a colored toolbar.
       "ion-header ion-toolbar ion-button.in-toolbar, ion-header ion-toolbar ion-back-button, ion-header ion-toolbar ion-menu-button { --color: var(--app-toolbar-color); color: var(--app-toolbar-color); --background: transparent; --box-shadow: none; }",
       "ion-header ion-toolbar ion-icon { color: var(--app-toolbar-color); }",
+      // A flat header: a hairline under the toolbar instead of Material's drop shadow.
+      "ion-header.header-md { box-shadow: none; }",
+      "ion-header ion-toolbar { --border-width: 0 0 1px 0; --border-style: solid; --min-height: 56px; }",
+      "body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }",
+      // The side menu: open beside the pages on a wide screen (sideMenu), the app name in the brand color as its header.
+      "ion-split-pane { --side-width: 256px; --side-min-width: 232px; --side-max-width: 288px; --border: 1px solid var(--app-border); }",
+      "ion-menu ion-header ion-toolbar ion-title { color: var(--app-menu-title); --color: var(--app-menu-title); font-size: var(--app-font-size-lg); font-weight: 750; }",
       "ion-menu ion-content { --background: var(--app-surface); }",
-      "ion-menu.md ion-item, ion-menu.ios ion-item { --border-radius: var(--app-radius-sm); margin-bottom: 2px; }",
+      "ion-menu ion-list { background: transparent; padding: var(--app-space-2) var(--app-space-2) 0; }",
+      "ion-menu.md ion-item, ion-menu.ios ion-item { --min-height: 44px; --background: transparent; --background-hover: rgba(var(--ion-text-color-rgb), 0.06); font-weight: 500; }",
+      "ion-menu.md ion-item, ion-menu.ios ion-item { --border-radius: var(--app-radius-sm); margin-bottom: 2px; --border-width: 0; --inner-border-width: 0; }",
       "ion-menu.md ion-item ion-icon, ion-menu.ios ion-item ion-icon { color: var(--app-muted); }",
-      "ion-menu.md ion-item.selected, ion-menu.ios ion-item.selected { --background: rgba(var(--ion-color-primary-rgb), 0.12); --color: var(--ion-color-primary); font-weight: 600; }",
+      "ion-menu.md ion-item.selected, ion-menu.ios ion-item.selected { --background: var(--app-primary-soft); --color: var(--ion-color-primary); font-weight: 600; }",
       "ion-menu.md ion-item.selected ion-icon, ion-menu.ios ion-item.selected ion-icon { color: var(--ion-color-primary); }"
     ].join("\n"));
     return out.join("\n\n") + "\n";
@@ -444,6 +477,29 @@ include("js/tools_generators.js");
       });
       modeStatus = qnameOf(actions[0]) + " useSystem " + modeProps.useSystem.value + ", fallbackDark " + modeProps.fallbackDark.value + ", ApplyTheme sets the root class";
     }
+    // The side menu beside the pages on a wide screen: the given width, else lg while the app has no split pane of its own.
+    var sideMenu = "";
+    var currentLayout = "";
+    try {
+      currentLayout = str(app.getSplitPaneLayout());
+    } catch (_noLayout) {
+      currentLayout = "";
+    }
+    var wantedLayout = t.sideMenu.length ? t.sideMenu : (!currentLayout.length || currentLayout === "not set" ? "lg" : "");
+    if (wantedLayout.length) {
+      var layoutValue = wantedLayout === "never" ? "not set" : "'" + wantedLayout + "'";
+      if (layoutValue !== currentLayout) {
+        var why5 = setProperties(app, { splitPaneLayout: layoutValue });
+        if (why5.length) {
+          warnings.push("The side menu could not be set (application splitPaneLayout " + layoutValue + "): " + why5);
+        } else {
+          sideMenu = wantedLayout === "never" ? "menu button only" : "open beside the pages from the " + wantedLayout + " width";
+        }
+      }
+    }
+    if (!sideMenu.length) {
+      sideMenu = currentLayout === "not set" || !currentLayout.length ? "menu button only" : "kept (" + currentLayout + ")";
+    }
     // The menu header shows the app name instead of the starter's "Navigation" key.
     var menuTitle = "";
     if (t.appName.length) {
@@ -468,6 +524,7 @@ include("js/tools_generators.js");
       mode: t.mode,
       modeAction: modeStatus,
       tokens: { brand: t.brand, toolbar: t.toolbar, density: t.density, radius: t.radius, font: t.font, light: pick(palettes.light), dark: pick(palettes.dark) },
+      sideMenu: sideMenu,
       contrast: palettes.contrast,
       menuTitle: menuTitle,
       warnings: warnings
@@ -479,7 +536,7 @@ include("js/tools_generators.js");
     var projectDbo = projectOf(args.project, tool);
     var projectName = String(projectDbo.getName());
     var spec = {};
-    ["preset", "primary", "secondary", "tertiary", "background", "surface", "text", "radius", "density", "toolbar", "mode", "font", "appName"].forEach(function (k) {
+    ["preset", "primary", "secondary", "tertiary", "background", "surface", "text", "radius", "density", "toolbar", "mode", "font", "appName", "sideMenu"].forEach(function (k) {
       if (args[k] !== undefined && args[k] !== null && str(args[k]) !== "") {
         spec[k] = args[k];
       }

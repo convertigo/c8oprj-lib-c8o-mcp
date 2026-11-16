@@ -945,7 +945,7 @@ test('ngx-page-create builds a list page with filters, badges and the session re
   // A new app gets the default theme with its first page (31/10: every generated app had the starter's blue).
   assert.deepEqual(plain(out.created), ['App.Application.NgxApp.AppLayout', 'App.Application.NgxApp.Postes', 'App.Application.NgxApp.AppTheme',
     'App.Application.NgxApp.AppEvent.GetTheme.ApplyTheme', 'App.Application.NgxApp.NotFound']);
-  assert.match(out.theme, /^AppTheme created \(preset institutional, primary #1f4e79, mode light\)$/);
+  assert.match(out.theme, /^AppTheme created \(preset clean, primary #4f46e5, mode light\)$/);
   assert.match(out.warnings.join(' '), /onItem\.page Detail is not a page of App yet/);
   assert.match(out.warnings[0], /^English default texts were used for .*list\.empty "No record\."/);
   assert.match(out.warnings[0], /filterLabel "Filter"/);
@@ -957,7 +957,8 @@ test('ngx-page-create builds a list page with filters, badges and the session re
   assert.deepEqual(plain(nodes.RecForEach.properties.directiveSource), { mode: 'SOURCE', local: 'data.items' });
   assert.equal(nodes.RecForEach.properties.directiveItemName, 'poste');
   assert.equal(nodes.Main.children[0].properties.textValue.value, '(poste?.numeroPoste ?? \'\')');
-  assert.equal(nodes.Nt.children[0].properties.textValue.value, "'Due ' + (poste?.dateEcheance ?? '') + ''");
+  // A date field shows in the app's language through the page's formatter (CRM comparison 16/11).
+  assert.equal(nodes.Nt.children[0].properties.textValue.value, "'Due ' + (local?.fmtDate ? local.fmtDate(poste?.dateEcheance, 'date') : (poste?.dateEcheance ?? '')) + ''");
   assert.match(nodes.Status.children[2].properties.attrValue.value, /poste\?\.statut === 'A' \? 'success' : 'medium'/);
   assert.equal(nodes.InRecherche.properties.DoubleBinding.local, 'filterRecherche');
   const load1 = nodes.Load;
@@ -1408,7 +1409,7 @@ test('ngx-theme-apply writes AppTheme from a preset and a brand color, and sets 
 test('ngx-theme-apply keeps texts readable with a light brand color and refuses bad tokens', () => {
   const world = makeWorld();
   const G = load(world);
-  const out = G.ngxThemeApply({ project: 'App', primary: '#ffd400', mode: 'dark' });
+  const out = G.ngxThemeApply({ project: 'App', preset: 'institutional', primary: '#ffd400', mode: 'dark' });
   assert.match(out.warnings.join(' '), /primary #ffd400 reads at 1\.\d+:1 on the surface: #[0-9a-f]{6} is used for texts/);
   assert.ok(out.contrast.light.primaryOnSurface >= 4.5, JSON.stringify(out.contrast.light));
   assert.equal(out.tokens.light.toolbar, '#ffd400', 'the toolbar keeps the brand');
@@ -1417,7 +1418,7 @@ test('ngx-theme-apply keeps texts readable with a light brand color and refuses 
   assert.match(css, /html:root, :root\.force-dark \{/);
   assert.deepEqual(plain(find(world.project, 'App.Application.NgxApp.AppEvent.GetTheme').props.fallbackDark), { mode: 'PLAIN', value: 'true' });
   assert.throws(() => G.ngxThemeApply({ project: 'App', preset: 'fancy', primary: 'red', radius: '40', toolbar: 'gradient', font: 'x; color: red' }),
-    e => /preset must be institutional, modern, dense/.test(e.message) && /primary must be a hex color/.test(e.message) &&
+    e => /preset must be clean, fresh, warm, institutional, modern, dense/.test(e.message) && /primary must be a hex color/.test(e.message) &&
       /radius must be a whole number/.test(e.message) && /toolbar must be primary, surface, dark/.test(e.message) && /font must be a CSS font-family/.test(e.message));
 });
 
@@ -1425,8 +1426,8 @@ test('ngx-page-create applies a given theme, the default one while the app has t
   // An AppLayout written by hand before the first generated page does not keep the starter's blue (31/10 re-run rule).
   const handLayout = makeWorld({ style: '.app-page { padding: 4px; }\n' });
   const out0 = load(handLayout).ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
-  assert.match(out0.theme, /^AppTheme created \(preset institutional/);
-  assert.match(out0.warnings.join(' '), /The app still had the starter's colors: the default preset institutional/);
+  assert.match(out0.theme, /^AppTheme created \(preset clean/);
+  assert.match(out0.warnings.join(' '), /The app still had the starter's colors: the default preset clean/);
   const world = makeWorld({ style: '.app-page { padding: 4px; }\n:root { --ion-color-primary: #2563eb; }\n.brand { --ion-color-primary: #7A1F5C; }\n' });
   const G = load(world);
   const out = G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
@@ -1457,7 +1458,8 @@ test('generated pages carry the design classes: title, list and field panels, fo
   assert.equal(classOf(nodesOf(world, 'Det').Lb), 'app-field-label');
   G.ngxPageCreate({ project: 'App', name: 'DeclForm', kind: 'form', form: { submit: 'declaration_declare', fields: [{ name: 'commentaire', label: 'Commentaire' }],
     submitLabel: 'OK', cancelLabel: 'Annuler', success: { message: 'OK' } } });
-  assert.equal(classOf(nodesOf(world, 'DeclForm').Form), 'app-form');
+  assert.equal(classOf(nodesOf(world, 'DeclForm').Form), 'app-form app-form-grid');
+  assert.equal(classOf(nodesOf(world, 'DeclForm').Buttons), 'app-form-actions', 'the buttons in a bar at the end of the form');
   const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
   assert.match(css, /\.app-title \{[^}]*var\(--app-font-size-2xl, 28px\)/);
   assert.match(css, /\.app-list \{[^}]*var\(--app-surface, var\(--ion-item-background, #fff\)\)/);
@@ -1766,7 +1768,8 @@ test('a list asked as a grid uses the AG Grid of lib_ExtendedComponents_ui_ngx, 
   assert.match(cols, /^\(\(\) => \{ const cmp = \(a: any, b: any\) => String\(a \?\? ''\)\.localeCompare\(String\(b \?\? ''\), undefined, \{numeric: true, sensitivity: 'base'\}\); return \[/,
     'numbers sent as text and codes sort by value');
   assert.match(cols, /return \[\{headerName: 'Poste', field: 'numeroPoste', comparator: cmp, minWidth: 140\}, \{headerName: 'Libellé', field: 'libelle', comparator: cmp, flex: 2, minWidth: 200\}/);
-  assert.match(cols, /\{headerName: 'Échéance', field: 'dateEcheance', valueFormatter: \(p: any\) => p\.value == null \|\| p\.value === '' \? '' : 'le ' \+ p\.value \+ '', comparator: cmp\}/);
+  // A date column shows the date in the app's language, its prefix kept.
+  assert.match(cols, /\{headerName: 'Échéance', field: 'dateEcheance', valueFormatter: \(p: any\) => 'le ' \+ \(\(v: any, k\?: string\) => \{[^}]*\}[^]*?\)\(p\.value, 'date'\) \+ '', comparator: cmp\}/);
   assert.match(cols, /field: 'rpca\.nom'/);
   assert.match(cols, /headerName: 'Statut', field: 'statut', valueFormatter: \(p: any\) => \(\{'A_JOUR': 'À jour', 'EN_RETARD': 'En retard'\} as any\)\[p\.value\]/);
   assert.match(cols, /filterValueGetter: \(p: any\) => \(\{'A_JOUR': 'À jour'.*\[p\.data\?\.statut\] \?\? p\.data\?\.statut/);
@@ -1855,7 +1858,7 @@ test('a grid shows the columns of the table analysis: no repeated title, subtitl
   withGridLibrary(world, { referenced: true });
   const G = load(world);
   const labels = { A: 'À jour', R: 'En retard' };
-  const out = G.ngxPageCreate({ project: 'App', name: 'Postes', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', subtitle: 'libelle',
+  const out = G.ngxPageCreate({ project: 'App', name: 'Postes', kind: 'list', sequence: 'poste_list', locale: 'fr', list: { item: 'p', title: 'numeroPoste', subtitle: 'libelle',
     note: 'dateEcheance', empty: 'Aucun', badge: { field: 'statut', labels }, grid: true,
     columns: [{ label: 'Numéro', field: 'numeroPoste' }, { label: 'Libellé', field: 'libelle' }, { label: 'Service', field: 'service' },
       { label: 'Échéance', field: 'dateEcheance' }, { label: 'Statut', field: 'statutLibelle' }] } });
@@ -2162,7 +2165,7 @@ test('numbers follow the language of the app, kept in AppLayout; a form page is 
   const login = world.ops.filter(op => op.type === 'create' && op.name === 'LoginForm')[0];
   assert.match(JSON.stringify(login), /"attrValue":\{"mode":"PLAIN","value":"app-page app-page-form"\}/);
   css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
-  assert.match(css, /\.app-page-form \.app-form, \.app-page-form \.app-title, \.app-page-form \.app-error \{ max-width: 720px; margin-inline: auto; \}/);
+  assert.match(css, /\.app-page-form \.app-form, \.app-page-form \.app-title, \.app-page-form \.app-page-header, \.app-page-form \.app-error \{ max-width: 760px; margin-inline: auto; \}/);
   assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Bad', kind: 'list', sequence: 'poste_list', locale: 'english',
     list: { item: 'p', title: 'numeroPoste', empty: 'None' } }), /locale must be a language code such as en, fr or en-US/);
 });
@@ -2213,6 +2216,105 @@ test('without a locale given or kept, the numbers are English and the answer say
   const world = makeWorld();
   const G = load(world);
   const out = G.ngxPageCreate({ project: 'App', name: 'Dash', kind: 'dashboard', sequence: 'poste_list', dashboard: { kpis: [{ label: 'N', field: 'n' }] } });
-  assert.match(out.warnings[0], /locale "en" \(the numbers\)/);
+  assert.match(out.warnings[0], /locale "en" \(the numbers and dates\)/);
   assert.doesNotMatch(find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent, /app-locale/, 'a default is not kept: the next page says it again');
 });
+
+test('a page header holds the title, a subtitle and the page actions on the right; a form keeps its buttons at the bottom (CRM comparison 16/11)', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'Plist', kind: 'list', sequence: 'poste_list', subtitle: { count: true, suffix: ' postes' },
+    actions: [{ label: 'Nouveau', page: 'Plist' }, { label: 'Exporter', page: 'Plist', fill: 'clear' }, { label: 'Aide', page: 'Plist' }],
+    list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  const nodes = nodesOf(world, 'Plist');
+  assert.equal(classOf(nodes.PageHeader), 'app-page-header');
+  assert.equal(classOf(nodes.Heading), 'app-page-heading');
+  assert.equal(classOf(nodes.Title), 'app-title');
+  assert.equal(nodes.IfSubtitle.properties.directiveExpression, 'local?.loading === false && !local?.error', 'no "0 postes" while the page loads');
+  assert.match(JSON.stringify(nodes.Subtitle), /'' \+ \(local\?\.data\?\.[A-Za-z.?]+\?\.length \?\? 0\) \+ ' postes'/);
+  assert.equal(classOf(nodes.HeaderActions), 'app-header-actions');
+  const buttons = nodes.HeaderActions.children.slice(1);
+  assert.equal(buttons[0].properties.IonFill, undefined, 'the main action stays filled');
+  assert.equal(buttons[1].properties.IonFill.value, 'clear', 'a given fill is kept');
+  assert.equal(buttons[2].properties.IonFill.value, 'outline');
+  assert.equal(classOf(nodes.Loading), 'app-loading', 'a spinner while the data loads');
+  assert.equal(nodes.IfLoading.properties.directiveExpression, 'local?.loading !== false && !local?.error');
+  // bottom keeps the former place; a heading-less page without actions has no header.
+  G.ngxPageCreate({ project: 'App', name: 'Plist2', kind: 'list', sequence: 'poste_list', actionsAt: 'bottom', actions: [{ label: 'Nouveau', page: 'Plist' }],
+    list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  const n2 = nodesOf(world, 'Plist2');
+  assert.equal(n2.HeaderActions, undefined);
+  assert.equal(classOf(n2.Actions), 'app-actions');
+  G.ngxPageCreate({ project: 'App', name: 'Plist4', kind: 'list', sequence: 'poste_list', spec: JSON.stringify({ heading: '' }), list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } });
+  assert.equal(nodesOf(world, 'Plist4').PageHeader, undefined);
+  G.ngxPageCreate({ project: 'App', name: 'Det', kind: 'detail', sequence: 'poste_list', subtitle: { field: 'agent.dateNaissance', prefix: 'Né le ' },
+    detail: { fields: [{ label: 'N°', field: 'numeroPoste' }] } });
+  const det = JSON.stringify(nodesOf(world, 'Det').Subtitle);
+  assert.match(det, /'Né le ' \+ \(local\?\.fmtDate \? local\.fmtDate\(local\?\.data\?\.agent\?\.dateNaissance, 'date'\)/);
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Bad', kind: 'list', sequence: 'poste_list', actionsAt: 'top', subtitle: { nope: 1 },
+    list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } }), e => /actionsAt must be header/.test(e.message) && /subtitle must be a text/.test(e.message));
+  const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
+  assert.match(css, /\.app-page-header \{ display: flex;/);
+  assert.match(css, /\.ion-page:has\(\.app-page-header\) ion-header ion-toolbar ion-title \{ visibility: hidden; \}/);
+});
+
+test('table columns: numbers right-aligned with their header, dates in the app language through the page formatter', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'Deals', kind: 'list', sequence: 'poste_list', locale: 'en-GB', currency: 'GBP', list: { item: 'd', title: 'name', titleLabel: 'Deal', grid: false,
+    columns: [{ label: 'Amount', field: 'amount' }, { label: 'Close', field: 'expected_close' }, { label: 'Owner', field: 'owner' }] } });
+  const nodes = nodesOf(world, 'Deals');
+  assert.equal(classOf(nodes.CAmount), 'app-cell app-cell-num');
+  assert.equal(classOf(nodes.HAmount), 'app-cell app-cell-num');
+  assert.equal(classOf(nodes.COwner), 'app-cell');
+  assert.match(JSON.stringify(nodes.CExpectedClose), /local\?\.fmtDate \? local\.fmtDate\(d\?\.expected_close, 'date'\) : \(d\?\.expected_close \?\? ''\)/);
+  const page = JSON.stringify(world.ops.filter(op => op.type === 'create' && op.name === 'Deals')[0]);
+  assert.match(page, /"Property":\{"mode":"PLAIN","value":"fmtDate"\}/);
+  assert.match(page, /toLocaleDateString\('en-GB', \{year: 'numeric', month: 'short', day: 'numeric'/);
+  // A page without date shows no formatter; a status named like a date with labels keeps its labels.
+  G.ngxPageCreate({ project: 'App', name: 'Plain', kind: 'list', sequence: 'poste_list', list: { item: 'p', title: 'numeroPoste', note: 'status', empty: 'None' } });
+  assert.doesNotMatch(JSON.stringify(world.ops.filter(op => op.type === 'create' && op.name === 'Plain')[0]), /fmtDate/);
+});
+
+test('dashboard sections are cards two by two, a table across; a bars chart computes its largest value with the data; a KPI has a hint', () => {
+  const world = makeWorld();
+  withGridLibrary(world, { referenced: true });
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'Dash', kind: 'dashboard', sequence: 'poste_list', locale: 'en-US', currency: 'USD',
+    dashboard: { kpis: [{ label: 'Open pipeline', field: 'counters.open', hint: { field: 'counters.openCount', suffix: ' open deals' } }, { label: 'Won', field: 'counters.won', hint: 'This year' }],
+      sections: [
+        { heading: 'By stage', chart: 'bars', items: 'stages', item: 's', badge: { field: 'stage', labels: { LEAD: 'Lead', WON: 'Won', LOST: 'Lost' } }, value: 'amount', note: { field: 'count', suffix: ' deals' } },
+        { heading: 'Recent', items: 'recent', item: 'd', title: 'title', note: 'amount', empty: 'None' },
+        { heading: 'All', items: 'all', item: 'd', title: 'title', titleLabel: 'Deal', grid: false, columns: [{ label: 'Amount', field: 'amount' }] }] } });
+  const nodes = nodesOf(world, 'Dash');
+  assert.equal(classOf(nodes.Sections), 'app-sections');
+  assert.equal(classOf(nodes.S1Card), 'app-card');
+  assert.equal(classOf(nodes.S2Card), 'app-card');
+  assert.equal(classOf(nodes.S3Card), 'app-card app-card-wide', 'a table takes the whole width');
+  assert.equal(classOf(nodes.S1Bars), 'app-bars');
+  const page = JSON.stringify(world.ops.filter(op => op.type === 'create' && op.name === 'Dash')[0]);
+  assert.match(page, /"Property":\{"mode":"PLAIN","value":"barMaxS1"\},"Value":\{"mode":"SCRIPT","value":"Math\.max\(0, \.\.\.\(\(c8oPage\.local\?\.data\?\.stages \?\? \[\]\) as any\[\]\)\.map\(\(r: any\) => Number\(r\?\.amount\) \|\| 0\)\)"\}/);
+  assert.match(page, /"attrName":"\[style\.width\.%\]","attrValue":\{"mode":"SCRIPT","value":"local\?\.barMaxS1 \? \(\(s\?\.amount\) \* 1 \|\| 0\) \/ local\.barMaxS1 \* 100 : 0"\}/);
+  assert.match(page, /"attrName":"\[attr\.data-color\]","attrValue":\{"mode":"SCRIPT","value":"s\?\.stage === 'LEAD' \? '[a-z]+' : s\?\.stage === 'WON' \? 'success' : s\?\.stage === 'LOST' \? 'danger'/, 'won is a success, lost a danger');
+  assert.match(page, / \+ ' · ' \+ '' \+ \(s\?\.count \?\? ''\) \+ ' deals'/);
+  assert.match(JSON.stringify(nodes.Hint), /app-kpi-hint/);
+  assert.match(page, /\(local\?\.data\?\.counters\?\.openCount \?\? ''\) \+ ' open deals'/);
+  assert.throws(() => G.ngxPageCreate({ project: 'App', name: 'Dash2', kind: 'dashboard', sequence: 'poste_list',
+    dashboard: { kpis: [{ label: 'N', field: 'n' }], sections: [{ heading: 'X', chart: 'pie', items: 'stages', label: 'stage', value: 'amount' }, { heading: 'Y', chart: 'bars', items: 'stages' }] } }),
+    e => /chart must be bars/.test(e.message) && /\.value is required with chart bars/.test(e.message));
+  const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
+  assert.match(css, /\.app-bar-fill\[data-color=success\] \{ background: var\(--ion-color-success\); \}/);
+  assert.match(css, /@media \(min-width: 992px\) \{ \.app-sections \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
+});
+
+test('a form of many short fields gets two columns, a long text the whole row', () => {
+  const world = makeWorld();
+  const G = load(world);
+  G.ngxPageCreate({ project: 'App', name: 'BigForm', kind: 'form', form: { submit: 'declaration_declare', submitLabel: 'OK', cancelLabel: 'Annuler', success: { message: 'OK' },
+    fields: [{ name: 'posteIds', label: 'A' }, { name: 'dateEffective', label: 'B', type: 'date' }, { name: 'source', label: 'C' }, { name: 'commentaire', label: 'Note', type: 'textarea' }] } });
+  const nodes = nodesOf(world, 'BigForm');
+  assert.equal(classOf(nodes.Form), 'app-form app-form-grid app-form-cols');
+  assert.match(JSON.stringify(nodes.FiCommentaire), /app-form-wide/);
+  assert.equal(nodes.Buttons.children[2].name, 'BtnSubmit', 'the submit last, on the right');
+});
+

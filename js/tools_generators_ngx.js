@@ -33,49 +33,102 @@ include("js/sequence_response.js");
   var SURFACE = "var(--app-surface, var(--ion-item-background, #fff))";
   var BORDER = "1px solid var(--app-border, var(--ion-border-color, rgba(127,127,127,0.2)))";
   var MUTED = "var(--app-muted, var(--ion-color-medium, #64748b))";
+  // A panel: the surface, a hairline border, the large radius and the soft shadow of the theme.
+  var CARD = "background: " + SURFACE + "; border: " + BORDER + "; border-radius: var(--app-radius-lg, 12px); box-shadow: var(--app-shadow-sm, none);";
   var APP_LAYOUT_RULES = [
     [".app-page", ".app-page { max-width: 1120px; margin: 0 auto; padding: var(--app-space-5, 24px) var(--app-space-4, 16px) var(--app-space-6, 32px); }"],
     // ion-content is not centered by its margins: the pages filled the left 1120 px of a wide screen (PipelineCrm 12/11). Its
     // content is centered by its own padding, and an AppLayout written before gets this rule with its next page.
     ["ion-content.app-page", "ion-content.app-page { max-width: none; margin: 0; --app-page-gutter: max(var(--app-space-4, 16px), calc((100% - 1120px) / 2)); " +
       "--padding-start: var(--app-page-gutter); --padding-end: var(--app-page-gutter); --padding-top: var(--app-space-5, 24px); --padding-bottom: var(--app-space-6, 32px); }"],
-    [".app-title", ".app-title { margin: 0 0 var(--app-space-4, 16px); font-size: var(--app-font-size-2xl, 28px); font-weight: var(--app-heading-weight, 650); letter-spacing: -0.02em; line-height: 1.2; }"],
-    [".app-section", ".app-section { margin: var(--app-space-6, 32px) 0 var(--app-space-3, 12px); font-size: var(--app-font-size-lg, 18px); font-weight: var(--app-heading-weight, 650); }"],
-    [".app-filters", ".app-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--app-space-3, 12px); align-items: end; " +
-      "margin-bottom: var(--app-space-4, 16px); padding: var(--app-space-3, 12px) var(--app-space-4, 16px); background: " + SURFACE + "; border: " + BORDER + "; border-radius: var(--app-radius-lg, 12px); }"],
-    [".app-filter", ".app-filter { flex: 1 1 180px; min-width: 160px; }"],
-    [".app-kpis", ".app-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--app-space-3, 12px); }"],
-    [".app-kpi", ".app-kpi { --app-accent: var(--ion-color-primary, #2563eb); --app-accent-rgb: var(--ion-color-primary-rgb, 37,99,235); padding: var(--app-space-4, 16px); " +
-      "border-radius: var(--app-radius-lg, 12px); background: " + SURFACE + "; border: " + BORDER + "; border-left: 4px solid var(--app-accent); box-shadow: var(--app-shadow-sm, none); }"],
-    [".app-kpi.app-kpi-iconed", ".app-kpi.app-kpi-iconed { display: grid; grid-template-columns: auto 1fr; grid-template-areas: \"icon value\" \"icon label\"; column-gap: var(--app-space-3, 12px); align-items: center; }"],
-    [".app-kpi-icon", ".app-kpi-icon { grid-area: icon; width: 44px; height: 44px; padding: 11px; box-sizing: border-box; font-size: 22px; border-radius: var(--app-radius, 10px); " +
+    [".app-title", ".app-title { margin: 0 0 var(--app-space-4, 16px); font-size: var(--app-font-size-2xl, 28px); font-weight: var(--app-heading-weight, 700); letter-spacing: -0.02em; line-height: 1.2; }"],
+    // The page header: the title and a line under it on the left, the page's actions on the right (wrapping under it on a
+    // phone). A hand-made app puts its main action there; generated pages had their buttons at the bottom (CRM comparison 16/11).
+    [".app-page-header", ".app-page-header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--app-space-3, 12px) var(--app-space-4, 16px); margin: 0 0 var(--app-space-5, 24px); }\n" +
+      ".app-page-header .app-title { margin: 0; }\n" +
+      ".app-page-heading { flex: 1 1 260px; min-width: 0; }"],
+    [".app-subtitle", ".app-subtitle { margin: var(--app-space-1, 4px) 0 0; font-size: var(--app-font-size-base, 16px); color: " + MUTED + "; }"],
+    [".app-header-actions", ".app-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-space-2, 8px); margin-inline-start: auto; }\n" +
+      ".app-header-actions ion-button { margin: 0; }"],
+    // With the side menu open beside the page (ngx-theme-apply sideMenu), the page's own header names it: the toolbar title
+    // would say it twice.
+    ["@media (min-width: 992px) { .ion-page:has(.app-page-header)", "@media (min-width: 992px) { .ion-page:has(.app-page-header) ion-header ion-toolbar ion-title { visibility: hidden; } }"],
+    // A sign-in or sign-out page shows no menu beside it: nothing in the menu opens before the sign-in.
+    [".app-page-bare", "ion-split-pane:has(.ion-page:not(.ion-page-hidden) ion-content.app-page-bare) > ion-menu { display: none; }"],
+    [".app-section", ".app-section { margin: var(--app-space-6, 32px) 0 var(--app-space-3, 12px); font-size: var(--app-font-size-lg, 18px); font-weight: var(--app-heading-weight, 650); letter-spacing: -0.01em; }"],
+    // A card: a dashboard section, a chart. Its list or grid runs to the card's edges, under the card's title.
+    [".app-card", ".app-card { min-width: 0; padding: var(--app-space-4, 16px) var(--app-space-5, 20px); " + CARD + " }\n" +
+      ".app-card .app-section { margin: 0 0 var(--app-space-3, 12px); }\n" +
+      ".app-card ion-list.app-list, .app-card .app-grid { margin: 0 calc(-1 * var(--app-space-5, 20px)) calc(-1 * var(--app-space-4, 16px)); border: 0; border-radius: 0 0 var(--app-radius-lg, 12px) var(--app-radius-lg, 12px); box-shadow: none; background: transparent; }\n" +
+      ".app-card ion-list.app-list ion-item { --padding-start: var(--app-space-5, 20px); --inner-padding-end: var(--app-space-5, 20px); }\n" +
+      ".app-card .app-empty-state { border: 0; background: transparent; padding: var(--app-space-4, 16px) 0; }"],
+    // The sections of a dashboard: one column on a phone, two side by side from 992 px; a table section takes the whole width.
+    [".app-sections", ".app-sections { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--app-space-4, 16px); margin-top: var(--app-space-5, 24px); align-items: start; }\n" +
+      "@media (min-width: 992px) { .app-sections { grid-template-columns: repeat(2, minmax(0, 1fr)); } .app-sections .app-card-wide { grid-column: 1 / -1; } }"],
+    // Filters in one bar: the fields keep a readable width, the search takes the room left, the button its own width (a
+    // Filter button as wide as a field read as a banner, CRM comparison 16/11).
+    [".app-filters", ".app-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--app-space-2, 8px) var(--app-space-3, 12px); margin-bottom: var(--app-space-4, 16px); " +
+      "padding: var(--app-space-3, 12px) var(--app-space-4, 16px); " + CARD + " }\n" +
+      ".app-filters > ion-button { flex: 0 0 auto; margin: 0 0 var(--app-space-1, 4px); }"],
+    [".app-filter", ".app-filter { flex: 1 1 200px; min-width: 160px; max-width: 320px; --background: transparent; --padding-start: 0; --inner-padding-end: 0; --border-width: 0; --inner-border-width: 0; }\n" +
+      ".app-filter.app-filter-search { flex: 2 1 280px; max-width: none; }"],
+    // A KPI card: its label above, the figure, a line of context under it; the icon in a tinted square on the right.
+    [".app-kpis", ".app-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--app-space-4, 16px); }"],
+    [".app-kpi", ".app-kpi { --app-accent: var(--ion-color-primary, #4f46e5); --app-accent-rgb: var(--ion-color-primary-rgb, 79,70,229); display: grid; grid-template-columns: minmax(0, 1fr); " +
+      "grid-template-areas: \"label\" \"value\" \"hint\"; align-content: start; padding: var(--app-space-4, 16px) var(--app-space-5, 20px); " + CARD + " }"],
+    [".app-kpi.app-kpi-iconed", ".app-kpi.app-kpi-iconed { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: \"label icon\" \"value icon\" \"hint hint\"; column-gap: var(--app-space-3, 12px); }"],
+    [".app-kpi-icon", ".app-kpi-icon { grid-area: icon; align-self: start; width: 40px; height: 40px; padding: 9px; box-sizing: border-box; font-size: 22px; border-radius: var(--app-radius, 10px); " +
       "color: var(--app-accent, var(--ion-color-primary)); background: rgba(var(--app-accent-rgb, var(--ion-color-primary-rgb)), 0.12); }"],
-    [".app-kpi-value", ".app-kpi-value { grid-area: value; display: block; font-size: var(--app-font-size-2xl, 28px); font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }"],
-    [".app-kpi-label", ".app-kpi-label { grid-area: label; display: block; margin-top: var(--app-space-1, 4px); font-size: var(--app-font-size-sm, 14px); color: " + MUTED + "; }"],
+    [".app-kpi-value", ".app-kpi-value { grid-area: value; display: block; margin-top: var(--app-space-2, 8px); font-size: var(--app-font-size-2xl, 28px); font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }"],
+    [".app-kpi-label", ".app-kpi-label { grid-area: label; display: block; font-size: var(--app-font-size-xs, 12px); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: " + MUTED + "; }"],
+    [".app-kpi-hint", ".app-kpi-hint { grid-area: hint; display: block; margin-top: var(--app-space-2, 8px); font-size: var(--app-font-size-sm, 14px); color: " + MUTED + "; }"],
     // A long value ("$791,500") overflowed its card: the card's value column may shrink and the value takes a size that
     // fits the card (container units), wrapping only as a last resort. Added to an AppLayout written before too.
-    [".app-kpis .app-kpi-value", ".app-kpis .app-kpi { min-width: 0; container-type: inline-size; } .app-kpis .app-kpi.app-kpi-iconed { grid-template-columns: auto minmax(0, 1fr); } " +
+    [".app-kpis .app-kpi-value", ".app-kpis .app-kpi { min-width: 0; container-type: inline-size; } .app-kpis .app-kpi.app-kpi-iconed { grid-template-columns: minmax(0, 1fr) auto; } " +
       ".app-kpis .app-kpi-value { min-width: 0; font-size: min(var(--app-font-size-2xl, 28px), 11cqi); overflow-wrap: anywhere; }"],
     // A form page (a login) centers its title and its form in the page: on a wide screen the form stood at the left of
     // the content (PipelineCrm2, 13/11).
-    [".app-page-form .app-form", ".app-page-form .app-form, .app-page-form .app-title, .app-page-form .app-error { max-width: 720px; margin-inline: auto; }"]
+    [".app-page-form .app-form", ".app-page-form .app-form, .app-page-form .app-title, .app-page-form .app-page-header, .app-page-form .app-error { max-width: 760px; margin-inline: auto; }"]
   ].concat(ACCENTS.map(function (c) {
     return [".app-accent-" + c, ".app-accent-" + c + " { --app-accent: var(--ion-color-" + c + "); --app-accent-rgb: var(--ion-color-" + c + "-rgb); }"];
   })).concat([
-    [".app-list", ".app-list { margin: 0; padding: 0; background: " + SURFACE + "; border: " + BORDER + "; border-radius: var(--app-radius-lg, 12px); overflow: hidden; box-shadow: var(--app-shadow-sm, none); }"],
-    [".app-list ion-item", ".app-list ion-item { --min-height: var(--app-row-height, 52px); }"],
+    // Bars: one row per record, its label and value above a bar as long as its share of the largest value.
+    [".app-bars", ".app-bars { display: grid; gap: var(--app-space-4, 16px); padding: var(--app-space-1, 4px) 0 var(--app-space-2, 8px); }\n" +
+      ".app-bar-head { display: flex; align-items: center; justify-content: space-between; gap: var(--app-space-3, 12px); margin-bottom: 6px; }\n" +
+      ".app-bar-label { min-width: 0; font-weight: 600; overflow-wrap: anywhere; }\n" +
+      ".app-bar-label ion-badge.app-badge { margin-inline: 0; }\n" +
+      ".app-bar-value { flex: 0 0 auto; color: " + MUTED + "; font-size: var(--app-font-size-sm, 14px); font-variant-numeric: tabular-nums; white-space: nowrap; }\n" +
+      ".app-bar-track { height: 8px; border-radius: 999px; background: rgba(var(--ion-text-color-rgb, 15,23,42), 0.08); overflow: hidden; }\n" +
+      ".app-bar-fill { height: 100%; min-width: 4px; border-radius: inherit; background: var(--ion-color-primary, #4f46e5); transition: width 0.4s ease; }"]
+  ]).concat(ACCENTS.map(function (c) {
+    return [".app-bar-fill[data-color=" + c + "]", ".app-bar-fill[data-color=" + c + "] { background: var(--ion-color-" + c + "); }"];
+  })).concat([
+    [".app-list", ".app-list { margin: 0; padding: 0; " + CARD + " overflow: hidden; }"],
+    [".app-list ion-item", ".app-list ion-item { --min-height: var(--app-row-height, 52px); --background: transparent; --border-color: var(--app-border, var(--ion-border-color)); }"],
     [".app-list ion-note", ".app-list ion-note { font-size: var(--app-font-size-sm, 14px); }"],
     // Label and value: the value is what the reader looks for, the label stays muted. :root and the class outrank Ionic's
     // scoped label color (.item .sc-ion-label-md-h) and TailwindTheme's dark label color.
     [".app-fields ion-note", ".app-fields ion-note { color: var(--ion-text-color, inherit); font-size: var(--app-font-size-base, 16px); font-weight: 600; }\n" +
       ":root .app-fields ion-label.app-field-label { color: " + MUTED + "; font-size: var(--app-font-size-sm, 14px); }"],
-    [".app-form", ".app-form { max-width: 720px; padding: var(--app-space-4, 16px); background: " + SURFACE + "; border: " + BORDER + "; border-radius: var(--app-radius-lg, 12px); }"],
+    // The fields of a record in two columns on a wide screen.
+    ["ion-list.app-fields", "@media (min-width: 992px) { ion-list.app-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--app-space-6, 32px); padding: var(--app-space-2, 8px) var(--app-space-2, 8px); } }"],
+    [".app-form", ".app-form { max-width: 760px; padding: var(--app-space-4, 16px) var(--app-space-5, 20px); " + CARD + " }"],
     [".app-form > ion-button", ".app-form > ion-button { margin: var(--app-space-4, 16px) var(--app-space-2, 8px) 0 0; }"],
+    // A form's fields in a grid: two columns from 768 px when it has many short fields, the long ones and the buttons across.
+    [".app-form-grid", ".app-form-grid { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: var(--app-space-5, 20px); }\n" +
+      ".app-form-grid ion-item { --background: transparent; --padding-start: 0; --inner-padding-end: 0; }\n" +
+      "@media (min-width: 768px) { .app-form-grid.app-form-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } " +
+      ".app-form-cols > .app-form-wide, .app-form-cols > .app-form-actions, .app-form-cols > .app-field-empty { grid-column: 1 / -1; } }"],
+    [".app-form-actions", ".app-form-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--app-space-2, 8px); margin-top: var(--app-space-4, 16px); " +
+      "padding-top: var(--app-space-4, 16px); border-top: " + BORDER + "; }\n" +
+      ".app-form-actions ion-button { margin: 0; }"],
     [".app-actions", ".app-actions { display: flex; flex-wrap: wrap; gap: var(--app-space-2, 8px); margin-top: var(--app-space-4, 16px); }"],
     [".app-empty-state", ".app-empty-state { display: flex; flex-direction: column; align-items: center; gap: var(--app-space-2, 8px); padding: var(--app-space-6, 32px) var(--app-space-4, 16px); " +
       "text-align: center; border: 1px dashed var(--app-border, var(--ion-border-color, rgba(127,127,127,0.3))); border-radius: var(--app-radius-lg, 12px); background: var(--app-surface-2, transparent); }"],
-    [".app-empty-icon", ".app-empty-icon { font-size: 40px; color: var(--ion-color-primary, #2563eb); opacity: 0.75; }"],
+    [".app-empty-icon", ".app-empty-icon { font-size: 40px; color: var(--ion-color-primary, #4f46e5); opacity: 0.75; }"],
     [".app-empty", ".app-empty { margin: 0; color: " + MUTED + "; }"],
+    // While the page's data loads: a spinner and a word, instead of an empty page or an empty state that is not true yet.
+    [".app-loading", ".app-loading { display: flex; align-items: center; justify-content: center; gap: var(--app-space-2, 8px); padding: var(--app-space-6, 32px) var(--app-space-4, 16px); color: " + MUTED + "; }"],
     [".app-field-empty", ".app-field-empty { margin: var(--app-space-1, 4px) 0 var(--app-space-3, 12px); font-size: var(--app-font-size-sm, 14px); color: var(--ion-color-danger, #c0392b); }"],
     [".app-error", ".app-error { color: var(--ion-color-danger, #c0392b); padding: var(--app-space-3, 12px) var(--app-space-4, 16px); margin: 0 0 var(--app-space-4, 16px); " +
       "background: rgba(var(--ion-color-danger-rgb, 192,57,43), 0.08); border: 1px solid rgba(var(--ion-color-danger-rgb, 192,57,43), 0.25); border-radius: var(--app-radius, 8px); }"],
@@ -85,14 +138,21 @@ include("js/sequence_response.js");
       ":root.force-dark ion-badge.app-badge.ion-color { color: color-mix(in srgb, var(--ion-color-base) 75%, #fff); }\n" +
       "@media (prefers-color-scheme: dark) { :root:not(.force-light) ion-badge.app-badge.ion-color { color: color-mix(in srgb, var(--ion-color-base) 75%, #fff); } }"],
     // Table layout of a list with columns: a header row and aligned cells on a wide screen, label and value lines on a phone.
-    [".app-row", ".app-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px var(--app-space-4, 16px); align-items: center; width: 100%; padding: var(--app-space-1, 4px) 0; }"],
+    [".app-row", ".app-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px var(--app-space-4, 16px); align-items: center; width: 100%; padding: var(--app-space-2, 8px) 0; }"],
     // break-word, not anywhere: a date or a status in a narrow column broke letter by letter (run 3).
     [".app-cell", ".app-cell { min-width: 0; overflow-wrap: break-word; }\n" +
       ".app-cell:not(.app-cell-main) { display: flex; justify-content: space-between; gap: var(--app-space-3, 12px); }\n" +
-      ".app-cell:not(.app-cell-main)[data-label]::before { content: attr(data-label); color: " + MUTED + "; font-size: var(--app-font-size-sm, 14px); }"],
-    [".app-cell-main", ".app-cell-main { font-weight: 600; }"],
+      ".app-cell:not(.app-cell-main)[data-label]::before { content: attr(data-label); color: " + MUTED + "; font-size: var(--app-font-size-sm, 14px); }\n" +
+      ".app-cell ion-badge.app-badge { margin-inline: 0; }"],
+    [".app-cell-main", ".app-cell-main { font-weight: 600; }\n.app-cell-main ion-badge.app-badge { margin-inline: var(--app-space-2, 8px) 0; }"],
     [".app-cell-sub", ".app-cell-sub { display: block; font-weight: 400; font-size: var(--app-font-size-sm, 14px); color: " + MUTED + "; }"],
+    // Numbers line up on their units: tabular figures, and right-aligned in a table column.
+    [".app-cell-num", ".app-cell-num { font-variant-numeric: tabular-nums; }\n@media (min-width: 768px) { .app-cell.app-cell-num { text-align: right; } }"],
     [".app-table-head", ".app-table-head { display: none; --detail-icon-opacity: 0; }"],
+    // A table's rows: compact, a light zebra and the hover of the theme's primary.
+    [".app-table ion-item", ".app-table ion-item { --padding-top: 0; --padding-bottom: 0; --inner-padding-top: 0; --inner-padding-bottom: 0; --min-height: 48px; }\n" +
+      ".app-table ion-item:not(.app-table-head):nth-of-type(odd) { --background: rgba(var(--ion-text-color-rgb, 15,23,42), 0.02); }\n" +
+      ".app-table ion-item:not(.app-table-head):hover { --background: var(--app-primary-soft, rgba(var(--ion-color-primary-rgb, 79,70,229), 0.06)); }"],
     // The AG Grid of a grid list: its quartz theme takes the AppTheme tokens, so it follows the app's light or dark mode.
     [".app-grid", ".app-grid { margin: 0; }\n" +
       ".app-grid .ag-theme-quartz { --ag-font-family: var(--ion-font-family, inherit); --ag-font-size: var(--app-font-size-sm, 14px); " +
@@ -115,7 +175,7 @@ include("js/sequence_response.js");
       ".app-table ion-checkbox.in-item { margin-inline-end: 0; }"],
     [".app-has-select .app-row", ".app-has-select .app-row { grid-template-columns: 24px minmax(0, 1fr); }\n" +
       ".app-has-select .app-row > :not(ion-checkbox) { grid-column: 2; }"],
-    ["@media (min-width: 768px) { .app-table-head", "@media (min-width: 768px) { .app-table-head { display: block; --background: var(--app-surface-2, transparent); } " +
+    ["@media (min-width: 768px) { .app-table-head", "@media (min-width: 768px) { .app-table-head { display: block; --background: var(--app-surface-2, transparent); --min-height: 40px; } " +
       ".app-table-head .app-cell { font-size: var(--app-font-size-xs, 12px); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: " + MUTED + "; } " +
       ".app-cell:not(.app-cell-main) { display: block; } .app-cell:not(.app-cell-main)[data-label]::before { content: none; } " +
       ".app-has-select .app-row > :not(ion-checkbox) { grid-column: auto; } " +
@@ -196,7 +256,8 @@ include("js/sequence_response.js");
       "reminder", "relance", "a relancer", "to remind", "reserved", "reserve", "reservee", "on hold", "submitted", "soumis", "new request"]],
     ["success", ["ok", "done", "fait", "active", "actif", "valid", "valide", "validee", "approved", "approuve", "approuvee", "accepted", "accepte", "acceptee",
       "completed", "complete", "termine", "terminee", "paid", "paye", "payee", "up to date", "a jour", "published", "publie", "publiee", "delivered", "livre", "livree",
-      "available", "disponible", "success", "succes", "reussi", "resolved", "resolu", "compliant", "conforme", "signed", "signe", "returned", "rendu", "yes", "oui"]],
+      "available", "disponible", "success", "succes", "reussi", "resolved", "resolu", "compliant", "conforme", "signed", "signe", "returned", "rendu", "yes", "oui",
+      "won", "gagne", "gagnee", "converted", "converti", "convertie"]],
     ["primary", ["open", "ouvert", "ouverte", "new", "nouveau", "nouvelle", "info", "information", "planned", "planifie", "scheduled", "programme",
       "on loan", "en pret", "prete", "borrowed", "emprunte", "in use", "en service", "assigned", "assigne", "affecte"]]
   ];
@@ -305,6 +366,46 @@ include("js/sequence_response.js");
   var MONEY_WORDS = /(^|[._])(amounts?|montants?|prices?|prix|costs?|couts?|revenues?|revenus?|turnover|budgets?|salary|salaries|salaires?|balance|solde|fees?|frais)([._]|$)|(amount|price|revenue|budget|cost)$/i;
   // The fields named as money shown as plain numbers by this call, the app having no currency.
   var moneyAsNumber = [];
+  // A date shown as the database sends it ("2026-10-18", "2026-10-18 00:00:00.0") read as a technical value next to a
+  // hand-made app's "Oct 18, 2026" (CRM comparison 16/11). format date or datetime, or a field named as a date, shows it in
+  // the app's language; a value that is not an ISO date stays as it is, so a name that only looks like a date changes nothing.
+  var DATE_WORDS = /(^|[._])(date|dates|deadline|due|echeance|expiry|expiration|expires|birthday|birthdate|dob|start|end|close|closing|opened|closed|created|updated|modified|scheduled|planned|since|until)([._]|$)|_(date|at|on)$/i;
+  // camelCase: dueDate, createdAt, closedOn, dateNaissance.
+  var DATE_CAMEL = /[a-z0-9](Date|At|On|Due)$|^(date|due)[A-Z]/;
+  // True once a value of this call is shown as a date: the page then gets the fmtDate local.
+  var datesUsed = false;
+
+  function dateFormatOf(f) {
+    var given = str(f.format);
+    if (given === "date" || given === "datetime") {
+      return given;
+    }
+    if (given.length || (isObj(f.labels))) {
+      return "";
+    }
+    var path = str(f.field);
+    if (!/^[A-Za-z_][\w.]*$/.test(path)) {
+      return "";
+    }
+    var last = path.split(".").pop();
+    return DATE_WORDS.test(last) || DATE_CAMEL.test(last) ? "date" : "";
+  }
+
+  // The TypeScript function that shows an ISO date in the app's language (a page local, and the AG Grid's formatter). A
+  // date without time is read in UTC, so that the day shown is the day stored whatever the browser's time zone.
+  function dateFnTs() {
+    var loc = jsString(NUMBER_LOCALE);
+    return "((v: any, k?: string) => { if (v == null || v === '') { return ''; } const s = String(v); " +
+      "const m = /^(\\d{4})-(\\d{2})-(\\d{2})(?:[T ](\\d{2}):(\\d{2}))?/.exec(s); if (!m) { return s; } " +
+      "const d = m[4] !== undefined ? new Date(s.replace(' ', 'T')) : new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])); if (isNaN(d.getTime())) { return s; } " +
+      "return k === 'datetime' && m[4] !== undefined ? d.toLocaleString(" + loc + ", {dateStyle: 'medium', timeStyle: 'short'}) : " +
+      "d.toLocaleDateString(" + loc + ", {year: 'numeric', month: 'short', day: 'numeric', timeZone: m[4] !== undefined ? undefined : 'UTC'}); })";
+  }
+
+  function dateExpr(value, kind) {
+    datesUsed = true;
+    return "(local?.fmtDate ? local.fmtDate(" + value + ", '" + kind + "') : (" + value + " ?? ''))";
+  }
 
   function numberOptions(format) {
     var m = /^currency:([A-Za-z]{3})$/.exec(str(format));
@@ -386,7 +487,8 @@ include("js/sequence_response.js");
     var prefix = f.prefix != null ? String(f.prefix) : "";
     var suffix = f.suffix != null ? String(f.suffix) : "";
     var format = G.numberFormatOf(f);
-    var shown = format.length ? numberExpr(value, format) : "(" + value + " ?? '')";
+    var dateKind = format.length ? "" : dateFormatOf(f);
+    var shown = format.length ? numberExpr(value, format) : (dateKind.length ? dateExpr(value, dateKind) : "(" + value + " ?? '')");
     if (prefix.length || suffix.length) {
       return jsString(prefix) + " + " + shown + " + " + jsString(suffix);
     }
@@ -790,10 +892,10 @@ include("js/sequence_response.js");
     };
     var spec = parseJson(args.spec, "spec", "object") || {};
     ["name", "title", "kind", "sequence", "facade", "authRedirect", "root", "inMenu", "params", "vars", "filters", "list", "detail", "form", "dashboard", "logout", "actions", "heading",
-      "authCodes", "segment", "icon", "filterLabel", "locals", "home", "comment", "theme", "locale", "currency"].forEach(function (k) {
+      "authCodes", "segment", "icon", "filterLabel", "locals", "home", "comment", "theme", "locale", "currency", "subtitle", "actionsAt"].forEach(function (k) {
       if (spec[k] === undefined && args[k] !== undefined && args[k] !== null && str(args[k]) !== "") {
         var raw = args[k];
-        spec[k] = (["name", "title", "kind", "sequence", "facade", "authRedirect", "heading", "segment", "icon", "filterLabel", "locale", "currency"].indexOf(k) >= 0) ? str(raw) : parseJson(raw, k, "string");
+        spec[k] = (["name", "title", "kind", "sequence", "facade", "authRedirect", "heading", "segment", "icon", "filterLabel", "locale", "currency", "actionsAt"].indexOf(k) >= 0) ? str(raw) : parseJson(raw, k, "string");
       }
     });
     var app = null;
@@ -832,6 +934,7 @@ include("js/sequence_response.js");
     var learnedCurrency = !givenCurrency.length && !keptCurrency.length && usedCurrencies.length === 1 ? usedCurrencies[0] : "";
     APP_CURRENCY = givenCurrency || keptCurrency || learnedCurrency;
     moneyAsNumber = [];
+    datesUsed = false;
     var name = str(spec.name);
     var kind = str(spec.kind);
     var title = str(spec.title) || name;
@@ -951,6 +1054,8 @@ include("js/sequence_response.js");
     // The lists built as an AG Grid, each with its native blocks: an automatic grid falls back to them when the library
     // cannot be had. A native table where a grid fits gets a hint naming the library.
     var gridPlans = [];
+    // Locals computed when the page data arrives (the largest value of a bar chart), after StoreData in every data call.
+    var afterData = [];
     var gridHints = [];
     params.forEach(function (p) {
       locals[p] = "c8oPage.navParams?.data?." + p + " != null ? '' + c8oPage.navParams.data." + p + " : ''";
@@ -1012,7 +1117,7 @@ include("js/sequence_response.js");
         common.Type = { mode: "PLAIN", value: type === "text" ? "text" : (type === "date" ? "date" : "search") };
         control = nx("Input", "In" + pascal(f.name), common);
       }
-      filterNodes.push(nx("FormItem", item, {}, [cls("app-filter"), control]));
+      filterNodes.push(nx("FormItem", item, {}, [cls(type === "select" || type === "toggle" || type === "date" ? "app-filter" : "app-filter app-filter-search"), control]));
     });
     Object.keys(vars).forEach(function (v) {
       if (facadeVars && facadeVars.indexOf(v) < 0) {
@@ -1046,6 +1151,9 @@ include("js/sequence_response.js");
     function dataCall(name, cacheTtl) {
       var children = dataCallVariables();
       children.push(setLocal("StoreData", "data", answer.data));
+      afterData.forEach(function (a) {
+        children.push(JSON.parse(JSON.stringify(a)));
+      });
       children.push(setLocal("StoreError", "error", answer.error));
       var stopLoading = setLocal("StopLoading", "loading", "false");
       stopLoading.children = [refreshView()];
@@ -1202,18 +1310,25 @@ include("js/sequence_response.js");
           mainCell.push(nx("SpanTag", "NoteSub", {}, [cls("app-cell-sub"), expr(valueExpr(rowField, spec2.note))]));
         }
         var headLabels = [titleLabel];
+        // The header cell of a number column is right-aligned like its values.
+        var headNumeric = [false];
         var cells = [nx("SpanTag", "Main", {}, mainCell)];
         var usedCells = { Main: true };
-        var cell = function (base, cellLabel, children) {
+        var cell = function (base, cellLabel, children, numeric) {
           headLabels.push(cellLabel);
-          return nx("SpanTag", uniqueName(base, usedCells), {}, [cls("app-cell"), plainAttr("data-label", "Attr_label", cellLabel)].concat(children));
+          headNumeric.push(!!numeric);
+          return nx("SpanTag", uniqueName(base, usedCells), {}, [cls(numeric ? "app-cell app-cell-num" : "app-cell"), plainAttr("data-label", "Attr_label", cellLabel)].concat(children));
+        };
+        var isNumeric = function (c) {
+          var colSpec = isObj(c) ? c : { field: c };
+          return !isObj(colSpec.labels) && (G.numberFormatOf(colSpec).length > 0 || str(colSpec.align) === "end");
         };
         kept.forEach(function (k) {
           cells.push(k.badge ? cell("StatusCell", str(k.col.label), [badgeNode])
-            : cell("C" + pascal(str(k.col.field).split(".").pop()), str(k.col.label), [expr(valueExpr(rowField, k.col))]));
+            : cell("C" + pascal(str(k.col.field).split(".").pop()), str(k.col.label), [expr(valueExpr(rowField, k.col))], isNumeric(k.col)));
         });
         if (spec2.note !== undefined && !noteInColumns && noteLabel.length) {
-          cells.push(cell("NoteCell", noteLabel, [expr(valueExpr(rowField, spec2.note))]));
+          cells.push(cell("NoteCell", noteLabel, [expr(valueExpr(rowField, spec2.note))], isNumeric(spec2.note)));
         }
         if (badgeNode && !badgeInColumns && badgeLabel.length) {
           cells.push(cell("StatusCell", badgeLabel, [badgeNode]));
@@ -1226,8 +1341,8 @@ include("js/sequence_response.js");
         var rowClass = "app-row app-cols-" + Math.min(8, cells.length);
         rowChildren = [nx("DivTag", "Cells", {}, [cls(rowClass)].concat(cells))];
         var usedHeads = {};
-        head = nx("ListItem", "Head", {}, [cls("app-table-head"), nx("DivTag", "HeadRow", {}, [cls(rowClass)].concat(headLabels.map(function (h) {
-          return nx("SpanTag", uniqueName("H" + (pascal(h) || "Cell"), usedHeads), {}, [cls("app-cell"), txt(h)]);
+        head = nx("ListItem", "Head", {}, [cls("app-table-head"), nx("DivTag", "HeadRow", {}, [cls(rowClass)].concat(headLabels.map(function (h, hi) {
+          return nx("SpanTag", uniqueName("H" + (pascal(h) || "Cell"), usedHeads), {}, [cls(headNumeric[hi] ? "app-cell app-cell-num" : "app-cell"), txt(h)]);
         })))]);
       }
       var gridChoice = gridChoiceOf(prefix, spec2, label, columns, table);
@@ -1287,6 +1402,9 @@ include("js/sequence_response.js");
         listChildren.push(head);
       }
       listChildren.push(forEach(prefix + "ForEach", itemsPath, item, [nx("ListItem", "Row", itemProps, rowChildren)]));
+      if (label === "list") {
+        pageListPath = itemsPath;
+      }
       var blocks = [
         ifDirective(prefix + "IfEmpty", "local?.loading === false && !local?.error && !(" + localPath(itemsPath) + "?.length)", [nx("DivTag", "EmptyState", {}, [
           cls("app-empty-state"), nx("Icon", "EmptyIcon", { IconName: { mode: "PLAIN", value: emptyIcon } }, [cls("app-empty-icon")]),
@@ -1311,6 +1429,92 @@ include("js/sequence_response.js");
       gridPlans.push({ mode: gridChoice.mode, label: label, cells: gridChoice.cells, nativeCells: gridChoice.nativeCells, csv: gridChoice.csv || gridChoice.xlsx, nativeBlocks: blocks, gridBlocks: gridBlocks, local: gridChoice.local,
         use: gridBlocks[1].children[1].children[0] });
       return gridBlocks;
+    }
+
+    // A chart section {chart: "bars", items, label?, badge?, value, note?, color?, empty?}: one row per record, its label (and
+    // its badge), its value and a bar as long as its share of the largest value. The largest value is a page local computed
+    // when the data arrives; the template only divides. A hand-made dashboard showed its stages as bars, the generated one as
+    // a list of rows (CRM comparison 16/11).
+    function barsBlock(prefix, s2, label) {
+      if (str(s2.chart) !== "bars") {
+        errors.push(label + ".chart must be bars (one bar per record, as long as its value's share of the largest).");
+        return [];
+      }
+      var item = str(s2.item || "row");
+      if (!IDENT.test(item)) {
+        errors.push(label + ".item must be an identifier.");
+      }
+      var givenItems = s2.items;
+      if ((givenItems === undefined || givenItems === null || str(givenItems) === "") && response && response.shape === "plain" && response.arrays.length === 1) {
+        givenItems = response.arrays[0];
+      }
+      if (!str(givenItems).length) {
+        errors.push(label + ".items is required with chart bars: the list of the page data to chart.");
+        return [];
+      }
+      plainKeyCheck(givenItems, label + ".items", response);
+      var itemsPath = "data." + dataPath(givenItems, label + ".items");
+      var valueSpec = isObj(s2.value) ? s2.value : { field: s2.value };
+      if (!str(valueSpec.field).length) {
+        errors.push(label + ".value is required with chart bars: the number field each bar measures ({field, format?} or the field name).");
+        return [];
+      }
+      var labelSpec = s2.label !== undefined ? s2.label : s2.title;
+      var badge = s2.badge === undefined ? null : (isObj(s2.badge) ? s2.badge : { field: s2.badge });
+      if (labelSpec === undefined && !badge) {
+        errors.push(label + ".label is required with chart bars: the field that names each bar (or badge, a status shown as its pill).");
+        return [];
+      }
+      var rowField = function (f) { return field(f, item); };
+      var maxLocal = "barMax" + prefix;
+      var valuePath = str(valueSpec.field).replace(/^\.+/, "");
+      if (valuePath.indexOf(item + ".") === 0) {
+        valuePath = valuePath.substring(item.length + 1);
+      }
+      afterData.push(setLocal("Max" + prefix, maxLocal, "Math.max(0, ...((c8oPage.local?." + itemsPath.split(".").join("?.") + " ?? []) as any[])" +
+        ".map((r: any) => Number(r?." + valuePath.split(".").join("?.") + ") || 0))"));
+      locals[maxLocal] = "c8oPage.local?." + maxLocal + " ?? 0";
+      var labelChildren = [cls("app-bar-label")];
+      if (labelSpec !== undefined) {
+        labelChildren.push(expr(valueExpr(rowField, labelSpec)));
+      }
+      var colors = null;
+      if (badge) {
+        colors = isObj(badge.colors) ? badge.colors : (isObj(badge.labels) ? G.statusColors(badge.labels) : null);
+        if (colors && !isObj(badge.colors)) {
+          derivedColors[label + ".badge"] = colors;
+        }
+        var badgeChildren = [cls("app-badge"), expr(valueExpr(rowField, badge))];
+        if (colors) {
+          badgeChildren.push(attr("[color]", "Attr_color", colorExpr(rowField(badge.field), colors)));
+        }
+        labelChildren.push(nx("Badge", "Status", {}, badgeChildren));
+      }
+      var valueText = valueExpr(rowField, valueSpec);
+      if (s2.note !== undefined) {
+        valueText = valueText + " + ' · ' + " + valueExpr(rowField, s2.note);
+      }
+      var fillChildren = [cls("app-bar-fill"), attr("[style.width.%]", "Attr_width",
+        "local?." + maxLocal + " ? ((" + rowField(valuePath) + ") * 1 || 0) / local." + maxLocal + " * 100 : 0")];
+      if (colors) {
+        fillChildren.push(attr("[attr.data-color]", "Attr_color", colorExpr(rowField(badge.field), colors)));
+      } else if (str(s2.color).length) {
+        if (ACCENTS.indexOf(str(s2.color)) < 0) {
+          errors.push(label + ".color must be " + ACCENTS.join(", ") + ".");
+        } else {
+          fillChildren.push(plainAttr("data-color", "Attr_color", str(s2.color)));
+        }
+      }
+      var row = nx("DivTag", "Bar", {}, [cls("app-bar"),
+        nx("DivTag", "Head", {}, [cls("app-bar-head"), nx("SpanTag", "Label", {}, labelChildren), nx("SpanTag", "Value", {}, [cls("app-bar-value"), expr(valueText)])]),
+        nx("DivTag", "Track", {}, [cls("app-bar-track"), nx("DivTag", "Fill", {}, fillChildren)])]);
+      var empty = textOr(s2.empty, "No record.", label + ".empty");
+      return [
+        ifDirective(prefix + "IfEmpty", "local?.loading === false && !local?.error && !(" + localPath(itemsPath) + "?.length)", [nx("DivTag", "EmptyState", {}, [
+          cls("app-empty-state"), nx("Icon", "EmptyIcon", { IconName: { mode: "PLAIN", value: menuIcon(str(s2.emptyIcon)) || "bar-chart-outline" } }, [cls("app-empty-icon")]),
+          nx("Paragraph", "EmptyText", {}, [cls("app-empty"), txt(empty)])])]),
+        nx("DivTag", prefix + "Bars", {}, [cls("app-bars"), forEach(prefix + "ForEach", itemsPath, item, [row])])
+      ];
     }
 
     // grid: true, {pageSize, csv, xlsx, locale} or false; left out, a list of GRID_AUTO_CELLS cells or more (title, columns,
@@ -1369,6 +1573,9 @@ include("js/sequence_response.js");
           // The grid shows its numbers as the native table does: grouping, decimals and currency of the app.
           parts.push("valueFormatter: (p: any) => p.value == null || p.value === '' ? '' : " + jsString(f.prefix != null ? String(f.prefix) : "") +
             " + " + numberExpr("p.value", G.numberFormatOf(f)) + " + " + jsString(f.suffix != null ? String(f.suffix) : ""));
+        } else if (dateFormatOf(f).length) {
+          parts.push("valueFormatter: (p: any) => " + jsString(f.prefix != null ? String(f.prefix) : "") + " + " + dateFnTs() + "(p.value, '" + dateFormatOf(f) + "') + " +
+            jsString(f.suffix != null ? String(f.suffix) : ""));
         } else if ((f.prefix != null && String(f.prefix).length) || (f.suffix != null && String(f.suffix).length)) {
           parts.push("valueFormatter: (p: any) => p.value == null || p.value === '' ? '' : " + jsString(f.prefix != null ? String(f.prefix) : "") +
             " + p.value + " + jsString(f.suffix != null ? String(f.suffix) : ""));
@@ -1599,11 +1806,26 @@ include("js/sequence_response.js");
 
     var content = [cls(kind === "form" ? "app-page app-page-form" : "app-page")];
     var headingText = spec.heading !== undefined ? str(spec.heading) : title;
+    // The page header: title and subtitle on the left, the page's actions on the right (actionsAt header, the default but
+    // for a form and a logout page, whose buttons stay under the content).
+    var sessionActions = list(spec.actions).some(function (a) {
+      return isObj(a) && str(a.sequence).length && childNamed(projectDbo, str(a.sequence)) && opensSession(childNamed(projectDbo, str(a.sequence)));
+    });
+    var actionsAt = str(spec.actionsAt) || (kind === "form" || kind === "logout" || sessionActions ? "bottom" : "header");
+    if (["header", "bottom"].indexOf(actionsAt) < 0) {
+      errors.push("actionsAt must be header (the page's buttons on the right of its title) or bottom (under the content).");
+      actionsAt = "bottom";
+    }
+    var pageHeading = nx("DivTag", "Heading", {}, [cls("app-page-heading")]);
     if (headingText.length) {
       var titleNode = heading("Title", 2, headingText);
       titleNode.children.unshift(cls("app-title"));
-      content.push(titleNode);
+      pageHeading.children.push(titleNode);
     }
+    var pageHeader = nx("DivTag", "PageHeader", {}, [cls("app-page-header"), pageHeading]);
+    content.push(pageHeader);
+    // The rows of the page's list, for subtitle {count: true}.
+    var pageListPath = "";
     var formPlan = null;
     var logoutPlan = null;
     if (kind === "list") {
@@ -1656,6 +1878,23 @@ include("js/sequence_response.js");
       } else {
         content.push(ifDirective("IfError", "!!local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
         var kpis = list(dash.kpis);
+        // A line of context under a KPI's figure: a text, or a value of the page data ("13 open deals").
+        var kpiHint = function (k, i) {
+          if (k.hint === undefined || k.hint === null || (!isObj(k.hint) && !str(k.hint).length)) {
+            return [];
+          }
+          if (!isObj(k.hint)) {
+            return [nx("SpanTag", "Hint", {}, [cls("app-kpi-hint"), txt(str(k.hint))])];
+          }
+          if (!str(k.hint.field).length) {
+            errors.push("dashboard.kpis[" + i + "].hint must be a text or {field, format?, prefix?, suffix?}.");
+            return [];
+          }
+          plainKeyCheck(k.hint.field, "dashboard.kpis[" + i + "].hint.field", response);
+          return [nx("SpanTag", "Hint", {}, [cls("app-kpi-hint"), expr(valueExpr(function (hp) {
+            return localPath("data." + dataPath(hp, "dashboard.kpis[" + i + "].hint.field"));
+          }, k.hint))])];
+        };
         if (kpis.length) {
           var usedKpis = {};
           content.push(nx("DivTag", "Kpis", {}, [cls("app-kpis")].concat(kpis.map(function (k, i) {
@@ -1680,27 +1919,50 @@ include("js/sequence_response.js");
             return nx("DivTag", uniqueName("Kpi" + pascal(k.field.split(".").pop()), usedKpis), {}, kpiChildren.concat([
               nx("SpanTag", "Value", {}, [cls("app-kpi-value"), expr(numberExpr("(" + localPath("data." + dataPath(k.field, "dashboard.kpis[" + i + "].field")) + " ?? 0)",
                 str(k.format).length && numberOptions(k.format) ? str(k.format) : (G.numberFormatOf({ field: k.field }) || "number")))]),
-              nx("SpanTag", "Label", {}, [cls("app-kpi-label"), txt(str(k.label) || k.field)])]));
+              nx("SpanTag", "Label", {}, [cls("app-kpi-label"), txt(str(k.label) || k.field)])]).concat(kpiHint(k, i)));
           }))));
         }
-        list(dash.sections).forEach(function (s, i) {
+        // Each section is a card; the cards sit two by two on a wide screen, a table (columns, grid) or a section given
+        // wide:true across, and the last of an odd number of narrow ones too.
+        var sectionList = list(dash.sections);
+        var narrow = [];
+        sectionList.forEach(function (s, i) {
+          if (isObj(s) && !(s.wide === true || s.columns !== undefined || s.grid === true || isObj(s.grid))) {
+            narrow.push(i);
+          }
+        });
+        var cards = [];
+        sectionList.forEach(function (s, i) {
           if (!isObj(s)) {
             errors.push("dashboard.sections[" + i + "] must be an object.");
             return;
           }
           var prefix = "S" + (i + 1);
-          content.push(nx("Heading3", prefix + "Title", {}, [cls("app-section"), txt(str(s.heading || s.label) || ("Section " + (i + 1)))]));
+          var wide = narrow.indexOf(i) < 0 || (narrow.length % 2 === 1 && narrow[narrow.length - 1] === i);
+          var cardChildren = [cls("app-card" + (wide ? " app-card-wide" : ""))];
+          cardChildren.push(nx("Heading3", prefix + "Title", {}, [cls("app-section"), txt(str(s.heading || s.label) || ("Section " + (i + 1)))]));
+          var gridsBefore = gridPlans.length;
           if (Array.isArray(s.fields)) {
             plainKeyCheck(s.record, "dashboard.sections[" + i + "].record", response);
             var sbase = "data." + dataPath(s.record, "dashboard.sections[" + i + "].record");
             var slv = labelValueList(prefix + "Fields", s.fields, sbase, "dashboard.sections[" + i + "].fields");
             if (slv) {
-              content.push(ifDirective(prefix + "IfRecord", localPath(sbase), [slv]));
+              cardChildren.push(ifDirective(prefix + "IfRecord", localPath(sbase), [slv]));
             }
+          } else if (s.chart !== undefined) {
+            cardChildren = cardChildren.concat(barsBlock(prefix, s, "dashboard.sections[" + i + "]"));
           } else {
-            content = content.concat(recordList(prefix, s, "dashboard.sections[" + i + "]"));
+            cardChildren = cardChildren.concat(recordList(prefix, s, "dashboard.sections[" + i + "]"));
           }
+          // A grid that falls back to the native table is swapped in the card that holds it.
+          gridPlans.slice(gridsBefore).forEach(function (gp) {
+            gp.container = cardChildren;
+          });
+          cards.push(nx("DivTag", prefix + "Card", {}, cardChildren));
         });
+        if (cards.length) {
+          content.push(nx("DivTag", "Sections", {}, [cls("app-sections")].concat(cards)));
+        }
       }
     } else if (kind === "form") {
       var form = isObj(spec.form) ? spec.form : null;
@@ -1821,7 +2083,9 @@ include("js/sequence_response.js");
             props.Type = { mode: "PLAIN", value: type };
             control = nx("Input", "In" + cname, props);
           }
-          return { spec: f, node: nx("FormItem", uniqueName("Fi" + cname, usedItems), {}, [control]), after: afterField };
+          // A long text and a field given wide:true take the whole row of a two-column form.
+          var wideField = type === "textarea" || f.wide === true;
+          return { spec: f, node: nx("FormItem", uniqueName("Fi" + cname, usedItems), {}, (wideField ? [cls("app-form-wide")] : []).concat([control])), after: afterField, wide: wideField };
         }).filter(function (x) { return x; });
         var formChildren = [];
         fieldsNodes.forEach(function (x) {
@@ -1830,13 +2094,19 @@ include("js/sequence_response.js");
             formChildren.push(x.after);
           }
         });
+        // The buttons in a bar at the end of the form, the submit last (on the right).
+        var buttons = [cls("app-form-actions")];
         if (form.cancel !== false) {
-          formChildren.push(nx("Button", "BtnCancel", { IonFill: { mode: "PLAIN", value: "outline" } }, [txt(textOr(form.cancelLabel, "Cancel", "form.cancelLabel")),
+          buttons.push(nx("Button", "BtnCancel", { IonFill: { mode: "PLAIN", value: "outline" } }, [txt(textOr(form.cancelLabel, "Cancel", "form.cancelLabel")),
             controlEvent("EventonClick", "onClick", [navAction("Back", isObj(form.cancel) ? form.cancel : { kind: "pop" })])]));
         }
-        formChildren.push(nx("SubmitButton", "BtnSubmit", { IonColor: { mode: "PLAIN", value: "primary" } }, [txt(textOr(form.submitLabel, "Save", "form.submitLabel"))]));
+        buttons.push(nx("SubmitButton", "BtnSubmit", { IonColor: { mode: "PLAIN", value: "primary" } }, [txt(textOr(form.submitLabel, "Save", "form.submitLabel"))]));
+        formChildren.push(nx("DivTag", "Buttons", {}, buttons));
+        // Two columns on a wide screen for a form of four fields or more (two short ones at least); a sign-in form stays in one.
+        var shortFields = fieldsNodes.filter(function (x) { return !x.wide; }).length;
+        var formClass = "app-form app-form-grid" + (fieldsNodes.length >= 4 && shortFields >= 2 ? " app-form-cols" : "");
         content.push(ifDirective("IfError", "!!local?.error", [nx("Paragraph", "ErrorText", {}, [cls("app-error"), expr("local?.error")])]));
-        content.push({ className: "ngx.components.UIForm#UIForm", name: "Form", properties: { identifier: identifier }, children: [cls("app-form")].concat(formChildren) });
+        content.push({ className: "ngx.components.UIForm#UIForm", name: "Form", properties: { identifier: identifier }, children: [cls(formClass)].concat(formChildren) });
         var success = isObj(form.success) ? form.success : {};
         if (str(success.page).length && !childNamed(app, str(success.page))) {
           warnings.push("form.success.page " + success.page + " is not a page of " + projectName + " yet: create it before the build.");
@@ -1870,11 +2140,71 @@ include("js/sequence_response.js");
       logoutPlan = { page: loginPage };
       content.push(nx("Paragraph", "SigningOut", {}, [cls("app-empty"), txt(textOr(logoutSpec.message, "Signing out...", "logout.message"))]));
     }
+    // The subtitle under the title: a text, a value of the page data, or the number of rows of the list ("20 deals").
+    var subSpec = spec.subtitle;
+    if (subSpec !== undefined && subSpec !== null && str(isObj(subSpec) ? "x" : subSpec).length) {
+      var subNode = null;
+      if (!isObj(subSpec)) {
+        subNode = nx("Paragraph", "Subtitle", {}, [cls("app-subtitle"), txt(str(subSpec))]);
+      } else {
+        var subPrefix = subSpec.prefix != null ? String(subSpec.prefix) : "", subSuffix = subSpec.suffix != null ? String(subSpec.suffix) : "";
+        var subValue = "";
+        if (subSpec.count !== undefined) {
+          var countPath = subSpec.count === true || str(subSpec.count) === "true" ? pageListPath : "data." + dataPath(str(subSpec.count), "subtitle.count");
+          if (!countPath.length) {
+            errors.push("subtitle.count true counts the rows of the page's list: on a page without list, give the path of the rows (subtitle:{count:\"rows\"}).");
+          } else {
+            subValue = jsString(subPrefix) + " + (" + localPath(countPath) + "?.length ?? 0) + " + jsString(subSuffix);
+          }
+        } else if (str(subSpec.field).length) {
+          plainKeyCheck(subSpec.field, "subtitle.field", response);
+          subValue = valueExpr(function (sp) { return localPath("data." + dataPath(sp, "subtitle.field")); }, subSpec);
+        } else {
+          errors.push("subtitle must be a text, {field, format?, prefix?, suffix?} (a value of the page data) or {count: true, prefix?, suffix?} (the rows of the page's list).");
+        }
+        if (subValue.length) {
+          // Shown once the data is there: "0 deals" while the page loads would be false.
+          subNode = ifDirective("IfSubtitle", "local?.loading === false && !local?.error", [nx("Paragraph", "Subtitle", {}, [cls("app-subtitle"), expr(subValue)])]);
+        }
+      }
+      if (subNode) {
+        pageHeading.children.push(subNode);
+      }
+    }
     var actions = actionButtons(list(spec.actions), "actions");
-    if (actions) {
+    if (actions && actionsAt === "header") {
+      // The first action is the page's main one (filled); the others are outlined unless their fill is given.
+      actions.name = "HeaderActions";
+      actions.children[0] = cls("app-header-actions");
+      list(spec.actions).forEach(function (a, ai) {
+        var btn = actions.children[ai + 1];
+        if (ai > 0 && btn && /#Button$/.test(String(btn.className)) && !btn.properties.IonFill && !(isObj(a) && str(a.fill).length)) {
+          btn.properties.IonFill = { mode: "PLAIN", value: "outline" };
+        }
+      });
+      pageHeader.children.push(actions);
+    } else if (actions) {
       content.push(actions);
     }
+    // A header with nothing in it is left out.
+    if (pageHeading.children.length === 1 && pageHeader.children.length === 2) {
+      content.splice(content.indexOf(pageHeader), 1);
+    }
+    // A page with data shows a spinner while it loads, under its header.
+    if (facade.length && kind !== "logout" && kind !== "form") {
+      content.splice(content.indexOf(pageHeader) + 1, 0, ifDirective("IfLoading", "local?.loading !== false && !local?.error",
+        [nx("DivTag", "Loading", {}, [cls("app-loading"), nx("Spinner", "Spinner", {})])]));
+    }
+    // A sign-in page (its form or a button opens a session) and the logout page show no menu beside them on a wide screen.
+    var opensFromHere = sessionActions || (formPlan && childNamed(projectDbo, str(formPlan.submit)) && opensSession(childNamed(projectDbo, str(formPlan.submit))));
+    if (kind === "logout" || opensFromHere) {
+      content[0] = cls((kind === "form" ? "app-page app-page-form" : "app-page") + " app-page-bare");
+    }
     var pageEventChildren = [];
+    // The date formatter the template calls (local.fmtDate), set before anything shows.
+    if (datesUsed) {
+      pageEventChildren.push(setLocal("InitFmtDate", "fmtDate", dateFnTs()));
+    }
     Object.keys(locals).forEach(function (l) {
       pageEventChildren.push(setLocal("Init" + upperFirst(l), l, locals[l]));
     });
@@ -1911,7 +2241,8 @@ include("js/sequence_response.js");
             " Keep the columns that matter and show the others on the detail page."]);
         }
         gridPlans.forEach(function (gp) {
-          content.splice(content.indexOf(gp.gridBlocks[1]), 1, gp.nativeBlocks[1]);
+          var holder = gp.container || content;
+          holder.splice(holder.indexOf(gp.gridBlocks[1]), 1, gp.nativeBlocks[1]);
           pageEventChildren = pageEventChildren.filter(function (n) { return n.name !== "Init" + upperFirst(gp.local); });
           delete locals[gp.local];
         });
@@ -1996,7 +2327,7 @@ include("js/sequence_response.js");
     };
 
     if (!givenLocale.length && !keptLocale.length && JSON.stringify(pageNode).indexOf(".toLocaleString(") >= 0) {
-      defaulted.push("locale \"en\" (the numbers)");
+      defaulted.push("locale \"en\" (the numbers and dates)");
     }
     var localeMark = "/* app-locale: " + NUMBER_LOCALE + " */";
     // The marks AppLayout keeps for the next pages: the locale given, the currency given or learned from the spec.
