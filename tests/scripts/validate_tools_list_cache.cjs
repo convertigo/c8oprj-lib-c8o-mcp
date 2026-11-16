@@ -90,7 +90,8 @@ function store() {
 function contextOf(req, server = store(), headersOut = {}) {
   return {
     httpServletRequest: req,
-    httpServletResponse: { setHeader: (name, value) => { headersOut[name] = value; } },
+    // the engine keeps a header set with context.setResponseHeader (SetResponseHeaderStep), not one set on httpServletResponse
+    setResponseHeader: (name, value) => { headersOut[name] = value; },
     project: { getName: () => 'lib_ConvertigoMCP' },
     server
   };

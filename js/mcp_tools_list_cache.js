@@ -209,8 +209,10 @@ if (typeof C8O === "undefined") {
         return { key: "", answer: null };
       }
       var answer = api.read(contextObject.server, key, now());
+      // context.setResponseHeader, as SetResponseHeaderStep does: a header set on httpServletResponse during the
+      // sequence is replaced by the headers the engine writes with the answer
       try {
-        contextObject.httpServletResponse.setHeader(api.HEADER, answer === null ? "miss" : "hit");
+        contextObject.setResponseHeader(api.HEADER, answer === null ? "miss" : "hit");
       } catch (_ignoreHeader) {}
       return { key: answer === null ? key : "", answer: answer };
     } catch (_ignoreLookup) {
