@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { skillText: nocodeSkillText } = require('../helpers/nocode_skill.cjs');
 const root = path.resolve(__dirname, '../..');
 // Objects built inside the vm come from another realm: compare their JSON.
 const plain = value => JSON.parse(JSON.stringify(value));
@@ -384,7 +385,7 @@ test('the tool is declared, allowed in No Code with its schema and aliases, and 
   const table = vm.runInNewContext('(' + aliases + ')').tools_nocode_baserow_rows_list;
   assert.deepEqual([table.tableId, table.table_id_int, table.columns, table.order_by, table.limit], ['table', 'table', 'fields', 'sort', 'size']);
 
-  const skill = read('resources/convertigo-nocode/SKILL.md');
+  const skill = nocodeSkillText();
   assert.match(skill, /^- `nocode-baserow-rows-list`$/m);
   const section = skill.slice(skill.indexOf('## Reading Baserow rows'), skill.indexOf('## Preview capture'));
   assert.ok(section.length > 200, 'the skill says when to read rows');

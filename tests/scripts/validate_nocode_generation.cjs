@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { skillText: nocodeSkillText } = require('../helpers/nocode_skill.cjs');
 const root = path.resolve(__dirname, '../..');
 const formsRoot = process.env.C8OFORMS_PROJECT_ROOT || path.resolve(root, '../C8oForms');
 const source = fs.readFileSync(path.join(root, 'js/nocode_forms.js'), 'utf8');
@@ -425,7 +426,7 @@ test('the contract says what fields.<grid> holds for each returned_value and wha
   assert.match(grid, /An expression that throws shows a toast with its error in the preview of a draft, nothing in a published application/);
   const contract = api().contract({ sections: ['contextualDefaults'] });
   assert.match(JSON.stringify(contract), /all_the_data the list of the rows read/);
-  const skill = fs.readFileSync(path.join(root, 'resources/convertigo-nocode/SKILL.md'), 'utf8');
+  const skill = nocodeSkillText();
   assert.match(skill, /`all_the_data`: the list of the rows read, each cell wrapped as `\{ value, displayValue, type, displayName, technicalName \}`/);
   assert.match(skill, /send it back as `defaultFrom` with plain `fields\.<name>` references when it must change; never write tokens by hand/);
 });
@@ -1014,7 +1015,7 @@ test('the agent names the editor place of a default, or says it cannot see the e
   assert.doesNotMatch(section.native, /deploy Forms and MCP together/);
   assert.match(section.native, /The viewer reads contextValueMode since C8Oforms 2\.2\.0-beta338 \(an older viewer recomputes the value like a reactive one\); the editor never shows it\./);
   assert.match(client.contract({}).quickReference.defaults, /Section contextualDefaults: rules, and the editor's Default value tab\.$/);
-  const skill = fs.readFileSync(path.join(root, 'resources/convertigo-nocode/SKILL.md'), 'utf8');
+  const skill = nocodeSkillText();
   assert.match(skill, /- You do not see the No Code Studio editor\. Name a tab, button, menu or choice of the editor only when the contract names it \(`contextualDefaults\.editor` for default values\), never from a tool property/);
   assert.match(skill, /say you cannot see where the editor puts it, then offer to make the change with the tools or to give the value or code to paste\./);
   assert.match(skill, /- By hand, a user sets a default in the component's Default value tab \(Valeur par défaut\): a text, or JavaScript in its advanced mode\. It has no clock, user or query choice/);
@@ -1801,7 +1802,7 @@ test('Baserow data needs no native contract section', () => {
   const quick = api().contract({}).quickReference.baserow.operators.match(/\b[a-z]+(?:_[a-z]+)+\b|\b(?:contains|equal|empty|boolean)\b/g);
   assert.ok(quick.length >= 15);
   assert.deepEqual(quick.filter(op => !all.includes(op)), []);
-  const skill = fs.readFileSync(path.join(root, 'resources/convertigo-nocode/SKILL.md'), 'utf8');
+  const skill = nocodeSkillText();
   const step1 = skill.split('\n').find(line => line.startsWith('1. Read the no-code contract'));
   assert.match(step1, /Baserow data needs no section/);
   assert.doesNotMatch(step1, /`baserowSources` and `backendActions` for Baserow data/);
@@ -2299,7 +2300,7 @@ test('a source or an action written with plain values gets the UI-authored encod
 test('the skill and the quick reference say what a tool answers in code mode', () => {
   // 23/10 on test-nocode (S1): the agent read r.result, got nothing, and spent five reads finding the answer's shape,
   // then looked for the options of a select in config.children.
-  const skill = fs.readFileSync(path.join(root, 'resources/convertigo-nocode/SKILL.md'), 'utf8');
+  const skill = nocodeSkillText();
   assert.match(skill, /Called from code \(`run_typescript`\), a tool resolves to its answer itself: read `r\.status`, `r\.form`/);
   assert.match(skill, /the options of a choice are its `children`/);
   const answers = api().contract({}).quickReference.answers;
@@ -2835,7 +2836,7 @@ test('nocode-form-get find lists every visible text holding a word, flow message
   vm.runInNewContext(fs.readFileSync(path.join(root, 'js/schema_overrides.js'), 'utf8'), overrides);
   const schema = clone(overrides.C8O.schemaOverrides.applyInput('tools_nocode_form_get', null, null));
   assert.deepEqual(Object.keys(schema.properties).sort(), ['find', 'id', 'rev', 'token']);
-  assert.match(fs.readFileSync(path.join(root, 'resources/convertigo-nocode/SKILL.md'), 'utf8'), /call `nocode-form-get` with `find`/);
+  assert.match(nocodeSkillText(), /call `nocode-form-get` with `find`/);
 });
 // Skyjo (28/10, TigoAccess 5324f308): the slider Tour had min 1 and the prototype default 0. The editor no longer shows
 // config.defaultvalue, the viewer drew 1 and submitted 0.

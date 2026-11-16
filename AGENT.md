@@ -243,6 +243,25 @@ Measured on SalesPipeline in the A/B harness of the Electron Studio (16/11, MCP 
 The guides forbid guessing, cracking or resetting a password (common skill, Validation and evidence; authentication
 guide). Tests: `tests/scripts/validate_project_brief.cjs`, `tests/scripts/validate_viewer_session.cjs`.
 
+## The No Code skill: SKILL.md and its drawers (contract with lib_ConvertigoAgentBridge)
+
+Vibe saves a tool answer over about 16,000 characters to a file and shows the model its first and last 4,000 or so,
+and a No Code agent reads no MCP resource (nocode-* tools only). So `resources/convertigo-nocode/` is a summary and
+drawer files, installed together in the agent's skill folder:
+- `SKILL.md` keeps the rules of every turn (bootstrap, authentication, tool boundary, publishing, confirmations,
+  feedback, refusal) and a `## Drawers` section: how to read a drawer, and the tool order. Each line
+  ``> Drawer `<file>.md` — <title>: read it <when>.`` names a drawer of the same folder and stands where its text
+  belongs.
+- A drawer is `# <title>`, the same `Read it <when>.` line, then `---` and its text. New rules go to the drawer of their
+  step; SKILL.md stays under 15,000 characters as installed, a drawer under 12,000.
+- `_setupCodex` and the other setups that install the skill write SKILL.md and every drawer it names, and remove the
+  other `.md` files an older install left in the folder (`writeNoCodeSkillDrawers`). The Bridge copies the same folder
+  for its other homes, keeps a drawer only while the installed SKILL.md names it, and lets a confined Vibe `read_file`
+  the folder.
+Tests: `tests/scripts/validate_nocode_skill_drawers.cjs` (sizes, installs, the drawers put back in place give the
+whole text once: its fingerprint changes with any change of the skill text). The content tests read that whole text
+through `tests/helpers/nocode_skill.cjs`.
+
 ## Files That Matter Most
 
 - `_c8oProject/sequences/mcp_endpoint.yaml`

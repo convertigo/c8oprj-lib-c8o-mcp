@@ -149,11 +149,16 @@ C8O.setupClaude = C8O.setupClaude || {};
     var noLog = C8O.util.mcpNoLogEnabled(opts.mcpNoLog);
     var skillsDir = layout.skillsDir;
     var generalistSkillFile = new File(new File(skillsDir, "convertigo-generalist"), "SKILL.md");
-    var noCodeSkillFile = new File(new File(skillsDir, "convertigo-nocode"), "SKILL.md");
+    var noCodeSkillDir = new File(skillsDir, "convertigo-nocode");
+    var noCodeSkillFile = new File(noCodeSkillDir, "SKILL.md");
     var stateFile = layout.stateFile;
+    var noCodeSkillContent = buildClaudeNoCodeSkillMarkdown(resolvedMcpUrl);
     var generalistWrite = helpers.writeManagedFile(generalistSkillFile, buildClaudeSkillMarkdown(resolvedMcpUrl), dryRun);
-    var noCodeWrite = helpers.writeManagedFile(noCodeSkillFile, buildClaudeNoCodeSkillMarkdown(resolvedMcpUrl), dryRun);
-    var combinedSkillStatus = helpers.combineSkillStatuses([generalistWrite.status, noCodeWrite.status]);
+    var noCodeWrite = helpers.writeManagedFile(noCodeSkillFile, noCodeSkillContent, dryRun);
+    // the drawers its SKILL.md names, next to it (setup_codex.js)
+    var noCodeDrawerWrite = helpers.writeNoCodeSkillDrawers(noCodeSkillDir, helpers.buildNoCodeSkillDrawers(noCodeSkillContent, warnings), dryRun);
+    var noCodeStatus = helpers.combineSkillStatuses([noCodeWrite.status].concat(noCodeDrawerWrite.statuses));
+    var combinedSkillStatus = helpers.combineSkillStatuses([generalistWrite.status, noCodeStatus]);
 
     var configStatus = "skipped";
     var tokenConfigured = false;
@@ -184,7 +189,8 @@ C8O.setupClaude = C8O.setupClaude || {};
       },
       skills: {
         generalist: { slug: "convertigo-generalist", status: generalistWrite.status, path: String(generalistSkillFile.getAbsolutePath()) },
-        nocode: { slug: "convertigo-nocode", status: noCodeWrite.status, path: String(noCodeSkillFile.getAbsolutePath()) }
+        nocode: { slug: "convertigo-nocode", status: noCodeStatus, path: String(noCodeSkillFile.getAbsolutePath()),
+          drawers: noCodeDrawerWrite.drawers, removedDrawers: noCodeDrawerWrite.removed }
       },
       warnings: warnings,
       nextSteps: [

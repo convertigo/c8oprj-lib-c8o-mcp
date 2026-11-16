@@ -8,6 +8,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { skillText: nocodeSkillText } = require('../helpers/nocode_skill.cjs');
 const root = path.resolve(__dirname, '../..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const plain = value => JSON.parse(JSON.stringify(value));
@@ -270,7 +271,7 @@ test('the tool is declared, allowed in No Code, never held, with its schema, ali
   const forms = read('js/nocode_forms.js');
   assert.match(forms, /editingLifecycle: \{\n\s+find: "A form named without its id: nocode-form-list \{ name \}/);
 
-  const skill = read('resources/convertigo-nocode/SKILL.md');
+  const skill = nocodeSkillText();
   assert.match(skill, /^- `nocode-form-list`$/m);
   const section = skill.slice(skill.indexOf("## Finding the user's forms"), skill.indexOf('## Publishing'));
   assert.ok(section.length > 200, 'the skill says when to list the forms');

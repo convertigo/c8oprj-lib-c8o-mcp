@@ -485,6 +485,67 @@ C8O.setupCodex = C8O.setupCodex || {};
     return text.replace(/\n*$/g, "\n");
   }
 
+  // The No Code skill is SKILL.md, the rules of every turn, and drawer files next to it: the files its `> Drawer`
+  // lines name. A No Code agent cannot read MCP resources (it has the nocode-* tools only), so its drawers are
+  // installed as files in the skill folder, where SKILL.md names them.
+  var NOCODE_SKILL_FOLDER = "convertigo-nocode";
+  var NOCODE_DRAWER_LINE = "^> Drawer `([a-z0-9][a-z0-9-]*\\.md)` ";
+
+  function noCodeSkillDrawerNames(skillText) {
+    var pattern = new RegExp(NOCODE_DRAWER_LINE, "gm");
+    var text = String(skillText == null ? "" : skillText);
+    var names = [];
+    var match;
+    while ((match = pattern.exec(text)) !== null) {
+      if (names.indexOf(match[1]) === -1) {
+        names.push(match[1]);
+      }
+    }
+    return names;
+  }
+
+  // The drawers SKILL.md names, read from its folder; a missing one is a warning, the rest is still installed.
+  function buildNoCodeSkillDrawers(skillText, warnings) {
+    var names = noCodeSkillDrawerNames(skillText);
+    var drawers = [];
+    for (var i = 0; i < names.length; i++) {
+      try {
+        drawers.push({ name: names[i], content: String(c8oReadCatalogFile("resources", NOCODE_SKILL_FOLDER + "/" + names[i])) });
+      } catch (e) {
+        if (warnings) {
+          warnings.push("No Code skill drawer not installed: " + names[i] + " (" + e + ")");
+        }
+      }
+    }
+    return drawers;
+  }
+
+  // Writes the drawers next to SKILL.md and removes the Markdown files an older install left in the skill folder that
+  // SKILL.md no longer names. Other files of the folder are left alone.
+  function writeNoCodeSkillDrawers(skillDir, drawers, dryRun) {
+    var File = Packages.java.io.File;
+    var result = { statuses: [], drawers: [], removed: [] };
+    var names = [];
+    for (var i = 0; i < drawers.length; i++) {
+      var write = writeManagedFile(new File(skillDir, drawers[i].name), drawers[i].content, dryRun);
+      names.push(drawers[i].name);
+      result.statuses.push(write.status);
+      result.drawers.push({ file: drawers[i].name, status: write.status });
+    }
+    var children = skillDir.isDirectory() ? skillDir.listFiles() : null;
+    for (var j = 0; children !== null && j < children.length; j++) {
+      var name = String(children[j].getName());
+      if (children[j].isFile() && /\.md$/i.test(name) && name !== "SKILL.md" && names.indexOf(name) === -1 &&
+          (dryRun === true || children[j]["delete"]())) {
+        result.removed.push(name);
+      }
+    }
+    if (result.removed.length) {
+      result.statuses.push("updated");
+    }
+    return result;
+  }
+
   function writeManagedFile(file, content, dryRun) {
     var existed = file.isFile();
     var previous = readTextIfExists(file);
@@ -542,9 +603,12 @@ C8O.setupCodex = C8O.setupCodex || {};
     var configFile = new File(codexHome, "config.toml");
     var generalistSkillContent = buildSkillMarkdown(resolvedMcpUrl);
     var noCodeSkillContent = buildNoCodeSkillMarkdown(resolvedMcpUrl);
+    var noCodeDrawers = buildNoCodeSkillDrawers(noCodeSkillContent, warnings);
     var generalistSkillWrite = writeManagedFile(generalistSkillFile, generalistSkillContent, dryRun);
     var noCodeSkillWrite = writeManagedFile(noCodeSkillFile, noCodeSkillContent, dryRun);
-    var combinedSkillStatus = combineSkillStatuses([generalistSkillWrite.status, noCodeSkillWrite.status]);
+    var noCodeDrawerWrite = writeNoCodeSkillDrawers(noCodeSkillDir, noCodeDrawers, dryRun);
+    var noCodeStatus = combineSkillStatuses([noCodeSkillWrite.status].concat(noCodeDrawerWrite.statuses));
+    var combinedSkillStatus = combineSkillStatuses([generalistSkillWrite.status, noCodeStatus]);
 
     var existingConfig = readTextIfExists(configFile);
     var patchedConfig = patchConfigToml(existingConfig, compactMcpUrl, opts.mcpToken, warnings, enableFlow, noLog);
@@ -574,8 +638,10 @@ C8O.setupCodex = C8O.setupCodex || {};
         },
         nocode: {
           slug: "convertigo-nocode",
-          status: noCodeSkillWrite.status,
-          path: String(noCodeSkillFile.getAbsolutePath())
+          status: noCodeStatus,
+          path: String(noCodeSkillFile.getAbsolutePath()),
+          drawers: noCodeDrawerWrite.drawers,
+          removedDrawers: noCodeDrawerWrite.removed
         }
       },
       warnings: warnings,
@@ -605,6 +671,9 @@ C8O.setupCodex = C8O.setupCodex || {};
     flowCapabilityAvailable: flowCapabilityAvailable,
     buildSkillMarkdown: buildSkillMarkdown,
     buildNoCodeSkillMarkdown: buildNoCodeSkillMarkdown,
+    noCodeSkillDrawerNames: noCodeSkillDrawerNames,
+    buildNoCodeSkillDrawers: buildNoCodeSkillDrawers,
+    writeNoCodeSkillDrawers: writeNoCodeSkillDrawers,
     writeManagedFile: writeManagedFile,
     combineSkillStatuses: combineSkillStatuses
   };
