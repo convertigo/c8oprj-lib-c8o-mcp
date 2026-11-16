@@ -2255,7 +2255,7 @@ test('a page header holds the title, a subtitle and the page actions on the righ
     list: { item: 'p', title: 'numeroPoste', empty: 'Aucun' } }), e => /actionsAt must be header/.test(e.message) && /subtitle must be a text/.test(e.message));
   const css = find(world.project, 'App.Application.NgxApp.AppLayout').props.styleContent;
   assert.match(css, /\.app-page-header \{ display: flex;/);
-  assert.match(css, /\.ion-page:has\(\.app-page-header\) ion-header ion-toolbar ion-title \{ visibility: hidden; \}/);
+  assert.match(css, /\.ion-page:has\(\.app-page-header\) > ion-header ion-toolbar ion-title \{ visibility: hidden; \}/);
 });
 
 test('table columns: numbers right-aligned with their header, dates in the app language through the page formatter', () => {

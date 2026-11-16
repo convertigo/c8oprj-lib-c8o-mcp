@@ -341,6 +341,8 @@ include("js/tools_generators.js");
       "ion-header.header-md { box-shadow: none; }",
       "ion-header ion-toolbar { --border-width: 0 0 1px 0; --border-style: solid; --min-height: 56px; }",
       "body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }",
+      // Buttons as a hand-made app draws them: sentence case, the theme's radius, flat.
+      "ion-button { text-transform: none; letter-spacing: normal; font-weight: 600; --border-radius: var(--app-radius-sm); --box-shadow: none; }",
       // The side menu: open beside the pages on a wide screen (sideMenu), the app name in the brand color as its header.
       "ion-split-pane { --side-width: 256px; --side-min-width: 232px; --side-max-width: 288px; --border: 1px solid var(--app-border); }",
       "ion-menu ion-header ion-toolbar ion-title { color: var(--app-menu-title); --color: var(--app-menu-title); font-size: var(--app-font-size-lg); font-weight: 750; }",

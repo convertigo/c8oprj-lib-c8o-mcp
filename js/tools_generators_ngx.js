@@ -52,7 +52,8 @@ include("js/sequence_response.js");
       ".app-header-actions ion-button { margin: 0; }"],
     // With the side menu open beside the page (ngx-theme-apply sideMenu), the page's own header names it: the toolbar title
     // would say it twice.
-    ["@media (min-width: 992px) { .ion-page:has(.app-page-header)", "@media (min-width: 992px) { .ion-page:has(.app-page-header) ion-header ion-toolbar ion-title { visibility: hidden; } }"],
+    // > ion-header: ion-app is an .ion-page too, and the menu's own title must stay.
+    ["@media (min-width: 992px) { .ion-page:has(.app-page-header)", "@media (min-width: 992px) { .ion-page:has(.app-page-header) > ion-header ion-toolbar ion-title { visibility: hidden; } }"],
     // A sign-in or sign-out page shows no menu beside it: nothing in the menu opens before the sign-in.
     [".app-page-bare", "ion-split-pane:has(.ion-page:not(.ion-page-hidden) ion-content.app-page-bare) > ion-menu { display: none; }"],
     [".app-section", ".app-section { margin: var(--app-space-6, 32px) 0 var(--app-space-3, 12px); font-size: var(--app-font-size-lg, 18px); font-weight: var(--app-heading-weight, 650); letter-spacing: -0.01em; }"],
@@ -115,7 +116,7 @@ include("js/sequence_response.js");
     [".app-form", ".app-form { max-width: 760px; padding: var(--app-space-4, 16px) var(--app-space-5, 20px); " + CARD + " }"],
     [".app-form > ion-button", ".app-form > ion-button { margin: var(--app-space-4, 16px) var(--app-space-2, 8px) 0 0; }"],
     // A form's fields in a grid: two columns from 768 px when it has many short fields, the long ones and the buttons across.
-    [".app-form-grid", ".app-form-grid { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: var(--app-space-5, 20px); }\n" +
+    [".app-form-grid", ".app-form-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--app-space-2, 8px) var(--app-space-5, 20px); }\n" +
       ".app-form-grid ion-item { --background: transparent; --padding-start: 0; --inner-padding-end: 0; }\n" +
       "@media (min-width: 768px) { .app-form-grid.app-form-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } " +
       ".app-form-cols > .app-form-wide, .app-form-cols > .app-form-actions, .app-form-cols > .app-field-empty { grid-column: 1 / -1; } }"],
