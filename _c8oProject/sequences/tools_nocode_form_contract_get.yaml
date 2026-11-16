@@ -9,7 +9,8 @@ comment: |
     result = C8O.nocodeForms.contract({
       project: project,
       includeAllTypes: includeAll,
-      sections: typeof sections === "undefined" ? null : sections
+      sections: typeof sections === "undefined" ? null : sections,
+      page: typeof page === "undefined" ? null : page
     });'
 ↓result [steps.JsonToXmlStep-1780100000002]: 
   jsonObject: 
@@ -29,9 +30,13 @@ comment: |
   description: C8Oforms project name. Defaults to C8Oforms.
   value: C8Oforms
 ↓includeAllTypes [variables.RequestableVariable-1780100000004]: 
-  comment: Set true to include full component prototypes from AllTypes.json.
-  description: Set true to include full component prototypes from AllTypes.json.
+  comment: Set true for the component prototypes of AllTypes.json, a page of whole prototypes per call (page).
+  description: Set true for the component prototypes of AllTypes.json, a page of whole prototypes per call (page).
   value: false
 ↓sections [variables.RequestableVariable-1792690000003]: 
-  comment: Optional list of contract sections to return instead of the whole contract (names in sectionIndex).
-  description: Optional list of contract sections to return instead of the whole contract (names in sectionIndex).
+  comment: Optional list of contract sections to return instead of the core (names in sectionIndex, a part as section.part). The sections that do not fit one answer come back in remaining.
+  description: Optional list of contract sections to return instead of the core (names in sectionIndex, a part as section.part). The sections that do not fit one answer come back in remaining.
+↓page [variables.RequestableVariable-1796200000201]: 
+  comment: With includeAllTypes, the page of prototypes to return (default 1).
+  description: With includeAllTypes, the page of prototypes to return (default 1).
+  value: 

@@ -5827,11 +5827,12 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // The whole contract is about 100 KB (146 KB indented). Vibe keeps a tool result inline up to about 16 KB of its
   // indented JSON and spills a larger one to a file, which its agent then read with 14 to 20 shell commands per turn
   // (22/10 on test-nocode); it reads at most 64 KB of that file. The core is therefore this quick reference, under
-  // 14 KB indented, with the index of the sections; sections returns the parts asked for, sections ["all"] the whole
-  // contract (not offered to agents).
+  // 12 KB indented (its example is a section), with the index of the sections; sections returns the sections asked for
+  // that fit one answer (CONTRACT_ANSWER_ROOM) and names the others in remaining, sections ["all"] the whole contract
+  // (not offered to agents).
   function quickReferenceContract() {
     return {
-      use: "Write reduced JSON: nocode-form-create, nocode-form-edit and nocode-form-compile compile it to C8Oforms JSON, validate it and save it. This core covers usual forms and applications; sectionIndex says which section to ask for details. Return each contract answer from its own call: one answer over about 16 KB is spilled to a file.",
+      use: "Write reduced JSON: nocode-form-create, nocode-form-edit and nocode-form-compile compile it to C8Oforms JSON, validate it and save it. This core covers usual forms and applications; sectionIndex says which section to ask for details, section example shows a small complete application. One answer stays under 12,500 characters: the sections asked that do not fit come back in remaining, ask them in the next call.",
       form: "{ name, description, language: \"fr\", navigationMode: custom (an application: buttons and push_page flows) | buttons (a linear questionnaire) | tabs, titleDisplay: form|page|none, backgroundColor, thumbnailColor, thumbnailImage: { contentType, base64 } (below 512x512 px), pages: [...], flows: [...] }. Pass reduced as a JSON object, not a string. The tools write _id, _rev, formulaire, pageTechName, creator and ACLs: never give them.",
       page: "{ name (unique, the target of push_page), iconName: home|list|people|person|business|calendar|calendar-clear|document-text|receipt|settings|stats-chart|search, header: { title, subtitle } (title block first on the page), description (HTML block after the header), isNameDisplayed (false by default in custom and tabs navigation), fields: [...] }.",
       field: "Every component: { type, name (unique technical name, read as fields.<name>), label (question or button text), description (HTML question, wins over label), placeholder, mandatory, disabled, sticky: always|notOnPhone (stays at the top while the page scrolls), visibleIf, defaultFrom, boxStyle, config (merged onto the native config) }. Section componentAuthoring lists each component's options.",
@@ -5903,9 +5904,42 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     forbiddenFields: "fields the tools manage",
     mediaSupport: "wallpaper and thumbnails",
     reducedSample: "a reduced questionnaire",
+    example: "a small complete application in reduced JSON: pages, a section, buttons, flows, a Baserow save",
     realWorldPatternsFromGestionDesCreches: "patterns of a real application"
   };
   var CONTRACT_INLINE_PARTS = ["types", "aliases", "format", "intent", "contractVersion", "quickReference"];
+  // One answer of the contract stays under CONTRACT_ANSWER_ROOM characters of its JSON indented by 2, as Vibe weighs what
+  // a script returns (over 16,000 it saves it to a file a No Code agent cannot read), with room for what mcp_endpoint
+  // adds. Over it, the sections asked that do not fit are named in remaining, and asked next.
+  var CONTRACT_ANSWER_ROOM = 12500;
+  // Sections larger than one answer, in parts asked by name (baserowSources.filters) or with their section: [name, keys];
+  // a dotted key takes a key of a key. What no part names goes to the part whose keys are null, else to the last one.
+  var CONTRACT_PARTS = {
+    generationQuality: [
+      ["pages", ["labels", "navigation", "designTokens", "pageHeader", "actionBar", "listDetail", "emptyStates", "styles", "steps"]],
+      ["data", ["toasts", "dataViews", "data"]]
+    ],
+    componentAuthoring: [
+      ["containers", ["layout", "section", "description", "button", "ion-card"]],
+      ["dataViews", ["grid", "chart", "gallery", "map"]],
+      ["inputs", null]
+    ],
+    baserowSources: [
+      ["inputs", ["learnedFrom", "sourceKeys", "sourceVariableEncoding", "editableNoCodeStudioRule", "supportedComponents", "inputComponentGeneration"]],
+      ["filters", ["filter", "sort", "distinct"]],
+      ["views", ["formsConfig", "gridPaging", "groupBy", "groupAggregations"]],
+      ["examples", ["sourceExamples"]]
+    ],
+    backendActions: [
+      ["rules", null],
+      ["catalog", ["knownNoCodeBackendActions"]]
+    ],
+    dynamicReferences: [
+      ["references", ["syntax", "scope", "rule", "example", "notes", "complexObjectAccess.field", "complexObjectAccess.syntax", "complexObjectAccess.examples", "complexObjectAccess.rules", "complexObjectAccess.componentValueShapes.common"]],
+      ["dataShapes", ["complexObjectAccess.componentValueShapes.grid", "complexObjectAccess.componentValueShapes.chart", "complexObjectAccess.componentValueShapes.map", "complexObjectAccess.componentValueShapes.location", "complexObjectAccess.componentValueShapes.media", "complexObjectAccess.componentValueShapes.ion_card", "complexObjectAccess.componentValueShapes.business_logic"]],
+      ["inputShapes", null]
+    ]
+  };
 
   function contractSectionList(value) {
     if (value == null || value === "") { return []; }
@@ -5913,13 +5947,106 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return list.map(function (name) { return trimmed(String(name).replace(/^["']|["']$/g, "")); }).filter(function (name) { return name.length > 0; });
   }
 
+  // What a contract answer weighs for the agent: its JSON indented by 2.
+  function contractAnswerSize(answer) {
+    return JSON.stringify(answer, null, 2).length;
+  }
+
+  // Copies the value at a dotted path of from into the same path of to.
+  function copyContractPath(from, to, path) {
+    var keys = path.split(".");
+    var source = from;
+    var target = to;
+    for (var i = 0; i < keys.length - 1; i++) {
+      if (!source || typeof source !== "object" || !hasOwn(source, keys[i])) { return; }
+      source = source[keys[i]];
+      if (!target[keys[i]] || typeof target[keys[i]] !== "object") { target[keys[i]] = {}; }
+      target = target[keys[i]];
+    }
+    if (source && typeof source === "object" && hasOwn(source, keys[keys.length - 1])) {
+      target[keys[keys.length - 1]] = source[keys[keys.length - 1]];
+    }
+  }
+
+  // The parts of a section, [{name, value}], or null for a section in one piece.
+  function contractPartsOf(name, value) {
+    var plan = CONTRACT_PARTS[name];
+    if (!plan || !value || typeof value !== "object" || Array.isArray(value)) { return null; }
+    var named = {};
+    var restIndex = plan.length - 1;
+    plan.forEach(function (part, index) {
+      if (part[1] === null) { restIndex = index; }
+      (part[1] || []).forEach(function (path) { named[path] = true; });
+    });
+    function splitAt(path) {
+      return Object.keys(named).some(function (other) { return other.indexOf(path + ".") === 0; });
+    }
+    // what no part names, at the depth where the parts split it
+    function rest(from, prefix, into) {
+      Object.keys(from).forEach(function (key) {
+        var path = prefix + key;
+        if (named[path]) { return; }
+        if (splitAt(path) && from[key] && typeof from[key] === "object" && !Array.isArray(from[key])) {
+          rest(from[key], path + ".", into);
+        } else {
+          copyContractPath(value, into, path);
+        }
+      });
+    }
+    return plan.map(function (part, index) {
+      var piece = {};
+      (part[1] || []).forEach(function (path) { copyContractPath(value, piece, path); });
+      if (index === restIndex) { rest(value, "", piece); }
+      return { name: name + "." + part[0], value: piece };
+    });
+  }
+
+  function contractPartNames(name) {
+    return (CONTRACT_PARTS[name] || []).map(function (part) { return name + "." + part[0]; });
+  }
+
+  // includeAllTypes: the component prototypes of AllTypes.json, whole prototypes per page, each page one answer.
+  function allTypesPage(catalog, contractVersion, pageValue) {
+    var asked = parseInt(String(pageValue == null ? "" : pageValue), 10);
+    var number = isNaN(asked) ? 1 : asked;
+    function answerOf(items, at, count) {
+      var answer = { status: "ok", contractVersion: contractVersion, page: at, pages: count };
+      if (at === 1) {
+        answer.about = "The component prototypes of C8Oforms AllTypes.json, " + count + " pages of whole prototypes. The authoring contract comes by sections: nocode-form-contract-get without arguments gives its sectionIndex.";
+      }
+      answer.types = items.map(function (item) { return item.type; });
+      answer.allTypes = items;
+      if (at < count) {
+        answer.next = "Ask nocode-form-contract-get with includeAllTypes:true, page:" + (at + 1) + " for the next prototypes.";
+      }
+      return answer;
+    }
+    var pages = [[]];
+    catalog.forEach(function (item) {
+      var current = pages[pages.length - 1];
+      if (current.length && contractAnswerSize(answerOf(current.concat([item]), 1, 999)) > CONTRACT_ANSWER_ROOM) {
+        pages.push([item]);
+      } else {
+        current.push(item);
+      }
+    });
+    if (number < 1 || number > pages.length) {
+      return { status: "invalid", contractVersion: contractVersion, page: number, pages: pages.length, message: "page must be 1 to " + pages.length + " with includeAllTypes:true." };
+    }
+    return answerOf(pages[number - 1], number, pages.length);
+  }
+
   C8O.nocodeForms.contract = function (options) {
     var opts = options || {};
     var contract = readAllTypes(opts.project || opts.projectName || "C8Oforms");
     var types = contract.catalog.map(function (item) { return item.type; });
     var authoring = detailedAuthoringContract(types);
-    var parts = { types: types, aliases: clone(aliases, {}), reducedSample: sampleContract(), quickReference: quickReferenceContract() };
+    var quickReference = quickReferenceContract();
+    var parts = { types: types, aliases: clone(aliases, {}), reducedSample: sampleContract(), quickReference: quickReference };
     Object.keys(authoring).forEach(function (key) { parts[key] = authoring[key]; });
+    // The example application is a section: its nesting weighed 2 KB of the indented core.
+    parts.example = quickReference.example;
+    delete quickReference.example;
     // Asked alone, generationQuality (26 KB indented) would be spilled too: its style recipes are their own section.
     parts.generationQuality = {};
     Object.keys(authoring.generationQuality).forEach(function (key) { if (key !== "styles") { parts.generationQuality[key] = authoring.generationQuality[key]; } });
@@ -5929,26 +6056,60 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     delete parts.generationQuality.incrementalCreation;
     delete parts.generationQuality.completion;
     parts.generationQuality.steps = "Ask sections:[\"generationSteps\"] for building in steps and the checks before delivery.";
+    if (opts.includeAllTypes === true) {
+      return allTypesPage(contract.catalog, authoring.contractVersion, opts.page);
+    }
     var asked = contractSectionList(opts.sections);
-    var whole = opts.includeAllTypes === true || asked.indexOf("all") >= 0;
+    var whole = asked.indexOf("all") >= 0;
     // what the C8Oforms of the server renders: styleModel, the keys and objects marked styleModel in the contract
     var capabilities = { styleModel: styleModelSupported(opts.project || opts.projectName || "C8Oforms") };
     var sectionIndex = {};
     Object.keys(parts).forEach(function (key) {
       if (CONTRACT_INLINE_PARTS.indexOf(key) < 0) {
-        sectionIndex[key] = (CONTRACT_SECTION_PURPOSES[key] || key) + " (" + Math.max(1, Math.round(JSON.stringify(parts[key]).length / 1000)) + " KB)";
+        var partNames = contractPartNames(key);
+        sectionIndex[key] = (CONTRACT_SECTION_PURPOSES[key] || key) + " (" + Math.max(1, Math.round(JSON.stringify(parts[key]).length / 1000)) + " KB" +
+          (partNames.length ? ", parts " + partNames.map(function (partName) { return partName.substring(key.length); }).join(" ") : "") + ")";
       }
     });
     if (asked.length && !whole) {
-      var sections = {};
+      var units = [];
       var unknown = [];
+      var seen = {};
+      var addUnit = function (unit) {
+        if (!seen[unit.name]) { seen[unit.name] = true; units.push(unit); }
+      };
       asked.forEach(function (name) {
-        if (hasOwn(parts, name)) { sections[name] = parts[name]; } else { unknown.push(name); }
+        if (hasOwn(parts, name)) {
+          var split = contractPartsOf(name, parts[name]);
+          if (split) { split.forEach(addUnit); } else { addUnit({ name: name, value: parts[name] }); }
+          return;
+        }
+        var parent = name.indexOf(".") > 0 ? name.substring(0, name.indexOf(".")) : "";
+        var found = parent.length && hasOwn(parts, parent) ? (contractPartsOf(parent, parts[parent]) || []).filter(function (part) { return part.name === name; })[0] : null;
+        if (found) { addUnit(found); } else { unknown.push(name); }
       });
-      var answer = { status: unknown.length && !Object.keys(sections).length ? "invalid" : "ok", contractVersion: authoring.contractVersion, sections: sections };
+      var answer = { status: unknown.length && !units.length ? "invalid" : "ok", contractVersion: authoring.contractVersion, sections: {} };
+      var remaining = [];
+      units.forEach(function (unit) {
+        if (remaining.length) { remaining.push(unit.name); return; }
+        answer.sections[unit.name] = unit.value;
+        if (Object.keys(answer.sections).length > 1 && contractAnswerSize(answer) > CONTRACT_ANSWER_ROOM) {
+          delete answer.sections[unit.name];
+          remaining.push(unit.name);
+        }
+      });
+      if (remaining.length) {
+        answer.remaining = remaining;
+        answer.next = "Ask nocode-form-contract-get with sections:" + JSON.stringify(remaining) + " for the rest, in its own call: one answer stays under " +
+          CONTRACT_ANSWER_ROOM + " characters.";
+      }
       if (unknown.length) {
         answer.unknownSections = unknown;
-        answer.availableSections = Object.keys(parts);
+        answer.availableSections = [];
+        Object.keys(parts).forEach(function (key) {
+          answer.availableSections.push(key);
+          contractPartNames(key).forEach(function (partName) { answer.availableSections.push(partName); });
+        });
       }
       return answer;
     }
@@ -5961,11 +6122,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         types: types,
         aliases: parts.aliases,
         sectionIndex: sectionIndex,
-        moreSections: "Ask nocode-form-contract-get with sections:[...] for a section of sectionIndex the task needs, a few at a time: generationQuality before generating an application, styles for style recipes, componentAuthoring or editTool for what this core omits."
+        moreSections: "Ask nocode-form-contract-get with sections:[...] for what the task needs: generationQuality before generating an application, example for a small complete one, styles for style recipes, componentAuthoring or editTool for what this core omits. A section in parts comes whole when asked by its name, in as many answers as it needs: what does not fit comes back in remaining, ask it next."
       };
     }
     var all = clone(authoring, {});
-    all.quickReference = parts.quickReference;
+    all.quickReference = quickReferenceContract();
     return {
       status: "ok",
       project: opts.project || opts.projectName || "C8Oforms",
@@ -5976,7 +6137,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       aliases: parts.aliases,
       authoringContract: all,
       reducedSample: parts.reducedSample,
-      allTypes: opts.includeAllTypes === true ? contract.catalog : null
+      allTypes: null
     };
   };
 

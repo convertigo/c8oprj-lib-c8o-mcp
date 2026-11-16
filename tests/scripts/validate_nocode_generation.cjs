@@ -1794,7 +1794,7 @@ test('Baserow data needs no native contract section', () => {
   // 22/10 on test-nocode: the skill sent agents to baserowSources and backendActions (28 KB) for any Baserow data;
   // the answer was spilled to a file and read with 14 to 20 shell commands per turn.
   const shorthand = api().contract({ sections: ['baserowShorthand'] }).sections.baserowShorthand;
-  const all = api().contract({ sections: ['baserowSources'] }).sections.baserowSources.filter.operators;
+  const all = api().contract({ sections: ['baserowSources.filters'] }).sections['baserowSources.filters'].filter.operators;
   const listed = Object.values(shorthand.operators).filter(Array.isArray).flat();
   assert.ok(listed.length >= 15);
   assert.deepEqual(listed.filter(op => !all.includes(op)), []);
@@ -1813,27 +1813,99 @@ const indentedSize = value => {
   const sorted = v => Array.isArray(v) ? v.map(sorted) : (v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map(k => [k, sorted(v[k])])) : v);
   return JSON.stringify(sorted(JSON.parse(JSON.stringify(value))), null, 2).length;
 };
-test('the contract core and the sections an application needs fit inline', () => {
+// One contract answer stays under 12,500 characters indented (CONTRACT_ANSWER_ROOM of js/nocode_forms.js): Vibe weighs a
+// script's return indented by 2 against its 16,000, and mcp_endpoint pages an answer over 14,000 (js/mcp_answer_pages.js).
+const ANSWER_ROOM = 12500;
+// The sections asked, following remaining from answer to answer: {answers, sections}.
+function readSections(client, names) {
+  const answers = [];
+  const sections = {};
+  let asked = names;
+  while (asked && asked.length) {
+    const answer = client.contract({ sections: asked });
+    answers.push(answer);
+    assert.ok(Object.keys(answer.sections).length > 0, 'an answer holds at least one section: ' + asked);
+    Object.assign(sections, answer.sections);
+    asked = answer.remaining;
+    assert.ok(answers.length < 20);
+  }
+  return { answers, sections };
+}
+// A section put back together from its parts (a part may hold some keys of a key).
+function mergeParts(sections, name) {
+  const isObject = v => v && typeof v === 'object' && !Array.isArray(v);
+  const merge = (into, from) => {
+    for (const [field, inner] of Object.entries(from)) into[field] = isObject(inner) && isObject(into[field]) ? merge(into[field], inner) : inner;
+    return into;
+  };
+  const out = {};
+  for (const [key, value] of Object.entries(sections)) {
+    if (key === name || key.startsWith(name + '.')) merge(out, clone(value));
+  }
+  return out;
+}
+test('the contract core, every section and every part fit one answer, and a section asked whole comes back whole', () => {
   const client = api();
   const core = client.contract({});
-  assert.ok(indentedSize(core) < 14000, 'core ' + indentedSize(core));
-  for (const name of ['generationQuality', 'styles', 'generationSteps', 'componentAuthoring', 'editTool', 'contextualDefaults', 'flowAuthoring', 'baserowShorthand']) {
-    const size = indentedSize(client.contract({ sections: [name] }));
-    assert.ok(size < 15000, name + ' ' + size);
+  assert.ok(indentedSize(core) < ANSWER_ROOM, 'core ' + indentedSize(core));
+  const whole = client.contract({ sections: ['all'] });
+  const names = Object.keys(core.sectionIndex);
+  const partNames = names.flatMap(name => (core.sectionIndex[name].match(/, parts ((?: ?\.[A-Za-z]+)+)\)$/) || ['', ''])[1].trim().split(' ').filter(Boolean).map(part => name + part));
+  assert.ok(partNames.includes('baserowSources.filters') && partNames.includes('generationQuality.pages'), partNames.join(' '));
+  for (const name of names.concat(partNames)) {
+    const { answers, sections } = readSections(client, [name]);
+    for (const answer of answers) assert.ok(indentedSize(answer) <= ANSWER_ROOM, name + ' ' + indentedSize(answer));
+    if (partNames.includes(name)) {
+      assert.deepEqual(Object.keys(sections), [name]);
+      assert.ok(indentedSize(answers[0]) <= ANSWER_ROOM - 500, 'a part alone keeps a margin: ' + name + ' ' + indentedSize(answers[0]));
+      continue;
+    }
+    // every key of the section, in its parts or whole
+    const section = whole.authoringContract[name] !== undefined && !['generationQuality'].includes(name) ? whole.authoringContract[name] : null;
+    if (section && typeof section === 'object' && !Array.isArray(section)) {
+      assert.deepEqual(clone(mergeParts(sections, name)), clone(section), name);
+    }
   }
-  assert.ok(indentedSize(client.contract({ sections: ['generationQuality', 'styles'] })) > 16000, 'the skill asks for one answer per call');
-  const whole = client.contract({ sections: ['all'] }).authoringContract;
-  const asSections = client.contract({ sections: ['generationQuality', 'styles', 'generationSteps'] }).sections;
-  assert.deepEqual(clone(asSections.styles), clone(whole.generationQuality.styles));
-  assert.deepEqual(clone(asSections.generationSteps), clone({ incrementalCreation: whole.generationQuality.incrementalCreation, completion: whole.generationQuality.completion }));
-  assert.match(asSections.generationQuality.styles, /sections:\["styles"\]/);
+  // several sections: those that fit, then remaining in the order asked
+  const several = client.contract({ sections: ['generationQuality', 'styles', 'generationSteps'] });
+  assert.ok(several.remaining && several.remaining.length, 'more than one answer holds');
+  assert.match(several.next, /remaining|sections:\[/);
+  const { answers, sections } = readSections(client, ['generationQuality', 'styles', 'generationSteps']);
+  for (const answer of answers) assert.ok(indentedSize(answer) <= ANSWER_ROOM, indentedSize(answer));
+  assert.deepEqual(clone(sections.styles), clone(whole.authoringContract.generationQuality.styles));
+  assert.deepEqual(clone(sections.generationSteps), clone({ incrementalCreation: whole.authoringContract.generationQuality.incrementalCreation, completion: whole.authoringContract.generationQuality.completion }));
+  const quality = mergeParts(sections, 'generationQuality');
+  assert.match(quality.styles, /sections:\["styles"\]/);
+  const expected = clone(whole.authoringContract.generationQuality);
+  delete expected.incrementalCreation; delete expected.completion;
+  expected.styles = quality.styles; expected.steps = quality.steps;
+  assert.deepEqual(Object.keys(quality).sort(), Object.keys(expected).sort());
+});
+test('includeAllTypes answers the AllTypes.json prototypes in pages of whole prototypes, each one answer', () => {
+  const client = api();
+  const first = client.contract({ includeAllTypes: true });
+  assert.equal(first.page, 1);
+  assert.ok(first.pages >= 2, 'the prototypes take several pages: ' + first.pages);
+  assert.match(first.about, /sections/);
+  const seen = [];
+  for (let page = 1; page <= first.pages; page++) {
+    const answer = client.contract({ includeAllTypes: true, page });
+    assert.equal(answer.status, 'ok');
+    assert.ok(indentedSize(answer) <= ANSWER_ROOM, 'page ' + page + ' ' + indentedSize(answer));
+    assert.deepEqual(answer.types, answer.allTypes.map(item => item.type));
+    if (page < first.pages) assert.match(answer.next, new RegExp('page:' + (page + 1))); else assert.equal(answer.next, undefined);
+    seen.push(...answer.allTypes);
+  }
+  const catalog = JSON.parse(fs.readFileSync(path.join(formsRoot, 'DisplayObjects/mobile/assets/components/AllTypes.json'), 'utf8'));
+  assert.deepEqual(clone(seen), clone(catalog), 'every prototype once, in order');
+  assert.equal(client.contract({ includeAllTypes: true, page: first.pages + 1 }).status, 'invalid');
 });
 test('the quick reference agrees with the compiler', () => {
   const client = api();
   const core = client.contract({});
   const quick = core.quickReference;
   const whole = client.contract({ sections: ['all'] }).authoringContract;
-  const example = client.compile(clone(quick.example), { tableIndex: [{ id: 5271, name: 'Demandes', path: 'Team~>Achats~>Demandes' }] });
+  const example = client.compile(clone(client.contract({ sections: ['example'] }).sections.example), { tableIndex: [{ id: 5271, name: 'Demandes', path: 'Team~>Achats~>Demandes' }] });
   assert.equal(example.status, 'ok', JSON.stringify(example.validation && example.validation.issues));
   assert.deepEqual(clone(example.validation.issues), []);
   const conditionOperators = quick.conditions.split('Operators:')[1].match(/\b[a-z]+(?:_[a-z]+)*\b/g).filter(word => !['and', 'value', 'is', 'an', 'array', 'no', 'a', 'grid', 'empty', 'until', 'row', 'selected', 'hidden', 'component', 'not', 'checked', 'as', 'mandatory'].includes(word));
@@ -1841,8 +1913,9 @@ test('the quick reference agrees with the compiler', () => {
   const actions = [...quick.edit.matchAll(/\b([a-z]+(?:_[a-z]+)+) [{(]/g)].map(m => m[1]).concat(['finalize_baserow_bindings']);
   assert.ok(actions.length >= 13);
   assert.deepEqual(actions.filter(action => !source.includes('action === "' + action + '"')), []);
-  for (const type of quick.example.pages.flatMap(p => p.fields).map(f => f.type)) assert.ok(type === 'section' || core.types.includes(type), type);
-  assert.deepEqual(Object.keys(core.sectionIndex).filter(name => !/ \(\d+ KB\)$/.test(core.sectionIndex[name]) || core.sectionIndex[name].startsWith(name + ' (')), [], 'every section says what it holds');
+  assert.equal(quick.example, undefined, 'the example is a section');
+  for (const type of client.contract({ sections: ['example'] }).sections.example.pages.flatMap(p => p.fields).map(f => f.type)) assert.ok(type === 'section' || core.types.includes(type), type);
+  assert.deepEqual(Object.keys(core.sectionIndex).filter(name => !/ \(\d+ KB(, parts( \.[A-Za-z]+)+)?\)$/.test(core.sectionIndex[name]) || core.sectionIndex[name].startsWith(name + ' (')), [], 'every section says what it holds');
   assert.equal(core.authoringContract, undefined);
   assert.equal(core.allTypesPath, undefined, 'no server path in the agent answer');
 });
@@ -2346,11 +2419,13 @@ test('the contract answers its core with an index of every section, the sections
   assert.equal(core.sectionIndex.quickReference, undefined);
   assert.match(core.moreSections, /generationQuality/);
   const part = client.contract({ sections: '["baserowSources","backendActions"]' });
-  assert.deepEqual(Object.keys(part.sections), ['baserowSources', 'backendActions']);
+  assert.deepEqual(Object.keys(part.sections).concat(part.remaining), ['baserowSources.inputs', 'baserowSources.filters', 'baserowSources.views',
+    'baserowSources.examples', 'backendActions.rules', 'backendActions.catalog']);
+  assert.ok(part.remaining.length > 0 && /sections:\[/.test(part.next));
   const whole = client.contract({ sections: ['all'] });
   assert.ok(whole.authoringContract.generationQuality && whole.authoringContract.baserowSources && whole.authoringContract.quickReference);
   assert.equal(whole.moreSections, undefined);
-  assert.ok(client.contract({ includeAllTypes: true }).authoringContract.baserowSources, 'includeAllTypes keeps the whole contract');
+  assert.ok(client.contract({ includeAllTypes: true }).allTypes.length > 0, 'includeAllTypes pages the prototypes');
   const wrong = client.contract({ sections: ['nope'] });
   assert.equal(wrong.status, 'invalid');
   assert.ok(wrong.availableSections.includes('flowAuthoring') && wrong.availableSections.includes('styles'));

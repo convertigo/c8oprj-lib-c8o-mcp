@@ -1215,12 +1215,13 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         includeAllTypes: {
           type: "boolean",
           default: false,
-          description: "Set true to include the full AllTypes.json component prototypes. Default false returns the compact contract."
+          description: "Set true for the AllTypes.json component prototypes, a page of whole prototypes per call (page). Default false returns the compact contract."
         },
+        page: { type: "integer", minimum: 1, default: 1, description: "With includeAllTypes: the page of prototypes (its answer gives pages and next)." },
         sections: {
           type: "array",
           items: { type: "string" },
-          description: "Without it the contract answers quickReference, a compact reference of the reduced JSON (Baserow sources and saves included), and sectionIndex, what each section holds. Give the sections the task needs, one answer per call so that each stays inline: [\"generationQuality\"] before generating an application, [\"styles\"] for style recipes, [\"componentAuthoring\"] or [\"editTool\"] for details, [\"dynamicReferences\"] for SmartSource references. The whole contract is about 100 KB, more than an agent reads at once."
+          description: "Without it the contract answers quickReference, a compact reference of the reduced JSON (Baserow sources and saves included), and sectionIndex, what each section holds. Give the sections the task needs: [\"generationQuality\"] before generating an application, [\"example\"] for a small complete one, [\"styles\"] for style recipes, [\"componentAuthoring\"] or [\"editTool\"] for details, [\"dynamicReferences\"] for SmartSource references. A large section comes in parts (section.part, listed in sectionIndex). One answer stays under 12,500 characters: what does not fit comes back in remaining, ask it in the next call."
         }
       },
       additionalProperties: false
