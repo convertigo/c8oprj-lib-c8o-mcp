@@ -218,8 +218,8 @@ C8O.setupCommon = C8O.setupCommon || {};
     var files = [];
     for (var i = 0; i < index.length; i++) {
       var entry = index[i];
-      // the guides of an edit profile reach its conversations through the MCP only
-      if (entry && !trim(entry.profile).length && trim(entry.file).length && /\.md$/i.test(trim(entry.file))) {
+      // the guides of an edit profile reach its conversations through the MCP only; a former URI (aliasOf) is its summary
+      if (entry && !trim(entry.aliasOf).length && !trim(entry.profile).length && trim(entry.file).length && /\.md$/i.test(trim(entry.file))) {
         files.push({ uri: trim(entry.uri), file: trim(entry.file), expandGuidance: entry.expandGuidance === true });
       }
     }

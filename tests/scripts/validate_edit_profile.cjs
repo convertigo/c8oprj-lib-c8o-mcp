@@ -182,16 +182,20 @@ test('the guides of a profile are listed in that profile only, and readable by u
   const listed = profile => index.filter(entry => loadPolicy(profile ? { 'X-Convertigo-Edit-Profile': profile } : {}, ENGINE_85).listsResource(entry)).map(entry => entry.uri);
   const byDefault = listed('');
   // the former URI, the summary and the drawers of each profile guide (resources/guide_drawers.json)
-  const ofProfile = profile => index.filter(entry => entry.profile === profile).map(entry => entry.uri);
+  // a former URI (aliasOf) is never listed, in any profile: it answers its summary when read
+  const ofProfile = profile => index.filter(entry => entry.profile === profile && !entry.aliasOf).map(entry => entry.uri);
+  const aliases = index.filter(entry => entry.aliasOf).map(entry => entry.uri);
+  assert.ok(aliases.includes('convertigo://resources/convertigo-yaml-editing') && aliases.includes('convertigo://resources/convertigo-ngx-html-roundtrip'));
+  for (const profile of ['', 'yaml', 'html']) for (const uri of aliases) assert.ok(!listed(profile).includes(uri), profile + ' ' + uri);
   assert.ok(ofProfile('yaml').includes('convertigo://guides/yaml-editing') && ofProfile('yaml').length > 2);
   assert.ok(ofProfile('html').includes('convertigo://guides/html-roundtrip') && ofProfile('html').length > 2);
-  assert.equal(byDefault.length, index.length - ofProfile('yaml').length - ofProfile('html').length);
+  assert.equal(byDefault.length, index.length - ofProfile('yaml').length - ofProfile('html').length - aliases.length);
   for (const uri of ofProfile('yaml').concat(ofProfile('html'))) assert.ok(byDefault.indexOf(uri) < 0, uri);
   assert.ok(ofProfile('yaml').every(uri => listed('yaml').includes(uri)) && ofProfile('html').every(uri => !listed('yaml').includes(uri)));
   assert.ok(ofProfile('html').every(uri => listed('html').includes(uri)) && ofProfile('yaml').every(uri => !listed('html').includes(uri)));
   assert.match(read('_c8oProject/sequences/mcp_resources_list.yaml'), /C8O\.editProfile\.listsResource\(entry\)/);
   // the generic harness copies the guides of no profile as skills
-  assert.match(read('js/setup_common.js'), /!trim\(entry\.profile\)\.length && trim\(entry\.file\)\.length/);
+  assert.match(read('js/setup_common.js'), /!trim\(entry\.aliasOf\)\.length && !trim\(entry\.profile\)\.length && trim\(entry\.file\)\.length/);
   // the guides name tools that exist and the routes of their profile
   assert.match(guidanceText('resources/convertigo_yaml_editing.md'), /project-reload/);
   assert.match(guidanceText('resources/convertigo_ngx_html_roundtrip.md'), /project-reload\(project=<project>, fromIonic=true, ionicTarget=/);

@@ -111,7 +111,10 @@ function c8oFindResourceByUri(resourceUri) {
   var entries = c8oLoadResourcesIndex();
   var found = c8oFindCatalogEntry(entries, "uri", resourceUri);
   if (found) {
-    return found;
+    // A former guide URI (entry.aliasOf, split into a summary and drawers in 0.3.0-beta.31) is not listed any more and
+    // answers the summary it became, so an existing client reads it in one call.
+    var target = found.aliasOf ? c8oFindCatalogEntry(entries, "uri", found.aliasOf) : null;
+    return target || found;
   }
   // A renamed guide still answers at its former URI (entry.aliases).
   var wanted = String(resourceUri).toLowerCase();
@@ -119,7 +122,8 @@ function c8oFindResourceByUri(resourceUri) {
     var aliases = entries[i] && entries[i].aliases;
     for (var k = 0; aliases && k < aliases.length; k++) {
       if (String(aliases[k]).toLowerCase() === wanted) {
-        return entries[i];
+        var aliased = entries[i].aliasOf ? c8oFindCatalogEntry(entries, "uri", entries[i].aliasOf) : null;
+        return aliased || entries[i];
       }
     }
   }

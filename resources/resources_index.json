@@ -1,6 +1,7 @@
 [
   {
     "uri": "convertigo://resources/convertigo-start",
+    "aliasOf": "convertigo://guides/start",
     "name": "Convertigo Start Guide",
     "title": "Convertigo Start Guide",
     "description": "Former URI: read convertigo://guides/start.",
@@ -36,6 +37,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-crud-fastpath",
+    "aliasOf": "convertigo://guides/crud",
     "name": "Convertigo CRUD Fast Path",
     "title": "Convertigo CRUD Fast Path",
     "description": "Former URI: read convertigo://guides/crud.",
@@ -72,6 +74,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-vibe-start",
+    "aliasOf": "convertigo://guides/vibe",
     "name": "Convertigo Vibe Start",
     "title": "Convertigo Vibe Start",
     "description": "Former URI: read convertigo://guides/vibe.",
@@ -105,6 +108,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-vibe-http-ngx-fastpath",
+    "aliasOf": "convertigo://guides/http-app",
     "name": "Convertigo Vibe HTTP NGX Fast Path",
     "title": "Convertigo Vibe HTTP NGX Fast Path",
     "description": "Former URI: read convertigo://guides/http-app.",
@@ -142,6 +146,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-project-review",
+    "aliasOf": "convertigo://guides/review",
     "name": "Convertigo Project Review Guide",
     "title": "Convertigo Project Review Guide",
     "description": "Former URI: read convertigo://guides/review.",
@@ -178,6 +183,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-crud-edit-fastpath",
+    "aliasOf": "convertigo://guides/crud-edit",
     "name": "Convertigo CRUD Edit Fast Path",
     "title": "Convertigo CRUD Edit Fast Path",
     "description": "Former URI: read convertigo://guides/crud-edit.",
@@ -216,6 +222,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-platform-big-picture",
+    "aliasOf": "convertigo://guides/platform",
     "name": "Convertigo Platform Big Picture",
     "title": "Convertigo Platform Big Picture",
     "description": "Former URI: read convertigo://guides/platform.",
@@ -255,6 +262,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-engineering-workflow",
+    "aliasOf": "convertigo://guides/workflow",
     "name": "Convertigo Engineering Workflow",
     "title": "Convertigo Engineering Workflow",
     "description": "Former URI: read convertigo://guides/workflow.",
@@ -297,6 +305,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-bootstrap-decision-matrix",
+    "aliasOf": "convertigo://guides/brief",
     "name": "Convertigo Bootstrap Decision Matrix",
     "title": "Convertigo Bootstrap Decision Matrix",
     "description": "Former URI: read convertigo://guides/brief.",
@@ -333,6 +342,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-contract-first-delivery",
+    "aliasOf": "convertigo://guides/contract",
     "name": "Convertigo Contract-First Delivery",
     "title": "Convertigo Contract-First Delivery",
     "description": "Former URI: read convertigo://guides/contract.",
@@ -370,6 +380,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-recipe-starter-extension",
+    "aliasOf": "convertigo://guides/starter",
     "name": "Convertigo Starter Extension Recipe",
     "title": "Convertigo Starter Extension Recipe",
     "description": "Former URI: read convertigo://guides/starter.",
@@ -410,6 +421,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-recipe-business-sequence-stub",
+    "aliasOf": "convertigo://guides/sequence",
     "name": "Convertigo Business Sequence Stub Recipe",
     "title": "Convertigo Business Sequence Stub Recipe",
     "description": "Former URI: read convertigo://guides/sequence.",
@@ -454,6 +466,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-backend-sequences",
+    "aliasOf": "convertigo://guides/backend",
     "name": "Convertigo Backend Sequences",
     "title": "Convertigo Backend Sequences",
     "description": "Former URI: read convertigo://guides/backend.",
@@ -495,6 +508,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-recipe-http-business-sequence",
+    "aliasOf": "convertigo://guides/http-sequence",
     "name": "Convertigo HTTP Business Sequence Recipe",
     "title": "Convertigo HTTP Business Sequence Recipe",
     "description": "Former URI: read convertigo://guides/http-sequence.",
@@ -537,6 +551,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-integration-http",
+    "aliasOf": "convertigo://guides/http",
     "name": "Convertigo HTTP Integration",
     "title": "Convertigo HTTP Integration",
     "description": "Former URI: read convertigo://guides/http.",
@@ -572,6 +587,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-recipe-sql-crud",
+    "aliasOf": "convertigo://guides/sql-recipe",
     "name": "Convertigo SQL CRUD Recipe",
     "title": "Convertigo SQL CRUD Recipe",
     "description": "Former URI: read convertigo://guides/sql-recipe.",
@@ -610,6 +626,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-fast-path-sql-hsqldb",
+    "aliasOf": "convertigo://guides/hsqldb",
     "name": "Convertigo Fast Path SQL HSQLDB",
     "title": "Convertigo Fast Path SQL HSQLDB",
     "description": "Former URI: read convertigo://guides/hsqldb.",
@@ -663,6 +680,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-fast-path-sql-postgresql",
+    "aliasOf": "convertigo://guides/postgresql",
     "name": "Convertigo Fast Path SQL PostgreSQL",
     "title": "Convertigo Fast Path SQL PostgreSQL",
     "description": "Former URI: read convertigo://guides/postgresql.",
@@ -720,6 +738,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-fast-path-sql-mariadb",
+    "aliasOf": "convertigo://guides/mariadb",
     "name": "Convertigo Fast Path SQL MariaDB",
     "title": "Convertigo Fast Path SQL MariaDB",
     "description": "Former URI: read convertigo://guides/mariadb.",
@@ -777,6 +796,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-crud-practical-cases",
+    "aliasOf": "convertigo://guides/crud-cases",
     "name": "Convertigo CRUD Practical Cases",
     "title": "Convertigo CRUD Practical Cases",
     "description": "Former URI: read convertigo://guides/crud-cases.",
@@ -820,6 +840,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-integration-sql",
+    "aliasOf": "convertigo://guides/sql",
     "name": "Convertigo SQL Integration",
     "title": "Convertigo SQL Integration",
     "description": "Former URI: read convertigo://guides/sql.",
@@ -857,6 +878,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-authentication",
+    "aliasOf": "convertigo://guides/auth",
     "name": "Convertigo Authentication",
     "title": "Convertigo Authentication",
     "description": "Former URI: read convertigo://guides/auth.",
@@ -898,6 +920,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-recipe-ngx-data-page",
+    "aliasOf": "convertigo://guides/data-page",
     "name": "Convertigo NGX Data Page Recipe",
     "title": "Convertigo NGX Data Page Recipe",
     "description": "Former URI: read convertigo://guides/data-page.",
@@ -937,6 +960,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-frontend-ngx",
+    "aliasOf": "convertigo://guides/ngx",
     "name": "Convertigo Frontend NGX",
     "title": "Convertigo Frontend NGX",
     "description": "Former URI: read convertigo://guides/ngx.",
@@ -979,6 +1003,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-validation-and-evidence",
+    "aliasOf": "convertigo://guides/proof",
     "name": "Convertigo Validation and Evidence",
     "title": "Convertigo Validation and Evidence",
     "description": "Former URI: read convertigo://guides/proof.",
@@ -1023,6 +1048,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-context-api",
+    "aliasOf": "convertigo://guides/context",
     "name": "Convertigo Context API (minimal)",
     "title": "Convertigo Context (JS API guardrails)",
     "description": "Former URI: read convertigo://guides/context.",
@@ -1105,6 +1131,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-recipe-multipage-app",
+    "aliasOf": "convertigo://guides/multipage",
     "name": "Convertigo Recipe Multipage App",
     "title": "Convertigo Recipe: Multi-page App with Roles",
     "description": "Former URI: read convertigo://guides/multipage.",
@@ -1150,6 +1177,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-yaml-editing",
+    "aliasOf": "convertigo://guides/yaml-editing",
     "name": "Convertigo YAML Editing",
     "title": "Convertigo YAML Editing",
     "description": "Former URI: read convertigo://guides/yaml-editing.",
@@ -1179,6 +1207,7 @@
   },
   {
     "uri": "convertigo://resources/convertigo-ngx-html-roundtrip",
+    "aliasOf": "convertigo://guides/html-roundtrip",
     "name": "Convertigo NGX HTML Round-Trip",
     "title": "Convertigo NGX HTML Round-Trip",
     "description": "Former URI: read convertigo://guides/html-roundtrip.",

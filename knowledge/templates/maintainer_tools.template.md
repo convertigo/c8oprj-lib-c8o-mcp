@@ -23,7 +23,7 @@ This file is a short generated companion for maintainers and reviewers.
 2. `prompts/list`
 3. `convertigo://capabilities`
 4. `convertigo://recipes/quickstart`
-5. `convertigo://resources/convertigo-start`
+5. `convertigo://guides/start`
 6. then only the fast path or exploratory path
 
 For a new CRUD UI project, the current public rail is:

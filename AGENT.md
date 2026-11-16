@@ -25,7 +25,7 @@ This file is for maintainers working on the MCP itself, not for end users of the
 - The recommended public path is mono-agent MCP for standard SQL CRUD + starter NGX UI work.
 - The current recommended prompt/resource pair is:
   - `convertigo-crud-fastpath`
-  - `convertigo://resources/convertigo-crud-fastpath`
+  - `convertigo://guides/crud`
 - Planner, critic, maintainer, benchmark, and feedback-triage flows remain available, but they are internal lab surfaces during the mono-agent recovery cycle.
 
 Do not trust this file over the live server. Verify with:

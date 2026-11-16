@@ -197,6 +197,10 @@ C8O.editProfile = (function () {
 
   // The resources of a profile (resources_index.json "profile"): listed only in their profile, read by uri in any.
   api.listsResource = function (entry, profile) {
+    // a former guide URI (aliasOf) stays readable but is never listed: resources/list shows the summary it became
+    if (entry && entry.aliasOf) {
+      return false;
+    }
     profile = profile === undefined ? api.current() : profile;
     var owner = entry && entry.profile ? trimmed(entry.profile).toLowerCase() : "";
     return !owner.length || owner === profile;

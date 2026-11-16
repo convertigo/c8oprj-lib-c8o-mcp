@@ -244,6 +244,10 @@ C8O.maintainerDocs = C8O.maintainerDocs || {};
     var sorted = sortByName(resources, "uri");
     for (var i = 0; i < sorted.length; i++) {
       var item = sorted[i] || {};
+      // a drawer (convertigo://guides/<guide>/<drawer>) is read from its summary, which lists it: one row per guide
+      if (/^convertigo:\/\/guides\/[^\/]+\/./.test(trim(item.uri))) {
+        continue;
+      }
       rows.push([
         code(trim(item.uri)),
         mdEscape(item.title || item.name),

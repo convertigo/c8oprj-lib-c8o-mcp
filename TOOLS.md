@@ -7,7 +7,7 @@
 
 - Server version: `0.2.21`
 - Tools: `41`
-- Resources: `31`
+- Resources: `219`
 - Prompts: `10`
 
 Use the live MCP catalog as truth:
@@ -24,7 +24,7 @@ This file is a short generated companion for maintainers and reviewers.
 2. `prompts/list`
 3. `convertigo://capabilities`
 4. `convertigo://recipes/quickstart`
-5. `convertigo://resources/convertigo-start`
+5. `convertigo://guides/start`
 6. then only the fast path or exploratory path
 
 For a new CRUD UI project, the current public rail is:
@@ -107,35 +107,37 @@ For a new CRUD UI project, the current public rail is:
 | URI | Title | Description | Guidance |
 |---|---|---|---|
 | `convertigo://capabilities` | Convertigo MCP capabilities | Core MCP capabilities and recommended authoring flow. |  |
+| `convertigo://guides/auth` | Convertigo Authentication | Login, logout, sign-up and password reset with OAuth 2.0, OpenID Connect, FranceConnect, or email + password through lib_OAuth, lib_FranceConnect, and lib_UserManager, plus the session and exposure rules that protect sequences. Summary with its drawers. | summary |
+| `convertigo://guides/backend` | Convertigo Backend Sequences | Sequence and business sequence design, JSON shaping, SmartTypes, and safe runtime validation. Summary with its drawers. | summary |
+| `convertigo://guides/brief` | Convertigo Bootstrap Decision Matrix | Bootstrap-first questioning and brief-building guide for mono-agent and multi-agent Convertigo sessions. Summary with its drawers. | summary |
+| `convertigo://guides/common` | Convertigo common guidance | Essential rules and task-specific drawers. | summary |
+| `convertigo://guides/context` | Convertigo Context API (minimal) | Reference guide for safe Rhino context usage and forbidden patterns. Summary with its drawers. | summary |
+| `convertigo://guides/contract` | Convertigo Contract-First Delivery | Planner workflow for business sequence contracts, stubs, parallel specialist work, and safe stub replacement. Summary with its drawers. | summary |
+| `convertigo://guides/crud` | Convertigo CRUD Fast Path | Recommended mono-agent path for deterministic SQL CRUD plus starter NGX UI work. Summary with its drawers. | summary |
+| `convertigo://guides/crud-cases` | Convertigo CRUD Practical Cases | Copyable direct MCP flows for proving deterministic CRUD on fresh starter NGX projects. Summary with its drawers. | summary |
+| `convertigo://guides/crud-edit` | Convertigo CRUD Edit Fast Path | Fast extension rail for an existing deterministic CRUD project that is already green. Summary with its drawers. | summary |
+| `convertigo://guides/data-page` | Convertigo NGX Data Page Recipe | Golden path for building a data-backed NGX page with loading, empty, error, and retry states. Summary with its drawers. | summary |
+| `convertigo://guides/hsqldb` | Convertigo Fast Path SQL HSQLDB | Literal first-pass template for an embedded HSQLDB connector with init/list/count proof. Summary with its drawers. | summary |
+| `convertigo://guides/http` | Convertigo HTTP Integration | HTTP connector and transaction setup, schema recording, transport diagnostics, and business sequence handoff. Summary with its drawers. | summary |
+| `convertigo://guides/http-app` | Convertigo Vibe HTTP NGX Fast Path | Compact headless path for fresh NGX apps backed by HTTP web-service records. Summary with its drawers. | summary |
+| `convertigo://guides/http-sequence` | Convertigo HTTP Business Sequence Recipe | Golden path for building an HTTP connector and wiring it behind a stable business sequence contract. Summary with its drawers. | summary |
+| `convertigo://guides/mariadb` | Convertigo Fast Path SQL MariaDB | Literal first-pass template for a MariaDB Docker connector with init/list/count proof. Summary with its drawers. | summary |
+| `convertigo://guides/multipage` | Convertigo Recipe Multipage App | Architecture and order of work for a specification-driven NGX business app: SQL transactions, shared JS rules, uniform business sequences with server-side role checks, session, role-based navigation, protected pages, cost rules for large builds, and session-aware validation. Summary with its drawers. | summary |
+| `convertigo://guides/ngx` | Convertigo Frontend NGX | Palette-first NGX delivery with contract-based bindings, batching, scoped template expressions, and resilient UI states. Summary with its drawers. | summary |
+| `convertigo://guides/platform` | Convertigo Platform Big Picture | Platform overview, mindset, subsystems, and the reasons behind business-sequence-first Convertigo design. Summary with its drawers. | summary |
+| `convertigo://guides/postgresql` | Convertigo Fast Path SQL PostgreSQL | Literal first-pass template for a PostgreSQL connector with init/list/count proof. Summary with its drawers. | summary |
+| `convertigo://guides/proof` | Convertigo Validation and Evidence | Closure checklist for runtime proofs, save/reload discipline, and concise evidence. Summary with its drawers. | summary |
+| `convertigo://guides/review` | Convertigo Project Review Guide | Static review route for Convertigo backend/frontend audits, client syntheses, and V1/V2 progress comparisons. Summary with its drawers. | summary |
+| `convertigo://guides/sequence` | Convertigo Business Sequence Stub Recipe | Golden path for locking a business sequence contract and producing a minimal executable stub fast. Summary with its drawers. | summary |
+| `convertigo://guides/sql` | Convertigo SQL Integration | SQL connector and transaction practices behind a stable business sequence contract. Summary with its drawers. | summary |
+| `convertigo://guides/sql-recipe` | Convertigo SQL CRUD Recipe | Golden path for creating a SQL CRUD scaffold behind a stable business sequence contract. Summary with its drawers. | summary |
+| `convertigo://guides/start` | Convertigo Start Guide | Canonical entry guide for tree-first Convertigo MCP work. Summary with its drawers. | summary |
+| `convertigo://guides/starter` | Convertigo Starter Extension Recipe | Golden path for importing a starter project and extending it without rediscovering project structure. Summary with its drawers. | summary |
+| `convertigo://guides/vibe` | Convertigo Vibe Start | Mistral Vibe adapter guide for isolated Convertigo MCP work. Summary with its drawers. | summary |
+| `convertigo://guides/workflow` | Convertigo Engineering Workflow | Team practices for reviewable changes, validation discipline, evidence, and controlled RAG usage. Summary with its drawers. | summary |
 | `convertigo://recipes/quickstart` | Convertigo MCP quickstart recipes | Minimal MCP-first recipes for fast project delivery. |  |
-| `convertigo://resources/convertigo-authentication` | Convertigo Authentication | Login, logout, sign-up and password reset with OAuth 2.0, OpenID Connect, FranceConnect, or email + password through lib_OAuth, lib_FranceConnect, and lib_UserManager, plus the session and exposure rules that protect sequences. | domain |
-| `convertigo://resources/convertigo-backend-sequences` | Convertigo Backend Sequences | Sequence and business sequence design, JSON shaping, SmartTypes, and safe runtime validation. | domain |
-| `convertigo://resources/convertigo-bootstrap-decision-matrix` | Convertigo Bootstrap Decision Matrix | Bootstrap-first questioning and brief-building guide for mono-agent and multi-agent Convertigo sessions. | workflow |
-| `convertigo://resources/convertigo-context-api` | Convertigo Context (JS API guardrails) | Reference guide for safe Rhino context usage and forbidden patterns. | reference |
-| `convertigo://resources/convertigo-contract-first-delivery` | Convertigo Contract-First Delivery | Planner workflow for business sequence contracts, stubs, parallel specialist work, and safe stub replacement. | workflow |
-| `convertigo://resources/convertigo-crud-edit-fastpath` | Convertigo CRUD Edit Fast Path | Fast extension rail for an existing deterministic CRUD project that is already green. | workflow |
-| `convertigo://resources/convertigo-crud-fastpath` | Convertigo CRUD Fast Path | Recommended mono-agent path for deterministic SQL CRUD plus starter NGX UI work. | workflow |
-| `convertigo://resources/convertigo-crud-practical-cases` | Convertigo CRUD Practical Cases | Copyable direct MCP flows for proving deterministic CRUD on fresh starter NGX projects. | workflow |
-| `convertigo://resources/convertigo-engineering-workflow` | Convertigo Engineering Workflow | Team practices for reviewable changes, validation discipline, evidence, and controlled RAG usage. | workflow |
-| `convertigo://resources/convertigo-fast-path-sql-hsqldb` | Convertigo Fast Path SQL HSQLDB | Literal first-pass template for an embedded HSQLDB connector with init/list/count proof. | workflow |
-| `convertigo://resources/convertigo-fast-path-sql-mariadb` | Convertigo Fast Path SQL MariaDB | Literal first-pass template for a MariaDB Docker connector with init/list/count proof. | workflow |
-| `convertigo://resources/convertigo-fast-path-sql-postgresql` | Convertigo Fast Path SQL PostgreSQL | Literal first-pass template for a PostgreSQL connector with init/list/count proof. | workflow |
-| `convertigo://resources/convertigo-frontend-ngx` | Convertigo Frontend NGX | Palette-first NGX delivery with contract-based bindings, batching, scoped template expressions, and resilient UI states. | domain |
-| `convertigo://resources/convertigo-integration-http` | Convertigo HTTP Integration | HTTP connector and transaction setup, schema recording, transport diagnostics, and business sequence handoff. | domain |
-| `convertigo://resources/convertigo-integration-sql` | Convertigo SQL Integration | SQL connector and transaction practices behind a stable business sequence contract. | domain |
 | `convertigo://resources/convertigo-json-quickref` | Convertigo JSON Steps Quickref | Reference guide for JSON steps, iterators, ordering, and SmartType sourcing. | reference |
-| `convertigo://resources/convertigo-platform-big-picture` | Convertigo Platform Big Picture | Platform overview, mindset, subsystems, and the reasons behind business-sequence-first Convertigo design. | start |
-| `convertigo://resources/convertigo-project-review` | Convertigo Project Review Guide | Static review route for Convertigo backend/frontend audits, client syntheses, and V1/V2 progress comparisons. | workflow |
-| `convertigo://resources/convertigo-recipe-business-sequence-stub` | Convertigo Business sequence Stub Recipe | Golden path for locking a business sequence contract and producing a minimal executable stub fast. | workflow |
-| `convertigo://resources/convertigo-recipe-http-business-sequence` | Convertigo HTTP Business sequence Recipe | Golden path for building an HTTP connector and wiring it behind a stable business sequence contract. | workflow |
-| `convertigo://resources/convertigo-recipe-ngx-data-page` | Convertigo NGX Data Page Recipe | Golden path for building a data-backed NGX page with loading, empty, error, and retry states. | workflow |
-| `convertigo://resources/convertigo-recipe-sql-crud` | Convertigo SQL CRUD Recipe | Golden path for creating a SQL CRUD scaffold behind a stable business sequence contract. | workflow |
-| `convertigo://resources/convertigo-recipe-starter-extension` | Convertigo Starter Extension Recipe | Golden path for importing a starter project and extending it without rediscovering project structure. | workflow |
-| `convertigo://resources/convertigo-start` | Convertigo Start Guide | Canonical entry guide for tree-first Convertigo MCP work. | start |
 | `convertigo://resources/convertigo-task-routes` | Convertigo Task Routes | Provider-neutral routing table from task shapes to the smallest required Convertigo MCP resources. | routing |
-| `convertigo://resources/convertigo-validation-and-evidence` | Convertigo Validation and Evidence | Closure checklist for runtime proofs, save/reload discipline, and concise evidence. | validation |
-| `convertigo://resources/convertigo-vibe-http-ngx-fastpath` | Convertigo Vibe HTTP NGX Fast Path | Compact headless path for fresh NGX apps backed by HTTP web-service records. | workflow |
-| `convertigo://resources/convertigo-vibe-start` | Convertigo Vibe Start | Mistral Vibe adapter guide for isolated Convertigo MCP work. | start |
 
 ## Prompts
 
