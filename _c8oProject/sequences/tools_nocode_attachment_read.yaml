@@ -1,0 +1,48 @@
+accessibility: Private
+comment: |
+  Read a file the user attached in the Tigo panel
+  Reads a file the user attached to a Tigo message (Excel or OpenDocument spreadsheet, CSV, PDF, Word, PowerPoint or text file), for the user signed in to the No Code Studio and among their own attachments only. Pass the attachment's file name as the user's message lists it (name); without a name it lists the user's attachments, the newest first. A spreadsheet answers its sheets (name, rows, columns), then the header and the rows of one sheet (sheet: its name or number, the first visible one by default), 100 rows per call by default (limit, 500 at most) and nextOffset for the next ones. The values are those the file saved: a formula gives its last computed value, a date its ISO text, and no macro is ever run. A document answers its text, 10000 characters per call, and nextOffset. Images reach you with the message itself; .xls, .doc and .ppt files are refused (ask the user for .xlsx, .docx, .csv or .pdf), and so are files above 10 MB. Your sandbox cannot open the attachments folder: read an attached file with this tool, never with a shell or its path. Never writes.
+responseTimeout: 120
+↓Run [steps.SimpleStep-1794850000001]: 
+  expression: |
+    'include("js/reporting.js");
+    include("js/attachment_read.js");
+    try {
+      var agentsDirectory = C8O.tigoAgentsDirectory(String(Packages.com.twinsoft.convertigo.engine.Engine.USER_WORKSPACE_PATH), java.io.File);
+      result = C8O.attachmentRead.run({
+        name: typeof name === "undefined" ? null : name,
+        sheet: typeof sheet === "undefined" ? null : sheet,
+        offset: typeof offset === "undefined" ? null : offset,
+        limit: typeof limit === "undefined" ? null : limit
+      }, C8O.attachmentRead.javaHost({ owner: C8O.reporting.requestFeedbackUserKey(), agentsDirectory: String(agentsDirectory.getPath()) }));
+    } catch (e) {
+      result = { status: "error", error: { code: "unreadable", message: "The attachment could not be read." } };
+    }'
+↓result [steps.JsonToXmlStep-1794850000002]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓token [variables.RequestableVariable-1794850000003]: 
+  comment: 'No Code Studio bearer token. Leave empty in the integrated assistant: the MCP bearer authentication supplies it.'
+  description: 'No Code Studio bearer token. Leave empty in the integrated assistant: the MCP bearer authentication supplies it.'
+↓name [variables.RequestableVariable-1794850000004]: 
+  comment: 'File name of the attachment, as the user''s message lists it (liste.xlsx). Omit it to list the user''s attachments.'
+  description: 'File name of the attachment, as the user''s message lists it (liste.xlsx). Omit it to list the user''s attachments.'
+↓sheet [variables.RequestableVariable-1794850000005]: 
+  comment: 'Spreadsheet only: the sheet to read, by its name or its number from 1. The first visible sheet by default.'
+  description: 'Spreadsheet only: the sheet to read, by its name or its number from 1. The first visible sheet by default.'
+↓offset [variables.RequestableVariable-1794850000006]: 
+  comment: 'Rows of the sheet (after its header) or characters of the document to skip: the nextOffset of the previous answer. 0 by default.'
+  description: 'Rows of the sheet (after its header) or characters of the document to skip: the nextOffset of the previous answer. 0 by default.'
+↓limit [variables.RequestableVariable-1794850000007]: 
+  comment: 'Spreadsheet only: rows per answer, 100 by default, 500 at most. A long answer stops earlier and gives nextOffset.'
+  description: 'Spreadsheet only: rows per answer, 100 by default, 500 at most. A long answer stops earlier and gives nextOffset.'

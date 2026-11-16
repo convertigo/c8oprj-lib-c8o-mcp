@@ -23,7 +23,8 @@ const DRAWER_BUDGET = 12000;
 // The single-file skill of 0.3.0-beta.31 (2386606), 68,347 characters. The split moved its text unchanged.
 // A later change of the skill text changes this fingerprint on purpose: update it in the same commit, after checking
 // that the drawers still put back in place give the whole text, each part once.
-const SKILL_TEXT_SHA256 = 'c4d47fb927422b457880d6535e0a4ee61c02dd9052c83fb49dfda1768b5b69a0';
+// Then one line on the attachments, read with nocode-attachment-read.
+const SKILL_TEXT_SHA256 = '28f83eedea5cbaf26c131c2cf1f955e7c33f9b632804042d90a76b1b67646585';
 
 test('SKILL.md names each drawer once, and each drawer file of its folder is named', () => {
   const named = pointers.map(p => p.file);

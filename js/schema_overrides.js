@@ -944,6 +944,64 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  // nocode-attachment-read and attachment-read (js/attachment_read.js): an attachment chosen by its file name, never a path.
+  function attachmentReadInputSchema(nocode) {
+    var properties = {
+      name: {
+        type: "string",
+        description: "File name of the attachment, as the user's message lists it (\"liste.xlsx\"). Omit it to list the user's attachments, the newest first."
+      },
+      sheet: {
+        type: "string",
+        description: "Spreadsheet only: the sheet to read, by its name or its number from 1 (sheets in the answer lists them). The first visible sheet by default."
+      },
+      offset: {
+        type: "integer",
+        minimum: 0,
+        description: "nextOffset of the previous answer: rows of the sheet after its header, or characters of a document. 0 by default."
+      },
+      limit: {
+        type: "integer",
+        minimum: 1,
+        maximum: 500,
+        default: 100,
+        description: "Spreadsheet only: rows per answer, 100 by default, 500 at most. A long answer stops earlier and gives nextOffset."
+      }
+    };
+    if (nocode) {
+      properties.token = nocodeFormsTokenProperty();
+    }
+    return { type: "object", properties: properties, additionalProperties: false };
+  }
+
+  function attachmentReadOutputSchema() {
+    return openObjectSchema({
+      status: { type: "string", description: "ok, or error with error {code, message}." },
+      attachment: openObjectSchema({
+        name: { type: "string" },
+        format: { type: "string", description: "xlsx, ods, csv, pdf, docx, odt, pptx or text." },
+        bytes: { type: "integer" },
+        modified: { type: "string" }
+      }),
+      sheets: { type: "array", description: "Spreadsheet: every sheet with its data rows and columns.", items: openObjectSchema({}) },
+      sheet: openObjectSchema({
+        name: { type: "string" },
+        header: { type: "array", items: {} },
+        rows: { type: "array", items: { type: "array", items: {} } },
+        totalRows: { type: "integer" },
+        nextOffset: { type: "integer" }
+      }),
+      document: openObjectSchema({
+        text: { type: "string" },
+        totalChars: { type: "integer" },
+        nextOffset: { type: "integer" }
+      }),
+      attachments: { type: "array", description: "Without a name: the user's attachments, the newest first.", items: openObjectSchema({}) },
+      total: { type: "integer" },
+      notes: { type: "array", items: { type: "string" } }
+    });
+  }
+
   function nocodeFormListInputSchema() {
     return {
       type: "object",
@@ -2933,6 +2991,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_nocode_form_list") {
       return nocodeFormListInputSchema();
     }
+    if (seq === "tools_nocode_attachment_read" || seq === "tools_attachment_read") {
+      return attachmentReadInputSchema(seq === "tools_nocode_attachment_read");
+    }
     if (seq === "tools_nocode_form_contract_get") {
       return nocodeFormContractGetInputSchema();
     }
@@ -3170,6 +3231,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_subagent_run") {
       return subagentRunOutputSchema();
+    }
+    if (seq === "tools_nocode_attachment_read" || seq === "tools_attachment_read") {
+      return attachmentReadOutputSchema();
     }
     if (seq === "tools_image_describe") {
       return imageDescribeOutputSchema();

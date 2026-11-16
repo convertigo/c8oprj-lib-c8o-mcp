@@ -466,6 +466,9 @@ var ARGUMENT_ALIASES = {
   tools_databaseobject_search: { query: "filter", q: "filter", text: "filter", search: "filter", project: "qname", target: "qname" },
   tools_nocode_baserow_rows_list: { tableId: "table", table_id: "table", table_id_int: "table", columns: "fields", where: "filter", order: "sort", orderBy: "sort", order_by: "sort", pageSize: "size", limit: "size" },
   tools_nocode_form_list: { query: "name", q: "name", search: "name", filter: "name", text: "name", size: "limit", pageSize: "limit", page_size: "limit", nextCursor: "cursor", pageToken: "cursor", page_token: "cursor", next: "cursor" },
+  // a path the agent saw keeps only its file name (js/attachment_read.js)
+  tools_nocode_attachment_read: { file: "name", fileName: "name", filename: "name", file_name: "name", attachment: "name", attachmentName: "name", path: "name", sheetName: "sheet", sheet_name: "sheet", tab: "sheet", nextOffset: "offset", next_offset: "offset", start: "offset", cursor: "offset", rows: "limit", size: "limit", pageSize: "limit", page_size: "limit", maxRows: "limit" },
+  tools_attachment_read: { file: "name", fileName: "name", filename: "name", file_name: "name", attachment: "name", attachmentName: "name", path: "name", sheetName: "sheet", sheet_name: "sheet", tab: "sheet", nextOffset: "offset", next_offset: "offset", start: "offset", cursor: "offset", rows: "limit", size: "limit", pageSize: "limit", page_size: "limit", maxRows: "limit" },
   // Its answer gives nextCursor and says to browse with cursor, which the sequence reads as _nextCursor: an agent that
   // passed cursor got the first page again.
   tools_marketplace_list: { cursor: "_nextCursor", nextCursor: "_nextCursor", query: "search", q: "search" }

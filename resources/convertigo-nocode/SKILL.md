@@ -52,6 +52,7 @@ Allowed Convertigo MCP tools:
 - `nocode-app-create`
 - `nocode-form-get`
 - `nocode-form-list`
+- `nocode-attachment-read`
 - `nocode-form-contract-get`
 - `nocode-baserow-catalog-list`
 - `nocode-baserow-rows-list`
@@ -66,6 +67,8 @@ Allowed Convertigo MCP tools:
 - `nocode-report-create`, only when it is listed (see Feedback to Convertigo)
 
 > Drawer `forms-list.md` — Finding the user's forms: read it when a form is named without its id, or the user asks which or how many forms they have.
+
+A file the user attached to the message (a spreadsheet, CSV, PDF, Word or text file) is read with `nocode-attachment-read` `{name}`: its sheets and rows, or its text, a page at a time with `offset`. Images come with the message itself. Never open an attachment by its path: the attachments folder is outside your sandbox.
 
 ## Publishing
 

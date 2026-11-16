@@ -92,7 +92,7 @@ test('only the writes are held: reads, plans and an unconfirmed publication neve
     assert.equal(api.holds(sequence, {}), true, sequence);
   }
   for (const sequence of ['tools_nocode_form_get', 'tools_nocode_form_list', 'tools_nocode_form_contract_get', 'tools_nocode_form_compile', 'tools_nocode_form_validate',
-    'tools_nocode_form_preview_capture', 'tools_nocode_baserow_catalog_list', 'tools_nocode_baserow_rows_list', 'tools_nocode_report_create', 'tools_project_list']) {
+    'tools_nocode_form_preview_capture', 'tools_nocode_attachment_read', 'tools_nocode_baserow_catalog_list', 'tools_nocode_baserow_rows_list', 'tools_nocode_report_create', 'tools_project_list']) {
     assert.equal(api.holds(sequence, {}), false, sequence);
   }
   assert.equal(api.holds('tools_nocode_baserow_schema_apply', { mode: 'plan' }), false);

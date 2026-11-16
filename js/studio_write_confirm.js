@@ -74,6 +74,8 @@ C8O.studioWriteConfirm = C8O.studioWriteConfirm || {};
   // The tools that change nothing in a project or in the Studio. requestable-execute and crud-proof may change an
   // application's data, as running the application does: the user tests with them, they are not project changes.
   api.READ_TOOLS = {
+    // reads a file the user attached in the Tigo panel
+    tools_attachment_read: true,
     tools_browser_verify: true,
     tools_crud_proof: true,
     tools_crud_status: true,
@@ -86,6 +88,7 @@ C8O.studioWriteConfirm = C8O.studioWriteConfirm || {};
     tools_marketplace_list: true,
     // builds and shows the application: generated files only
     tools_mobile_builder_open: true,
+    tools_nocode_attachment_read: true,
     tools_nocode_baserow_catalog_list: true,
     tools_nocode_baserow_rows_list: true,
     tools_nocode_form_compile: true,
