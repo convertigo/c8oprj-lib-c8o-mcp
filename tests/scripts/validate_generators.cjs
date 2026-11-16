@@ -2264,12 +2264,13 @@ test('table columns: numbers right-aligned with their header, dates in the app l
   const world = makeWorld();
   const G = load(world);
   G.ngxPageCreate({ project: 'App', name: 'Deals', kind: 'list', sequence: 'poste_list', locale: 'en-GB', currency: 'GBP', list: { item: 'd', title: 'name', titleLabel: 'Deal', grid: false,
-    columns: [{ label: 'Amount', field: 'amount' }, { label: 'Close', field: 'expected_close' }, { label: 'Owner', field: 'owner' }] } });
+    columns: [{ label: 'Amount', field: 'amount' }, { label: 'Close', field: 'expected_close' }, { label: 'Owner', field: 'owner' }, { label: 'Next', field: 'expectedClose' }] } });
   const nodes = nodesOf(world, 'Deals');
   assert.equal(classOf(nodes.CAmount), 'app-cell app-cell-num');
   assert.equal(classOf(nodes.HAmount), 'app-cell app-cell-num');
   assert.equal(classOf(nodes.COwner), 'app-cell');
   assert.match(JSON.stringify(nodes.CExpectedClose), /local\?\.fmtDate \? local\.fmtDate\(d\?\.expected_close, 'date'\) : \(d\?\.expected_close \?\? ''\)/);
+  assert.match(JSON.stringify(nodes.CExpectedClose2), /local\.fmtDate\(d\?\.expectedClose, 'date'\)/, 'a camelCase date name too');
   const page = JSON.stringify(world.ops.filter(op => op.type === 'create' && op.name === 'Deals')[0]);
   assert.match(page, /"Property":\{"mode":"PLAIN","value":"fmtDate"\}/);
   assert.match(page, /toLocaleDateString\('en-GB', \{year: 'numeric', month: 'short', day: 'numeric'/);

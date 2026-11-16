@@ -57,7 +57,9 @@ include("js/sequence_response.js");
     // A sign-in or sign-out page shows no menu beside it: nothing in the menu opens before the sign-in.
     [".app-page-bare", "ion-split-pane:has(.ion-page:not(.ion-page-hidden) ion-content.app-page-bare) > ion-menu { display: none; }"],
     // Who is signed in, on the right of the top bar: the name and the role; the icon alone on a phone.
-    [".app-user-chip", ".app-user-chip { --background: transparent; --color: var(--app-toolbar-color, inherit); margin: 0 var(--app-space-1, 4px); font-weight: 500; cursor: default; }\n" +
+    // background and color too: a template theme that paints ion-chip white left a white name on a white chip.
+    [".app-user-chip", ".app-user-chip { --background: transparent; --color: var(--app-toolbar-color, inherit); background: transparent; color: var(--app-toolbar-color, inherit); " +
+      "margin: 0 var(--app-space-1, 4px); font-weight: 500; cursor: default; }\n" +
       ".app-user-chip ion-icon { color: var(--app-toolbar-color, inherit); font-size: 24px; }\n" +
       "@media (max-width: 575px) { .app-user-chip ion-label, .app-user-chip .app-user-role { display: none; } }"],
     [".app-user-role", ".app-user-role { margin-inline-start: var(--app-space-2, 8px); padding: 2px 8px; border-radius: 999px; font-size: var(--app-font-size-xs, 12px); " +
@@ -433,7 +435,8 @@ include("js/sequence_response.js");
       return "";
     }
     var last = path.split(".").pop();
-    return DATE_WORDS.test(last) || DATE_CAMEL.test(last) ? "date" : "";
+    // expectedClose reads as expected_close, as the amounts do (G.numberFormatOf).
+    return DATE_WORDS.test(last) || DATE_WORDS.test(last.replace(/([a-z0-9])([A-Z])/g, "$1_$2")) || DATE_CAMEL.test(last) ? "date" : "";
   }
 
   // The TypeScript function that shows an ISO date in the app's language (a page local, and the AG Grid's formatter). A
