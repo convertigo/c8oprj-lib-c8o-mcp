@@ -67,7 +67,7 @@ If some fields are missing, ask only for the missing CRUD spec items.
 9. If proof fails, stop and report the exact missing proof items.
 10. For a new project UI pass, run `ngx-theme-apply` once when the user gave a brand, then one `ngx-page-create` per page on the generated business sequences: the `Login` entry page first with `root:true`, `locale` and `currency`; then each list, detail and form page with `home` and `authRedirect:"Login"`; then a `logout` page on `auth_logout`. Delete the starter page `Page` once the entry page is root.
 11. For an existing green project UI pass, run `ngx-page-create` only for the new pages; a page to change: delete it and create it again, or patch it with `databaseobject-tree-apply`.
-12. Run `mobile-builder-open(stateOnly=true, wait=true)`, then `project-lint`, then `browser-verify` with the live `viewerHomeUrl` from `mobile-builder-open`, the user paths and the expected texts.
+12. Run `mobile-builder-open(stateOnly=true, wait=true)`, then `project-lint`, then `browser-verify` with the live `viewerHomeUrl` from `mobile-builder-open`, the user paths and the expected texts, then its finishing pass (`design: true` on the main pages, fix `design.toFix`, one re-check).
 13. Save with `project-save` when the target project was mutated and save proof is still needed.
 14. If the final proof is green and the request was low-detail, stop there.
 15. Do not call planner, critic, or maintainer prompts from this flow.

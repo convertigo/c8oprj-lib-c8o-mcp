@@ -7,6 +7,7 @@ Use palette-modeled NGX objects, not a UICustom page body. Backend calls belong 
 - `convertigo://guides/ngx/palette` — Palette structure and source-object rules.
 - `convertigo://guides/ngx/components` — Palette component names and visual design.
 - `convertigo://guides/ngx/design` — Deliberate layouts and visual review.
+- `convertigo://guides/ngx/design-finish` — Visual finishing pass of the pages.
 - `convertigo://guides/ngx/presentation` — Cards, labels and readable page structure.
 - `convertigo://guides/ngx/page-structure` — Viewer proof, pages and action paths.
 - `convertigo://guides/ngx/events` — Action execution order and business errors.

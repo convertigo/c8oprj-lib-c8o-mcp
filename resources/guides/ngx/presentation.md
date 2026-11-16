@@ -1,7 +1,7 @@
 # Cards, labels and readable page structure
 
 Read when: Cards, labels and readable page structure. Summary: `convertigo://guides/ngx`.
-Previous: `convertigo://guides/ngx/design`. Next: `convertigo://guides/ngx/page-structure`.
+Previous: `convertigo://guides/ngx/design-finish`. Next: `convertigo://guides/ngx/page-structure`.
 
 ---
 

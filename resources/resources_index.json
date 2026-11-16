@@ -2971,6 +2971,16 @@
     "parentUri": "convertigo://guides/ngx"
   },
   {
+    "uri": "convertigo://guides/ngx/design-finish",
+    "name": "Convertigo Frontend NGX — Visual finishing pass of the pages",
+    "description": "Open for Visual finishing pass of the pages.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/design-finish.md",
+    "guideId": "convertigo/frontend-ngx/design-finish",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
     "uri": "convertigo://guides/ngx/presentation",
     "name": "Convertigo Frontend NGX — Cards, labels and readable page structure",
     "description": "Open for Cards, labels and readable page structure.",
@@ -3133,6 +3143,7 @@
       "convertigo://guides/ngx/palette",
       "convertigo://guides/ngx/components",
       "convertigo://guides/ngx/design",
+      "convertigo://guides/ngx/design-finish",
       "convertigo://guides/ngx/presentation",
       "convertigo://guides/ngx/page-structure",
       "convertigo://guides/ngx/events",

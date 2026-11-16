@@ -2283,10 +2283,47 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     });
   }
 
+  // The finishing pass of browser-verify (design:true): per page, the six points of the checklist and what was measured.
+  function designReviewSchema(shot) {
+    var check = closedObjectSchema({
+      id: { type: "string", enum: ["spacing", "hierarchy", "states", "contrast", "consistency", "phone"] },
+      status: { type: "string", enum: ["passed", "failed", "not_checked"] },
+      severity: { type: "string", description: "major, minor, or empty when passed." },
+      finding: { type: "string" },
+      fix: { type: "string", description: "The change that fixes a failed point." }
+    });
+    return closedObjectSchema({
+      round: { type: "number", description: "The finishing round of this project: 1, then 2 (the re-check of the failed pages)." },
+      roundsLeft: { type: "number", description: "Automatic rounds left for this project." },
+      checklist: { type: "array", items: closedObjectSchema({ id: { type: "string" }, text: { type: "string" } }) },
+      toFix: {
+        type: "array",
+        description: "Every failed point, major first: fix them, then review those pages once more.",
+        items: closedObjectSchema({ page: { type: "string" }, id: { type: "string" }, severity: { type: "string" }, finding: { type: "string" }, fix: { type: "string" } })
+      },
+      pages: {
+        type: "array",
+        items: closedObjectSchema({
+          name: { type: "string" },
+          url: { type: "string" },
+          title: { type: "string" },
+          summary: { type: "string" },
+          checks: { type: "array", items: check },
+          measured: { type: "array", items: closedObjectSchema({ check: { type: "string" }, issue: { type: "string" }, where: { type: "string" } }) },
+          screenshots: closedObjectSchema({ desktop: shot, phone: shot })
+        })
+      },
+      skipped: stringArraySchema(),
+      errors: stringArraySchema(),
+      consoleErrors: stringArraySchema()
+    });
+  }
+
   function browserVerifyOutputSchema() {
     var shot = { type: "string", description: "Screenshot file, relative to the Studio user workspace (readable by image-describe)." };
     return closedObjectSchema({
-      status: { type: "string", enum: ["finished", "running"], description: "running: call browser-verify again with verificationId alone to get the report." },
+      status: { type: "string", enum: ["finished", "running", "skipped"], description: "running: call browser-verify again with verificationId alone to get the report. skipped: a design review that was not run (turned off, or its rounds used up): reason says why." },
+      reason: { type: "string", description: "With status skipped: why the design review did not run." },
       verificationId: { type: "string" },
       signedInAs: { type: "string", description: "The account the browser was signed in as before the walk (signInAs)." },
       elapsedMs: { type: "number", description: "With status running: time since the verification started." },
@@ -2343,6 +2380,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         type: "array",
         items: closedObjectSchema({ name: { type: "string" }, path: shot, url: { type: "string" } })
       },
+      design: designReviewSchema(shot),
       reportFile: { type: "string", description: "Full report with the step trace, relative to the Studio user workspace." },
       finalUrl: { type: "string" },
       stopReason: { type: "string", description: "finished, or the budget that ended the run." },
@@ -2524,12 +2562,15 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         list: open("List page: {items:\"items\" (path in the data of the answer of sequence, out.data: \"items\", not \"data.items\"; the answer gives each binding in bindings), item:\"row\", title:\"orderNumber\", subtitle, note, badge:{field, labels:{CODE:\"Label\"}, colors:{CODE:\"success\"} (without colors, each code takes the color its label says: success for done or valid, danger for late or refused, warning for waiting, medium for inactive; the result gives badgeColors)}, columns:[{label, field, labels?, prefix?, suffix?}] (a table on a wide screen: a header row and aligned cells, label and value lines on a phone; titleLabel, the header of the title column, is required unless a column repeats the title field; a column of the title or subtitle field is left out, a column of the note field replaces the note, a column of the badge field or of its label field shows the badge; a note or badge without column goes in the title cell unless noteLabel or badgeLabel gives it a column; a native table shows at most 7 columns besides the title column), empty (text when there is no row, English default \"No record.\"), emptyIcon (ionicons name shown above it), onItem:{page, kind:\"push\", data:{id:\"id\"}}, select:{field:\"id\", actions:[{label, page, kind, data:{ids:\"selection\"}} | {label, sequence, vars:{ids:\"selection\"}, page}]} (a checkbox per row; \"selection\" is the comma-separated list of the checked keys; the buttons stay disabled until a row is checked), grid:true | {pageSize:20, csv:true, xlsx:true, locale:\"fr\"} | false (the AG Grid of the marketplace library lib_ExtendedComponents_ui_ngx, a standard Convertigo component: sorting, filtering and paging on every column, CSV or XLSX export button, row click and select kept; imported and referenced in the app when missing. A table of 5 cells or more once the repeated columns are left out (title, columns, note, badge) gets it unless grid:false; in a grid the subtitle, the note and the badge are columns headed by subtitleLabel, noteLabel and badgeLabel)}. A field is a path in the row or {field, labels, prefix, suffix, format}: format number (up to 2 decimals), integer, amount (2 decimals), percent or currency:EUR shows a number with the grouping and decimals of the app's language (locale; an amount in a currency without useless decimals; a field named as money, such as amount, price, cost, revenue or montant, gets the app's currency (currency) when no format is given, and number when the app has none or a prefix or suffix gives the unit; a total or a value gets number; a value that is not a number is shown as it is)."),
         detail: open("Detail page: {record:\"order\" (path in out.data, optional), fields:[{label, field, labels?}]} rendered as a label/value list."),
         form: open("Form page: {submit:\"order_submit\", fields:[{name (the submit variable), label, type: text|email|password|number|tel|url|date|time|textarea|select|toggle, required, helper, value (TypeScript initial value, computed at page enter: new Date()..., c8oPage.navParams... are fine), from (path in the page business sequence data, e.g. \"livre.titre\": an edit form shows the record the page loaded; value cannot, it is computed before the data arrives), disabled (true, or a TypeScript condition computed at page enter like value, e.g. \"!!c8oPage.navParams?.data?.ids\": the field is read-only and still submitted; never write c8oPage in a control property yourself, the template has no c8oPage), options:[{value,label}] | optionsFrom:{items:\"items\" (path in the data of the answer of the page sequence, which must return that list: the result says where, and the page shows empty, English default \"No option to choose from.\", when it is missing), item, value:\"id\", label:\"orderNumber\", empty}, multiple (sent comma-separated), maxLength, rows}], vars:{variable:\"TypeScript\"} (variables not in the form), success:{message (English default \"Saved.\"), page, kind:\"root\"|\"push\"|\"pop\", data}, cancel:{page, kind} | false, submitLabel (default \"Save\"), cancelLabel (default \"Cancel\")}. Give every text in the app's language: the defaults are English and the result warns when one was used. Submit: UIForm onSubmit > CallSequenceAction with Form SmartSources > toast and navigation, or the first error message."),
-        dashboard: open("Dashboard page: {kpis:[{label, field:\"counters.activeOrders\", icon:\"cart-outline\" (ionicons name; default after the accent, \"none\" for none), color:\"primary\"|\"secondary\"|\"tertiary\"|\"success\"|\"warning\"|\"danger\"|\"medium\" (accent of the card; default from the words of the label: danger for late, success for done, else primary), format (default number: 1458500 shows 1,458,500 with locale en, and the app's currency for a field named as money; amount, integer, percent, currency:USD shows $1,458,500)}], sections:[{heading, items:\"late\", item, title, subtitle, note, badge, columns, empty} | {heading, record:\"lastRun\", fields:[{label, field}]}]}."),
+        dashboard: open("Dashboard page: {kpis:[{label, field:\"counters.activeOrders\", icon:\"cart-outline\" (ionicons name; default after the accent, \"none\" for none), color:\"primary\"|\"secondary\"|\"tertiary\"|\"success\"|\"warning\"|\"danger\"|\"medium\" (accent of the card; default from the words of the label: danger for late, success for done, else primary), format (default number: 1458500 shows 1,458,500 with locale en, and the app's currency for a field named as money; amount, integer, percent, currency:USD shows $1,458,500), hint (a line of context under the figure: a text, or {field, format?, prefix?, suffix?} read in the data, e.g. {field:\"counters.openCount\", suffix:\" open deals\"})}], sections:[{heading, items:\"late\", item, title, subtitle, note, badge, columns, empty} | {heading, record:\"lastRun\", fields:[{label, field}]} | {heading, chart:\"bars\", items:\"byStage\", item, label (or badge:{field, labels} shown as its pill), value:\"amount\" (the number each bar measures, as long as its share of the largest), note:{field:\"count\", suffix:\" deals\"}, color} ]. Each section is a card; cards sit two by two on a wide screen, a table section (columns, grid) or one given wide:true takes the whole width}."),
         logout: open("Logout page (kind logout, a way out from every page of an app that signs users in): {page:\"Login\" (the login page opened as root once the session is ended; authRedirect when left out), message (text shown while signing out, in the app's language, English default \"Signing out...\")}. sequence is the business sequence that ends the session (business-sequence-create with session:{logout:true}); the page calls it at page enter with noAutoLogin (else the SDK replays the last login at once), shows a refused logout in a toast, and opens the login page in any case. The page is in the menu with the icon log-out, and stays its last entry: a menu page created later goes before it."),
-        actions: openArray("Buttons under the content: [{label, page, kind:\"push\"|\"root\"|\"pop\", data:{key:\"TypeScript\"} (navParams of the next page), sequence (called first, e.g. auth_loginDemo), vars:{variable:\"TypeScript\"} (variables of that sequence), fill, color}]. With a sequence the navigation happens only when it answers success, else its first error is shown. A page with only a heading and buttons (login, home) is kind detail without sequence nor detail."),
+        actions: openArray("The page's buttons, in its header on the right of the title (actionsAt header, the default) or under the content (actionsAt bottom, the default of a form or logout page, and of sign-in buttons); the first is the main one (filled), the others outlined unless fill is given: [{label, page, kind:\"push\"|\"root\"|\"pop\", data:{key:\"TypeScript\"} (navParams of the next page), sequence (called first, e.g. auth_loginDemo), vars:{variable:\"TypeScript\"} (variables of that sequence), fill, color}]. With a sequence the navigation happens only when it answers success, else its first error is shown. A page with only a heading and buttons (login, home) is kind detail without sequence nor detail."),
         authRedirect: { type: "string", description: "Entry page opened with RootPageAction when the business sequence answers a lost-session code or Authentication required." },
         authCodes: { type: "array", items: { type: "string" }, description: "Codes treated as a lost session; default UNAUTHENTICATED, the business-sequence-create default; give the same code as business-sequence-create's errors.unauthenticated when it was changed." },
         heading: { type: "string", description: "Heading2 under the toolbar; default title, \"\" for none." },
+        subtitle: { description: "Line under the page title: a text, {field, format?, prefix?, suffix?} (a value of the page data, e.g. {field:\"summary.total\", prefix:\"Total \"}) or {count:true, prefix?, suffix?} (the number of rows of the page's list: {count:true, suffix:\" deals\"} shows 20 deals). Shown once the data has arrived.",
+          oneOf: [{ type: "string" }, { type: "object", additionalProperties: true }] },
+        actionsAt: { type: "string", enum: ["header", "bottom"], description: "Where actions go: header (on the right of the title; default for list, detail and dashboard pages) or bottom (under the content; default for form and logout pages and for sign-in buttons)." },
         locale: { type: "string", description: "Language of the app's numbers, such as en, fr or en-US: give it with the first page (en-US shows $791,500, fr-FR 791 500 $US). Kept in AppLayout for the next pages; without it the numbers are English and the answer says so." },
         currency: { type: "string", description: "Currency of the app's amounts, an ISO 4217 code such as USD or EUR: a field named as money (amount, price, cost, revenue, budget...) without format shows in it ($37,500). Kept in AppLayout for the next pages; not given, it is the one currency the formats of the spec use (currency:USD on the KPIs), and without any the amounts are plain numbers and the answer says so." },
         home: { type: "string", description: "Home page name. The header gets a home button that opens it, and its back button opens it when there is no page to go back to. The header always has the menu button (shown when the app has a menu) and the back button (shown when there is a page to go back to)." },
@@ -2538,7 +2579,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         root: { type: "boolean", description: "true: this page is the entry page of the app (isRoot), the one it opens on, in place of the current one (the starter page Page at first). An app with no root page gets the new page as root; the result gives rootPage." },
         segment: { type: "string", description: "Route segment; default the page name in lower case, words joined by a dash (LivreModification: livre-modification)." },
         icon: { type: "string", description: "Menu icon: the base ionicons name (people, calendar, cart); the menu adds -outline or -sharp. Default: list, grid, create, document-text or log-out after the kind." },
-        theme: open("Theme tokens written to the app-level UIStyle AppTheme with this page, as ngx-theme-apply takes them: {preset:\"institutional\"|\"modern\"|\"dense\", primary:\"#hex\" (the brand color), secondary, tertiary, background, surface, text, radius, density:\"comfortable\"|\"compact\", toolbar:\"primary\"|\"surface\"|\"dark\", mode:\"light\"|\"auto\"|\"dark\", font, appName}. Without it, an app whose styles still have the starter's colors gets the default preset; an app with a primary color of its own keeps its look.")
+        theme: open("Theme tokens written to the app-level UIStyle AppTheme with this page, as ngx-theme-apply takes them: {preset:\"clean\"|\"fresh\"|\"warm\"|\"institutional\"|\"modern\"|\"dense\", primary:\"#hex\" (the brand color), secondary, tertiary, background, surface, text, radius, density:\"comfortable\"|\"compact\", toolbar:\"primary\"|\"surface\"|\"dark\", mode:\"light\"|\"auto\"|\"dark\", font, appName}. Without it, an app whose styles still have the starter's colors gets the default preset; an app with a primary color of its own keeps its look.")
       },
       required: ["project", "name", "kind"],
       additionalProperties: false
@@ -2921,7 +2962,12 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           timeBudgetSec: { type: "integer", minimum: 30, maximum: 540, default: 150, description: "Default 150, or 40 per path when that is more. The sub-agent reports what it has when it runs out." },
           cdpEndpoint: { type: "string", description: "Only when the agent host sends no viewer debug port: the loopback CDP endpoint of the Studio browser (browserDebugUrl of mobile-builder-open). In the Electron Studio the sub-agent always drives its agent browser." },
           waitSec: { type: "integer", minimum: 5, maximum: 280, default: 45, description: "Seconds this call waits for the report; keep the default. A call answers within 45 s of its start whatever this asks (agent hosts stop a tool call at 60 s): a verification still running answers status running with its verificationId." },
-          verificationId: { type: "string", description: "To collect a running verification: the verificationId of a status running answer, alone (no paths). The call waits again, at most 45 s: call it again until status finished, never poll the run folder or sleep." }
+          verificationId: { type: "string", description: "To collect a running verification: the verificationId of a status running answer, alone (no paths). The call waits again, at most 45 s: call it again until status finished, never poll the run folder or sleep." },
+          design: { type: "boolean", description: "The visual finishing pass instead of a walk: each page of pages is opened by its address at 1280 and 390 px, measured (contrast, overflow, raw values, empty states, alignment, consistency across pages) and judged by the vision model on a six-point checklist (spacing, hierarchy, states, contrast, consistency, phone). Answers design.toFix: the points to fix with their fix. Run it once the pages work; fix, then run it once more on the pages that failed. Two rounds per project at most." },
+          pages: { description: "With design: the pages to review, their addresses relative to url (viewerHomeUrl), e.g. [\"dashboard\", \"deals\", \"deal-form\"] or [{name, path}]. 6 pages by default, 8 at most: the ones users see most.",
+            oneOf: [{ type: "array", items: { oneOf: [{ type: "string" }, { type: "object", properties: { name: { type: "string" }, path: { type: "string" } }, required: ["path"] }] } }, { type: "string" }] },
+          maxPages: { type: "integer", minimum: 1, maximum: 8, default: 6, description: "With design: the pages reviewed at most." },
+          userAsked: { type: "boolean", description: "With design: true only when the user asked for one more finishing pass after the two automatic rounds." }
         },
         additionalProperties: false
       };
@@ -2937,7 +2983,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         type: "object",
         properties: {
           project: { type: "string", description: "Application project (exact technical name)." },
-          preset: { type: "string", enum: ["institutional", "modern", "dense"], default: "institutional", description: "Starting point of the tokens. institutional: deep blue-grey primary, colored toolbar, small radius. modern: violet primary, white toolbar, rounded cards, soft shadows. dense: teal primary, dark toolbar, compact spacing and type for data screens. The other arguments override it." },
+          preset: { type: "string", enum: ["clean", "fresh", "warm", "institutional", "modern", "dense"], default: "clean", description: "Starting point of the tokens. clean (default): indigo primary on white cards over a light grey page, white toolbar, medium radius. fresh: teal-green, white toolbar, rounded (field, health, education). warm: terracotta, white toolbar, rounded (retail, hospitality, events). institutional: deep blue-grey primary, colored toolbar, small radius. modern: violet primary, white toolbar, rounded cards, soft shadows. dense: teal primary, dark toolbar, compact spacing and type for data screens. The other arguments override it." },
           primary: hexColor("The brand color (the user's or the organization's), e.g. #e30613: primary of the app and color of a primary toolbar. A color too light for texts on the surface is darkened for texts and buttons; the toolbar keeps it."),
           secondary: hexColor("Secondary color."),
           tertiary: hexColor("Tertiary color, an accent."),
@@ -2948,8 +2994,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           density: { type: "string", enum: ["comfortable", "compact"], description: "Spacing and type scale; compact for screens full of data." },
           toolbar: { type: "string", enum: ["primary", "surface", "dark"], description: "Page toolbars: the brand color, white with a border, or dark." },
           mode: { type: "string", enum: ["light", "auto", "dark"], default: "light", description: "light: the app stays light in a dark browser (business apps). auto: it follows the browser. dark: dark unless the user switches. The dark palette is always written and readable." },
-          font: { type: "string", description: "CSS font-family list. Default: the starter's IBM Plex Sans, then system fonts." },
-          appName: { type: "string", description: "Name shown in the menu header instead of the starter's Navigation." }
+          font: { type: "string", description: "CSS font-family list. Default: Inter when installed, then the system's UI font (San Francisco, Segoe UI, Roboto)." },
+          appName: { type: "string", description: "Name shown in the menu header instead of the starter's Navigation." },
+          sideMenu: { type: "string", enum: ["md", "lg", "xl", "never"], description: "From which screen width the menu stays open beside the pages (lg, 992 px, by default while the app has no split pane of its own); never keeps it behind the menu button. Sign-in and logout pages show no menu beside them." }
         },
         required: ["project"],
         additionalProperties: false

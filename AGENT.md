@@ -67,7 +67,7 @@ For standard SQL CRUD + starter NGX UI work on a new UI project, the recommended
 6. one `ngx-page-create` per page (the entry page with `root:true`)
 7. `mobile-builder-open(stateOnly=true, wait=true)`
 8. `project-lint`
-9. `browser-verify`
+9. `browser-verify`, then its finishing pass (`design: true`) on the main pages
 10. `project-save`
 
 Do not present planner/specialist routing, benchmark flows, or manual YAML editing as the default path for that scope.

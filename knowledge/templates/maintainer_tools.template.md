@@ -36,7 +36,7 @@ For a new CRUD UI project, the current public rail is:
 6. one `ngx-page-create` per page (the entry page with `root:true`)
 7. `mobile-builder-open(stateOnly=true, wait=true)`
 8. `project-lint`
-9. `browser-verify`
+9. `browser-verify`, then its finishing pass (`design: true`) on the main pages
 10. `project-save`
 
 ## Tools

@@ -28,7 +28,7 @@
         "when": "Mutations, CRUD page generators and backend contracts",
         "sha256": "d03a6c2c2c296252cd6e6b492cef65e63f5685b7360b1f253faac24fc6a4ae50",
         "bodyOffset": 281,
-        "servedSha256": "3d133a5fadf3bec1808e13d99557273bd29451139d0f117e0fb8d76d74bf9de0"
+        "servedSha256": "f8f8578bd4cf53224ce53731556a93412797d6e8c61b70a29f0371ebfba3545e"
       },
       {
         "uri": "convertigo://guides/start/mandatory-workflow-3",
@@ -1359,17 +1359,24 @@
         "file": "guides/ngx/design.md",
         "when": "Deliberate layouts and visual review",
         "sha256": "c2c086f2bd01cdd631064e941c89cd2690f31fe16f5747ac624d34264cad2b3b",
-        "bodyOffset": 225,
-        "servedSha256": "62ef0b914e0f70bc5c6ff21d3cb397538ab362f19d3f1ada398e477345bbec95",
+        "bodyOffset": 226,
+        "servedSha256": "efefd8b46f1f4a511adae2748e05f31ee5342f7626ed6d88dda033a1ff8e67b5",
         "trailingSourceNewlines": 1
+      },
+      {
+        "uri": "convertigo://guides/ngx/design-finish",
+        "file": "guides/ngx/design-finish.md",
+        "when": "Visual finishing pass of the pages",
+        "bodyOffset": 217,
+        "servedSha256": "118937d354d40c8acc1db3800485075b28f0eb2be5d54a7fafd8611184c038da"
       },
       {
         "uri": "convertigo://guides/ngx/presentation",
         "file": "guides/ngx/presentation.md",
         "when": "Cards, labels and readable page structure",
         "sha256": "bc47e31b85aac5497060f35ccfdb19aebb97238328363d643523653c079a7dbe",
-        "bodyOffset": 233,
-        "servedSha256": "215eff50443b78d7b6c916cbfec910d4cf205cde70015480c3fe9fd79a0f3382"
+        "bodyOffset": 240,
+        "servedSha256": "c091faaf87070f254732e50f06543d2cdae2223d0d353ebe4778c468d9c14c09"
       },
       {
         "uri": "convertigo://guides/ngx/page-structure",
@@ -1377,7 +1384,7 @@
         "when": "Viewer proof, pages and action paths",
         "sha256": "b9b24f443af2ecbe7adb6a532a5a60da4b9d2f112c00d3a778905d1f7da7f36f",
         "bodyOffset": 221,
-        "servedSha256": "d9ad91d1ebee75efae2579953b95e47c6140b021f5be5794c1c179a4111d4433",
+        "servedSha256": "e1a8b98a76b584e759beffce5e856e306b2048f11814b594b5a3817582ecc7fb",
         "trailingSourceNewlines": 1
       },
       {
@@ -1491,7 +1498,7 @@
         "servedSha256": "72df05db2b0bb856ce099158c903cd4682c7f2d036447ce205744ce327bd1838"
       }
     ],
-    "summarySha256": "2aa4611146007e40d6fd1b95b7401ed0abfb7bd41f24f2299cc0278e20c67b25"
+    "summarySha256": "89dad6b727277faab83207df3160e18acc295808f1dd010984a67ea608bab4e8"
   },
   {
     "oldUri": "convertigo://resources/convertigo-validation-and-evidence",
@@ -1575,7 +1582,7 @@
         "when": "Generators for the standard objects",
         "sha256": "1c55a4fd2821534db9176a9fdf8997f5bb8e39ee746be9c4a946371a30a7c799",
         "bodyOffset": 264,
-        "servedSha256": "db5669d13e06a841c796b120ca742cc69f29c663b34bf8f52b65892590f5e6e2",
+        "servedSha256": "cf92022b6b7e76627a9800097bb7358a1100ea65f48528deae1d0ea4650a02d2",
         "trailingSourceNewlines": 1
       },
       {
@@ -1751,7 +1758,7 @@
         "when": "New and existing CRUD routing",
         "sha256": "3e6b9269133750207894d4546312caa23fe88d5aad074095685e96fd308108e1",
         "bodyOffset": 211,
-        "servedSha256": "3af8c33d1414400b4d301f6e7d4d9212d9340a3f027430bd9ec0d6615ae6a1db",
+        "servedSha256": "64f8501a791a6ba8270d44cf331394441ad6ad893492d0a1430b2f100272194f",
         "trailingSourceNewlines": 1
       },
       {
