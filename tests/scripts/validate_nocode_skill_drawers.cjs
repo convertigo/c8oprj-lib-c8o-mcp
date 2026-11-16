@@ -24,7 +24,8 @@ const DRAWER_BUDGET = 12000;
 // A later change of the skill text changes this fingerprint on purpose: update it in the same commit, after checking
 // that the drawers still put back in place give the whole text, each part once.
 // Then one line on the attachments, read with nocode-attachment-read.
-const SKILL_TEXT_SHA256 = '28f83eedea5cbaf26c131c2cf1f955e7c33f9b632804042d90a76b1b67646585';
+// Then the Long answers section (partialAnswer, answer-page, remaining).
+const SKILL_TEXT_SHA256 = '1e68f050175ceff5dc52ebe2d7e9f5f90bf0006e9aeb43b876bc4e9eeb93a270';
 
 test('SKILL.md names each drawer once, and each drawer file of its folder is named', () => {
   const named = pointers.map(p => p.file);

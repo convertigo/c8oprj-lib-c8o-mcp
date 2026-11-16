@@ -14,6 +14,8 @@ Inspect with `databaseobject-tree-get`, mutate with `databaseobject-tree-apply`,
 
 A file the user attached in the Tigo panel (a spreadsheet, CSV, PDF, Word or text file) is read with `attachment-read` `{name}`: its sheets and rows, or its text, a page at a time with `offset`.
 
+A tool answer stays under 14,000 characters. From a script, return the answer itself or the part the task needs, never only its keys. An answer with `partialAnswer` is its first page: read pages 2 to `pages` with `answer-page` `{answerId, page}` and join their `text` in order before `JSON.parse`; an answer listing `remaining` sections or a next page says what to ask in the next call.
+
 ## Existing project: notes and brief first
 
 A change to an existing project starts from its notes (`_private/docs/PROGRESS.md`, never served, or `docs/generated/PROGRESS.md` until `project-notes-write` moves them; given at the start of the turn as `Project notes kept by Tigo`) and `project-brief({project})`, then `project-brief({project, page})` for each page you change: patch from the QNames it shows instead of searching or reading whole pages; keep `databaseobject-search`, `databaseobject-tree-get` and `palette-*` for what the brief does not answer. Where frequent changes go (shared and page styles, colours, KPI cards, list columns, links in rows, texts): `convertigo://guides/common/existing-project`.

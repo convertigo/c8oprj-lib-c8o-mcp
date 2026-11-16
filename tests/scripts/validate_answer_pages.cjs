@@ -362,6 +362,22 @@ test('requestable-execute keeps a large payload whole for the pages, and a previ
   assert.match(source, /var logsRoom = Math\.max\(2000, 12000 - resultChars\);/);
 });
 
+test('the guides say to return the answer itself and to read the next page or section', () => {
+  const common = read('resources/convertigo_common_skill.md');
+  assert.match(common, /From a script, return the answer itself or the part the task needs, never only its keys\./);
+  assert.match(common, /`partialAnswer` is its first page: read pages 2 to `pages` with `answer-page` `\{answerId, page\}` and join their `text` in order before `JSON\.parse`/);
+  assert.match(common, /`remaining` sections or a next page says what to ask in the next call/);
+  const summary = read('resources/convertigo-nocode/SKILL.md');
+  assert.ok(summary.length < 15000, 'SKILL.md ' + summary.length);
+  assert.match(summary, /\n- `answer-page`, for the next pages of a long answer \(see Long answers\)\n/);
+  assert.match(summary, /## Long answers\n\nA tool answer stays under 14,000 characters\. From a script \(`run_typescript`\), return the answer itself or the part the task needs, never only its keys\./);
+  assert.match(summary, /An answer listing `remaining` \(contract sections\) or a `next` page says what to ask in the next call\./);
+  assert.match(skillText(), /names the others in `remaining`: ask them in the next call/);
+  const setup = read('js/setup_common.js');
+  assert.match(setup, /never only its keys[^"]*`Convertigo_answer-page` `\{answerId, page\}`/);
+  assert.match(read('js/tool_description_notes.js'), /answer-page gives the next/);
+});
+
 // Vibe 3.1 dropped the whole Convertigo connector of a No Code session for one tool whose output schema had "items": {}
 // (MCP 0.3.0-beta.33). untyped lists the sub-schemas that say no type nor alternatives; empty, those that say nothing.
 function subSchemas(schema, where, found) {

@@ -65,10 +65,15 @@ Allowed Convertigo MCP tools:
 - `nocode-form-publish`
 - `nocode-form-preview-capture`
 - `nocode-report-create`, only when it is listed (see Feedback to Convertigo)
+- `answer-page`, for the next pages of a long answer (see Long answers)
 
 > Drawer `forms-list.md` — Finding the user's forms: read it when a form is named without its id, or the user asks which or how many forms they have.
 
 A file the user attached to the message (a spreadsheet, CSV, PDF, Word or text file) is read with `nocode-attachment-read` `{name}`: its sheets and rows, or its text, a page at a time with `offset`. Images come with the message itself. Never open an attachment by its path: the attachments folder is outside your sandbox.
+
+## Long answers
+
+A tool answer stays under 14,000 characters. From a script (`run_typescript`), return the answer itself or the part the task needs, never only its keys. An answer with `partialAnswer` is its first page: read pages 2 to `pages` with `answer-page` `{answerId, page}` and join their `text` in order before `JSON.parse`. An answer listing `remaining` (contract sections) or a `next` page says what to ask in the next call.
 
 ## Publishing
 
