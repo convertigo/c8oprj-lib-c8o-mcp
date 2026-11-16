@@ -199,7 +199,10 @@ include("js/tools_generators.js");
     var light = { background: t.background, surface: t.surface, text: t.text };
     light.surface2 = mix(t.surface, primary, 0.04);
     light.border = mix(t.surface, t.text, 0.13);
-    light.muted = withContrast(mix(t.text, t.surface, 0.4), t.surface, 4.5, t.text);
+    // Muted texts sit on the cards and on the page background (a subtitle read 4.19:1 on the grey page, 16/11): checked on
+    // the darker of the two.
+    var mutedGround = luminance(t.background) < luminance(t.surface) ? t.background : t.surface;
+    light.muted = withContrast(mix(t.text, t.surface, 0.4), mutedGround, 4.5, t.text);
     light.colors = { primary: primary, secondary: withContrast(t.secondary, t.surface, 3, "#000000"), tertiary: withContrast(t.tertiary, t.surface, 3, "#000000"),
       success: STATUS.success, warning: STATUS.warning, danger: STATUS.danger, medium: STATUS.medium,
       light: mix(t.background, t.text, 0.04), dark: mix(t.text, "#000000", 0.1) };
@@ -221,7 +224,7 @@ include("js/tools_generators.js");
     dark.text = "#e7eaf0";
     dark.surface2 = mix(dark.surface, t.primary, 0.1);
     dark.border = mix(dark.surface, dark.text, 0.15);
-    dark.muted = withContrast(mix(dark.text, dark.surface, 0.38), dark.surface, 4.5, "#ffffff");
+    dark.muted = withContrast(mix(dark.text, dark.surface, 0.38), luminance(dark.background) > luminance(dark.surface) ? dark.background : dark.surface, 4.5, "#ffffff");
     dark.ink = dark.background;
     dark.colors = {};
     ["primary", "secondary", "tertiary", "success", "warning", "danger", "medium"].forEach(function (k) {

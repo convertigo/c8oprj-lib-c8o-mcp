@@ -50,10 +50,9 @@ include("js/sequence_response.js");
     [".app-subtitle", ".app-subtitle { margin: var(--app-space-1, 4px) 0 0; font-size: var(--app-font-size-base, 16px); color: " + MUTED + "; }"],
     [".app-header-actions", ".app-header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--app-space-2, 8px); margin-inline-start: auto; }\n" +
       ".app-header-actions ion-button { margin: 0; }"],
-    // With the side menu open beside the page (ngx-theme-apply sideMenu), the page's own header names it: the toolbar title
-    // would say it twice.
+    // The page's own header names it: the toolbar title would say it twice, on a phone too (the finishing pass, 16/11).
     // > ion-header: ion-app is an .ion-page too, and the menu's own title must stay.
-    ["@media (min-width: 992px) { .ion-page:has(.app-page-header)", "@media (min-width: 992px) { .ion-page:has(.app-page-header) > ion-header ion-toolbar ion-title { visibility: hidden; } }"],
+    [".ion-page:has(.app-page-header)", ".ion-page:has(.app-page-header) > ion-header ion-toolbar ion-title { visibility: hidden; }"],
     // A sign-in or sign-out page shows no menu beside it: nothing in the menu opens before the sign-in.
     [".app-page-bare", "ion-split-pane:has(.ion-page:not(.ion-page-hidden) ion-content.app-page-bare) > ion-menu { display: none; }"],
     // Who is signed in, on the right of the top bar: the name and the role; the icon alone on a phone.
@@ -145,7 +144,7 @@ include("js/sequence_response.js");
       "background: rgba(var(--ion-color-danger-rgb, 192,57,43), 0.08); border: 1px solid rgba(var(--ion-color-danger-rgb, 192,57,43), 0.25); border-radius: var(--app-radius, 8px); }"],
     [".app-badge", ".app-badge { margin-inline: var(--app-space-2, 8px); padding: 4px 10px; border-radius: 999px; font-size: var(--app-font-size-xs, 12px); font-weight: 600; letter-spacing: 0.01em; }"],
     // A colored badge is a soft pill: its color at 14 % behind a darker (light theme) or lighter (dark theme) text.
-    ["ion-badge.app-badge.ion-color", "ion-badge.app-badge.ion-color { background: rgba(var(--ion-color-base-rgb), 0.14); color: color-mix(in srgb, var(--ion-color-base) 70%, #000); }\n" +
+    ["ion-badge.app-badge.ion-color", "ion-badge.app-badge.ion-color { background: rgba(var(--ion-color-base-rgb), 0.14); color: color-mix(in srgb, var(--ion-color-base) 58%, #000); }\n" +
       ":root.force-dark ion-badge.app-badge.ion-color { color: color-mix(in srgb, var(--ion-color-base) 75%, #fff); }\n" +
       "@media (prefers-color-scheme: dark) { :root:not(.force-light) ion-badge.app-badge.ion-color { color: color-mix(in srgb, var(--ion-color-base) 75%, #fff); } }"],
     // Table layout of a list with columns: a header row and aligned cells on a wide screen, label and value lines on a phone.
@@ -1651,7 +1650,8 @@ include("js/sequence_response.js");
         // lighter in dark mode).
         var renderer = "cellRenderer: (p: any) => { const c = " + mapOf(colors) + "[p.value] || 'medium'; const s = document.createElement('span'); " +
           "s.className = 'app-grid-badge'; s.style.background = 'rgba(var(--ion-color-' + c + '-rgb), 0.14)'; " +
-          "s.style.color = 'color-mix(in srgb, var(--ion-color-' + c + ') 72%, var(--ion-text-color, #000))'; " +
+          // 55 %: an amber "In progress" pill read 3.25:1 with 72 % (16/11).
+          "s.style.color = 'color-mix(in srgb, var(--ion-color-' + c + ') 55%, var(--ion-text-color, #000))'; " +
           "s.textContent = p.valueFormatted ?? p.value ?? ''; return p.value == null || p.value === '' ? '' : s; }";
         return column(header, badge, [renderer]);
       };
