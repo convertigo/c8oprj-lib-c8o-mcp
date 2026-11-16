@@ -1153,11 +1153,11 @@
     "uri": "convertigo://resources/convertigo-ngx-html-roundtrip",
     "name": "Convertigo NGX HTML Round-Trip",
     "title": "Convertigo NGX HTML Round-Trip",
-    "description": "The html edit profile of a Tigo conversation: edit the generated html, scss and ts of NGX pages and shared components, then import them with project-reload(fromIonic).",
+    "description": "The html edit profile of a Tigo conversation, on a Convertigo 8.5 engine with the Ionic round-trip import: edit the generated html, scss and ts of NGX pages and shared components, then import them with project-reload(fromIonic).",
     "mimeType": "text/markdown",
     "file": "convertigo_ngx_html_roundtrip.md",
     "guideId": "convertigo/ngx-html-roundtrip",
-    "revision": 1,
+    "revision": 2,
     "profile": "html",
     "scopeTags": [
       "workflow",

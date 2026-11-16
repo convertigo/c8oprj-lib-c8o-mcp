@@ -8,7 +8,9 @@
 //   check); batch-call, requestable-execute and subagent-run stay for what changes nothing.
 // - html: every tool stays; project-reload imports the edited generated files of the NGX pages (fromIonic,
 //   js/ionic_roundtrip.js), mobile-builder-open lists them, and a tree change of a page waits for its file edits to be
-//   imported (convertigo://resources/convertigo-ngx-html-roundtrip).
+//   imported (convertigo://resources/convertigo-ngx-html-roundtrip). Only on an engine of 8.5.0 or more whose
+//   NgxIonicRoundTripConverter has importIntoLoadedProject(String, String) (htmlAvailable): elsewhere (every 8.4 engine,
+//   an 8.4 Studio patched with an older round-trip, an 8.5 without it) html is the default, nothing of it shows.
 if (typeof C8O === "undefined") { var C8O = {}; }
 C8O.editProfile = (function () {
   var api = {};
@@ -56,8 +58,70 @@ C8O.editProfile = (function () {
     }
   }
 
-  // "yaml", "html" or "" (the default), from the header of the request being served.
-  api.current = function () {
+  api.MINIMUM_HTML_VERSION = "8.5.0";
+  api.ROUNDTRIP_CLASS = "com.twinsoft.convertigo.engine.util.NgxIonicRoundTripConverter";
+  api.ROUNDTRIP_METHOD = "importIntoLoadedProject";
+
+  function versionParts(value) {
+    var match = /^(\d+)(?:\.(\d+))?(?:\.(\d+))?/.exec(trimmed(value));
+    return match === null ? null : [Number(match[1] || 0), Number(match[2] || 0), Number(match[3] || 0)];
+  }
+
+  api.versionAtLeast = function (value, minimum) {
+    var actual = versionParts(value);
+    var required = versionParts(minimum);
+    if (actual === null || required === null) {
+      return false;
+    }
+    for (var i = 0; i < 3; i++) {
+      if (actual[i] !== required[i]) {
+        return actual[i] > required[i];
+      }
+    }
+    return true;
+  };
+
+  // The engine's version and whether its round-trip converter has the static importIntoLoadedProject(String, String),
+  // looked up by reflection: the class alone is not enough (Studio_8.4_roundtrip, an 8.4 Studio patched in September,
+  // has the class without that method). Overridable by the tests.
+  api.engineVersion = function () {
+    try {
+      return trimmed(Packages.com.twinsoft.convertigo.engine.Version.version);
+    } catch (_noVersion) {
+      return "";
+    }
+  };
+
+  api.roundTripMethod = function () {
+    try {
+      var loader = java.lang.Thread.currentThread().getContextClassLoader();
+      var type = loader != null ? loader.loadClass(api.ROUNDTRIP_CLASS) : java.lang.Class.forName(api.ROUNDTRIP_CLASS);
+      var methods = type.getMethods();
+      for (var i = 0; i < methods.length; i++) {
+        var method = methods[i];
+        var parameters = method.getParameterTypes();
+        if (String(method.getName()) === api.ROUNDTRIP_METHOD && parameters.length === 2
+            && String(parameters[0].getName()) === "java.lang.String" && String(parameters[1].getName()) === "java.lang.String"
+            && java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
+          return true;
+        }
+      }
+    } catch (_noRoundTrip) {}
+    return false;
+  };
+
+  // Whether this engine offers the html profile: 8.5.0 or more, and the method (looked up once per load of this file).
+  var htmlAvailableCache = null;
+  api.htmlAvailable = function () {
+    if (htmlAvailableCache === null) {
+      htmlAvailableCache = api.versionAtLeast(api.engineVersion(), api.MINIMUM_HTML_VERSION) && api.roundTripMethod() === true;
+    }
+    return htmlAvailableCache;
+  };
+
+  // The profile the header asks for, "yaml", "html" or "", whatever this engine offers (the stale-client fallback of
+  // project-reload reads it).
+  api.requested = function () {
     try {
       var request = typeof context !== "undefined" && context ? context.httpServletRequest : null;
       var value = request ? trimmed(request.getHeader(api.HEADER)).toLowerCase() : "";
@@ -65,6 +129,12 @@ C8O.editProfile = (function () {
     } catch (_noRequest) {
       return "";
     }
+  };
+
+  // The profile in force: "yaml", "html" where this engine offers it, or "" (the default).
+  api.current = function () {
+    var value = api.requested();
+    return value === "html" && !api.htmlAvailable() ? "" : value;
   };
 
   // Whether tools/list shows this tool sequence.

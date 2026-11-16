@@ -12,10 +12,21 @@ function requestWith(headers) {
   return { getHeader: name => (headers && headers[name] != null ? headers[name] : null) };
 }
 
-function loadPolicy(headers) {
+// The engine the policy sees: {version, method} (Version.version, and whether NgxIonicRoundTripConverter has
+// importIntoLoadedProject(String, String)); without it, no engine (html never available).
+const ENGINE_85 = { version: '8.5.0', method: true };
+function withEngine(policy, engine) {
+  if (engine) {
+    policy.engineVersion = () => engine.version;
+    policy.roundTripMethod = () => engine.method === true;
+  }
+  return policy;
+}
+
+function loadPolicy(headers, engine) {
   const sandbox = { context: { httpServletRequest: requestWith(headers) } };
   vm.runInNewContext(read('js/edit_profile.js'), sandbox);
-  return sandbox.C8O.editProfile;
+  return withEngine(sandbox.C8O.editProfile, engine);
 }
 
 const toolSequences = fs.readdirSync(path.join(root, '_c8oProject/sequences'))
@@ -64,7 +75,7 @@ test('without the header, or with any other value, the profile is the default an
 
 test('the header is read case-insensitively, trimmed, and only yaml and html are profiles', () => {
   assert.equal(loadPolicy({ 'X-Convertigo-Edit-Profile': ' YAML ' }).current(), 'yaml');
-  assert.equal(loadPolicy({ 'X-Convertigo-Edit-Profile': 'Html' }).current(), 'html');
+  assert.equal(loadPolicy({ 'X-Convertigo-Edit-Profile': 'Html' }, ENGINE_85).current(), 'html');
   assert.equal(loadPolicy({ 'X-Convertigo-Edit-Profile': 'files' }).current(), '');
   // a request-less context (a test, a scheduled job) is the default
   const sandbox = {};
@@ -167,7 +178,7 @@ test('the guides of a profile are listed in that profile only, and readable by u
   assert.equal(htmlGuide.profile, 'html');
   assert.ok(fs.existsSync(path.join(root, 'resources', yamlGuide.file)));
   assert.ok(fs.existsSync(path.join(root, 'resources', htmlGuide.file)));
-  const listed = profile => index.filter(entry => loadPolicy(profile ? { 'X-Convertigo-Edit-Profile': profile } : {}).listsResource(entry)).map(entry => entry.uri);
+  const listed = profile => index.filter(entry => loadPolicy(profile ? { 'X-Convertigo-Edit-Profile': profile } : {}, ENGINE_85).listsResource(entry)).map(entry => entry.uri);
   const byDefault = listed('');
   assert.equal(byDefault.length, index.length - 2);
   assert.ok(byDefault.indexOf(yamlGuide.uri) < 0 && byDefault.indexOf(htmlGuide.uri) < 0);
@@ -190,8 +201,10 @@ test('the served guides hold no stray tool-call markup', () => {
 
 // js/schema_overrides.js: project-reload takes fromIonic and ionicTarget, and mobile-builder-open answers ionicFiles,
 // in the html profile only; without it their schemas are the ones before the profile existed.
-function schemaOverrides(headers) {
+function schemaOverrides(headers, engine) {
   const sandbox = { context: { httpServletRequest: requestWith(headers) }, include: file => vm.runInNewContext(read(file), sandbox) };
+  vm.runInNewContext(read('js/edit_profile.js'), sandbox);
+  withEngine(sandbox.C8O.editProfile, engine);
   vm.runInNewContext(read('js/schema_overrides.js'), sandbox);
   return sandbox.C8O.schemaOverrides;
 }
@@ -209,7 +222,7 @@ test('project-reload declares and answers the ionic fields in the html profile o
     const open = overrides.decorateOutput('tools_mobile_builder_open', { type: 'object', properties: { status: { type: 'string' } } }, null, null);
     assert.equal(open.properties.ionicFiles, undefined);
   }
-  const html = schemaOverrides({ 'X-Convertigo-Edit-Profile': 'html' });
+  const html = schemaOverrides({ 'X-Convertigo-Edit-Profile': 'html' }, ENGINE_85);
   const input = html.decorateInput('tools_project_reload', derivedInput(), null);
   assert.equal(input.properties.fromIonic.type, 'boolean');
   assert.equal(input.properties.ionicTarget.type, 'string');
@@ -230,7 +243,8 @@ test('project-reload imports from the generated files in the html profile only, 
 });
 
 // js/ionic_roundtrip.js with a fake engine: a converter that has the entry point, or none.
-function roundTrip(converter, headers) {
+function roundTrip(converter, headers, engine) {
+  engine = engine === undefined && converter && converter.importIntoLoadedProject ? ENGINE_85 : engine;
   class FakeFile {
     constructor(parent, child) { this.p = child === undefined ? String(parent) : String(parent.p || parent) + '/' + child; }
     exists() { return true; }
@@ -251,6 +265,7 @@ function roundTrip(converter, headers) {
     }
   };
   vm.runInNewContext(read('js/edit_profile.js'), sandbox);
+  withEngine(sandbox.C8O.editProfile, engine);
   vm.runInNewContext(read('js/ionic_roundtrip.js'), sandbox);
   return sandbox.C8O.ionicRoundTrip;
 }
@@ -345,4 +360,72 @@ test('project-reload checks the lines in the yaml profile only, before reloading
   assert.match(reload, /C8O\.editProfile\.current\(\) === "yaml" && C8O\.yamlLineCheck\) \{\n\s+try \{\n\s+yamlLineErrors = C8O\.yamlLineCheck\.checkProject\(/);
   assert.match(reload, /status: "invalid_yaml"/);
   assert.match(read('resources/convertigo_yaml_editing.md'), /invalid_yaml/);
+});
+
+// html is offered by an engine of 8.5.0 or more whose NgxIonicRoundTripConverter has importIntoLoadedProject(String,
+// String) only: an 8.4 engine (Studio_8.4_roundtrip has the class without the method), or an 8.5 without the method,
+// sees with the html header what it sees without any header.
+test('html is the default on an 8.4 engine, or an 8.5 engine without the method', () => {
+  const html = { 'X-Convertigo-Edit-Profile': 'html' };
+  const index = JSON.parse(read('resources/resources_index.json'));
+  for (const engine of [{ version: '8.4.7', method: true }, { version: '8.4.5_hotfix', method: true }, { version: '8.5.0', method: false }, { version: '', method: true }, undefined]) {
+    const label = JSON.stringify(engine);
+    const policy = loadPolicy(html, engine);
+    assert.equal(policy.requested(), 'html', label);
+    assert.equal(policy.current(), '', label);
+    for (const sequence of toolSequences) {
+      assert.equal(policy.lists(sequence), true, label + sequence);
+      assert.equal(policy.refused(sequence, {}), '', label + sequence);
+    }
+    // the guides listed: the ones of no header
+    assert.deepEqual(index.filter((entry) => policy.listsResource(entry)).map((e) => e.uri), index.filter((entry) => loadPolicy({}).listsResource(entry)).map((e) => e.uri), label);
+    // the schemas: the ones of no header
+    const overrides = schemaOverrides(html, engine);
+    const plain = schemaOverrides({});
+    const input = () => ({ type: 'object', properties: { project: { type: 'string' }, fromIonic: { type: 'string' }, ionicTarget: { type: 'string' } } });
+    assert.deepEqual(JSON.parse(JSON.stringify(overrides.decorateInput('tools_project_reload', input(), null))), JSON.parse(JSON.stringify(plain.decorateInput('tools_project_reload', input(), null))), label);
+    const open = () => ({ type: 'object', properties: { status: { type: 'string' } } });
+    assert.deepEqual(JSON.parse(JSON.stringify(overrides.decorateOutput('tools_mobile_builder_open', open(), null, null))), JSON.parse(JSON.stringify(plain.decorateOutput('tools_mobile_builder_open', open(), null, null))), label);
+    // the round-trip itself: unsupported, the class there or not
+    const api = roundTrip({ importIntoLoadedProject: () => { throw new Error('must not be called'); } }, html, engine || null);
+    assert.equal(api.supported(), false, label);
+    assert.equal(api.importIntoLoadedProject('App', '', []).status, 'unsupported', label);
+    assert.equal(api.projectSummary('App').supported, false, label);
+  }
+  // 8.5 with the method, or later: html
+  for (const version of ['8.5.0', '8.5.1', '8.6.0', '9.0.0']) {
+    assert.equal(loadPolicy(html, { version, method: true }).current(), 'html', version);
+  }
+  // project-reload answers unsupported to a stale client asking fromIonic there, and reloads nothing
+  const reload = read('_c8oProject/sequences/tools_project_reload.yaml');
+  assert.match(reload, /var fromIonicUnsupported = !fromIonicFlag && !!C8O\.editProfile && C8O\.editProfile\.requested\(\) === "html"/);
+  assert.match(reload, /\} else if \(fromIonicUnsupported\) \{\n[^\n]+\n\s+reloadResult = \{ reloaded: false, status: "unsupported"/);
+});
+
+test('the method is looked up by reflection: name, two String parameters, static', () => {
+  const method = (name, parameters, isStatic) => ({ getName: () => name, getParameterTypes: () => parameters.map((p) => ({ getName: () => p })), getModifiers: () => (isStatic ? 8 : 0) });
+  const javaWith = (methods, missing) => ({
+    lang: {
+      Thread: { currentThread: () => ({ getContextClassLoader: () => ({ loadClass: (name) => {
+        assert.equal(name, 'com.twinsoft.convertigo.engine.util.NgxIonicRoundTripConverter');
+        if (missing) { throw new Error('ClassNotFoundException'); }
+        return { getMethods: () => methods };
+      } }) }) },
+      reflect: { Modifier: { isStatic: (modifiers) => (modifiers & 8) !== 0 } }
+    }
+  });
+  const policyWith = (java) => {
+    const sandbox = { java, context: { httpServletRequest: requestWith({ 'X-Convertigo-Edit-Profile': 'html' }) } };
+    vm.runInNewContext(read('js/edit_profile.js'), sandbox);
+    sandbox.C8O.editProfile.engineVersion = () => '8.5.0';
+    return sandbox.C8O.editProfile;
+  };
+  const right = method('importIntoLoadedProject', ['java.lang.String', 'java.lang.String'], true);
+  assert.equal(policyWith(javaWith([method('importFromIonic', ['java.io.File'], true), right])).roundTripMethod(), true);
+  assert.equal(policyWith(javaWith([method('importFromIonic', ['java.io.File'], true)])).roundTripMethod(), false, 'the September class: no such method');
+  assert.equal(policyWith(javaWith([method('importIntoLoadedProject', ['java.lang.String'], true)])).roundTripMethod(), false);
+  assert.equal(policyWith(javaWith([method('importIntoLoadedProject', ['java.lang.String', 'java.lang.String'], false)])).roundTripMethod(), false);
+  assert.equal(policyWith(javaWith([], true)).roundTripMethod(), false, 'no class');
+  assert.equal(policyWith(javaWith([right])).current(), 'html');
+  assert.equal(policyWith(javaWith([], true)).current(), '');
 });

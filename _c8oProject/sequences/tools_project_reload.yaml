@@ -16,6 +16,8 @@ comment: |
     /* fromIonic is the import of the html edit profile (js/edit_profile.js, js/ionic_roundtrip.js); without that profile it is ignored */
     var fromIonicFlag = !!C8O.editProfile && C8O.editProfile.current() === "html" && typeof fromIonic !== "undefined" && C8O.util.toBoolean(fromIonic, false) === true;
     var ionicTargetPath = typeof ionicTarget !== "undefined" ? C8O.util.toTrimmedString(ionicTarget) : "";
+    /* a stale client: the html profile asked on an engine that does not offer it (js/edit_profile.js htmlAvailable) */
+    var fromIonicUnsupported = !fromIonicFlag && !!C8O.editProfile && C8O.editProfile.requested() === "html" && typeof fromIonic !== "undefined" && C8O.util.toBoolean(fromIonic, false) === true;
     var currentProjectName = "";
     if (context && context.project) {
       currentProjectName = String(context.project.getName());
@@ -42,6 +44,9 @@ comment: |
         reloadResult = { reloaded: false, message: forbiddenMessage, status: "forbidden" };
       } else if (fromIonicFlag) {
         reloadResult = C8O.ionicRoundTrip.importIntoLoadedProject(providedName, ionicTargetPath, errorEntries);
+      } else if (fromIonicUnsupported) {
+        errorEntries.push({ name: "__ionic__", message: C8O.ionicRoundTrip.UNSUPPORTED_MESSAGE });
+        reloadResult = { reloaded: false, status: "unsupported", message: C8O.ionicRoundTrip.UNSUPPORTED_MESSAGE };
       } else if (yamlLineErrors.length) {
         /* the yaml edit profile: files the engine cannot read are named before the reload, the project stays loaded */
         for (var yamlErrorIndex = 0; yamlErrorIndex < yamlLineErrors.length; yamlErrorIndex++) {

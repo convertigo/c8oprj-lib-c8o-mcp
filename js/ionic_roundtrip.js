@@ -19,8 +19,8 @@ C8O.ionicRoundTrip = C8O.ionicRoundTrip || {};
   var SIDECAR_SUFFIX = ".c8o-map.json";
   var GUIDE = "convertigo://resources/convertigo-ngx-html-roundtrip";
   var MAX_LISTED_PAGES = 60;
-  var UNSUPPORTED_MESSAGE = "This engine has no Ionic round-trip import (com.twinsoft.convertigo.engine.util."
-    + "NgxIonicRoundTripConverter.importIntoLoadedProject): make the change with the tree tools, or use an engine that has it.";
+  var UNSUPPORTED_MESSAGE = "This engine has no Ionic round-trip import (a Convertigo 8.5 engine whose "
+    + "NgxIonicRoundTripConverter has importIntoLoadedProject): make the change with the tree tools.";
 
   C8O.ionicRoundTrip.GUIDE = GUIDE;
   C8O.ionicRoundTrip.UNSUPPORTED_MESSAGE = UNSUPPORTED_MESSAGE;
@@ -55,8 +55,12 @@ C8O.ionicRoundTrip = C8O.ionicRoundTrip || {};
 
   // The engine's round-trip converter when it can import into a loaded project, null otherwise (origin/develop and the
   // 8.4 engines have none: unsupported).
+  // Only where js/edit_profile.js offers the html profile: an engine of 8.5.0 or more with the method.
   C8O.ionicRoundTrip.converter = function () {
     try {
+      if (!C8O.editProfile || !C8O.editProfile.htmlAvailable()) {
+        return null;
+      }
       var Converter = Packages.com.twinsoft.convertigo.engine.util.NgxIonicRoundTripConverter;
       return typeof Converter.importIntoLoadedProject === "function" ? Converter : null;
     } catch (_noConverter) {

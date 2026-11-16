@@ -186,8 +186,10 @@ answers.
   router, by `batch-call` for its inner calls, by `requestable-execute` of those sequences or of the Tigo projects, and for
   a constructor `subagent-run`. The agent edits the YAML files and calls `project-reload`
   (`resources/convertigo_yaml_editing.md`).
-- `html`: `project-reload` takes `fromIonic`/`ionicTarget` and answers `ionicReport` (`js/ionic_roundtrip.js`, through the
-  engine's `NgxIonicRoundTripConverter.importIntoLoadedProject`, `unsupported` without it); `mobile-builder-open`
+- `html`, only on an engine of 8.5.0 or more whose `NgxIonicRoundTripConverter` has the static
+  `importIntoLoadedProject(String, String)` (`C8O.editProfile.htmlAvailable`, by reflection; elsewhere the html header is
+  the default, and only a stale client sending `fromIonic` gets `unsupported`): `project-reload` takes
+  `fromIonic`/`ionicTarget` and answers `ionicReport` (`js/ionic_roundtrip.js`); `mobile-builder-open`
   answers `ionicFiles`; tree-apply, delete, move and rename refuse a page whose generated files hold edits not imported
   (`resources/convertigo_ngx_html_roundtrip.md`). `js/schema_overrides.js` declares these fields in that profile only.
 - The two guides carry `"profile"` in `resources/resources_index.json`: `resources/list` shows them in their profile only,
