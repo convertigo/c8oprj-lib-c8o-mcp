@@ -2285,31 +2285,22 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
 
   // The finishing pass of browser-verify (design:true): per page, the six points of the checklist and what was measured.
   function designReviewSchema(shot) {
-    var check = closedObjectSchema({
-      id: { type: "string", enum: ["spacing", "hierarchy", "states", "contrast", "consistency", "phone"] },
-      status: { type: "string", enum: ["passed", "failed", "not_checked"] },
-      severity: { type: "string", description: "major, minor, or empty when passed." },
-      finding: { type: "string" },
-      fix: { type: "string", description: "The change that fixes a failed point." }
-    });
     return closedObjectSchema({
       round: { type: "number", description: "The finishing round of this project: 1, then 2 (the re-check of the failed pages)." },
       roundsLeft: { type: "number", description: "Automatic rounds left for this project." },
-      checklist: { type: "array", items: closedObjectSchema({ id: { type: "string" }, text: { type: "string" } }) },
       toFix: {
         type: "array",
-        description: "Every failed point, major first: fix them, then review those pages once more.",
+        description: "The failed points, major first (14 at most, texts cut at 200 characters): fix them, then review those pages once more.",
         items: closedObjectSchema({ page: { type: "string" }, id: { type: "string" }, severity: { type: "string" }, finding: { type: "string" }, fix: { type: "string" } })
       },
+      moreInReport: { type: "number", description: "Failed points left out of toFix: they are in reportFile." },
       pages: {
         type: "array",
         items: closedObjectSchema({
           name: { type: "string" },
-          url: { type: "string" },
-          title: { type: "string" },
           summary: { type: "string" },
-          checks: { type: "array", items: check },
-          measured: { type: "array", items: closedObjectSchema({ check: { type: "string" }, issue: { type: "string" }, where: { type: "string" } }) },
+          passed: stringArraySchema(),
+          failed: { type: "number" },
           screenshots: closedObjectSchema({ desktop: shot, phone: shot })
         })
       },

@@ -228,3 +228,24 @@ test('the scan on a real page: contrast, raw values, an empty list, two titles, 
     await browser.close();
   }
 });
+
+test('the answer of a full review stays under the 14k answer budget: 8 pages, every point failed, long texts', () => {
+  const api = load();
+  const long = 'x'.repeat(600);
+  const pages = Array.from({ length: 8 }, (_, i) => ({ name: 'page-' + i, url: 'http://studio-8-4-design.localhost:18116/convertigo/projects/SalesPipeline/DisplayObjects/mobile/page-' + i,
+    title: 'Page ' + i, summary: long, checks: design.CHECK_IDS.map(id => ({ id, status: 'failed', severity: 'major', finding: long, fix: long })),
+    measured: Array.from({ length: 20 }, () => ({ check: 'contrast', issue: long, where: 'ion-label' })),
+    screenshots: { desktop: '/ws/subagents/' + RUN + '/design-0' + i + '-page-' + i + '-desktop.png', phone: '/ws/subagents/' + RUN + '/design-0' + i + '-page-' + i + '-phone.png' } }));
+  const output = designOutput();
+  output.report.design = { checklist: design.CHECKLIST, pages, toFix: pages.flatMap(p => p.checks.map(c => Object.assign({ page: p.name }, c))), skipped: [], errors: [long, long], consoleErrors: [long] };
+  const { h } = host({}, output);
+  const result = api.run({ url: 'http://h/projects/Crm/DisplayObjects/mobile/', design: true, pages: pages.map(p => p.name) }, h);
+  const size = JSON.stringify(result, null, 2).length;
+  assert.ok(size < 13000, 'answer of ' + size + ' indented characters (budget 14000)');
+  assert.equal(result.design.toFix.length, 14);
+  assert.equal(result.design.moreInReport, 34, 'the rest is in reportFile');
+  assert.ok(result.design.toFix.every(f => f.finding.length <= 200 && f.fix.length <= 200));
+  assert.deepEqual(plain(result.design.pages[0].passed), []);
+  assert.equal(result.design.pages[0].failed, 6);
+  assert.equal(result.screenshots, undefined, 'the screenshots are given per page');
+});

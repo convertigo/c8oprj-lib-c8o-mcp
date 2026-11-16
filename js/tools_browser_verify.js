@@ -348,18 +348,35 @@ C8O.browserVerify = C8O.browserVerify || {};
     }
   };
 
-  // The design review with workspace-relative screenshots, the failed points major first.
+  // The design review as the calling agent needs it, under the answer budget (C8O.mcpAnswerPages, 14k indented
+  // characters) for 8 pages: the failed points major first, each finding and fix cut at DESIGN_TEXT, at most DESIGN_FIXES
+  // of them; per page its summary, the points passed and its screenshots. Every check and measure stays in report.json.
+  var DESIGN_FIXES = 14;
+  var DESIGN_TEXT = 200;
+  function cut(text, max) {
+    var t = str(text);
+    return t.length > max ? t.substring(0, max - 1) + "…" : t;
+  }
   api.designOf = function (design, rel) {
     var pages = (design.pages || []).map(function (p) {
-      return { name: str(p.name), url: str(p.url), title: str(p.title), summary: str(p.summary),
-        checks: (p.checks || []).map(function (c) { return { id: str(c.id), status: str(c.status), severity: str(c.severity), finding: str(c.finding), fix: str(c.fix) }; }),
-        measured: (p.measured || []).slice(0, 20).map(function (m) { return { check: str(m.check), issue: str(m.issue), where: str(m.where) }; }),
+      var checks = p.checks || [];
+      return { name: str(p.name), summary: cut(p.summary, 120),
+        passed: checks.filter(function (c) { return str(c.status) === "passed"; }).map(function (c) { return str(c.id); }),
+        failed: checks.filter(function (c) { return str(c.status) === "failed"; }).length,
         screenshots: { desktop: rel(p.screenshots && p.screenshots.desktop), phone: rel(p.screenshots && p.screenshots.phone) } };
     });
-    var toFix = (design.toFix || []).map(function (f) { return { page: str(f.page), id: str(f.id), severity: str(f.severity), finding: str(f.finding), fix: str(f.fix) }; });
-    toFix.sort(function (a, b) { return (a.severity === "major" ? 0 : 1) - (b.severity === "major" ? 0 : 1); });
-    return { checklist: (design.checklist || []).map(function (c) { return { id: str(c.id), text: str(c.text) }; }), toFix: toFix, pages: pages,
-      skipped: (design.skipped || []).map(str), errors: (design.errors || []).map(str), consoleErrors: (design.consoleErrors || []).map(str) };
+    var toFix = (design.toFix || []).map(function (f, i) {
+      return { page: str(f.page), id: str(f.id), severity: str(f.severity), finding: cut(f.finding, DESIGN_TEXT), fix: cut(f.fix, DESIGN_TEXT), order: i };
+    });
+    toFix.sort(function (a, b) { return ((a.severity === "major" ? 0 : 1) - (b.severity === "major" ? 0 : 1)) || (a.order - b.order); });
+    var more = Math.max(0, toFix.length - DESIGN_FIXES);
+    toFix = toFix.slice(0, DESIGN_FIXES).map(function (f) { delete f.order; return f; });
+    var out = { toFix: toFix, pages: pages, skipped: (design.skipped || []).map(str), errors: (design.errors || []).slice(0, 3).map(function (e) { return cut(e, 160); }),
+      consoleErrors: (design.consoleErrors || []).slice(0, 3).map(function (e) { return cut(e, 160); }) };
+    if (more) {
+      out.moreInReport = more;
+    }
+    return out;
   };
 
   api.runners = function () {
@@ -390,7 +407,8 @@ C8O.browserVerify = C8O.browserVerify || {};
       autoDefects: report.autoDefects || [],
       designSuggestions: report.designSuggestions || [],
       design: report.design,
-      screenshots: report.screenshots,
+      // A design review gives its screenshots per page.
+      screenshots: report.design ? undefined : report.screenshots,
       reportFile: result.reportFile,
       finalUrl: report.finalUrl,
       stopReason: result.stopReason,
