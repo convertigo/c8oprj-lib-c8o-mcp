@@ -19,12 +19,46 @@ const uris = text => [...text.matchAll(/convertigo:\/\/(?:guides|resources)\/[a-
 test('all served summaries, drawers and guide reads fit every transport budget', () => {
   for (const entry of entries) {
     const text = String(api.c8oReadResourceFile(entry));
-    const limit = entry.guidanceLevel === 'summary' ? 6000 : entry.guidanceLevel === 'drawer' ? 12000 : 16000;
+    const limit = entry.guidanceLevel === 'summary' ? 6000 : entry.guidanceLevel === 'drawer' ? 12000 : ANSWER_BUDGET;
     for (const [transport, size] of Object.entries(sizes(entry, text))) {
       assert.ok(size < limit, `${entry.uri} ${transport}=${size}, limit=${limit}`);
     }
     assert.doesNotMatch(text, /\{\{(?:GUIDANCE_VERSION|SETUP_SEQUENCE|TASK_ROUTES)\}\}/, entry.uri);
     assert.equal((text.match(/^```/gm) || []).length % 2, 0, 'Split code fence in ' + entry.uri);
+  }
+});
+
+// Every answer an agent reads stays under 15000 characters in the three shapes it travels in (Vibe keeps
+// 16000): the native answer, and the requestable-execute answer with jsonOnly true or false.
+const ANSWER_BUDGET = 15000;
+function answerSizes(requestable, result) {
+  const value = { result: { requestable, status: 'ok', truncated: false, payload: { result } } };
+  const rpc = r => JSON.stringify({ jsonrpc: '2.0', id: 1, result: r }).length;
+  return { native: rpc(result), jsonOnly: rpc({ structuredContent: value }),
+    tool: rpc({ content: [{ type: 'text', text: JSON.stringify(value) }], structuredContent: value }) };
+}
+
+test('every resources/list page fits the answer budget in each edit profile', () => {
+  // mcp_resources_list: pages of 25, the guides of a profile listed in that profile only
+  for (const profile of ['', 'yaml', 'html']) {
+    const listed = entries.filter(entry => !entry.profile || entry.profile === profile);
+    for (let start = 0; start < listed.length; start += 25) {
+      const resources = listed.slice(start, start + 25).map(entry => ({ uri: entry.uri, name: entry.name || '',
+        title: entry.title || '', description: entry.description || '', mimeType: entry.mimeType || '' }));
+      for (const [transport, size] of Object.entries(answerSizes('lib_ConvertigoMCP.mcp_resources_list', { resources, nextCursor: String(start + 25) }))) {
+        assert.ok(size < ANSWER_BUDGET, `resources/list ${profile || 'default'} @${start} ${transport}=${size}`);
+      }
+    }
+  }
+});
+
+test('every prompts/get answer fits the answer budget', { todo: 'frontend-ngx, quickstart, planner and sql exceed it through requestable-execute: split pending a decision' }, () => {
+  for (const prompt of JSON.parse(read('prompts/prompts_index.json'))) {
+    const text = read('prompts/' + prompt.file);
+    const result = { name: prompt.name, description: prompt.description, messages: [{ role: 'user', content: { type: 'text', text } }] };
+    for (const [transport, size] of Object.entries(answerSizes('lib_ConvertigoMCP.mcp_prompts_call', result))) {
+      assert.ok(size < ANSWER_BUDGET, `prompt ${prompt.name} ${transport}=${size}`);
+    }
   }
 });
 

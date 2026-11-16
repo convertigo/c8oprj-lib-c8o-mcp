@@ -385,7 +385,9 @@ navigation header. The updater records `bodyOffset`; existing content-policy
 tests use it to follow the moved instructions. Guide reads use one URI per call, without logs.
 The size check serializes native MCP, `jsonOnly=true` and the full tool response
 with both `content` and `structuredContent`: summaries stay below 6000 characters,
-drawers below 12000, and every guide read below 16000, including JSON escaping.
+drawers below 12000, and every other guide read, every `resources/list` page and every
+`prompts/get` answer below 15000, including JSON escaping (Vibe keeps 16000; the prompt check is
+a todo while four prompts exceed it through `requestable-execute`).
 The inventory includes built-ins and records legacy aliases. It models normal
 responses without an operator note or logs; it does not start a live server.
 

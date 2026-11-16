@@ -126,7 +126,7 @@ setupCommon.resourceSkillFiles().forEach((entry, i) => {
   assert.strictEqual(copiedSlugs[i], expected, entry.uri + ' is not copied where the generic bootstrap says');
 });
 for (const file of copiedFiles) {
-  assert.ok(file.content.length < 16000, file.path + ' is too long');
+  assert.ok(file.content.length < 15000, file.path + ' is too long');
   assert.doesNotMatch(file.content, /\{\{(?:GUIDANCE_VERSION|SETUP_SEQUENCE|TASK_ROUTES)\}\}/, file.path);
 }
 for (const harnessId of setupCommon.harnessIds()) {
@@ -207,7 +207,7 @@ const mcpUrl = "http://localhost:18080/convertigo/api/mcp";
 const vibeSkill = buildVibeSkill(sandbox, mcpUrl);
 for (const harnessId of setupCommon.harnessIds()) {
   const installed = setupCommon.buildSkillMarkdown(harnessId, mcpUrl);
-  assert.ok(installed.length < 16000, harnessId + ' installed skill is too long: ' + installed.length);
+  assert.ok(installed.length < 15000, harnessId + ' installed skill is too long: ' + installed.length);
   assert.ok(installed.includes('convertigo://guides/ngx/smartsource'), harnessId + ' cannot reach the binding drawer');
 }
 assert.match(vibeSkill, /^---\nname: convertigo-vibe-generalist\n/);
