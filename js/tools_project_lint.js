@@ -708,8 +708,9 @@ if (typeof include === "function") {
       if (!line.length) {
         return;
       }
-      var body = line.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*\*\/?/g, "\u0000").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]")
-        .replace(/\u0000/g, "(?:.*/)?");
+      // ** : "a/**/b" any folders between, "**/b" at any depth, "a/**" everything inside
+      var body = line.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\/\*\*$/, "/\u0001").replace(/\*\*\//g, "\u0000").replace(/\*\*/g, "\u0001")
+        .replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]").replace(/\u0000/g, "(?:.*/)?").replace(/\u0001/g, ".*");
       rules.push({ negate: negate, dirOnly: dirOnly, regex: new RegExp((anchored ? "^" : "(?:^|/)") + body + "$") });
     });
     return function (relativePath, isDirectory) {

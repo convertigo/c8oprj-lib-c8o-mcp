@@ -114,6 +114,15 @@ test('.httpignore: gitignore-like patterns hide paths from the scan', () => {
   assert.equal(ignored('assets/a/b/secret-1.json', false), true);
   assert.equal(ignored('readme.md', false), false);
   assert.equal(C8O.lint.httpIgnoreMatcher('')('docs/x.md', false), false);
+  // the template .httpignore of Convertigo projects
+  const template = C8O.lint.httpIgnoreMatcher('.git\n.git/\n.git/**\n.gitignore\n/.project\n.github/\n.github/**\ngradle/**\nbuild.gradle\n');
+  assert.equal(template('.git/config', false), true);
+  assert.equal(template('.github/workflows/build.yml', false), true);
+  assert.equal(template('gradle/wrapper/gradle-wrapper.properties', false), true);
+  assert.equal(template('sub/build.gradle', false), true);
+  assert.equal(template('docs/PROGRESS.md', false), false);
+  assert.equal(C8O.lint.httpIgnoreMatcher('a/**/b.md')('a/x/y/b.md', false), true);
+  assert.equal(C8O.lint.httpIgnoreMatcher('a/**/b.md')('a/b.md', false), true);
 });
 
 test('the scan skips what the engine never serves or deploys, and project-lint loads the masking', () => {
