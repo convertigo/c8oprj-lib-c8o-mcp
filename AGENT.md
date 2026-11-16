@@ -196,6 +196,23 @@ answers.
   `resources/read` serves them by uri in any, and the generic harness never copies them as skills.
 Tests: `node --test tests/scripts/validate_edit_profile.cjs`.
 
+## Vibe's MCP session per tool call (handshake and tools/list cost)
+
+Vibe 3 (Unified Harness) pools stdio MCP servers only: for an HTTP server it opens a session for each tool call
+(`initialize`, `notifications/initialized`, `tools/call`), and the MCP Python SDK of that session sends a `tools/list`
+after a call that worked, to read the tool's output schema. The endpoint stays stateless (no `Mcp-Session-Id`: with
+one, each of those sessions would also open a GET stream and send a DELETE), and makes the repeated parts cheap:
+- `js/mcp_tools_list_cache.js`: the answer of an identical `tools/list` (same credentials, `X-Convertigo-*` headers,
+  User-Agent, protocol version, query string, paging, token kind/scope/user, loaded lib_ConvertigoMCP) is kept 60 s in
+  the server store; `ToolsListCachedInline` answers it without `internal_call`, `KeepToolsList` keeps a built one. The
+  answer says `X-Convertigo-Tools-List-Cache: hit|miss`. A tool comment, schema override or policy symbol changed in a
+  running engine shows in `tools/list` at most 60 s later (a project reload shows at once).
+- `js/mcp_auth.js` `authenticateRequest(context, body)`: one check of the bearer per HTTP request (kept on the request
+  for the sequences it calls, such as the feedback consent of `js/reporting.js`), and a handshake (`initialize`,
+  `notifications/*`, `ping`) of a token that authenticated less than 30 s ago reuses that check. A `tools/call` or
+  `tools/list` is always checked in full.
+Tests: `node --test tests/scripts/validate_tools_list_cache.cjs tests/scripts/validate_handshake_auth.cjs`.
+
 ## project-brief, project-notes-write and viewer-sign-in (an existing project from the first step)
 
 Measured on SalesPipeline in the A/B harness of the Electron Studio (16/11, MCP 0.3.0-beta.28): a one-column change took

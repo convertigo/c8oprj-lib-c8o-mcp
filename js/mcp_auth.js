@@ -1101,8 +1101,136 @@ C8O.mcpAuth = C8O.mcpAuth || {};
     }
   }
 
-  function authenticateRequest(contextObject) {
-    return validate(bearerToken(contextObject), contextObject);
+  // One HTTP request checks its bearer once. Its sequences asked again: mcp_initialize and mcp_tools_list for the feedback
+  // consent of a No Code user (js/reporting.js, up to three times for an initialize), several tools for the token kind or
+  // user; and the check of a C8Oforms token is a C8Oforms sequence that reads the user's document. A check that
+  // authenticated is kept on the request (an attribute, which the sequences it calls see), for the same token.
+  var REQUEST_CHECK_ATTRIBUTE = "lib_ConvertigoMCP.bearerCheck";
+
+  // Vibe 3 opens an MCP session for each tool call (initialize, notifications/initialized, tools/call, tools/list: see
+  // js/mcp_tools_list_cache.js), so each call checked its token four times, two of them for the handshake. A handshake
+  // (initialize, notifications/*, ping) of a token that authenticated less than HANDSHAKE_REUSE_MS ago reuses that check:
+  // a handshake reads and changes nothing, and the tools/call or tools/list after it is checked in full. Kept in the
+  // store the server shares between requests, under the SHA-256 of the token.
+  var HANDSHAKE_CHECKS_KEY = "lib_ConvertigoMCP.handshakeChecks";
+  var HANDSHAKE_REUSE_MS = 30000;
+  var HANDSHAKE_MAX_ENTRIES = 1000;
+  var HANDSHAKE_MAX_BODY = 4096;
+
+  function handshakeBody(body) {
+    var text = body === null || body === undefined ? "" : String(body);
+    if (!text.length || text.length > HANDSHAKE_MAX_BODY) {
+      return false;
+    }
+    try {
+      var call = JSON.parse(text);
+      var method = call && typeof call.method === "string" ? call.method : "";
+      return method === "initialize" || method === "ping" || /^notifications\//.test(method);
+    } catch (_notJson) {
+      return false;
+    }
+  }
+
+  function requestCheck(request, tokenDigest) {
+    try {
+      var kept = request ? request.getAttribute(REQUEST_CHECK_ATTRIBUTE) : null;
+      if (kept == null) {
+        return null;
+      }
+      var record = JSON.parse(String(kept));
+      return record && record.token === tokenDigest && record.result && record.result.authenticated === true ? record.result : null;
+    } catch (_unreadableRequestCheck) {
+      return null;
+    }
+  }
+
+  function keepRequestCheck(request, tokenDigest, result) {
+    try {
+      if (request) {
+        request.setAttribute(REQUEST_CHECK_ATTRIBUTE, JSON.stringify({ token: tokenDigest, result: result }));
+      }
+    } catch (_ignoreRequestCheck) {}
+  }
+
+  function handshakeCheck(store, tokenDigest, nowMs) {
+    var checks = store.get(HANDSHAKE_CHECKS_KEY);
+    var kept = checks == null ? null : checks.get(tokenDigest);
+    if (kept == null) {
+      return null;
+    }
+    var record = null;
+    try {
+      record = JSON.parse(String(kept));
+    } catch (_unreadableHandshakeCheck) {}
+    if (!record || !(nowMs - Number(record.at) >= 0 && nowMs - Number(record.at) < HANDSHAKE_REUSE_MS) || !record.result || record.result.authenticated !== true) {
+      checks.remove(tokenDigest);
+      return null;
+    }
+    return record.result;
+  }
+
+  function keepHandshakeCheck(store, tokenDigest, result, nowMs) {
+    // context.server has no putIfAbsent: of two first writes at once, one map is kept
+    if (store.get(HANDSHAKE_CHECKS_KEY) == null) {
+      store.set(HANDSHAKE_CHECKS_KEY, new java.util.concurrent.ConcurrentHashMap());
+    }
+    var checks = store.get(HANDSHAKE_CHECKS_KEY);
+    if (checks.size() >= HANDSHAKE_MAX_ENTRIES) {
+      var entries = checks.entrySet().iterator();
+      while (entries.hasNext()) {
+        var record = null;
+        try {
+          record = JSON.parse(String(entries.next().getValue()));
+        } catch (_unreadable) {}
+        if (!record || !(nowMs - Number(record.at) >= 0 && nowMs - Number(record.at) < HANDSHAKE_REUSE_MS)) {
+          entries.remove();
+        }
+      }
+      if (checks.size() >= HANDSHAKE_MAX_ENTRIES) {
+        checks.clear();
+      }
+    }
+    checks.put(tokenDigest, JSON.stringify({ at: nowMs, result: result }));
+  }
+
+  // body: the JSON-RPC request of the endpoint, to tell a handshake; the other callers pass nothing.
+  function authenticateRequest(contextObject, body) {
+    var token = bearerToken(contextObject);
+    if (!token.length) {
+      return validate(token, contextObject);
+    }
+    var request = null;
+    var store = null;
+    try {
+      request = contextObject.httpServletRequest || null;
+      store = contextObject.server || null;
+    } catch (_noRequestOrStore) {}
+    var tokenDigest = sha256(token);
+    var same = requestCheck(request, tokenDigest);
+    if (same !== null) {
+      return same;
+    }
+    var nowMs = Number(java.lang.System.currentTimeMillis());
+    if (store !== null && handshakeBody(body)) {
+      var reused = null;
+      try {
+        reused = handshakeCheck(store, tokenDigest, nowMs);
+      } catch (_ignoreHandshakeCheck) {}
+      if (reused !== null) {
+        keepRequestCheck(request, tokenDigest, reused);
+        return reused;
+      }
+    }
+    var result = validate(token, contextObject);
+    if (result && result.authenticated === true) {
+      keepRequestCheck(request, tokenDigest, result);
+      if (store !== null) {
+        try {
+          keepHandshakeCheck(store, tokenDigest, result, nowMs);
+        } catch (_ignoreKeepHandshake) {}
+      }
+    }
+    return result;
   }
 
   // The retryable answers of the endpoint, for the Agent Bridge of the same engine: Vibe reports any HTTP error of an MCP

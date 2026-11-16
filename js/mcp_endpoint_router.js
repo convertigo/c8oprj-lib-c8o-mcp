@@ -703,6 +703,17 @@ if (methodName === "initialize") {
       : ""
   };
   injectMeta(callVariables);
+  // Vibe sends this same tools/list after each of its tool calls (js/mcp_tools_list_cache.js): the kept answer of an
+  // identical request is answered by ToolsListCachedInline, without internal_call; a built one is kept by KeepToolsList.
+  if (!C8O.mcpToolsListCache || !C8O.mcpToolsListCache.lookup) {
+    include("js/mcp_tools_list_cache.js");
+  }
+  var toolsListLookup = C8O.mcpToolsListCache.lookup(context, {
+    params: paramsObject,
+    authentication: typeof mcpAuthentication !== "undefined" ? mcpAuthentication : null
+  });
+  toolsListCached = toolsListLookup.answer;
+  toolsListCacheKey = toolsListLookup.key;
 } else if (methodName === "tools/call") {
   var toolNameRaw = paramsObject && typeof paramsObject.name === "string" ? paramsObject.name : "";
   var toolArgs = paramsObject && typeof paramsObject.arguments === "object" && !Array.isArray(paramsObject.arguments) ? paramsObject.arguments : {};

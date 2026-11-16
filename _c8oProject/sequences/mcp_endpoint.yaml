@@ -86,11 +86,14 @@ responseTimeout: 300
     var mcpRepeatNote = "";
     var mcpErrorsAsResult = false;
     var mcpAuthentication = null;
+    var toolsListCached = null;
+    var toolsListCacheKey = "";
     '
 ↓Parse [steps.SimpleStep-1762187729773]: 
   expression: |
     'include("js/mcp_auth.js");
-    mcpAuthentication = C8O.mcpAuth.authenticateRequest(context);
+    // The body tells a handshake, which may reuse a check of the same token from the last 30 s (js/mcp_auth.js).
+    mcpAuthentication = C8O.mcpAuth.authenticateRequest(context, request);
     // An expired managed token (signature checked, error.handshake) still opens a session: Vibe opens one per tool call
     // (initialize, notifications/initialized, tools/call), and a 401 on initialize made it drop the Convertigo server with
     // "The provided tool call failed" (PCA eval 29/10). Only the handshake runs; the tools/call reads the expiry below.
@@ -406,6 +409,23 @@ responseTimeout: 300
                     - ↑mode: JS
                     - →→: tokenExpiredText
       ↓ReturnTokenExpired [steps.ReturnStep-1793400000215]: 
+    ↓ToolsListCachedInline [steps.IfStep-1795310000001]: 
+      comment: The kept answer of an identical tools/list (js/mcp_tools_list_cache.js), answered without internal_call. Vibe sends one after each of its tool calls.
+      condition: toolsListCached != null
+      ↓result [steps.JsonToXmlStep-1795310000003]: 
+        jsonObject: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: JS
+              - →→: toolsListCached
+        key: 
+          - xmlizable: 
+            - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+            - SmartType: 
+              - ↑mode: PLAIN
+              - →→: result
+      ↓ReturnToolsListCached [steps.ReturnStep-1795310000005]: 
     ↓prepareCall [steps.SimpleStep-1762189043128]: 
       expression: |
         _sequence = callSequence;
@@ -841,6 +861,21 @@ responseTimeout: 300
                       - ↑mode: JS
                       - →→: mcpGuidanceWarning
         ↓ReturnResult [steps.ReturnStep-1762256270333]: 
+      ↓KeepToolsList [steps.IfStep-1795310000007]: 
+        comment: Keeps the tools/list answer for an identical request (js/mcp_tools_list_cache.js)
+        condition: toolsListCacheKey.length > 0
+        ↓toolsListAnswer [steps.JsonSourceStep-1795310000009]: 
+          sourceDefinition: 
+            - xmlizable: 
+              - ↑classname: com.twinsoft.convertigo.beans.common.XMLVector
+              - com.twinsoft.convertigo.beans.common.XMLVector: 
+                - java.lang.String: 
+                  - ↑value: 1761755111966
+                - java.lang.String: 
+                  - ↑value: ./document/*[@originalKeyName='result']
+          variableName: toolsListAnswer
+        ↓KeepAnswer [steps.SimpleStep-1795310000011]: 
+          expression: C8O.mcpToolsListCache.keep(context, toolsListCacheKey, toolsListAnswer);
       ↓CopyResult [steps.XMLCopyStep-1761755111982]: 
         sourceDefinition: 
           - xmlizable: 
