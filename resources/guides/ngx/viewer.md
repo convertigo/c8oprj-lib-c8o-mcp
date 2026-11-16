@@ -41,6 +41,7 @@ If `viewerUrl` is unreachable or browser smoke fails:
 Do not conclude success from tree shape alone when the build logs say otherwise.
 
 ### Driving the viewer with Playwright
+- `browser_wait_for` counts `time` in seconds, 30 at most: `{time: 2}` waits 2 s, `{time: 2000}` waits the whole 30 s. To wait for a page, give a text it shows, `{text: "<its title>"}`: the call returns as soon as the text appears.
 - Ionic keeps the pages it navigated away from in the DOM, hidden: a locator on the whole document finds their copies first and times out or acts on a hidden page. Scope every locator to the page shown, `page.locator('.ion-page:not(.ion-page-hidden)').last()`, and wait for its title before acting.
 - `ion-checkbox`, `ion-radio` and `ion-toggle` keep their input in a shadow root: a click on the element can time out. Click it through the page, `locator.evaluate(e => e.click())`, or click its label.
 - The options of an `ion-select` and the buttons of an alert open in an overlay attached to `body`, outside the page: look for them in `ion-popover`, `ion-alert` or `ion-action-sheet`.

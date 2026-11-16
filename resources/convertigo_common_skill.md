@@ -14,7 +14,7 @@ Inspect with `databaseobject-tree-get`, mutate with `databaseobject-tree-apply`,
 
 ## Existing project: notes and brief first
 
-A change to an existing project starts from its notes (`docs/generated/PROGRESS.md`, given at the start of the turn as `Project notes kept by Tigo`) and `project-brief({project})`, then `project-brief({project, page})` for each page you change: patch from the QNames it shows instead of searching or reading whole pages; keep `databaseobject-search`, `databaseobject-tree-get` and `palette-*` for what the brief does not answer. Where frequent changes go (shared and page styles, colours, KPI cards, list columns, links in rows, texts): `convertigo://guides/common/existing-project`.
+A change to an existing project starts from its notes (`_private/docs/PROGRESS.md`, never served, or `docs/generated/PROGRESS.md` until `project-notes-write` moves them; given at the start of the turn as `Project notes kept by Tigo`) and `project-brief({project})`, then `project-brief({project, page})` for each page you change: patch from the QNames it shows instead of searching or reading whole pages; keep `databaseobject-search`, `databaseobject-tree-get` and `palette-*` for what the brief does not answer. Where frequent changes go (shared and page styles, colours, KPI cards, list columns, links in rows, texts): `convertigo://guides/common/existing-project`.
 
 ## Task routes
 
@@ -40,7 +40,7 @@ Use standard libraries for accounts/SSO. Generated CRUD `auth_login` accepts any
 
 A green tree/build is not functional proof. Open the managed viewer early, check readiness, verify visible acceptance criteria and normal/empty/error states, run `mobile-builder-build` before deployment/export, then save. Without browser proof report implemented but functionally unvalidated. Never repair generated files or claim unperformed proof. Read `convertigo://guides/common/viewer` for builder/browser trouble and `convertigo://guides/common/proof` before final proof. Act on verifier findings: `convertigo://guides/common/proof-results`.
 
-Keep the project notes current with `project-notes-write` at the end of each lot of a build (conventions, inventory, proofs, next step; never a password) and start every resume from them and `project-brief`: `convertigo://guides/common/progress`. Generate payload files in the temporary folder of this conversation (each turn names it: `Temporary folder of this conversation: <path>`). Never wait with shell `sleep`; use the managed tool state. Before delegating constructor lots or verifier checks, read `convertigo://guides/common/subagents`. Stop after the requested behavior is proved; report gaps explicitly.
+Keep the project notes current with `project-notes-write` at the end of each lot of a build (conventions, inventory, proofs, next step; never a password) and start every resume from them and `project-brief`: `convertigo://guides/common/progress`. Every build document goes under `<project>/_private/docs/`: a server serves every other project folder, `docs/` included, to anyone. Generate payload files in the temporary folder of this conversation (each turn names it: `Temporary folder of this conversation: <path>`). Never wait with shell `sleep`; use the managed tool state. Before delegating constructor lots or verifier checks, read `convertigo://guides/common/subagents`. Stop after the requested behavior is proved; report gaps explicitly.
 
 `operatorNote` is a note from the person who supervises your work: read it before continuing, apply it within the task and keep higher-priority constraints.
 
