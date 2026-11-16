@@ -18,6 +18,10 @@ Previous: `convertigo://guides/start/mandatory-workflow-2`. Next: `convertigo://
 ```
 
 ```json
+{"name":"project-brief","arguments":{"project":"<project>","page":"<Page>"}}
+```
+
+```json
 {"name":"databaseobject-tree-get","arguments":{"target":"<qname>","childrenDepth":1,"properties":"none"}}
 ```
 

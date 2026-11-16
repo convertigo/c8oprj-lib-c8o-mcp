@@ -1,7 +1,7 @@
 # Standard libraries and bootstrap decisions
 
 Read when: Standard libraries and bootstrap decisions. Summary: `convertigo://guides/common`.
-Previous: `convertigo://guides/common/mcp`. Next: `convertigo://guides/common/batching`.
+Previous: `convertigo://guides/common/mcp`. Next: `convertigo://guides/common/existing-project`.
 
 ---
 

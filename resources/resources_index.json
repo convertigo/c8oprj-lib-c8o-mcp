@@ -3340,6 +3340,17 @@
     "expandGuidance": true
   },
   {
+    "uri": "convertigo://guides/common/existing-project",
+    "name": "Convertigo common guidance — Existing project: notes, brief and frequent changes",
+    "description": "Open for Existing project: notes, brief and frequent changes.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/existing-project.md",
+    "guideId": "convertigo/common/existing-project",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
     "uri": "convertigo://guides/common/batching",
     "name": "Convertigo common guidance — Tree shortcuts and file-backed batch calls",
     "description": "Open for Tree shortcuts and file-backed batch calls.",
@@ -3363,8 +3374,8 @@
   },
   {
     "uri": "convertigo://guides/common/progress",
-    "name": "Convertigo common guidance — Durable progress and resume",
-    "description": "Open for Durable progress and resume.",
+    "name": "Convertigo common guidance — Project notes and resume",
+    "description": "Open for Project notes and resume.",
     "mimeType": "text/markdown",
     "file": "guides/common/progress.md",
     "guideId": "convertigo/common/progress",
@@ -3526,6 +3537,7 @@
     "drawerUris": [
       "convertigo://guides/common/mcp",
       "convertigo://guides/common/libraries",
+      "convertigo://guides/common/existing-project",
       "convertigo://guides/common/batching",
       "convertigo://guides/common/readback",
       "convertigo://guides/common/progress",

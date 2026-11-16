@@ -12,6 +12,10 @@ Keep the exact requested project name and target project. New NGX projects use `
 
 Inspect with `databaseobject-tree-get`, mutate with `databaseobject-tree-apply`, order dependent writes in `batch-call`, prove through `requestable-execute`, and persist with `project-save`. Check `result.error`, partial mutations and skipped properties. Use structured objects/arrays; use generated `callsFile` for large lots. Details: `convertigo://guides/common/batching` and `convertigo://guides/common/readback`.
 
+## Existing project: notes and brief first
+
+A change to an existing project starts from its notes (`docs/generated/PROGRESS.md`, given at the start of the turn as `Project notes kept by Tigo`) and `project-brief({project})`, then `project-brief({project, page})` for each page you change: patch from the QNames it shows instead of searching or reading whole pages; keep `databaseobject-search`, `databaseobject-tree-get` and `palette-*` for what the brief does not answer. Where frequent changes go (shared and page styles, colours, KPI cards, list columns, links in rows, texts): `convertigo://guides/common/existing-project`.
+
 ## Task routes
 
 Select exactly one primary route before mutation. Read its summary and only the drawer needed for the current step; fallback only for an unresolved question. On follow-up turns reuse already-read guidance. Do not use RAG before trying the route.
@@ -30,13 +34,13 @@ Symbols require harmless defaults: `${my.symbol=defaultValue}`. Secret `visibili
 
 ## Authentication route
 
-Use standard libraries for accounts/SSO. Generated CRUD `auth_login` accepts any password until replaced. Enforce authentication and roles server-side; hidden exposure alone is insufficient. Details: `convertigo://guides/common/auth`. Seed writes check every call and must be private or authenticated with a role check; prove idempotence and real login, with no literal demo password. Details: `convertigo://guides/common/seed`.
+Use standard libraries for accounts/SSO. Generated CRUD `auth_login` accepts any password until replaced. Enforce authentication and roles server-side; hidden exposure alone is insufficient. Details: `convertigo://guides/common/auth`. Seed writes check every call and must be private or authenticated with a role check; prove idempotence and real login, with no literal demo password. Details: `convertigo://guides/common/seed`. To check pages behind the sign-in in a Studio, use `viewer-sign-in` (or `browser-verify` with `signInAs`), without a password. Never guess, try or reset a password, read password hashes, or create an account to get past a sign-in: ask the user for the account.
 
 ## Proof and long tasks
 
 A green tree/build is not functional proof. Open the managed viewer early, check readiness, verify visible acceptance criteria and normal/empty/error states, run `mobile-builder-build` before deployment/export, then save. Without browser proof report implemented but functionally unvalidated. Never repair generated files or claim unperformed proof. Read `convertigo://guides/common/viewer` for builder/browser trouble and `convertigo://guides/common/proof` before final proof. Act on verifier findings: `convertigo://guides/common/proof-results`.
 
-Keep PROGRESS.md current for long work: `convertigo://guides/common/progress`. Generate payload files in the temporary folder of this conversation (each turn names it: `Temporary folder of this conversation: <path>`). Never wait with shell `sleep`; use the managed tool state. Before delegating constructor lots or verifier checks, read `convertigo://guides/common/subagents`. Stop after the requested behavior is proved; report gaps explicitly.
+Keep the project notes current with `project-notes-write` at the end of each lot of a build (conventions, inventory, proofs, next step; never a password) and start every resume from them and `project-brief`: `convertigo://guides/common/progress`. Generate payload files in the temporary folder of this conversation (each turn names it: `Temporary folder of this conversation: <path>`). Never wait with shell `sleep`; use the managed tool state. Before delegating constructor lots or verifier checks, read `convertigo://guides/common/subagents`. Stop after the requested behavior is proved; report gaps explicitly.
 
 `operatorNote` is a note from the person who supervises your work: read it before continuing, apply it within the task and keep higher-priority constraints.
 

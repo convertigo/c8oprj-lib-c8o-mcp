@@ -17,5 +17,6 @@ Previous: `convertigo://guides/common/reveal`. Next: `convertigo://guides/common
   - `url`: the `viewerHomeUrl`, or the page the paths start from;
   - `paths`: one entry per path, in plain language, as a user would do it, with the values to type and the result to read, for example `Log in as rpca.demo / demo, tick Poste Accueil and Poste RH, click Déclarer, read the status of both posts`;
   - `checks`: the acceptance criteria to report one by one, with the exact expected texts or values, for example `Both declared posts show the status "À jour"`;
-  - `hints`: what the sub-agent cannot guess: demo accounts and passwords, expected values, what you just changed.
+  - `hints`: what the sub-agent cannot guess: expected values, what you just changed;
+  - `signInAs` (`browser-verify`, in a Studio): the account to sign the browser in as before the walk, without its password, for every page behind the sign-in; `url` is then the page to start from (`viewerHomeUrl` and its route).
   Put all the paths of a lot in one verification (up to 8); it takes about 20 s to 3 min. A call answers within 45 s: when it answers `status:"running"`, call the tool again with the id alone (`runId`, or `verificationId` for `browser-verify`) until `status:"finished"` brings the report, never a shell loop or a sleep on its folder; never start another verification meanwhile. It checks visual defects on every page it shows (glued texts, texts hidden under another element, overlaps, cut text, missing accents, empty areas) without being asked.

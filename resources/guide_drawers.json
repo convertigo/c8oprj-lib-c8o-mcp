@@ -3,7 +3,7 @@
     "oldUri": "convertigo://resources/convertigo-start",
     "summaryUri": "convertigo://guides/start",
     "sourceFile": "convertigo_start.md",
-    "originalSha256": "c489e9a903f4e36a48bb3a55fbdb2347ceb918193ef22bc0f07b581becb15858",
+    "originalSha256": "ea815d2c0befd51d2134caad7e28d8ada0daee922cc533e6313fef9e352ab710",
     "drawers": [
       {
         "uri": "convertigo://guides/start/overview",
@@ -18,9 +18,9 @@
         "uri": "convertigo://guides/start/mandatory-workflow",
         "file": "guides/start/mandatory-workflow.md",
         "when": "Mandatory workflow",
-        "sha256": "2f1cd363d379611b77a555291381a14d2ba00773ed923f852edb594b8e5101df",
+        "sha256": "0738daf041b0314309c277348523df5ce555491db5e3af2aa44cb669f5cf0138",
         "bodyOffset": 201,
-        "servedSha256": "6107d013980fdee29ba1b318e982de8b7a780381b7b95aa4912363363fef69af"
+        "servedSha256": "6275e4d3c2837d340e33850413657d241af94d51e531039d8ebef869a66ca25a"
       },
       {
         "uri": "convertigo://guides/start/mandatory-workflow-2",
@@ -34,9 +34,9 @@
         "uri": "convertigo://guides/start/mandatory-workflow-3",
         "file": "guides/start/mandatory-workflow-3.md",
         "when": "Viewer URLs, call skeletons and first-write checks",
-        "sha256": "49afbd62988504c06518bb4dbd1b0581f7ff3f8e7fcc348a3573979ef3c7b4c1",
+        "sha256": "25f8d893b287f90634df287090812de1f2dedc7e4ecfcc71ff51f3af20eee120",
         "bodyOffset": 277,
-        "servedSha256": "b67cae418f530aa865b3ed00255fd5386dc9d10bda371473a60b24a5a9691d0b"
+        "servedSha256": "e4c257435edc8e8d1c0a0ae6205b48a1129eddd23c318df72abc98c2554ed2a3"
       },
       {
         "uri": "convertigo://guides/start/mandatory-workflow-4",
@@ -47,7 +47,7 @@
         "servedSha256": "4da21098feca441f7be95ab1a704ae3f1f437937ab94efe94161ced90eb45e1e"
       }
     ],
-    "summarySha256": "6cbdf6495f99e2a1aaaa3909388cdfadc2de55a212804b67d0cfcd19b62e504f"
+    "summarySha256": "f73102137e9750991f9e6e06f98a01a8ff176cb9af2ef1d34c5bb486d178b11b"
   },
   {
     "oldUri": "convertigo://resources/convertigo-crud-fastpath",
@@ -1089,7 +1089,7 @@
     "oldUri": "convertigo://resources/convertigo-authentication",
     "summaryUri": "convertigo://guides/auth",
     "sourceFile": "convertigo_authentication.md",
-    "originalSha256": "ef1b767c73af4edc3586e1d89f9de9b4fa31f58dc288ac46e35e5d7cd738fc2f",
+    "originalSha256": "ab97b576631ffbda0d075b3c7c32d926cdcd4b890e51e2f1a8cb645daab8714f",
     "drawers": [
       {
         "uri": "convertigo://guides/auth/overview",
@@ -1149,9 +1149,9 @@
         "uri": "convertigo://guides/auth/ngx-client",
         "file": "guides/auth/ngx-client.md",
         "when": "NGX client",
-        "sha256": "86a472e487c370f0469e066b567b58c4ccd4637035b4d709ab8907650dcba0c2",
+        "sha256": "b6c3c6bacdf7e981987a47d0c1bc1e436cd0f6dd45de86e0700537ec6d090393",
         "bodyOffset": 203,
-        "servedSha256": "49840b8f0d8e8da0e1dbb369441cc8ea649df469fefd33fdf93f133c507e955c"
+        "servedSha256": "a9c1fb61cea2da9b56037152eec72f0db0fcad5b33299a49a7d153ff4dd6765c"
       },
       {
         "uri": "convertigo://guides/auth/ngx-client-2",
@@ -1162,7 +1162,7 @@
         "servedSha256": "9f5bdbe1807c177c09dae5ed6b0f9656d524507b8a8cd201fe5556e0fc0712ad"
       }
     ],
-    "summarySha256": "d016750d39b29e06291c6eadcfd3703a91ee7d0bf6f88a71d0a70a60c5a14c4d"
+    "summarySha256": "d33841fcaae13a539170f4e8f5f4ac89f9884f2e8339f8b2967053e2769260a1"
   },
   {
     "oldUri": "convertigo://resources/convertigo-recipe-ngx-data-page",
@@ -1326,7 +1326,7 @@
     "oldUri": "convertigo://resources/convertigo-frontend-ngx",
     "summaryUri": "convertigo://guides/ngx",
     "sourceFile": "convertigo_frontend_ngx.md",
-    "originalSha256": "e94c6e11aac3b35bea05ededc7a67280330aa625f741dd7a6e9ff7d7f69efe91",
+    "originalSha256": "242ad96b444240adbdb74cb1790c86fb5f17ec079c4457a41b712788d62d475f",
     "drawers": [
       {
         "uri": "convertigo://guides/ngx/orientation",
@@ -1367,17 +1367,17 @@
         "uri": "convertigo://guides/ngx/presentation",
         "file": "guides/ngx/presentation.md",
         "when": "Cards, labels and readable page structure",
-        "sha256": "480785b2ece5a974f9d7bb96ffe15f86f7cb0fe4a4b85a313f2c6ae3a76134ec",
+        "sha256": "bc47e31b85aac5497060f35ccfdb19aebb97238328363d643523653c079a7dbe",
         "bodyOffset": 233,
-        "servedSha256": "d0806c1eaea065ed7a7155becfcffc1c65f8d60340473391e580131cbbff9d20"
+        "servedSha256": "ded0317bed841ade542a68333a91025cb25e174b0c884aa248c935548b73bf06"
       },
       {
         "uri": "convertigo://guides/ngx/page-structure",
         "file": "guides/ngx/page-structure.md",
         "when": "Viewer proof, pages and action paths",
-        "sha256": "16c5d1f24c171cdbfaca576b3b7a56ff68a163816e57dcd938ca43925f3b96fa",
+        "sha256": "b9b24f443af2ecbe7adb6a532a5a60da4b9d2f112c00d3a778905d1f7da7f36f",
         "bodyOffset": 221,
-        "servedSha256": "cce82f1cd5394f180e4f3345ea66086958288afee07b852fd5af2e9a167da22a",
+        "servedSha256": "d9ad91d1ebee75efae2579953b95e47c6140b021f5be5794c1c179a4111d4433",
         "trailingSourceNewlines": 1
       },
       {
@@ -1558,7 +1558,7 @@
     "oldUri": "convertigo://resources/convertigo-recipe-multipage-app",
     "summaryUri": "convertigo://guides/multipage",
     "sourceFile": "convertigo_recipe_multipage_app.md",
-    "originalSha256": "2d8e719e34e98b0b6b08a21283eb26e45fa7e9e80df07f4754fcd31b66913c31",
+    "originalSha256": "b561f0c3d502157335866d8abe57bddabf546cf347c53f3e7344c246bbbb6005",
     "drawers": [
       {
         "uri": "convertigo://guides/multipage/overview",
@@ -1635,9 +1635,9 @@
         "uri": "convertigo://guides/multipage/order-of-work",
         "file": "guides/multipage/order-of-work.md",
         "when": "Order of work",
-        "sha256": "0c5993403fa4a64fe6af3bd38e67f7f6a25782a2614cb9cb4f7939b886489d48",
+        "sha256": "27cc00253d8599c8fbc866c2a983f5cae073e44fd25311f811c6ac3d3eb62315",
         "bodyOffset": 196,
-        "servedSha256": "3c2f2380cbbca5e4671a121461f8cbde39dc9b923068cc60d64c6b9cd3a5fc7f",
+        "servedSha256": "f83e5bad255fe2c132dbb7262eaec43a01e8911153f34ea77731433f2040887c",
         "trailingSourceNewlines": 1
       },
       {
@@ -1655,7 +1655,7 @@
     "oldUri": null,
     "summaryUri": "convertigo://guides/common",
     "sourceFile": "convertigo_common_skill.md",
-    "originalSha256": "a3d29c3d4a309f378cf333ea5b24444d3267540887872bfa1c5513a59892cc33",
+    "originalSha256": "5ea929042a5caf930688ee27ed43af1e073e7c1d90918a1afcaa8735b775e9de",
     "drawers": [
       {
         "uri": "convertigo://guides/common/mcp",
@@ -1671,8 +1671,17 @@
         "file": "guides/common/libraries.md",
         "when": "Standard libraries and bootstrap decisions",
         "sha256": "f93d338e3a7accae3ef63c59c6d4f3b52cfbca585122ed4b975131543637de73",
-        "bodyOffset": 235,
-        "servedSha256": "a4fa4a3dd8ef4c5555ac24e586155d599eac1ab66d4bb26f1d3b65c2f72f67fb",
+        "bodyOffset": 243,
+        "servedSha256": "ab4a0384cd6d85bdd00eedf121348caf8f4e0d9eb60bd57ed3453a0e4cd0d3f3",
+        "trailingSourceNewlines": 1
+      },
+      {
+        "uri": "convertigo://guides/common/existing-project",
+        "file": "guides/common/existing-project.md",
+        "when": "Existing project: notes, brief and frequent changes",
+        "sha256": "89eb32151916eed92e7c9b42bb9a57a3d8451921724c3acdf8b1ce8e70c34c5e",
+        "bodyOffset": 259,
+        "servedSha256": "1fe88290f710ad3119764398d3c24dfb1ce41ce4cdec47578a06b327140703aa",
         "trailingSourceNewlines": 1
       },
       {
@@ -1680,8 +1689,8 @@
         "file": "guides/common/batching.md",
         "when": "Tree shortcuts and file-backed batch calls",
         "sha256": "c7b4fc6cbaa3f1d43f69fb7366014d39ec2a87c78d2366c6ad9403c6eab7319c",
-        "bodyOffset": 241,
-        "servedSha256": "86560fd3c8a34ac593a4df86188073765bc90b08cdb95a3d9627a740c09b3778"
+        "bodyOffset": 248,
+        "servedSha256": "9db2e7d386968c53752aed2287f7ddf8caeea7e6e0727f1c17c9b23bc14040ed"
       },
       {
         "uri": "convertigo://guides/common/readback",
@@ -1695,10 +1704,10 @@
       {
         "uri": "convertigo://guides/common/progress",
         "file": "guides/common/progress.md",
-        "when": "Durable progress and resume",
-        "sha256": "7858cafc1e94508a36878155367d1e198aafda5fdf74fb258e9ebc555d215ce4",
-        "bodyOffset": 211,
-        "servedSha256": "74698b466afe18c812687eb04f03576ad802ebea80d36582233d2b452d12bfc2",
+        "when": "Project notes and resume",
+        "sha256": "152614ec1b7e2e5dce8ff32bb5ad58bf9aea145faa68f7828b4d0c100cb167d7",
+        "bodyOffset": 205,
+        "servedSha256": "593160a733c0875a7b99515c906685e7277d72f10100802c2cc45c55c19aabc5",
         "trailingSourceNewlines": 1
       },
       {
@@ -1785,17 +1794,17 @@
         "uri": "convertigo://guides/common/proof",
         "file": "guides/common/proof.md",
         "when": "Mutation failures and functional browser proof",
-        "sha256": "3779722eceef914c24ae337b56df3d011ada5dec78151e369ea70ad70f011328",
+        "sha256": "4642ae5accbc7fe1fc4cffd0f6a7c1eb2decb872ec73baf49681c5e41b5e1059",
         "bodyOffset": 251,
-        "servedSha256": "b81ace2c5523c74e8965c6b738b4148afcbe5ab09f86bbe31740bc4017b0d01d"
+        "servedSha256": "0cf8dcc0b809afcb45b6849d8f9eda3b73b29f718b0405ccf602bd054cc26e1b"
       },
       {
         "uri": "convertigo://guides/common/proof-results",
         "file": "guides/common/proof-results.md",
         "when": "Act on verifier reports and close the task",
-        "sha256": "6e286c3fd1c964ad5cebcf58fca9e3312ebf58ad90645ff211d5178c703b4477",
+        "sha256": "69d6fe6dfe75c6dba617a233c960dad6d2334260760bddc28a2eaffee055fa88",
         "bodyOffset": 233,
-        "servedSha256": "f8b2ee42fa7c63b338134710da34b36af93368437224dbf65a55549715747ebd",
+        "servedSha256": "0b7e55d13fcab4678351b300865760027ad000a92e7e384ea8cbf97c643e8374",
         "trailingSourceNewlines": 1
       },
       {
@@ -1816,6 +1825,6 @@
         "servedSha256": "48d5b07cbff577bb75de043dd4154146cf4b6fb86cc8a5d1d8dd1ce5b7e80f53"
       }
     ],
-    "summarySha256": "6c10e5a805389382d00c071f4e609e6415d6d2b0d440775959a041fb393e22a5"
+    "summarySha256": "4b2570781131d44201b5ccf32086af80e78ea5ff09d4aa3ba30ed234cd427972"
   }
 ]
