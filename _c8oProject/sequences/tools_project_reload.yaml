@@ -48,7 +48,7 @@ comment: |
           var yamlError = yamlLineErrors[yamlErrorIndex];
           errorEntries.push({ name: yamlError.file + ":" + yamlError.line, message: yamlError.message + " | " + yamlError.text });
         }
-        reloadResult = { reloaded: false, status: "invalid_yaml", message: yamlLineErrors.length + " line(s) the engine cannot read: fix them (errors names each file:line), then call project-reload again. Nothing was reloaded: the project is still the one loaded before." };
+        reloadResult = { reloaded: false, status: "invalid_yaml", message: yamlLineErrors.length + " line(s) the engine cannot read: fix them (errors names each file:line), then call project-reload again. Nothing was reloaded: the project stays as it was." };
       } else {
         reloadResult = C8O.dbo.reloadProject(providedName, errorEntries);
       }
