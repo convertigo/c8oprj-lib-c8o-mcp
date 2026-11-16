@@ -9,6 +9,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const root = path.resolve(__dirname, '../..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
+const { guidanceText } = require('../helpers/guide_transport.cjs');
 const same = (actual, expected) => assert.deepStrictEqual(JSON.parse(JSON.stringify(actual)), expected);
 
 function load() {
@@ -154,7 +155,10 @@ test('the three tools are registered, classified and described with closed input
 });
 
 test('the guides route an existing project through the brief and forbid password guessing', () => {
-  const skill = read('resources/convertigo_common_skill.md');
+  // The installed skill keeps the routing rule; the full sections moved to the common drawers.
+  assert.match(read('resources/convertigo_common_skill.md'), /`project-brief\(\{project\}\)`, then `project-brief\(\{project, page\}\)`/);
+  assert.match(read('resources/convertigo_common_skill.md'), /convertigo:\/\/guides\/common\/existing-project/);
+  const skill = guidanceText('resources/convertigo_common_skill.md');
   assert.match(skill, /## Existing project: notes and brief first/);
   assert.match(skill, /## Frequent changes: where they go/);
   assert.match(skill, /Never guess, try, crack or brute-force a password, never read, compute or compare stored password hashes or salts/);
@@ -162,7 +166,7 @@ test('the guides route an existing project through the brief and forbid password
   assert.match(skill, /project-notes-write\(\{project, text, mode\}\)/);
   assert.match(skill, /\$event\.stopPropagation\(\)/);
   assert.doesNotMatch(skill, /demo accounts and passwords/, 'the verifier no longer gets passwords in its hints');
-  assert.match(read('resources/convertigo_authentication.md'), /Never guess, try, crack or brute-force a password/);
-  assert.match(read('resources/convertigo_frontend_ngx.md'), /as `signInAs`/);
-  assert.match(read('resources/convertigo_start.md'), /"name":"project-brief"/);
+  assert.match(guidanceText('resources/convertigo_authentication.md'), /Never guess, try, crack or brute-force a password/);
+  assert.match(guidanceText('resources/convertigo_frontend_ngx.md'), /as `signInAs`/);
+  assert.match(guidanceText('resources/convertigo_start.md'), /"name":"project-brief"/);
 });
