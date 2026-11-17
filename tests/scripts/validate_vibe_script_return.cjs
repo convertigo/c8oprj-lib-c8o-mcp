@@ -23,10 +23,10 @@ function bootstrap(harness) {
 test('the Vibe bootstrap keeps run_typescript returns small enough to come back whole', () => {
   const vibe = bootstrap('vibe');
   // Vibe 3.1 measures its 16 000 characters on the result indented by 2 (a 9 928-character answer was saved, 16/11).
-  assert.match(vibe, /when its JSON indented by 2 spaces passes 16 000 characters/);
-  assert.match(vibe, /Filter in the script and return an object with only what you look for/);
+  assert.match(vibe, /past 16 000 characters \(JSON indented by 2\)/);
+  assert.match(vibe, /Filter in the script and return only what you look for/);
   assert.match(vibe, /Never return `JSON\.stringify\(r\)` or a `\.slice\(\)` of it/);
-  assert.match(vibe, /call the tool again narrower .* rather than reading the file with bash or jq/);
+  assert.match(vibe, /call the tool again narrower .*, never read the file with bash or jq/);
   assert.doesNotMatch(bootstrap('claude'), /run_typescript/);
 });
 
@@ -40,6 +40,6 @@ test('the Vibe bootstrap chains dependent steps in one program and loads declara
   assert.match(vibe, /Every `run_typescript` call is one more request that reads your whole context again/);
   assert.match(vibe, /chain dependent steps there \(a write, its save, the call that proves it\)/);
   assert.match(vibe, /A `run_typescript` program stops after 60 s/);
-  assert.match(vibe, /run the verifier once per lot, with every path and check of the lot/);
+  assert.match(vibe, /Run it once per lot with every path and check of the lot/);
   assert.match(vibe, /Read trees with `properties:\\?"changed\\?"`/);
 });

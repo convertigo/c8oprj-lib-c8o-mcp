@@ -15,7 +15,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 test('the Vibe bootstrap sends every model to the verifier for browser proofs, with the reason', () => {
   const src = read('js/setup_common.js');
   assert.match(src, /- Whatever your model, delegate functional and visual browser proofs to a verifier sub-agent/);
-  assert.match(src, /the Studio's build progress widget that make your own Playwright clicks time out \(30 s each\)\. GLM models of the Convertigo gateway have no image input\./);
+  assert.match(src, /the Studio's build widget that make your own Playwright clicks time out \(30 s each\); GLM models of the gateway have no image input\./);
 });
 
 test('the Playwright fallback says how to get past the widget, an ion-select and an ion-input', () => {
