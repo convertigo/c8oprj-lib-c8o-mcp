@@ -107,7 +107,7 @@ test('the public-write line is read on a line of its own', () => {
 test('project-lint loads the audit rules and adds SEC-ANONYMOUS-WRITE with the severity of each finding', () => {
   const source = read('js/tools_project_lint.js');
   assert.match(source, /^if \(typeof include === "function"\) \{\n  include\("js\/security_audit_rules\.js"\);\n  include\("js\/security_audit_collect\.js"\);\n\}$/m);
-  assert.match(source, /C8O\.lint\.anonymousWrites\(C8O\.securityAudit, String\(project\.getName\(\)\), commentOf, auditModel\)\.forEach/);
+  assert.match(source, /C8O\.lint\.anonymousWrites\(C8O\.securityAudit, String\(project\.getName\(\)\), commentOf, auditModel, inputsOf\)\.forEach/);
   assert.match(source, /add\("SEC-ANONYMOUS-WRITE", w\.severity, w\.qname, w\.message,/);
   assert.match(source, /say so with a line \\"public-write: <reason>\\" in its comment/);
 });
@@ -117,4 +117,61 @@ test('the lint passes the audit model it already collected, which is not collect
   const audit = Object.assign({}, C8O.securityAudit, { collect: () => { throw new Error('collected twice'); } });
   const found = JSON.parse(JSON.stringify(C8O.lint.anonymousWrites(audit, 'P', null, pcaApp())));
   assert.deepEqual(found.map(f => f.qname), ['P.reminder_runDaily']);
+});
+
+// A seed made Public "so that a fresh server initializes itself" and quieted with "public-write: first-boot demo seed"
+// (seed run, 17/11): a requestable that takes no input variable gives a visitor nothing to send, so it is a job, a seed or
+// an init, and its public-write line does not turn the error into a warning. inputsOf(qname) gives its input variables.
+test('a public-write line on a requestable without input variable stays an error that says why and what to do', () => {
+  const C8O = load();
+  const comments = { 'P.reminder_runDaily': 'Demo data.\npublic-write: first-boot demo seed, a fresh server initializes itself' };
+  const [f] = JSON.parse(JSON.stringify(C8O.lint.anonymousWrites(auditOf(C8O), 'P', q => comments[q] || '', null, () => 0)));
+  assert.equal(f.severity, 'error');
+  assert.equal(f.noInput, true);
+  assert.equal(f.reason, 'first-boot demo seed, a fresh server initializes itself');
+  assert.match(f.message, /Its public-write line does not apply: it takes no input variable, so a visitor has nothing to send it; it is a job, a seed or an init\. Make it Private and run it from a scheduler job \(scheduler-apply\) or by an administrator \(requestable-execute in the Studio, or an administrator's sequence that calls it\), and remove the line\.$/);
+  assert.doesNotMatch(f.message, /Declared public write/);
+});
+
+test('with input variables, or when they are not known, the public-write line keeps its warning', () => {
+  const C8O = load();
+  const comments = { 'P.reminder_runDaily': 'Public contact form.\npublic-write: anyone may leave a message' };
+  for (const inputsOf of [() => 2, () => null, () => { throw new Error('gone'); }, () => 'x', undefined]) {
+    const [f] = JSON.parse(JSON.stringify(C8O.lint.anonymousWrites(auditOf(C8O), 'P', q => comments[q] || '', null, inputsOf)));
+    assert.equal(f.severity, 'warning', String(inputsOf));
+    assert.equal(f.noInput, undefined);
+  }
+  // no line: an error whatever the inputs, with the usual message
+  const [plainError] = JSON.parse(JSON.stringify(C8O.lint.anonymousWrites(auditOf(C8O), 'P', () => 'Daily job.', null, () => 0)));
+  assert.equal(plainError.severity, 'error');
+  assert.equal(plainError.reason, null);
+  assert.doesNotMatch(plainError.message, /public-write line does not apply/);
+});
+
+test('a public transaction without input variable keeps its SEC-CLIENT-TRANSACTION error despite a public-write line', () => {
+  const C8O = load();
+  const tx = (name, accessibility, writes) => ({ qname: 'P.appdb.' + name, kind: 'transaction', accessibility, authenticatedContextRequired: false, calls: [], writes });
+  const comments = { 'P.appdb.seed_rows': 'public-write: first boot', 'P.appdb.form_insert': 'public-write: anonymous contact requests' };
+  const inputs = { 'P.appdb.seed_rows': 0, 'P.appdb.form_insert': 3 };
+  const findings = JSON.parse(JSON.stringify(C8O.lint.transactionFindings([tx('seed_rows', 'Public', ['SQL INSERT']), tx('form_insert', 'Public', ['SQL INSERT'])],
+    q => comments[q] || '', () => [], q => inputs[q])));
+  const by = Object.fromEntries(findings.map(f => [f.qname, f]));
+  assert.equal(by['P.appdb.seed_rows'].severity, 'error');
+  assert.match(by['P.appdb.seed_rows'].message, /Its public-write line does not apply: it takes no input variable/);
+  assert.equal(by['P.appdb.form_insert'].severity, 'warning');
+  // without inputsOf (older callers): as before
+  const old = JSON.parse(JSON.stringify(C8O.lint.transactionFindings([tx('seed_rows', 'Public', ['SQL INSERT'])], q => comments[q] || '', () => [])));
+  assert.equal(old[0].severity, 'warning');
+});
+
+test('project-lint gives the input variables of each requestable, and its fix texts name a job, a seed and an init', () => {
+  const source = read('js/tools_project_lint.js');
+  assert.match(source, /var inputsOf = function \(qname\) \{ return requestableInputCount\(project, qname\); \};/);
+  assert.match(source, /C8O\.lint\.anonymousWrites\(C8O\.securityAudit, String\(project\.getName\(\)\), commentOf, auditModel, inputsOf\)\.forEach/);
+  assert.match(source, /resetTablesOf, inputsOf\)\.forEach/);
+  assert.match(source, /typeof dbo\.numberOfVariables === "function" \? Number\(dbo\.numberOfVariables\(\)\) : null/);
+  assert.match(source, /never a job, a seed, an init or an " \+\s*"admin action, may say so with a line/);
+  assert.match(source, /A seed is proven replayable with seed-proof, never by making it callable anonymously\./);
+  // no list of names: the rule reads the inputs only
+  assert.doesNotMatch(source.slice(source.indexOf('C8O.lint.NO_INPUT_PUBLIC_WRITE'), source.indexOf('C8O.lint.anonymousWrites = ')), /seed_|init_|\/\^\(?seed/i);
 });

@@ -595,8 +595,28 @@ if (typeof include === "function") {
   // (PCA eval m1 and m2: the anonymous reminder job wrote notifications), while every one of them runs project-lint.
   // A public form or a webhook receiver writes for anyone by design: a "public-write: <reason>" line in its comment
   // (commentOf(qname)) turns the error into a warning that is still reported, with the reason; a line without a reason
-  // changes nothing.
-  C8O.lint.anonymousWrites = function (audit, projectName, commentOf, collected) {
+  // changes nothing. Nor does it on a requestable that takes no input variable (inputsOf(qname) answers 0): a public
+  // visitor has nothing to send it, so it is a job, a seed or an init, which an agent made Public "so that a fresh server
+  // initializes itself" and quieted with "public-write: first-boot demo seed" (seed run, 17/11). It stays an error.
+  C8O.lint.NO_INPUT_PUBLIC_WRITE = "Its public-write line does not apply: it takes no input variable, so a visitor has nothing " +
+    "to send it; it is a job, a seed or an init. Make it Private and run it from a scheduler job (scheduler-apply) or by an " +
+    "administrator (requestable-execute in the Studio, or an administrator's sequence that calls it), and remove the line.";
+
+  // The input variables of a requestable, null when they are not known.
+  C8O.lint.inputCount = function (inputsOf, qname) {
+    if (typeof inputsOf !== "function") {
+      return null;
+    }
+    var count = null;
+    try {
+      count = inputsOf(qname);
+    } catch (_unknown) {
+      return null;
+    }
+    return typeof count === "number" && isFinite(count) ? count : null;
+  };
+
+  C8O.lint.anonymousWrites = function (audit, projectName, commentOf, collected, inputsOf) {
     if (!audit || typeof audit.collect !== "function" || typeof audit.evaluate !== "function" || typeof audit.suppressionGuard !== "function") {
       return [];
     }
@@ -616,6 +636,8 @@ if (typeof include === "function") {
         out.push({ qname: qname, message: message, severity: "error", reason: null });
       } else if (!reason.length) {
         out.push({ qname: qname, message: message + " Its public-write line gives no reason, so it stays an error.", severity: "error", reason: "" });
+      } else if (C8O.lint.inputCount(inputsOf, qname) === 0) {
+        out.push({ qname: qname, message: message + " " + C8O.lint.NO_INPUT_PUBLIC_WRITE, severity: "error", reason: reason, noInput: true });
       } else {
         out.push({ qname: qname, message: message.replace(/: this risk cannot be accepted\.[\s\S]*$/, ".") +
           " Declared public write: \"" + reason + "\".", severity: "warning", reason: reason });
@@ -638,9 +660,10 @@ if (typeof include === "function") {
   // 16/11: its SQL transactions looked public, init_schema included; they were Private by default, as the audit model reads
   // a transaction without an accessibility line). requestables: the audit model's ({qname, kind, accessibility,
   // authenticatedContextRequired, writes}); commentOf(qname): the comment; resetTablesOf(qname): the tables its SQL
-  // empties or drops (DELETE without WHERE, TRUNCATE, DROP). One finding per transaction: [{rule, severity, qname, message,
-  // fix}].
-  C8O.lint.transactionFindings = function (requestables, commentOf, resetTablesOf) {
+  // empties or drops (DELETE without WHERE, TRUNCATE, DROP); inputsOf(qname), optional: its input variables, as for
+  // anonymousWrites (a public-write line on a transaction without input stays an error). One finding per transaction:
+  // [{rule, severity, qname, message, fix}].
+  C8O.lint.transactionFindings = function (requestables, commentOf, resetTablesOf, inputsOf) {
     var out = [];
     (requestables || []).forEach(function (r) {
       if (!r || r.kind !== "transaction") {
@@ -657,7 +680,9 @@ if (typeof include === "function") {
           var reason = C8O.lint.publicWriteReason(comment);
           var message = qname + " is " + r.accessibility + ": " + who + " can call it directly, and it writes (" +
             (writes.length ? writes.join(", ") : "SQL") + ")" + (reset.length ? " and empties or drops " + resetText : "") + ".";
-          if (reason && !reset.length) {
+          if (reason && !reset.length && C8O.lint.inputCount(inputsOf, qname) === 0) {
+            out.push({ rule: "SEC-CLIENT-TRANSACTION", severity: "error", qname: qname, message: message + " " + C8O.lint.NO_INPUT_PUBLIC_WRITE, fix: MAKE_PRIVATE });
+          } else if (reason && !reset.length) {
             out.push({ rule: "SEC-CLIENT-TRANSACTION", severity: "warning", qname: qname, message: message + " Declared public write: \"" + reason + "\".",
               fix: "Keep it only if anyone must be able to write here; otherwise " + MAKE_PRIVATE.charAt(0).toLowerCase() + MAKE_PRIVATE.substring(1) });
           } else {
@@ -803,6 +828,18 @@ if (typeof include === "function") {
       return dbo ? str(call(dbo, "getComment")) : "";
     } catch (_noRequestable) {
       return "";
+    }
+  }
+
+  // The input variables of a requestable of the project ("P.sequence" or "P.connector.transaction"), null when unknown.
+  function requestableInputCount(project, qname) {
+    var parts = String(qname).split(".");
+    try {
+      var dbo = parts.length === 2 ? project.getSequenceByName(parts[1])
+        : (parts.length === 3 ? project.getConnectorByName(parts[1]).getTransactionByName(parts[2]) : null);
+      return dbo && typeof dbo.numberOfVariables === "function" ? Number(dbo.numberOfVariables()) : null;
+    } catch (_noRequestable) {
+      return null;
     }
   }
 
@@ -2016,15 +2053,21 @@ if (typeof include === "function") {
       });
     }
 
+    var inputsOf = function (qname) { return requestableInputCount(project, qname); };
     try {
       var commentOf = function (qname) { return requestableComment(project, qname); };
-      C8O.lint.anonymousWrites(C8O.securityAudit, String(project.getName()), commentOf, auditModel).forEach(function (w) {
+      C8O.lint.anonymousWrites(C8O.securityAudit, String(project.getName()), commentOf, auditModel, inputsOf).forEach(function (w) {
         add("SEC-ANONYMOUS-WRITE", w.severity, w.qname, w.message, w.severity === "warning"
           ? "Keep it only if anyone must be able to write here; the reviewer sees this warning on every lint."
-          : "Private for a job only the scheduler or other sequences call; otherwise authenticatedContextRequired=true and a role check " +
-            "inside. Only a write anyone must be able to make (a public form, a webhook receiver), never a job or an admin action, may " +
-            "say so with a line \"public-write: <reason>\" in its comment: it then stays reported as a warning. project-security-audit " +
-            "gives the full report.");
+          : w.noInput === true
+            ? "Make it Private: a requestable without input variable gives a visitor nothing to send, so it is a job, a seed or an init. " +
+              "Run it from a scheduler job (scheduler-apply) or by an administrator (requestable-execute in the Studio, or an " +
+              "administrator's sequence: Hidden, authenticatedContextRequired=true, role checked inside), and remove its public-write " +
+              "line. A seed is proven replayable with seed-proof, never by making it callable anonymously."
+            : "Private for a job only the scheduler or other sequences call; otherwise authenticatedContextRequired=true and a role check " +
+              "inside. Only a write anyone must be able to make (a public form, a webhook receiver), never a job, a seed, an init or an " +
+              "admin action, may say so with a line \"public-write: <reason>\" in its comment: it then stays reported as a warning (not on " +
+              "a requestable without input variable, which stays an error). project-security-audit gives the full report.");
       });
     } catch (_ignoreAudit) {}
 
@@ -2041,7 +2084,7 @@ if (typeof include === "function") {
         };
         C8O.lint.transactionFindings((auditModel.requestables || []).filter(function (r) {
           return String(r.qname).indexOf(String(project.getName()) + ".") === 0;
-        }), function (qname) { return requestableComment(project, qname); }, resetTablesOf).forEach(function (f) {
+        }), function (qname) { return requestableComment(project, qname); }, resetTablesOf, inputsOf).forEach(function (f) {
           add(f.rule, f.severity, f.qname, f.message, f.fix);
         });
       } catch (_ignoreTransactions) {}
