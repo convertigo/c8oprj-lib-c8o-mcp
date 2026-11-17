@@ -33,6 +33,7 @@ test('a change inside an existing requestable counts, its comment or access does
   const C = load('js/requestable_contract.js', 'requestableContract');
   const touched = plain(C.touched([{ applied: [
     { action: 'create', qname: 'App.sq:list_items.st:Rows' },
+    { action: 'setProperties', qname: 'App.sq:list_items.st:Rows', names: ['key'] },
     { action: 'setProperties', qname: 'App.sq:list_items.st:Rows.Item', names: ['key'] },
     { action: 'setProperties', qname: 'App.sq:list_items', names: ['comment', 'accessibility'] },
     { action: 'setProperties', qname: 'App.cn:db.tr:q_items', names: ['sqlQuery'] },

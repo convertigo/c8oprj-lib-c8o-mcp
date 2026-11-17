@@ -41,6 +41,8 @@ C8O.requestableContract = C8O.requestableContract || {};
           return;
         }
         var info = out[requestable] || (out[requestable] = { inside: 0, sql: false, created: false });
+        // one count per object: a create and the properties written on it are one change
+        var seen = info.objects || (Object.defineProperty(info, "objects", { value: {}, enumerable: false }), info.objects);
         var action = str(entry.action);
         if (qname === requestable) {
           if (action === "create") {
@@ -52,7 +54,8 @@ C8O.requestableContract = C8O.requestableContract || {};
           }
           return;
         }
-        if (action !== "updateExisting") {
+        if (action !== "updateExisting" && !seen[qname]) {
+          seen[qname] = true;
           info.inside++;
         }
       });
