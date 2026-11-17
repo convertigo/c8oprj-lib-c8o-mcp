@@ -772,6 +772,11 @@ function treeApplyStepVariableWarnings(result) {
           result.warnings = Array.isArray(result.warnings) ? result.warnings : [];
           result.warnings.push(C8O.stepSources.emptyCallVariablesWarning(qn, emptyNames));
         }
+        var missingNames = C8O.stepSources.missingCallVariables(step, target);
+        if (missingNames.length) {
+          result.warnings = Array.isArray(result.warnings) ? result.warnings : [];
+          result.warnings.push(C8O.stepSources.missingCallVariablesWarning(qn, String(target.getName()), missingNames));
+        }
       } catch (_ignoreEmptyVariables) {}
     }
   }
@@ -826,6 +831,36 @@ if (treeApplyResult && treeApplyResult.dryRun !== true && treeApplyResult.status
       });
     });
   } catch (_ignoreGuardWarning) {}
+}
+
+// A warning the conversation already got for the same object, with status ok each time, was ignored 8 times in a measured
+// run (17/11): from its second time it says it is still open and how many times it came.
+if (treeApplyResult && Array.isArray(treeApplyResult.warnings) && treeApplyResult.warnings.length && typeof context !== "undefined") {
+  try {
+    if (typeof C8O.writeJournal === "undefined" || typeof C8O.writeJournal.keyOf !== "function") {
+      include("js/write_journal.js");
+    }
+    if (typeof C8O.treeApplyRepeatNote !== "function") {
+      include("js/step_sources.js");
+    }
+    var repeatKey = C8O.writeJournal.keyOf(context, "").key;
+    var repeatStore = context.server;
+    var repeats = repeatStore.get("lib_ConvertigoMCP.treeApplyWarningRepeats");
+    if (repeats == null) {
+      repeatStore.set("lib_ConvertigoMCP.treeApplyWarningRepeats", new java.util.concurrent.ConcurrentHashMap());
+      repeats = repeatStore.get("lib_ConvertigoMCP.treeApplyWarningRepeats");
+    }
+    if (repeats.size() > 5000) {
+      repeats.clear();
+    }
+    treeApplyResult.warnings = treeApplyResult.warnings.map(function (warning) {
+      var text = String(warning);
+      var key = repeatKey + "|" + text.substring(0, 300);
+      var seen = Number(repeats.getOrDefault(key, 0)) + 1;
+      repeats.put(key, java.lang.Integer.valueOf(seen));
+      return C8O.treeApplyRepeatNote ? C8O.treeApplyRepeatNote(text, seen) : text;
+    });
+  } catch (_ignoreRepeats) {}
 }
 
 var responseDetailInput = (typeof responseDetail !== "undefined" && asTrimmed(responseDetail).toLowerCase() === "full") ? "full" : "compact";

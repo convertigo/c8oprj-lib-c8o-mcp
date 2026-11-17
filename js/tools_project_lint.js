@@ -2213,10 +2213,13 @@ if (typeof include === "function") {
         chosen.push({ f: f, i: i });
       }
     }
+    // The next step comes first: with no error left, the report from project-changes (measured runs ended without it when
+    // it was listed last, after the warnings).
+    var rank = function (f) {
+      return f.rule === "NEXT-REPORT-CHANGES" ? -1 : (order[f.severity] !== undefined ? order[f.severity] : 3);
+    };
     chosen.sort(function (a, b) {
-      var sa = order[a.f.severity] !== undefined ? order[a.f.severity] : 3;
-      var sb = order[b.f.severity] !== undefined ? order[b.f.severity] : 3;
-      return sa - sb || a.i - b.i;
+      return rank(a.f) - rank(b.f) || a.i - b.i;
     });
     var out = [];
     var fixed = {};

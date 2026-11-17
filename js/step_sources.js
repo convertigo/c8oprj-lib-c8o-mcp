@@ -407,6 +407,39 @@ C8O.stepSources = C8O.stepSources || {};
     });
   };
 
+  // The variables of the called requestable that this call step does not pass at all and that have no default value: the
+  // engine sends only the step's own variables, so they arrive empty (measured run, 17/11: a role read called without its
+  // user answered "Non existant user", the role was empty and the guard refused everyone).
+  api.missingCallVariables = function (step, target) {
+    var passed = {};
+    children(step).forEach(function (child) {
+      if (api.isVariable(child)) {
+        passed[str(child.getName())] = true;
+      }
+    });
+    var missing = [];
+    each(target && typeof target.getVariablesList === "function" ? target.getVariablesList() : null, function (variable) {
+      var name = str(variable.getName());
+      var value = null;
+      try {
+        value = typeof variable.getValueOrNull === "function" ? variable.getValueOrNull() : null;
+      } catch (_noDefault) {
+        value = null;
+      }
+      if (name.length && !passed[name] && (value == null || !str(value).length)) {
+        missing.push(name);
+      }
+    });
+    return missing;
+  };
+
+  api.missingCallVariablesWarning = function (qname, targetName, names) {
+    return qname + " does not pass " + names.slice(0, 6).join(", ") + (names.length > 6 ? " and " + (names.length - 6) + " more" : "") +
+      " of " + targetName + ", which " + (names.length > 1 ? "have" : "has") + " no default value: the call sends only its own " +
+      "variables, so " + (names.length > 1 ? "they arrive" : "it arrives") + " empty. Add a StepVariable for each (a sourceDefinition " +
+      "on the step holding the value, or a JS variable of the same name before the call), or importVariables:true on the step.";
+  };
+
   api.emptyCallVariablesWarning = function (qname, names) {
     return qname + ": " + names.join(", ") + " will be empty at run time. " + (names.length > 1 ? "They have" : "It has") +
       " no sourceDefinition, no value, and no sequence variable or JS variable of that name in the sequence. Give each a " +
@@ -414,3 +447,13 @@ C8O.stepSources = C8O.stepSources || {};
       "SimpleStep before the call.";
   };
 })(C8O.stepSources);
+
+// A tree-apply warning seen again in the same conversation (js/tools_databaseobject_tree_apply.js): from its second time it
+// says it is still open, so a change answered ok again and again does not read as a fix.
+C8O.treeApplyRepeatNote = function (warning, seen) {
+  if (!(seen >= 2)) {
+    return warning;
+  }
+  var nth = seen === 2 ? "2nd" : (seen === 3 ? "3rd" : seen + "th");
+  return "STILL OPEN (" + nth + " time in this conversation, the change answered ok each time): " + warning;
+};

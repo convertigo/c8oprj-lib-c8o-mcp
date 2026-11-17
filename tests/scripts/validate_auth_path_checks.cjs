@@ -195,3 +195,31 @@ test('project-lint reads the SmartTypes a step holds now, not the set the engine
 test('setting a SmartType property rebuilds the set the engine keeps', () => {
   assert.match(source, /if \(String\(propertyType\.getName\(\)\) === "com\.twinsoft\.convertigo\.beans\.steps\.SmartType" && typeof dbo\.getSmartTypes === "function"\) \{\s*try \{\s*dbo\.hasChanged = true;\s*dbo\.getSmartTypes\(\);/);
 });
+
+test('a variable of the called sequence the call does not pass, with no default, is named; one with a default is not', () => {
+  const S = loadStepSources();
+  const call = bean('com.twinsoft.convertigo.beans.steps.SequenceStep', 'CheckAdminRole');
+  call.add(stepVariable('attribute', { getValueOrNull: () => 'role' }));
+  const targetVariable = (name, value) => ({ getName: () => name, getValueOrNull: () => value });
+  const target = { getName: () => 'GetUserAttribute', getVariablesList: () => [targetVariable('user', null), targetVariable('attribute', null), targetVariable('lang', 'en')] };
+  assert.deepEqual([...S.missingCallVariables(call, target)], ['user']);
+  assert.match(S.missingCallVariablesWarning('App.sq:delete_item.st:CheckAdminRole', 'GetUserAttribute', ['user']),
+    /^App\.sq:delete_item\.st:CheckAdminRole does not pass user of GetUserAttribute, which has no default value: the call sends only its own variables, so it arrives empty\./);
+  call.add(stepVariable('user'));
+  assert.deepEqual([...S.missingCallVariables(call, target)], []);
+  assert.match(fs.readFileSync(path.join(root, 'js/tools_databaseobject_tree_apply.js'), 'utf8'), /var missingNames = C8O\.stepSources\.missingCallVariables\(step, target\);/);
+});
+
+test('a tree-apply warning seen again in the conversation says it is still open', () => {
+  const sandbox = { C8O: { dbo: { getDirectChildren: n => (n.children || []).slice() } } };
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(root, 'js/step_sources.js'), 'utf8'), sandbox, { filename: 'step_sources.js' });
+  const note = sandbox.C8O.treeApplyRepeatNote;
+  assert.equal(note('App.sq:x.st:Call: user will be empty at run time.', 1), 'App.sq:x.st:Call: user will be empty at run time.');
+  assert.equal(note('W', 2), 'STILL OPEN (2nd time in this conversation, the change answered ok each time): W');
+  assert.match(note('W', 8), /^STILL OPEN \(8th time in this conversation/);
+  const tree = fs.readFileSync(path.join(root, 'js/tools_databaseobject_tree_apply.js'), 'utf8');
+  const hook = tree.indexOf('var repeatKey = C8O.writeJournal.keyOf(context, "").key;');
+  assert.ok(hook > tree.indexOf('C8O.sequenceGuards.guardsAfterWrite(sequenceDbo') && hook < tree.indexOf('treeApplyResult = treeApplyCompactResult(treeApplyResult);'),
+    'after every warning is in, before the answer is made compact');
+});

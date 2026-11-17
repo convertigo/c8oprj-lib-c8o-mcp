@@ -1819,7 +1819,7 @@
         "when": "Act on verifier reports and close the task",
         "sha256": "69d6fe6dfe75c6dba617a233c960dad6d2334260760bddc28a2eaffee055fa88",
         "bodyOffset": 233,
-        "servedSha256": "e64e2cbce656e4f20e5534ccc3c038a961f27912e6091ecddd59d716daa9e137",
+        "servedSha256": "73294977720ee307a22f5a7e59e67ac6890ee84a182db89e60a2d4743df9448e",
         "trailingSourceNewlines": 1
       },
       {

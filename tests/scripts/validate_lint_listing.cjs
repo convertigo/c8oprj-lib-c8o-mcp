@@ -50,3 +50,11 @@ test('the lint sequence passes rule to the run', () => {
   assert.match(yaml, /C8O\.lint\.run\(project, \{checkTexts: String\(checkTexts\) !== "false", context: context, rule: /);
   assert.match(yaml, /↓rule \[variables\.RequestableVariable-\d+\]: \n/);
 });
+
+test('with no error left, the report from project-changes is listed first, before the warnings', () => {
+  const findings = many().filter(f => f.severity !== 'error');
+  findings.push({ rule: 'NEXT-REPORT-CHANGES', severity: 'info', qname: 'P', message: 'No error left. Before the final report, list what this conversation changed with project-changes {project:"P"}.', fix: 'Name every object.' });
+  const r = lint().listFindings(findings, '', 25);
+  assert.equal(r.findings[0].rule, 'NEXT-REPORT-CHANGES');
+  assert.equal(r.findings[1].rule, 'DOC-NO-COMMENT');
+});
