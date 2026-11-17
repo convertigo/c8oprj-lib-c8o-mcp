@@ -466,6 +466,18 @@ if (typeof C8O.editProfile === "undefined") {
     }
   }
 
+  // project-changes lists the writes of a conversation (js/write_journal.js). The batch records each call that did not
+  // fail with the whole answer of its tool: the compact answer of the batch keeps only a slot for a clean mutation, and
+  // the endpoint records nothing for batch-call itself. Never fails the call.
+  function journalInnerCall(sequenceName, payload, callArguments) {
+    try {
+      if (typeof C8O.writeJournal === "undefined" || typeof C8O.writeJournal.recordCall !== "function") {
+        include("js/write_journal.js");
+      }
+      C8O.writeJournal.recordCall(context, sequenceName, payload, callArguments, { via: "batch-call" });
+    } catch (_ignoreJournal) {}
+  }
+
   function isMutationSequence(sequenceName) {
     if (!sequenceName || !sequenceName.length) {
       return false;
@@ -1118,6 +1130,7 @@ if (typeof C8O.editProfile === "undefined") {
         }
 
         registerRef(refs, report.callId, payload);
+        journalInnerCall(sequenceName, payload, callArguments);
         if (isMutationSequence(sequenceName) && !(payload && payload.dryRun === true)) {
           collectTouchedQNamesFromPayload(payload, mutationTouchedQNames, mutationTouchedQNameSet);
         }

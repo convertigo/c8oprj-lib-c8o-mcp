@@ -1901,6 +1901,18 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  // project-changes (js/write_journal.js): the writes and the runs of the conversation, one line each.
+  function projectChangesInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        project: { type: "string", description: "Only the objects, files and runs of this project (exact technical name)." },
+        since: { type: "number", description: "Only what happened from this time on, in milliseconds since 1970." }
+      },
+      additionalProperties: false
+    };
+  }
+
   function databaseobjectCopyOutputSchema() {
     return openObjectSchema({
       status: { type: "string" },
@@ -1920,6 +1932,31 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       warnings: stringArraySchema(),
       errors: stringArraySchema(),
       next: { type: "string" }
+    });
+  }
+
+  function projectChangesOutputSchema() {
+    var lines = function (description) {
+      return { type: "array", items: { type: "string" }, description: description };
+    };
+    var count = { type: "number" };
+    return openObjectSchema({
+      scope: { type: "string", enum: ["conversation", "token"], description: "Whose journal: this conversation, or the calls of this bearer token when the host names no conversation." },
+      project: { type: "string" },
+      since: { type: "string" },
+      calls: { type: "number", description: "Calls recorded (writes and runs) in this answer." },
+      from: { type: "string", description: "Time of the first call listed (UTC)." },
+      to: { type: "string", description: "Time of the last call listed (UTC)." },
+      objects: lines("One line per object: its QName, its final state (created, changed, renamed from, moved from, reordered, deleted, created then deleted), the tools that touched it and how many times, and when. +N inside counts the objects under it that changed with it."),
+      files: lines("One line per file written: project notes, js files, stubs."),
+      runs: lines("One line per requestable run with requestable-execute: runs, errors, the last status."),
+      projects: lines("One line per project touched, with its counts."),
+      omitted: openObjectSchema({ objects: count, files: count, runs: count, projects: count }),
+      more: { type: "string" },
+      notListed: { type: "string" },
+      note: { type: "string" },
+      kept: { type: "string" },
+      howToUse: { type: "string" }
     });
   }
 
@@ -3007,6 +3044,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_databaseobject_copy") {
       return databaseobjectCopyInputSchema();
     }
+    if (seq === "tools_project_changes") {
+      return projectChangesInputSchema();
+    }
     if (seq === "tools_viewer_sign_in") {
       return viewerSignInInputSchema();
     }
@@ -3402,6 +3442,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_databaseobject_copy") {
       return databaseobjectCopyOutputSchema();
+    }
+    if (seq === "tools_project_changes") {
+      return projectChangesOutputSchema();
     }
     if (seq === "tools_viewer_sign_in") {
       return viewerSignInOutputSchema();

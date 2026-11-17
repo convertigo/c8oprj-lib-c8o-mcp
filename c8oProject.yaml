@@ -86,6 +86,7 @@
   ↓tools_palette_describe [sequences.GenericSequence]: 🗏 sequences/tools_palette_describe.yaml
   ↓tools_palette_list [sequences.GenericSequence]: 🗏 sequences/tools_palette_list.yaml
   ↓tools_project_brief [sequences.GenericSequence]: 🗏 sequences/tools_project_brief.yaml
+  ↓tools_project_changes [sequences.GenericSequence]: 🗏 sequences/tools_project_changes.yaml
   ↓tools_project_delete [sequences.GenericSequence]: 🗏 sequences/tools_project_delete.yaml
   ↓tools_project_js_get [sequences.GenericSequence]: 🗏 sequences/tools_project_js_get.yaml
   ↓tools_project_js_set [sequences.GenericSequence]: 🗏 sequences/tools_project_js_set.yaml

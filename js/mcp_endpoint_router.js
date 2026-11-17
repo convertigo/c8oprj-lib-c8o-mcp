@@ -259,6 +259,34 @@ function revealAfterToolCall(sequenceName, toolResult, callArguments) {
   }
 }
 
+// After a tool answered (RevealAfterCall of mcp_endpoint): what a write tool created, changed, renamed, moved or deleted,
+// and the runs of requestable-execute, go to the journal of the conversation that project-changes answers
+// (js/write_journal.js). Reads and error answers record nothing; the journal never fails the tool call.
+function journalAfterToolCall(sequenceName, toolResult, callArguments) {
+  try {
+    if (String(sequenceName || "").indexOf("tools_") !== 0 || !toolResult || typeof toolResult !== "object") {
+      return null;
+    }
+    // A No Code agent cannot call project-changes (nocode-* tools only): nothing is recorded for it.
+    if (typeof mcpAuthentication !== "undefined" && mcpAuthentication && mcpAuthentication.kind === "nocode") {
+      return null;
+    }
+    // the write tools are those of the Studio confirmation; a read loads nothing more
+    if (typeof C8O.studioWriteConfirm === "undefined" || !C8O.studioWriteConfirm.WRITE_TOOLS) {
+      include("js/studio_write_confirm.js");
+    }
+    if (C8O.studioWriteConfirm.WRITE_TOOLS[sequenceName] === undefined) {
+      return null;
+    }
+    if (typeof C8O.writeJournal === "undefined" || typeof C8O.writeJournal.recordCall !== "function") {
+      include("js/write_journal.js");
+    }
+    return C8O.writeJournal.recordCall(context, sequenceName, toolResult, callArguments, { conversationId: managedConversationId });
+  } catch (_ignoreJournal) {
+    return null;
+  }
+}
+
 function getSchemaType(schema) {
   if (!schema || typeof schema !== "object") {
     return null;

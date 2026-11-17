@@ -283,6 +283,22 @@ unchanged because nothing ran). Two changes answer it:
 The seed guide (`convertigo://guides/common/seed`) defines the replay proof and the fresh-server proof. Tests:
 `tests/scripts/validate_seed_proof.cjs`, `tests/scripts/validate_lint_anonymous_write.cjs`.
 
+## project-changes (the journal of the writes of a conversation)
+
+Agents closed tasks with "nothing else was modified" after changing existing objects nobody asked for, and "seed
+verified" after the seed's last run answered an error. `js/write_journal.js` keeps, in `context.server`, what each
+write tool of `C8O.studioWriteConfirm.WRITE_TOOLS` created, changed, renamed, moved or deleted, read from its answer
+(`journalAfterToolCall` of the router, in the `RevealAfterCall` step of `mcp_endpoint`, after the reveal), and the runs
+of `requestable-execute` (ok or in error). batch-call records each of its writes itself (`journalInnerCall`): its
+compact answer keeps only a slot for a clean mutation; the endpoint records nothing for batch-call. A compact
+tree-apply answer names the parent of what it created (its touched roots): the engine gives the child of that name.
+- Key: a digest of `X-Convertigo-Conversation-Id`, else of the bearer. Bounded: 400 entries, 160,000 characters per
+  journal, 64 journals, 24 h. QNames, tool names and statuses only, never an argument value.
+- `project-changes` (read) answers one line per object (final state, tools and counts, times), the files, the runs and
+  the projects, under 12,500 characters (what is left out is counted), with `howToUse`; `project` and `since` narrow it.
+- Error answers, reads and calls that threw record nothing. A write tool without a handler of its own is read by the
+  generic one (`created`, `updated`, `deleted`, `qname`). Tests: `tests/scripts/validate_project_changes.cjs`.
+
 ## The No Code skill: SKILL.md and its drawers (contract with lib_ConvertigoAgentBridge)
 
 Vibe saves a tool answer over about 16,000 characters to a file and shows the model its first and last 4,000 or so,

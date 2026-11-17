@@ -106,6 +106,8 @@ C8O.studioWriteConfirm = C8O.studioWriteConfirm || {};
     tools_palette_describe: true,
     tools_palette_list: true,
     tools_project_brief: true,
+    // the journal of the writes of the conversation (js/write_journal.js)
+    tools_project_changes: true,
     tools_project_js_get: true,
     tools_project_lint: true,
     tools_project_list: true,

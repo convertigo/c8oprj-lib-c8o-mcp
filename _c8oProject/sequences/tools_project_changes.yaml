@@ -1,0 +1,29 @@
+accessibility: Private
+comment: |
+  List what this conversation changed through the MCP
+  The journal of the writes made through the MCP in this conversation (without a conversation, with this bearer token), kept 24 hours: one line per object with its final state (created, changed, renamed from, moved from, deleted, created then deleted), the tools that touched it and how many times, and when; the files written (project notes, js files, stubs); the requestables run with requestable-execute, with their runs, errors and last status; the projects touched. Call it before the final summary of a task and report from it: name every object it lists. project and since narrow it. What was changed outside the MCP (files edited by hand, the Studio) is not in it. Read-only.
+↓Include [steps.SimpleStep-1795100000201]: 
+  expression: 'include("js/mcp_auth.js"); include("js/write_journal.js");'
+↓Run [steps.SimpleStep-1795100000202]: 
+  expression: 'var projectChangesResult = C8O.writeJournal.execute(context, {project: project, since: since});'
+↓result [steps.JsonToXmlStep-1795100000203]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: projectChangesResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓project [variables.RequestableVariable-1795100000211]: 
+  comment: 'Optional: only the objects, files and runs of this project.'
+  description: 'Optional: only the objects, files and runs of this project.'
+  value: ''
+↓since [variables.RequestableVariable-1795100000212]: 
+  comment: 'Optional: only what happened from this time on, in milliseconds since 1970.'
+  description: 'Optional: only what happened from this time on, in milliseconds since 1970.'
+  value: ''
