@@ -39,6 +39,9 @@ to the page with `filters:[{name, label, type:"select", options}]` or `type:"sea
   source nor value takes the JavaScript variable of the same name only), an `IfExistThenElseStep` on the call's
   `./document/error` ending in an `XMLErrorStep`, then the role read (`GetUserAttribute`) and the answer `user` + `role`;
   each protected sequence checks the role server side (`IfStep` + `XMLErrorStep`) before its transaction call.
+- Single sign-on (Google, Azure AD, an OpenID provider) goes through `lib_OAuth`, a corporate directory through LDAP
+  (`lib_UserManager.SignInLDAPBulk` / `SignInADBulk`, or `LDAPAuthenticationStep`):
+  `convertigo://guides/auth/choosing-a-flow`. Roles the same way: `SetUserAttribute`, then the server-side check.
 - The login page is an `ngx-page-create` form page with `root:true`: `form.submit` the login sequence, one field per
   variable of it (`type:"password"` for the password), `success:{page:"<home page>", kind:"root"}`. It shows the
   refusal, and every protected page takes `authRedirect` to it. A login page that signs in without asking anything

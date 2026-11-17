@@ -403,7 +403,7 @@
         "when": "Running upsert-crud again",
         "sha256": "58f43f0d3abb3bb04d627e6a0fdf3e2072636d11266c1affebb4bb1255716a03",
         "bodyOffset": 236,
-        "servedSha256": "6d9620d39c86a314de86b8faf719e6f20114d1f2cb10d949488379f250938594",
+        "servedSha256": "bab678a4da4eb827058656ce46c978a7b3020973927f1e17a1843f87c959e9c4",
         "trailingSourceNewlines": 1
       },
       {
@@ -1162,7 +1162,7 @@
         "servedSha256": "9f5bdbe1807c177c09dae5ed6b0f9656d524507b8a8cd201fe5556e0fc0712ad"
       }
     ],
-    "summarySha256": "e8f1c10f24c9c588cf34b88a8f31d5b54b178ee250bc4e320dec87e1d5911aa1"
+    "summarySha256": "834520ca32adf34dbf95ddc81dc60e3964e730bc37638014bfbf49c5a4f13551"
   },
   {
     "oldUri": "convertigo://resources/convertigo-recipe-ngx-data-page",
