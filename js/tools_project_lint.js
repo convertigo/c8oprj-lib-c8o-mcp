@@ -7,6 +7,7 @@ if (typeof include === "function") {
   include("js/security_audit_collect.js");
 }
 // SEQ-ORPHAN-SOURCE: the step sources naming a step the sequence no longer has (js/step_sources.js).
+// SEQ-GUARD-AFTER-WRITE: a refusal (If block with an XMLErrorStep) placed after a call that writes (js/sequence_guards.js).
 if (typeof include === "function") {
   include("js/step_sources.js");
 }
@@ -1526,6 +1527,19 @@ if (typeof include === "function") {
       }
       var flow = sequenceFlow(sequence, variableNames);
       sequenceFlows.push(flow);
+      // A guard placed after the call that writes refuses once the write is done (js/sequence_guards.js).
+      try {
+        if (typeof C8O.sequenceGuards === "undefined") {
+          include("js/sequence_guards.js");
+        }
+        if (typeof C8O.requestableContract === "undefined" || typeof C8O.requestableContract.writesOf !== "function") {
+          include("js/requestable_contract.js");
+        }
+        C8O.sequenceGuards.guardsAfterWrite(sequence, C8O.sequenceGuards.engineHooks()).forEach(function (finding) {
+          add("SEQ-GUARD-AFTER-WRITE", "error", finding.guard, C8O.sequenceGuards.message(qnameOf(sequence), finding),
+            C8O.sequenceGuards.fix(finding));
+        });
+      } catch (_ignoreGuardCheck) {}
       // A source naming a step deleted or created again: requestable-execute fails with "Did not find source (N) for step".
       if (C8O.stepSources) {
         C8O.stepSources.orphans(C8O.stepSources.collect(sequence)).forEach(function (ref) {

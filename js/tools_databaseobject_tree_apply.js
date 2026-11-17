@@ -799,6 +799,35 @@ if (treeApplyResult && treeApplyResult.dryRun !== true && treeApplyResult.status
   } catch (_ignoreContractCheck) {}
 }
 
+// A guard placed after a write in a sequence this call changed refuses once the write is done (js/sequence_guards.js).
+if (treeApplyResult && treeApplyResult.dryRun !== true && treeApplyResult.status !== "failed") {
+  try {
+    if (typeof C8O.sequenceGuards === "undefined") {
+      include("js/sequence_guards.js");
+    }
+    if (typeof C8O.requestableContract === "undefined" || typeof C8O.requestableContract.writesOf !== "function") {
+      include("js/requestable_contract.js");
+    }
+    var guardSequences = {};
+    (Array.isArray(treeApplyResult.touchedQNames) ? treeApplyResult.touchedQNames : []).forEach(function (qn) {
+      var m = /^([^.]+\.sq:[^.]+)/.exec(String(qn));
+      if (m) {
+        guardSequences[m[1]] = true;
+      }
+    });
+    Object.keys(guardSequences).slice(0, 5).forEach(function (sq) {
+      var sequenceDbo = C8O.dbo.resolve(sq, { optional: true });
+      if (!sequenceDbo) {
+        return;
+      }
+      C8O.sequenceGuards.guardsAfterWrite(sequenceDbo, C8O.sequenceGuards.engineHooks()).forEach(function (finding) {
+        treeApplyResult.warnings = Array.isArray(treeApplyResult.warnings) ? treeApplyResult.warnings : [];
+        treeApplyResult.warnings.push(C8O.sequenceGuards.message(sq, finding) + " " + C8O.sequenceGuards.fix(finding));
+      });
+    });
+  } catch (_ignoreGuardWarning) {}
+}
+
 var responseDetailInput = (typeof responseDetail !== "undefined" && asTrimmed(responseDetail).toLowerCase() === "full") ? "full" : "compact";
 if (treeApplyResult && responseDetailInput !== "full") {
   treeApplyResult = treeApplyCompactResult(treeApplyResult);
