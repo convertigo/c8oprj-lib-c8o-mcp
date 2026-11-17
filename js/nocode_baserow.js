@@ -170,18 +170,49 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     return response;
   }
 
+  // Baserow answers a refused request with an error code and, beside it, the detail of what it refused, such as
+  // { error: "ERROR_REQUEST_BODY_VALIDATION", detail: { <column>: [{ error, code }] } }: the code alone told an agent
+  // nothing it could change (a west longitude refused by a number column without negative values, 17/11).
+  function withDetail(error, holder) {
+    var detail = holder ? holder.detail : null;
+    if (detail == null || (error && typeof error === "object")) {
+      return error;
+    }
+    return { code: String(error), message: String(error), detail: detail };
+  }
+
+  function detailText(detail) {
+    if (detail == null) {
+      return "";
+    }
+    var text = typeof detail === "string" ? detail : JSON.stringify(detail);
+    return text.length > 600 ? text.substring(0, 600) + "..." : text;
+  }
+
+  function errorMessage(error) {
+    if (error == null) {
+      return "";
+    }
+    if (typeof error !== "object") {
+      return String(error);
+    }
+    var message = String(error.message || error.code || (error.detail != null ? "" : JSON.stringify(error)));
+    var detail = detailText(error.detail);
+    return detail.length && message.indexOf(detail) < 0 ? (message.length ? message + " " : "") + detail : message;
+  }
+
   function apiError(response) {
     if (!response) {
       return null;
     }
     if (response.document && response.document.error) {
-      return response.document.error;
+      return withDetail(response.document.error, response.document);
     }
     if (response.doc && response.doc.document && response.doc.document.error) {
-      return response.doc.document.error;
+      return withDetail(response.doc.document.error, response.doc.document);
     }
     if (response.error) {
-      return response.error;
+      return withDetail(response.error, response);
     }
     if (response.detail || response.code) {
       return {
@@ -705,10 +736,10 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     }
     var object = firstObject(response);
     if (object && object.error) {
-      return object.error;
+      return withDetail(object.error, object);
     }
-    if (object && object.detail && String(object.detail).length) {
-      return { code: "baserow_error", message: String(object.detail) };
+    if (object && object.detail && detailText(object.detail).length) {
+      return { code: "baserow_error", message: detailText(object.detail) };
     }
     var httpStatus = pathValue(response, ["document", "HttpInfo", "status"]);
     if (httpStatus && numberOrNull(httpStatus.code) >= 400) {
@@ -731,7 +762,7 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     var response = callBaserowTransaction(transaction, variables);
     var error = transactionError(response);
     if (error) {
-      throw new Error(String(error.message || error.detail || error.code || JSON.stringify(error)));
+      throw new Error(errorMessage(error));
     }
     return firstObject(response);
   }
@@ -911,6 +942,106 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     return map;
   }
 
+  // Baserow number fields refuse a value below 0 unless number_negative is set, and more decimals than
+  // number_decimal_places (0 by default): a field created with neither refused a west longitude (17/11). A number field
+  // accepts negative values unless the schema says otherwise (negative:false, unsigned:true or min >= 0); decimals sets
+  // its decimal places (0 for the type alias "integer", 2 for "decimal", else those of the sample rows, when not given).
+  // The options given in baserowOptions win.
+  var NUMBER_MAX_DECIMALS = 10;
+  function numberSpec(field, rawType, path) {
+    var negative = null;
+    var decimals = null;
+    function setNegative(value, option) {
+      if (negative !== null && negative !== value) {
+        throw new Error(path + ": " + option + " contradicts another option of the field (negative, unsigned, min): give one");
+      }
+      negative = value;
+    }
+    if (field.negative != null) { setNegative(booleanValue(field.negative), "negative"); }
+    if (field.unsigned != null) { setNegative(!booleanValue(field.unsigned), "unsigned"); }
+    if (field.min != null && trimmed(field.min).length) {
+      var min = Number(field.min);
+      if (!isFinite(min)) { throw new Error(path + ".min must be a number"); }
+      setNegative(min < 0, "min");
+    }
+    var givenDecimals = field.decimals != null ? field.decimals : field.decimalPlaces;
+    if (givenDecimals != null && trimmed(givenDecimals).length) {
+      decimals = Number(givenDecimals);
+      if (!(decimals >= 0 && decimals <= NUMBER_MAX_DECIMALS && Math.floor(decimals) === decimals)) {
+        throw new Error(path + ".decimals must be a whole number from 0 to " + NUMBER_MAX_DECIMALS);
+      }
+    }
+    var options = field.baserowOptions || field.optionsObject || {};
+    var explicit = { negative: negative !== null, decimals: decimals !== null };
+    if (hasOwnKey(options, "number_negative")) {
+      negative = booleanValue(options.number_negative);
+      explicit.negative = true;
+    }
+    if (hasOwnKey(options, "number_decimal_places")) {
+      decimals = numberOrNull(options.number_decimal_places);
+      explicit.decimals = decimals != null;
+    }
+    if (decimals === null && rawType === "integer") {
+      decimals = 0;
+      explicit.decimals = true;
+    } else if (decimals === null && rawType === "decimal") {
+      decimals = 2;
+    }
+    return {
+      negative: negative === null ? true : negative,
+      decimals: decimals,
+      explicit: explicit
+    };
+  }
+
+  // The sign and the decimal places of a value written to a number field, as Baserow counts them on the text sent
+  // (trailing zeros of a text included); null for what is not a plain number.
+  function numberValueFacts(value) {
+    if (value == null || typeof value === "object" || typeof value === "boolean") {
+      return null;
+    }
+    var text = trimmed(value);
+    if (!text.length || !isFinite(Number(text))) {
+      return null;
+    }
+    var match = /^([+-]?)\d*(?:\.(\d*))?(?:e([+-]?\d+))?$/i.exec(text);
+    if (!match) {
+      return null;
+    }
+    var decimals = (match[2] || "").length - (match[3] ? Number(match[3]) : 0);
+    return { negative: Number(text) < 0, decimals: Math.max(0, decimals) };
+  }
+
+  // What the sample rows of a table need from each number field the schema lists: a field without decimals given gets
+  // the decimal places of its values (a coordinate given with 5 decimals keeps them).
+  function sampleNumberNeeds(fields, rows) {
+    fields.forEach(function (field) {
+      if (field.type !== "number" || !field.number) {
+        return;
+      }
+      var key = fieldNameKey(field.name);
+      var need = { negative: false, decimals: 0 };
+      rows.forEach(function (row) {
+        Object.keys(row && typeof row === "object" ? row : {}).forEach(function (name) {
+          var facts = fieldNameKey(name) === key ? numberValueFacts(row[name]) : null;
+          if (facts) {
+            need.negative = need.negative || facts.negative;
+            need.decimals = Math.max(need.decimals, facts.decimals);
+          }
+        });
+      });
+      need.decimals = Math.min(need.decimals, NUMBER_MAX_DECIMALS);
+      field.number.need = need;
+      if (!field.number.explicit.decimals && need.decimals > (field.number.decimals || 0)) {
+        field.number.decimals = need.decimals;
+      }
+    });
+  }
+
+  function hasOwnKey(object, key) {
+    return !!object && typeof object === "object" && Object.prototype.hasOwnProperty.call(object, key);
+  }
+
   function normalizeSchema(rawSchema) {
     var schema = rawSchema || {};
     var tables = ensureArray(schema.tables || schema.entities || schema.collections);
@@ -930,6 +1061,7 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
           throw new Error("schema.tables[" + i + "].fields[" + f + "].name is required.");
         }
         var type = normalizeFieldType(field.type || "text");
+        var fieldPath = "schema.tables[" + i + "].fields[" + f + "] (" + fieldName + ")";
         normalizedFields.push({
           name: fieldName,
           type: type,
@@ -944,9 +1076,11 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
           relatedFieldName: trimmed(field.relatedFieldName || field.linkRowRelatedFieldName),
           formula: trimmed(field.formula),
           baserowOptions: field.baserowOptions || field.optionsObject || {},
+          number: type === "number" ? numberSpec(field, trimmed(field.type).toLowerCase(), fieldPath) : null,
           raw: field
         });
       }
+      sampleNumberNeeds(normalizedFields, ensureArray(table.sampleRows || table.rows || table.data));
       normalizedTables.push({
         id: numberOrNull(table.id || table.tableId),
         name: tableName,
@@ -980,7 +1114,7 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
   }
 
   function formatLibWriteError(label, error) {
-    var message = String(error && (error.message || error.code) ? (error.message || error.code) : JSON.stringify(error));
+    var message = errorMessage(error);
     if (message.indexOf("URL_NOT_FOUND") !== -1) {
       return label + ": lib_BaseRow write primitive returned URL_NOT_FOUND. The schema is valid, but the loaded lib_BaseRow Baserow_API_spec connector cannot persist this write endpoint in the current runtime.";
     }
@@ -1148,6 +1282,12 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     if (field.description.length) {
       body.description = field.description;
     }
+    if (field.type === "number" && field.number) {
+      body.number_negative = field.number.negative;
+      if (field.number.decimals != null) {
+        body.number_decimal_places = field.number.decimals;
+      }
+    }
     var optionKeys = Object.keys(field.baserowOptions || {});
     for (var i = 0; i < optionKeys.length; i++) {
       body[optionKeys[i]] = field.baserowOptions[optionKeys[i]];
@@ -1248,6 +1388,8 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
             });
           } else if ((field.type === "single_select" || field.type === "multiple_select") && field.values != null) {
             updateSelectOptions(plan, tableSpec, existing, field, apply);
+          } else if (field.type === "number") {
+            updateNumberOptions(plan, tableSpec, existing, field, apply, bearer);
           }
           continue;
         }
@@ -1256,6 +1398,9 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
           continue;
         }
         var body = buildFieldBody(field, tableByName, fieldsByTableName, !apply);
+        if (field.type === "number" && field.number) {
+          field.number.planned = { negative: booleanValue(body.number_negative), decimals: numberOrNull(body.number_decimal_places) || 0 };
+        }
         pushAction(plan, "create_field", "Create field.", { table: tableSpec.name, tableId: table.id, field: field.name, fieldType: field.type, body: body });
         if (apply) {
           var response = callC8oSequence("lib_BaseRow", "TableCreateColumn", {
@@ -1282,6 +1427,137 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         }
       }
     }
+  }
+
+  // An existing number field the schema lists: widened when the schema asks it (negative, decimals, baserowOptions) or
+  // when the sample rows of the call need it, through the user's Baserow account. Narrowing one (no negative values
+  // any more, fewer decimals) would change or empty the values it holds: reported, never done.
+  function updateNumberOptions(plan, tableSpec, existing, field, apply, bearer) {
+    var wanted = field.number;
+    if (!wanted) {
+      return;
+    }
+    var currentNegative = booleanValue(existing.number_negative);
+    var currentDecimals = numberOrNull(existing.number_decimal_places) || 0;
+    var need = wanted.need || { negative: false, decimals: 0 };
+    var wantNegative = wanted.explicit.negative ? wanted.negative : (need.negative ? true : null);
+    var wantDecimals = wanted.explicit.decimals ? wanted.decimals : (need.decimals > currentDecimals ? need.decimals : null);
+    var patch = {};
+    var narrowed = [];
+    if (wantNegative === true && !currentNegative) {
+      patch.number_negative = true;
+    } else if (wantNegative === false && currentNegative) {
+      narrowed.push("number_negative false");
+    }
+    if (wantDecimals != null && wantDecimals > currentDecimals) {
+      patch.number_decimal_places = wantDecimals;
+    } else if (wantDecimals != null && wantDecimals < currentDecimals) {
+      narrowed.push("number_decimal_places " + wantDecimals);
+    }
+    wanted.planned = {
+      negative: hasOwnKey(patch, "number_negative") ? true : currentNegative,
+      decimals: hasOwnKey(patch, "number_decimal_places") ? patch.number_decimal_places : currentDecimals
+    };
+    if (narrowed.length) {
+      plan.warnings.push({
+        code: "number_field_not_narrowed",
+        table: tableSpec.name,
+        field: field.name,
+        fieldId: existing.id,
+        current: { number_negative: currentNegative, number_decimal_places: currentDecimals },
+        message: "The schema asks " + narrowed.join(" and ") + " for an existing number field: the tool does not narrow a field, since Baserow would change or empty the values it holds. The field is left as it is."
+      });
+    }
+    if (!Object.keys(patch).length) {
+      return;
+    }
+    pushAction(plan, "update_number_options", "Widen number field options.", {
+      table: tableSpec.name,
+      field: field.name,
+      fieldId: existing.id,
+      current: { number_negative: currentNegative, number_decimal_places: currentDecimals },
+      patch: patch
+    });
+    if (!apply) {
+      return;
+    }
+    var body = { type: "number" };
+    Object.keys(patch).forEach(function (key) { body[key] = patch[key]; });
+    try {
+      callBaserowJson("_api_database_fields__field_id___PATCH", {
+        field_id: baserowId(existing.id),
+        __body: JSON.stringify(body),
+        __header_Authorization: trimmed(bearer).length ? bearer : getBaserowBearer()
+      });
+    } catch (patchError) {
+      throw new Error(formatLibWriteError("Update number field " + tableSpec.name + "." + field.name, patchError));
+    }
+    Object.keys(patch).forEach(function (key) { existing[key] = patch[key]; });
+  }
+
+  // The number values of sample rows a field refuses (a negative value without number_negative, more decimals than
+  // number_decimal_places), found before any row is written: Baserow refuses such a row with
+  // ERROR_REQUEST_BODY_VALIDATION after the rows before it were written. A plan uses the options the fields will have;
+  // an apply the fields as Baserow gives them, when it gives their options.
+  function numberValueProblems(tableSpec, items, existingFields, apply) {
+    var options = {};
+    tableSpec.fields.forEach(function (field) {
+      if (field.type === "number" && field.number && field.number.planned) {
+        options[fieldNameKey(field.name)] = { name: field.name, negative: field.number.planned.negative, decimals: field.number.planned.decimals, listed: true };
+      }
+    });
+    ensureArray(existingFields).forEach(function (field) {
+      var key = fieldNameKey(field && field.name);
+      if (!field || normalizeFieldType(field.type) !== "number" || !hasOwnKey(field, "number_negative") || (options[key] && !apply)) {
+        return;
+      }
+      options[key] = {
+        name: trimmed(field.name),
+        negative: booleanValue(field.number_negative),
+        decimals: numberOrNull(field.number_decimal_places) || 0,
+        listed: !!options[key]
+      };
+    });
+    var problems = {};
+    var order = [];
+    items.forEach(function (item, index) {
+      Object.keys(item || {}).forEach(function (name) {
+        var option = options[fieldNameKey(name)];
+        var facts = option ? numberValueFacts(item[name]) : null;
+        if (!facts || (!(facts.negative && !option.negative) && facts.decimals <= option.decimals)) {
+          return;
+        }
+        var problem = problems[option.name];
+        if (!problem) {
+          problem = problems[option.name] = { field: option.name, option: option, negative: false, decimals: 0, rows: [] };
+          order.push(option.name);
+        }
+        problem.negative = problem.negative || (facts.negative && !option.negative);
+        problem.decimals = Math.max(problem.decimals, facts.decimals > option.decimals ? facts.decimals : 0);
+        if (problem.rows.length < 3) {
+          problem.rows.push({ row: index + 1, value: item[name] });
+        }
+      });
+    });
+    return order.map(function (name) { return problems[name]; });
+  }
+
+  function numberProblemsMessage(tableSpec, problems, apply) {
+    var parts = problems.map(function (problem) {
+      var fixes = [];
+      if (problem.negative) {
+        fixes.push("negative: true");
+      }
+      if (problem.decimals) {
+        fixes.push("decimals: " + problem.decimals);
+      }
+      return problem.field + " " + problem.rows.map(function (row) { return JSON.stringify(row.value) + " (row " + row.row + ")"; }).join(", ") +
+        ": the number field has number_negative " + problem.option.negative + " and number_decimal_places " + problem.option.decimals +
+        "; give " + (problem.option.listed ? "its entry" : "it an entry") + " in tables[].fields " + fixes.join(" and ");
+    });
+    return "Sample rows of table " + tableSpec.name + " hold numbers that Baserow refuses (ERROR_REQUEST_BODY_VALIDATION)" +
+      (apply ? ", so no row was written: " : ": ") + parts.join("; ") +
+      ". The tool widens an existing number field the schema lists; it never narrows one.";
   }
 
   function selectOptionValueMap(options) {
@@ -1502,6 +1778,18 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     var items = [];
     for (var bi = 0; bi < built.rows.length; bi++) {
       items.push(built.rows[bi].item);
+    }
+    var numberProblems = numberValueProblems(tableSpec, items, existingFields, apply);
+    if (numberProblems.length && apply) {
+      throw new Error(numberProblemsMessage(tableSpec, numberProblems, true));
+    }
+    if (numberProblems.length) {
+      plan.warnings.push({
+        code: "number_value_refused",
+        table: tableSpec.name,
+        fields: numberProblems.map(function (problem) { return problem.field; }),
+        message: numberProblemsMessage(tableSpec, numberProblems, false)
+      });
     }
     var upsertKey = trimmed(tableSpec.upsertKey);
     var upsertField = upsertKey.length ? built.fieldResolver.resolve(upsertKey) : null;

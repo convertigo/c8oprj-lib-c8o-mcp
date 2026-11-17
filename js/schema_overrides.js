@@ -1133,7 +1133,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         through: { type: "string", description: "For lookup/rollup/count, the existing link_row field name." },
         targetField: { type: "string", description: "For lookup/rollup, the field name to report from the linked table." },
         formula: { type: "string", description: "Formula expression for formula fields." },
-        baserowOptions: { type: "object", additionalProperties: true, description: "Raw Baserow create-field options for advanced/current field types." }
+        decimals: { type: "integer", minimum: 0, maximum: 10, description: "For number: decimal places (Baserow number_decimal_places). Without it: 0 for integer, 2 for decimal, else the most decimals of the sample rows (a coordinate needs 5 or 6)." },
+        negative: { type: "boolean", description: "For number: whether values below 0 are accepted (Baserow number_negative). Default true; false (or unsigned: true, or min: 0) refuses them." },
+        unsigned: { type: "boolean", description: "For number: true refuses values below 0 (negative: false)." },
+        min: { type: "number", description: "For number: a minimum of 0 or more refuses values below 0 (negative: false), a minimum below 0 accepts them; only its sign is used." },
+        baserowOptions: { type: "object", additionalProperties: true, description: "Raw Baserow create-field options for advanced/current field types; they win over decimals and negative. An existing number field is widened (number_negative true, more decimals) when the schema or its sample rows need it, never narrowed." }
       },
       required: ["name", "type"],
       additionalProperties: false
