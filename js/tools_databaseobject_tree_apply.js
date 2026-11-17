@@ -334,6 +334,58 @@ if (C8O.editProfile.current() === "html" && !(dryRunInput === true || String(dry
   C8O.ionicRoundTrip.assertNoPendingEdits(C8O.dbo.resolve(targetInput, { optional: true }), "This tree change");
 }
 
+// at:"self" whose tree names the target otherwise, same class: the target is renamed first, with the references to it in
+// its project updated (databaseobject-rename update_local), then patched under its new name. A dry run renames nothing.
+treeApplyRenamed = null;
+function treeApplyRenameTarget(selfTarget, oldName, newName) {
+  var parent = null;
+  try {
+    parent = selfTarget.getParent();
+  } catch (_noRenameParent) {
+    parent = null;
+  }
+  if (!parent) {
+    throw new Error("at:\"self\" with tree.name " + newName + " renames " + oldName + ", which has no parent: use databaseobject-rename.");
+  }
+  var folderOf = function (dbo) {
+    try {
+      return String(dbo.getFolderType());
+    } catch (_noFolder) {
+      return "";
+    }
+  };
+  var siblings = parent.getDatabaseObjectChildren();
+  for (var si = 0; siblings && si < siblings.size(); si++) {
+    var sibling = siblings.get(si);
+    if (sibling && !sibling.equals(selfTarget) && String(sibling.getName()) === newName && folderOf(sibling) === folderOf(selfTarget)) {
+      throw new Error("at:\"self\" with tree.name " + newName + " renames " + oldName + ", but " + C8O.dbo.safeQName(parent) +
+        " already has " + newName + ". Nothing was changed. To patch " + newName + ", target it; to rename " + oldName +
+        ", choose a free name.");
+    }
+  }
+  if (dryRunInput === true || String(dryRunInput) === "true") {
+    treeApplyWarnings.push("dryRun: " + oldName + " would be renamed " + newName + " before the patch.");
+    return;
+  }
+  var renameResult = C8O.dbo.withStudioLock(function () {
+    return C8O.dbo.renameObject({ qname: C8O.dbo.safeQName(selfTarget), name: newName, update: "update_local" });
+  }, "a rename of " + C8O.dbo.safeQName(selfTarget));
+  if (!renameResult || renameResult.renamed !== true) {
+    var renameErrors = renameResult && renameResult.errors && renameResult.errors.length ? renameResult.errors[0].message : "the engine refused the name";
+    throw new Error("at:\"self\" with tree.name " + newName + " renames " + oldName + ", and the rename failed: " + renameErrors +
+      ". Nothing was changed.");
+  }
+  treeApplyRenamed = {
+    from: String(renameResult.qname),
+    to: String(renameResult.newQName),
+    oldName: oldName,
+    newName: String(renameResult.newName),
+    references: Array.isArray(renameResult.updatedIds) ? renameResult.updatedIds.length : 0,
+    project: renameResult.project || null
+  };
+  targetInput = treeApplyRenamed.to;
+}
+
 var op = null;
 if (atInput === "self") {
   // at:"self" (the default) patches the target itself. A tree that names another object is almost
@@ -356,10 +408,15 @@ if (atInput === "self") {
     };
     var classDiffers = treeClass.length > 0 && treeClass.toLowerCase() !== selfClassBase.toLowerCase() &&
       lastSegment(treeClass) !== lastSegment(selfClassBase);
-    if ((treeName.length && treeName !== selfName) || classDiffers) {
+    if (classDiffers) {
       throw new Error("at:\"self\" (the default) patches the target itself, " + selfName + " (" + selfClass + "), but tree names " +
         (treeName || selfName) + (treeClass ? " (" + treeClass + ")" : "") + ". To create or update that child, add at:\"inside\"; " +
         "to patch an existing object, use its own QName as target. To rename the target, use databaseobject-rename.");
+    }
+    // The same class under another name renames the target: an agent sent {name:"total", properties:{...}} on a step
+    // named TOTAL four times, was refused each time, then deleted and recreated it (measured run, 17/11).
+    if (treeName.length && treeName !== selfName) {
+      treeApplyRenameTarget(selfTarget, selfName, treeName);
     }
   }
   op = {
@@ -420,6 +477,33 @@ treeApplyResult = C8O.dbo.batchApply({
   executionId: executionIdInput,
   dryRun: dryRunInput
 });
+
+// The rename made before the patch: in the first operation's applied entries and notes, among the touched objects, and
+// saved even when the patch changed no property.
+if (treeApplyRenamed && treeApplyResult) {
+  var renameOp = Array.isArray(treeApplyResult.operations) && treeApplyResult.operations.length ? treeApplyResult.operations[0] : null;
+  if (renameOp) {
+    renameOp.applied = Array.isArray(renameOp.applied) ? renameOp.applied : [];
+    renameOp.applied.unshift({ action: "rename", qname: treeApplyRenamed.to, previous: treeApplyRenamed.from, name: treeApplyRenamed.newName });
+    renameOp.notes = Array.isArray(renameOp.notes) ? renameOp.notes : [];
+    renameOp.notes.push("Renamed " + treeApplyRenamed.oldName + " to " + treeApplyRenamed.newName + " (" + treeApplyRenamed.from + " is now " +
+      treeApplyRenamed.to + "; " + treeApplyRenamed.references + " reference(s) in the project updated).");
+  }
+  treeApplyResult.touchedQNames = Array.isArray(treeApplyResult.touchedQNames) ? treeApplyResult.touchedQNames : [];
+  if (treeApplyResult.touchedQNames.indexOf(treeApplyRenamed.to) < 0) {
+    treeApplyResult.touchedQNames.push(treeApplyRenamed.to);
+  }
+  var renameSaved = Array.isArray(treeApplyResult.saveResults) && treeApplyResult.saveResults.length > 0;
+  if (!renameSaved && treeApplyRenamed.project && typeof C8O.dbo.saveProjectIfNeeded === "function") {
+    var renameSaveErrors = [];
+    var renameSave = C8O.dbo.saveProjectIfNeeded(treeApplyRenamed.project, C8O.util.parseAutoSaveFlag(autoSaveInput, true), renameSaveErrors);
+    treeApplyResult.saveResults = Array.isArray(treeApplyResult.saveResults) ? treeApplyResult.saveResults : [];
+    treeApplyResult.saveResults.push({ project: String(treeApplyRenamed.project.getName()), saved: renameSave && renameSave.saved === true,
+      message: renameSave && renameSave.message ? String(renameSave.message) : "" });
+    treeApplyResult.saved = treeApplyResult.saved === true || (renameSave && renameSave.saved === true);
+  }
+  treeApplyRenamed.project = null;
+}
 
 if (treeApplyInputErrors.length > 0) {
   if (!treeApplyResult.errors) {

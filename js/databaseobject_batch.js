@@ -770,6 +770,19 @@ include("js/sql_dialect.js");
       dbo.setName(name);
     }
     var afterValue = createContext && createContext.afterValue !== undefined ? createContext.afterValue : null;
+    // A child of a tree goes where the tree puts it (placeFor of upsertChildren): known once the object exists, since
+    // only siblings of its folder count (steps, not the variables of the same sequence).
+    var placement = null;
+    if (createContext && typeof createContext.placeFor === "function") {
+      try {
+        placement = createContext.placeFor(dbo);
+      } catch (_ignorePlacement) {
+        placement = null;
+      }
+      if (placement && placement.afterValue != null) {
+        afterValue = placement.afterValue;
+      }
+    }
     var insertedByPriority = false;
     if (afterValue != null) {
       try {
@@ -806,9 +819,100 @@ include("js/sql_dialect.js");
         }
       }
     }
+    if (placement && (placement.after || placement.before)) {
+      ensurePlacement(ctx, parent, dbo, placement);
+    }
     markDirty(ctx, parent);
     markDirty(ctx, dbo);
     return dbo;
+  }
+
+  // In a sequence, a step's place is its meaning: a step that reads a variable runs after the step that sets it. A child a
+  // tree adds to an ordered parent (steps, page components, variables) goes after its previous sibling in the tree, or
+  // before the next sibling that already exists, never at the end by default. A merge used to append it: a SimpleStep sent
+  // between the step counting rows and the IfStep reading its variable was saved last, and the sequence failed on every
+  // run with "ReferenceError: <variable> is not defined" (measured run, 17/11).
+  function isOrderedContainer(dbo) {
+    if (!dbo) {
+      return false;
+    }
+    try {
+      return dbo instanceof Packages.com.twinsoft.convertigo.beans.core.IContainerOrdered;
+    } catch (_noEngineClass) {
+      return typeof dbo.increasePriority === "function" && typeof dbo.add === "function";
+    }
+  }
+
+  function folderKeyOf(dbo) {
+    try {
+      return String(dbo.getFolderType());
+    } catch (_noFolderType) {
+      return "";
+    }
+  }
+
+  function sameDbo(a, b) {
+    if (!a || !b) {
+      return false;
+    }
+    if (a === b) {
+      return true;
+    }
+    try {
+      return typeof a.equals === "function" && a.equals(b) === true;
+    } catch (_ignoreEquals) {
+      return false;
+    }
+  }
+
+  function isDirectChildOf(parent, dbo) {
+    try {
+      return sameDbo(dbo.getParent(), parent);
+    } catch (_ignoreParentOf) {
+      return false;
+    }
+  }
+
+  function priorityLong(value) {
+    return java.lang.Long.valueOf(String(value));
+  }
+
+  function placedAsAsked(dbo, placement) {
+    try {
+      if (placement.after) {
+        return sameDbo(dbo.getPreviousSiblingInFolder(), placement.after);
+      }
+      if (placement.before) {
+        return sameDbo(placement.before.getPreviousSiblingInFolder(), dbo);
+      }
+    } catch (_ignorePlacedCheck) {
+      return false;
+    }
+    return true;
+  }
+
+  // The new object is checked where the tree put it; out of place, it is moved there once, and an object that cannot be
+  // placed is removed: the call fails with what to do, instead of saving a sequence that runs its steps in another order.
+  function ensurePlacement(ctx, parent, dbo, placement) {
+    if (placedAsAsked(dbo, placement)) {
+      return;
+    }
+    var anchor = placement.after || placement.before;
+    var position = placement.after ? "after" : "before";
+    try {
+      var moved = C8O.dbo.moveObject({ qname: safeQName(dbo), target: safeQName(anchor), position: position });
+      if (moved && moved.done === true && placedAsAsked(dbo, placement)) {
+        return;
+      }
+    } catch (_ignorePlacementMove) {}
+    var placedQName = safeQName(dbo);
+    try {
+      deleteObject(ctx, placedQName);
+    } catch (_ignorePlacementCleanup) {}
+    throw new Error(String(dbo.getName()) + " could not be placed " + position + " " + String(anchor.getName()) + " in " +
+      safeQName(parent) + ", where the tree puts it, so it was not created (the order of " + safeQName(parent) +
+      " is the order it runs or shows). Send the tree again, or create it with at:\"" + position + "\" and target " +
+      safeQName(anchor) + ".");
   }
 
   // Why the engine refused an object under a parent, with the way to write it, for the refusal of a create.
@@ -1477,6 +1581,37 @@ include("js/sql_dialect.js");
     return { changed: applied.length > 0, names: changedNames, updated: applied.length };
   }
 
+  // A merge never moves the children that exist: when the tree lists two of them in the other order than the one they
+  // run or show in, the answer says so (one warning) with the move to make.
+  function warnOrderDiffers(parentDbo, parentQName, placed, report) {
+    var runtime = getDirectChildren(parentDbo);
+    var runtimeIndex = function (dbo) {
+      for (var r = 0; r < runtime.length; r++) {
+        if (sameDbo(runtime[r], dbo)) {
+          return r;
+        }
+      }
+      return -1;
+    };
+    var lastByFolder = {};
+    for (var i = 0; i < placed.length; i++) {
+      var dbo = placed[i];
+      var at = dbo ? runtimeIndex(dbo) : -1;
+      if (at < 0) {
+        continue;
+      }
+      var folder = folderKeyOf(dbo);
+      var last = lastByFolder[folder];
+      if (last && at < last.at) {
+        pushReportWarning(report, parentQName + ": the tree lists " + String(dbo.getName()) + " after " + String(last.dbo.getName()) +
+          ", but " + String(dbo.getName()) + " comes first in " + parentQName + " (a merge does not move existing children). " +
+          "To follow the tree: databaseobject-move {qname:\"" + safeQName(dbo) + "\", target:\"" + safeQName(last.dbo) + "\", position:\"after\"}.");
+        return;
+      }
+      lastByFolder[folder] = { dbo: dbo, at: at };
+    }
+  }
+
   function upsertChildren(ctx, parentDbo, parentQName, childrenPatch, strategy, report) {
     if (!Array.isArray(childrenPatch)) {
       return;
@@ -1485,6 +1620,40 @@ include("js/sql_dialect.js");
     var runtimeChildMap = getChildMapByName(parentDbo, report.warnings, parentQName, ctx);
     var desiredNames = [];
     var desiredNameSet = {};
+    // The order of the tree, for the children of an ordered parent: placed[i] is the object of children[i] once written
+    // (existing or created), patchNames[i] its name, read once without the notes stripQNamePrefix gives.
+    var ordered = isOrderedContainer(parentDbo);
+    var placed = [];
+    var patchNames = [];
+    for (var pn = 0; pn < childrenPatch.length; pn++) {
+      var rawPatchName = isPlainObject(childrenPatch[pn]) ? asTrimmed(childrenPatch[pn].name) : "";
+      var prefixed = /^[a-z]{2,3}:([A-Za-z_][\w-]*)$/.exec(rawPatchName);
+      patchNames.push(prefixed ? prefixed[1] : rawPatchName);
+    }
+    var placeAt = function (index) {
+      if (!ordered) {
+        return null;
+      }
+      return {
+        placeFor: function (dbo) {
+          var folder = folderKeyOf(dbo);
+          for (var p = index - 1; p >= 0; p--) {
+            var previous = placed[p];
+            if (previous && isDirectChildOf(parentDbo, previous) && folderKeyOf(previous) === folder) {
+              return { after: previous, afterValue: priorityLong(previous.priority) };
+            }
+          }
+          for (var n = index + 1; n < patchNames.length; n++) {
+            var next = patchNames[n].length ? runtimeChildMap[patchNames[n]] : null;
+            if (next && isDirectChildOf(parentDbo, next) && folderKeyOf(next) === folder) {
+              var beforeNext = next.getPreviousSiblingInFolder ? next.getPreviousSiblingInFolder() : null;
+              return { before: next, afterValue: priorityLong(beforeNext ? beforeNext.priority : 0) };
+            }
+          }
+          return null;
+        }
+      };
+    };
 
     for (var i = 0; i < childrenPatch.length; i++) {
       var childPatchRaw = childrenPatch[i];
@@ -1529,8 +1698,9 @@ include("js/sql_dialect.js");
           continue;
         }
         var childUpdates = parsePropertiesMap(childPatch.properties, [], childQName + ".properties");
-        var createdChild = createObject(ctx, parentDbo, childClass, childName, null, childUpdates);
+        var createdChild = createObject(ctx, parentDbo, childClass, childName, placeAt(i), childUpdates);
         flushClassNameNotes(ctx, report);
+        placed[i] = createdChild;
         report.applied.push({
           action: "create",
           parentQName: parentQName,
@@ -1570,9 +1740,10 @@ include("js/sql_dialect.js");
         incrementMutation(ctx, "deleted");
 
         var recreateUpdates = parsePropertiesMap(childPatch.properties, [], childQName + ".properties");
-        var recreated = createObject(ctx, parentDbo, childClass, childName, null, recreateUpdates);
+        var recreated = createObject(ctx, parentDbo, childClass, childName, placeAt(i), recreateUpdates);
         flushClassNameNotes(ctx, report);
         noteOrphanSources(ctx, report, deleted, { qname: safeQName(recreated), priority: C8O.stepSources ? C8O.stepSources.priorityOf(recreated) : "" });
+        placed[i] = recreated;
         report.applied.push({
           action: "create",
           parentQName: parentQName,
@@ -1593,6 +1764,7 @@ include("js/sql_dialect.js");
         continue;
       }
 
+      placed[i] = runtimeChild;
       if (childPatch.id !== undefined) {
         registerRef(ctx, childPatch.id, runtimeChild);
       }
@@ -1600,6 +1772,10 @@ include("js/sql_dialect.js");
       importStepVariables(ctx, runtimeChild, childPatch, report);
       applyNodeExtras(ctx, runtimeChild, childPatch, report);
       upsertChildren(ctx, runtimeChild, safeQName(runtimeChild), nestedChildren, strategy, report);
+    }
+
+    if (ordered) {
+      warnOrderDiffers(parentDbo, parentQName, placed, report);
     }
 
     if (strategy.pruneMissing) {

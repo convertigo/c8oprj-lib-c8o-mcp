@@ -237,16 +237,16 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "string",
           enum: ["self", "inside", "before", "after"],
           default: "self",
-          description: "Allowed values: self, inside, before, after. self patches the target; the others place the input tree relative to it."
+          description: "Allowed values: self, inside, before, after. self patches the target (a tree.name other than the target's, same class, renames it first, references in its project included); the others place the input tree relative to it."
         },
         mode: {
           type: "string",
           enum: ["merge", "replace"],
           default: "merge",
-          description: "Allowed values: merge or replace. replace also removes children missing from the patched scope. merge combines object properties, but string properties such as scriptContent are still replaced atomically."
+          description: "Allowed values: merge or replace. replace also removes children missing from the patched scope. merge combines object properties, but string properties such as scriptContent are still replaced atomically. A child the tree adds goes where the tree lists it (after its previous sibling, or before the next existing one): in a sequence or a page, that order is the order it runs or shows. Existing children are not moved; the answer warns when the tree lists them in another order."
         },
         tree: Object.assign(treeNodeSchema(), {
-          description: "Canonical node payload using the tree-get shape. Read-only top-level fields such as qname, depth, hasChildren, directChildrenCount, subtreeCount, and priority are ignored."
+          description: "Canonical node payload using the tree-get shape. Read-only top-level fields such as qname, depth, hasChildren, directChildrenCount, subtreeCount, and priority are ignored: the order of children is their order in the tree, never a priority value."
         }),
         reveal: {
           type: "boolean",
