@@ -52,15 +52,7 @@ test('every resources/list page fits the answer budget in each edit profile', ()
   }
 });
 
-test('every prompts/get answer fits the answer budget', { todo: 'frontend-ngx, quickstart, planner and sql exceed it through requestable-execute: split pending a decision' }, () => {
-  for (const prompt of JSON.parse(read('prompts/prompts_index.json'))) {
-    const text = read('prompts/' + prompt.file);
-    const result = { name: prompt.name, description: prompt.description, messages: [{ role: 'user', content: { type: 'text', text } }] };
-    for (const [transport, size] of Object.entries(answerSizes('lib_ConvertigoMCP.mcp_prompts_call', result))) {
-      assert.ok(size < ANSWER_BUDGET, `prompt ${prompt.name} ${transport}=${size}`);
-    }
-  }
-});
+// The prompts read through requestable-execute are tool answers, paged under the budget: tests/scripts/validate_answer_pages.cjs.
 
 test('every summary ends in a drawer index with a distinct opening cue per drawer', () => {
   for (const entry of entries.filter(e => e.guidanceLevel === 'summary')) {

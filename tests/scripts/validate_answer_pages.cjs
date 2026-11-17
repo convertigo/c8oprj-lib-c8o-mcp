@@ -425,3 +425,35 @@ test('no tool schema adds an empty sub-schema; answer-page and partialAnswer typ
   const decorated = overrides.decorateOutput('tools_nocode_form_get', overrides.applyOutput('tools_nocode_form_get', null, null), null).properties.partialAnswer;
   for (const field of ['answerId', 'page', 'pages', 'next', 'text']) assert.ok(decorated.properties[field].type, field);
 });
+
+test('a prompt read through requestable-execute comes in pages under the budget and joins back whole', () => {
+  // Agents without native MCP prompts (Vibe) read a prompt with requestable-execute of lib_ConvertigoMCP.mcp_prompts_call:
+  // a tool answer, paged by BoundAnswer like any other (the measure of the endpoint: the text and the structured content
+  // apart, each as the client sees it). Each prompt fits it today, frontend-ngx by a few dozen characters.
+  // A native prompts/get is not a tool answer: no client cuts it, and it is not paged.
+  const prompts = JSON.parse(read('prompts/prompts_index.json'));
+  // the longest prompt twice: a prompt that outgrows the budget is paged, never cut
+  const longest = prompts.map(p => ({ p, text: read('prompts/' + p.file) })).sort((a, b) => b.text.length - a.text.length)[0];
+  prompts.push({ name: longest.p.name + '-doubled', description: longest.p.description, text: longest.text + '\n' + longest.text });
+  let paged = 0;
+  for (const prompt of prompts) {
+    const { api } = pagesApi({ auth: { authenticated: true, kind: 'managed', user: 'studio' } });
+    const store = server();
+    const context = caller(store);
+    const text = prompt.text || read('prompts/' + prompt.file);
+    const value = { result: { requestable: 'lib_ConvertigoMCP.mcp_prompts_call', status: 'ok', truncated: false,
+      payload: { result: { name: prompt.name, description: prompt.description, messages: [{ role: 'user', content: { type: 'text', text } }] } } } };
+    const first = api.bound(context, { sequence: 'tools_requestable_execute', value });
+    if (first === null) {
+      assert.ok(delivered(api, value, '', false) <= api.BUDGET, prompt.name);
+      continue;
+    }
+    paged++;
+    const { value: whole, pages } = readAll(api, context, first.structured);
+    assert.deepEqual(whole, JSON.parse(JSON.stringify(value)), prompt.name);
+    for (const page of pages) {
+      assert.ok(delivered(api, page, '', false) <= api.BUDGET, prompt.name + ' page ' + delivered(api, page, '', false));
+    }
+  }
+  assert.ok(paged >= 1, 'a prompt over the budget is paged: ' + paged);
+});
