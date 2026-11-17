@@ -58,6 +58,26 @@ test('a step source must name a step of the same sequence', () => {
   assert.match(problem(['999', '.'], callVariable), /source an InputVariablesStep \(\.\/<input>\/text\(\)\), or set var <step variable name> = <input>;/);
 });
 
+test('a step source must run before the step reading it, or contain it', () => {
+  const problem = loadSourceProblem();
+  const inner = { priority: 206, getName: () => 'Inner', getSteps: () => list([]) };
+  const loop = { priority: 205, getName: () => 'Loop', getSteps: () => list([inner]) };
+  const call = { priority: 203, getName: () => 'SignIn', getSteps: () => list([]) };
+  const later = { priority: 204, getName: () => 'Prepare', getSteps: () => list([]) };
+  const seq = {
+    getName: () => 'login', getStep: () => null, getVariablesList: () => list([]), getParent: () => null,
+    getAllSteps: () => list([{ priority: 201, getName: () => 'Inputs', getSteps: () => list([]) }, call, later, loop]),
+  };
+  [call, later, loop].forEach(step => { step.getParent = () => seq; });
+  inner.getParent = () => loop;
+  const variable = { priority: 900, getParent: () => call };
+  assert.equal(problem(['201', './user/text()'], variable), '');
+  assert.match(problem(['204', '.'], variable), /^sourceDefinition names 204, the step Prepare, which runs after SignIn: it has no output yet when SignIn reads it\. Point it to a step before SignIn, or move Prepare before it \(databaseobject-move\)\./);
+  assert.match(problem(['203', '.'], variable), /^sourceDefinition names 203, the step SignIn, the step itself: it has no output yet/);
+  assert.equal(problem(['205', './item'], inner), '');
+  assert.match(problem(['206', '.'], loop), /the step Inner, which runs after Loop/);
+});
+
 test('an empty source, another shape, or an object outside a sequence is left alone', () => {
   const problem = loadSourceProblem();
   const { callVariable } = sequence();
@@ -140,4 +160,38 @@ test('tree-apply warns about them, a call variable changed alone included', () =
   const tree = fs.readFileSync(path.join(root, 'js/tools_databaseobject_tree_apply.js'), 'utf8');
   assert.match(tree, /var emptyNames = C8O\.stepSources\.emptyCallVariables\(step\);/);
   assert.match(tree, /A variable of a call step changed alone: check its step\./);
+});
+
+test('project-lint reads the SmartTypes a step holds now, not the set the engine kept from before', () => {
+  // Measured run (17/11): an XMLErrorStep details sourced a placeholder priority, was set again to the right step, saved;
+  // getSmartTypes() still gave the first SmartType and project-lint reported three orphan sources that did not exist.
+  const smart = priority => ({ isUseSource: () => true, getSourceDefinition: () => [priority, './document/error/message/text()'] });
+  const plainSmart = { isUseSource: () => false, getSourceDefinition: () => [] };
+  const current = { code: plainSmart, message: plainSmart, details: smart('101') };
+  const descriptor = (name, typeName) => ({
+    getPropertyType: () => ({ getName: () => typeName }),
+    getReadMethod: () => ({ invoke: target => target.props[name] }),
+  });
+  const sandbox = {
+    C8O: { dbo: { getDirectChildren: n => (n.children || []).slice() } },
+    java: { beans: { Introspector: { getBeanInfo: () => ({ getPropertyDescriptors: () => [
+      descriptor('code', 'com.twinsoft.convertigo.beans.steps.SmartType'),
+      descriptor('message', 'com.twinsoft.convertigo.beans.steps.SmartType'),
+      descriptor('details', 'com.twinsoft.convertigo.beans.steps.SmartType'),
+      descriptor('comment', 'java.lang.String'),
+    ] }) } } },
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(root, 'js/step_sources.js'), 'utf8'), sandbox, { filename: 'step_sources.js' });
+  const S = sandbox.C8O.stepSources;
+  const errorStep = bean('com.twinsoft.convertigo.beans.steps.XMLErrorStep', 'Error', { props: current, getSmartTypes: () => [smart('900')] });
+  const refs = JSON.parse(JSON.stringify(S.refsOf(errorStep)));
+  assert.deepEqual(refs, [{ property: 'a SmartType in SOURCE mode', priority: '101', xpath: './document/error/message/text()' }]);
+  // without introspection (a plain object), the engine's set is still read
+  const loose = loadStepSources();
+  assert.equal(JSON.parse(JSON.stringify(loose.refsOf({ getSmartTypes: () => [smart('900')] })))[0].priority, '900');
+});
+
+test('setting a SmartType property rebuilds the set the engine keeps', () => {
+  assert.match(source, /if \(String\(propertyType\.getName\(\)\) === "com\.twinsoft\.convertigo\.beans\.steps\.SmartType" && typeof dbo\.getSmartTypes === "function"\) \{\s*try \{\s*dbo\.hasChanged = true;\s*dbo\.getSmartTypes\(\);/);
 });

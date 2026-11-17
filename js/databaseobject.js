@@ -1684,6 +1684,15 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
       }
       setter.invoke(dbo, [compiledValue]);
 
+      // A step keeps the set of its SmartTypes until it is changed: rebuilt now, the set holds the SmartType just set, not
+      // the one it replaced (sources, schema and project-lint read that set).
+      if (String(propertyType.getName()) === "com.twinsoft.convertigo.beans.steps.SmartType" && typeof dbo.getSmartTypes === "function") {
+        try {
+          dbo.hasChanged = true;
+          dbo.getSmartTypes();
+        } catch (_ignoreSmartTypesRefresh) {}
+      }
+
       if (java.lang.Boolean.TRUE.equals(pd.getValue(MySimpleBeanInfo.NILLABLE))) {
         try {
           var clearNull = dbo.getClass().getMethod("setNullProperty", [java.lang.String.class, java.lang.Boolean.class]);
@@ -2049,7 +2058,7 @@ C8O.dbo._expandStepSourceShorthand = function (rawSpec, dbo, propertyLookup) {
 };
 
 // Why a step's sourceDefinition can never resolve, "" when it can: its first element must be the priority of a step of
-// the same sequence. A name ("username") or the priority of a sequence variable was stored with status ok, and the step
+// the same sequence that runs before the step reading it (or contains it). A name ("username") or the priority of a sequence variable was stored with status ok, and the step
 // variable stayed empty at run time: every sign-in of an app was refused (measured runs, 17/11).
 C8O.dbo._stepSourceProblem = function (rawSpec, dbo) {
   var spec = rawSpec;
@@ -2091,14 +2100,14 @@ C8O.dbo._stepSourceProblem = function (rawSpec, dbo) {
   if (!/^\d+$/.test(first)) {
     return "sourceDefinition starts with \"" + first + "\", which is not a step: it would resolve to nothing at run time." + how;
   }
-  var known = false;
+  // Steps in run order (a parent before its children): a source must run before the step that reads it, or contain it.
+  var order = [];
+  var names = {};
   var visit = function (list, depth) {
-    for (var i = 0; list && i < list.size() && !known && depth < 50; i++) {
+    for (var i = 0; list && i < list.size() && depth < 50; i++) {
       var step = list.get(i);
-      if (String(step.priority) === first) {
-        known = true;
-        return;
-      }
+      order.push(String(step.priority));
+      names[String(step.priority)] = String(step.getName());
       var children = null;
       try {
         children = typeof step.getSteps === "function" ? step.getSteps() : null;
@@ -2111,8 +2120,24 @@ C8O.dbo._stepSourceProblem = function (rawSpec, dbo) {
     }
   };
   visit(sequence.getAllSteps(), 0);
-  if (known) {
-    return "";
+  var sourceIndex = order.indexOf(first);
+  if (sourceIndex >= 0) {
+    // The step that reads the source: this object, or the call step a variable belongs to.
+    var reader = dbo;
+    for (var up = 0; reader && up < 50 && order.indexOf(String(reader.priority)) < 0; up++) {
+      try {
+        reader = reader.getParent ? reader.getParent() : null;
+      } catch (_ignoreReader) {
+        reader = null;
+      }
+    }
+    var readerIndex = reader ? order.indexOf(String(reader.priority)) : -1;
+    if (readerIndex < 0 || sourceIndex < readerIndex) {
+      return "";
+    }
+    return "sourceDefinition names " + first + ", the step " + names[first] + (sourceIndex === readerIndex ? ", the step itself" :
+      ", which runs after " + names[order[readerIndex]]) + ": it has no output yet when " + names[order[readerIndex]] +
+      " reads it. Point it to a step before " + names[order[readerIndex]] + ", or move " + names[first] + " before it (databaseobject-move)." + how;
   }
   var variableName = "";
   try {

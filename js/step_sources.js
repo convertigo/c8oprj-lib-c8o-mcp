@@ -157,16 +157,47 @@ C8O.stepSources = C8O.stepSources || {};
         }
       }
     } catch (_noSources) {}
+    api.smartTypesOf(dbo).forEach(function (smart) {
+      try {
+        if (smart && typeof smart.isUseSource === "function" && smart.isUseSource()) {
+          add(smart.getSourceDefinition(), "a SmartType in SOURCE mode");
+        }
+      } catch (_noSmartSource) {}
+    });
+    return refs;
+  };
+
+  // The SmartTypes of a step as its properties hold them. getSmartTypes() of the engine keeps the set it built while the
+  // step was unchanged: a SmartType set again and saved before anything read that set stayed out of it, and project-lint
+  // reported the source it replaced as orphan (measured run, 17/11). The bean's own getters are what the step runs with.
+  api.smartTypesOf = function (dbo) {
+    var out = [];
     try {
-      if (typeof dbo.getSmartTypes === "function") {
-        each(dbo.getSmartTypes(), function (smart) {
-          if (smart && typeof smart.isUseSource === "function" && smart.isUseSource()) {
-            add(smart.getSourceDefinition(), "a SmartType in SOURCE mode");
+      if (typeof java !== "undefined" && dbo && typeof dbo.getClass === "function") {
+        var descriptors = java.beans.Introspector.getBeanInfo(dbo.getClass()).getPropertyDescriptors();
+        for (var d = 0; d < descriptors.length; d++) {
+          var type = descriptors[d].getPropertyType();
+          var getter = descriptors[d].getReadMethod();
+          if (type != null && getter != null && String(type.getName()) === "com.twinsoft.convertigo.beans.steps.SmartType") {
+            var value = getter.invoke(dbo, null);
+            if (value != null) {
+              out.push(value);
+            }
           }
-        });
+        }
+        if (out.length) {
+          return out;
+        }
+      }
+    } catch (_noIntrospection) {
+      out = [];
+    }
+    try {
+      if (dbo && typeof dbo.getSmartTypes === "function") {
+        each(dbo.getSmartTypes(), function (smart) { out.push(smart); });
       }
     } catch (_noSmartTypes) {}
-    return refs;
+    return out;
   };
 
   // Every step under root (a sequence or a step, root included when it is a step) by priority, and every source they and
