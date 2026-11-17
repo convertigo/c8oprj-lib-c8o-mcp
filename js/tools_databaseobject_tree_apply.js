@@ -222,14 +222,49 @@ function treeApplyScalarText(value) {
   return asTrimmed(value);
 }
 
+// A text value as JavaScript or Java gives it; anything else (an object, an array) is not one.
+function treeApplyIsText(value) {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return true;
+  }
+  try {
+    return typeof java !== "undefined" && value instanceof java.lang.String;
+  } catch (_noJavaString) {
+    return false;
+  }
+}
+
+// What an error shows of a received value: the text itself, or a short JSON excerpt of an object, never [object Object].
+function treeApplyReceived(value) {
+  var text;
+  if (treeApplyIsText(value)) {
+    text = String(value);
+  } else {
+    try {
+      text = JSON.stringify(value);
+    } catch (_unserializable) {
+      text = null;
+    }
+    if (typeof text !== "string") {
+      text = Object.prototype.toString.call(value);
+    }
+  }
+  return text.length > 160 ? text.substring(0, 157) + "..." : text;
+}
+
 function validateTreeApplyIdentifiers(node, path) {
   if (!node || typeof node !== "object") {
     return;
   }
   var identifier = treeApplyPropertyValue(node.properties, "identifier");
-  var identifierText = asTrimmed(identifier);
-  if (identifierText.length && !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(identifierText)) {
-    treeApplyInputErrors.push(path + ".properties.identifier must be a valid TypeScript identifier (for example clockDisplay, never clock-display). Got: " + identifierText);
+  if (identifier !== null && identifier !== undefined && !treeApplyIsText(identifier)) {
+    treeApplyInputErrors.push(path + ".properties.identifier must be a plain string holding a valid TypeScript identifier " +
+      "(for example \"clockDisplay\"), not a SmartType or another object. Got: " + treeApplyReceived(identifier));
+  } else {
+    var identifierText = asTrimmed(identifier);
+    if (identifierText.length && !/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(identifierText)) {
+      treeApplyInputErrors.push(path + ".properties.identifier must be a valid TypeScript identifier (for example clockDisplay, never clock-display). Got: " + treeApplyReceived(identifierText));
+    }
   }
   if (treeApplyIsNgxCustomAction(node)) {
     var actionValue = treeApplyPropertyValue(node.properties, "actionValue");
@@ -242,7 +277,8 @@ function validateTreeApplyIdentifiers(node, path) {
     }
   }
   if (treeApplyIsNgxPageEvent(node)) {
-    var viewEvent = treeApplyScalarText(treeApplyPropertyValue(node.properties, "viewEvent"));
+    var rawViewEvent = treeApplyPropertyValue(node.properties, "viewEvent");
+    var viewEvent = treeApplyScalarText(rawViewEvent);
     var allowedViewEvents = {
       onWillLoad: true,
       onDidLoad: true,
@@ -253,7 +289,8 @@ function validateTreeApplyIdentifiers(node, path) {
       onWillUnload: true
     };
     if (viewEvent.length && allowedViewEvents[viewEvent] !== true) {
-      treeApplyInputErrors.push(path + ".properties.viewEvent must be one of onWillLoad, onDidLoad, onWillEnter, onDidEnter, onWillLeave, onDidLeave, or onWillUnload. Got: " + viewEvent);
+      treeApplyInputErrors.push(path + ".properties.viewEvent must be one of onWillLoad, onDidLoad, onWillEnter, onDidEnter, onWillLeave, onDidLeave, or onWillUnload. Got: " +
+        treeApplyReceived(treeApplyIsText(rawViewEvent) ? viewEvent : rawViewEvent));
     }
   }
   if (Array.isArray(node.children)) {
