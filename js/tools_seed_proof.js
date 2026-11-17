@@ -293,6 +293,14 @@ C8O.seedProof = C8O.seedProof || {};
     }
     var message = trimmed(error.message);
     var cause = trimmed(error.cause);
+    // "An exception occured while executing step" says nothing: the engine's details name the step and the error
+    // (a ReferenceError on a variable a misplaced step should have set, for example).
+    var details = trimmed(error.details).split("\n").filter(function (line) {
+      return /\S/.test(line) && !/^null$/.test(line.trim());
+    }).join(" ");
+    if (details.length && (!message.length || /exception occured while executing step/i.test(message))) {
+      message = details;
+    }
     if (message.length) {
       return cause.length && message.indexOf(cause) < 0 ? message + " Cause: " + cause : message;
     }
