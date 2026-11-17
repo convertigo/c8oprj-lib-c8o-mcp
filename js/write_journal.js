@@ -812,6 +812,49 @@ if (typeof C8O === "undefined") {
     return { entries: entries, full: items.length >= api.MAX_ENTRIES };
   };
 
+  // The QNames this conversation (else this bearer) created through the MCP, for the tools that tell a new object from one
+  // that existed before (js/requestable_contract.js). [] when unknown; never throws.
+  api.createdQNames = function (contextObject) {
+    try {
+      var store = contextObject ? contextObject.server : null;
+      if (store == null) {
+        return [];
+      }
+      var read = api.read(store, api.keyOf(contextObject, "").key, api.host.now());
+      var out = [];
+      read.entries.forEach(function (entry) {
+        (entry.objects || []).forEach(function (o) {
+          if (o && o.c === "created" && typeof o.q === "string" && out.indexOf(o.q) < 0) {
+            out.push(o.q);
+          }
+        });
+      });
+      return out;
+    } catch (_unknownJournal) {
+      return [];
+    }
+  };
+
+  // How many runs of a requestable this conversation (else this bearer) recorded, with requestable-execute. 0 when unknown.
+  api.runCount = function (contextObject, requestable) {
+    try {
+      var store = contextObject ? contextObject.server : null;
+      var wanted = text(requestable);
+      if (store == null || !wanted.length) {
+        return 0;
+      }
+      var count = 0;
+      api.read(store, api.keyOf(contextObject, "").key, api.host.now()).entries.forEach(function (entry) {
+        if (entry.run && text(entry.run.r) === wanted) {
+          count++;
+        }
+      });
+      return count;
+    } catch (_unknownRuns) {
+      return 0;
+    }
+  };
+
   // mcp_endpoint after a tool answer (journalAfterToolCall) and batch-call after each of its writes. Never throws.
   // options: {conversationId (the router's, already checked), via}
   api.recordCall = function (contextObject, sequence, answer, args, options) {

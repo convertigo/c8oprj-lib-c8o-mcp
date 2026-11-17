@@ -253,6 +253,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           default: false,
           description: "Set true when the host UI reveal mode is enabled, so Studio selects and reveals the patched or created object in the Project Explorer."
         },
+        autoSave: {
+          type: "boolean",
+          default: true,
+          description: "Default true: the project is saved after the change. false keeps it in memory, to group several changes before one project-save."
+        },
         responseDetail: {
           type: "string",
           enum: ["compact", "full"],
@@ -1929,6 +1934,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       retargeted: { type: "boolean" },
       saved: { type: "boolean" },
       saveMessage: { type: "string" },
+      structure: nullableSchema(openObjectSchema({
+        lines: stringArraySchema(),
+        truncated: { type: "boolean" },
+        how: { type: "string" }
+      })),
       warnings: stringArraySchema(),
       errors: stringArraySchema(),
       next: { type: "string" }

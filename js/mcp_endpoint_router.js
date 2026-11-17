@@ -281,7 +281,20 @@ function journalAfterToolCall(sequenceName, toolResult, callArguments) {
     if (typeof C8O.writeJournal === "undefined" || typeof C8O.writeJournal.recordCall !== "function") {
       include("js/write_journal.js");
     }
-    return C8O.writeJournal.recordCall(context, sequenceName, toolResult, callArguments, { conversationId: managedConversationId });
+    var journalEntry = C8O.writeJournal.recordCall(context, sequenceName, toolResult, callArguments, { conversationId: managedConversationId });
+    // A sequence run again and again in one conversation is usually a seed or a setup being proven by hand (a measured run
+    // ran its seed 9 times, then claimed it replayable from an error): say once in a while that seed-proof does it.
+    if (sequenceName === "tools_requestable_execute" && journalEntry && journalEntry.run) {
+      var ranRequestable = String(journalEntry.run.r || "");
+      var runs = /^[^.]+\.[^.]+$/.test(ranRequestable) ? C8O.writeJournal.runCount(context, ranRequestable) : 0;
+      var executed = toolResult.result && typeof toolResult.result === "object" ? toolResult.result : toolResult;
+      if (runs >= 2 && (runs - 2) % 4 === 0 && executed && typeof executed === "object") {
+        executed.hint = "This conversation ran " + ranRequestable + " " + runs + " times. If it writes data (a seed, a setup), " +
+          "prove it with seed-proof {requestable:\"" + ranRequestable + "\"}: two runs and the counts of the tables it writes, in one call; " +
+          "a run that answers an error proves nothing.";
+      }
+    }
+    return journalEntry;
   } catch (_ignoreJournal) {
     return null;
   }

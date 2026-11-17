@@ -463,7 +463,9 @@ test('journalAfterToolCall records a write under the router\'s conversation, loa
 
 test('the endpoint journals each tool answer after the reveal, and project-changes is a registered read tool', () => {
   const router = read('js/mcp_endpoint_router.js');
-  assert.match(router, /function journalAfterToolCall\(sequenceName, toolResult, callArguments\) \{\n\s+try \{[\s\S]*?C8O\.writeJournal\.recordCall\(context, sequenceName, toolResult, callArguments, \{ conversationId: managedConversationId \}\);\n\s+\} catch \(_ignoreJournal\) \{\n\s+return null;/);
+  assert.match(router, /function journalAfterToolCall\(sequenceName, toolResult, callArguments\) \{\n\s+try \{[\s\S]*?var journalEntry = C8O\.writeJournal\.recordCall\(context, sequenceName, toolResult, callArguments, \{ conversationId: managedConversationId \}\);[\s\S]*?return journalEntry;\n\s+\} catch \(_ignoreJournal\) \{\n\s+return null;/);
+  // a sequence run again and again gets a hint toward seed-proof (2nd run, then every 4th)
+  assert.match(router, /runs >= 2 && \(runs - 2\) % 4 === 0[\s\S]*?prove it with seed-proof/);
   const endpoint = read('_c8oProject/sequences/mcp_endpoint.yaml');
   assert.match(endpoint, /↓RevealAfterCall \[steps\.SimpleStep-1794600000001\]: \n\s+comment: [^\n]+\n\s+expression: revealAfterToolCall\(callSequence, result, callVariables\); journalAfterToolCall\(callSequence, result, callVariables\);\n/);
 

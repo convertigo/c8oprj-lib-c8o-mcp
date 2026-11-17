@@ -78,7 +78,7 @@ test('values of NGX objects as the agent reads them', () => {
   assert.equal(brief.renderValue('PLAIN', 'Company'), '"Company"');
   assert.equal(brief.renderValue('SCRIPT', "(company?.name ?? '')"), "{{(company?.name ?? '')}}");
   const source = 'source:' + JSON.stringify({ filter: 'Local', model: { data: [{ localObject: 'local' }], path: '?.data?.rows' } });
-  assert.equal(brief.renderValue('', source), '{{local?.data?.rows}}');
+  assert.equal(brief.renderValue('', source), 'source:{{local?.data?.rows}}');
   assert.equal(brief.renderValue('', 'plain:app-row app-cols-3'), '"app-row app-cols-3"');
   same(brief.classTokens('PLAIN', 'app-row  app-cols-3'), ['app-row', 'app-cols-3']);
   same(brief.classTokens('SCRIPT', "'app-badge ' + (x ? 'app-accent-success' : 'app-accent-danger')"), ['app-badge', 'app-accent-success', 'app-accent-danger']);

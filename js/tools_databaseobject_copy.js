@@ -52,6 +52,24 @@ C8O.dboCopy = C8O.dboCopy || {};
     return { text: out, count: count };
   };
 
+  // Lines kept whole, in order, up to a number of characters: {lines, truncated}.
+  api.boundLines = function (lines, maxChars) {
+    var out = [];
+    var used = 0;
+    var all = Array.isArray(lines) ? lines : [];
+    for (var i = 0; i < all.length; i++) {
+      var line = String(all[i]);
+      if (used + line.length + 1 > maxChars) {
+        return { lines: out, truncated: true };
+      }
+      out.push(line);
+      used += line.length + 1;
+    }
+    return { lines: out, truncated: false };
+  };
+
+  api.STRUCTURE_CHARS = 7000;
+
   // Priorities the copy still names that belong to objects outside it (in the same requestable or page): {priority: name}.
   api.outsideReferences = function (text, outside) {
     var found = {};
@@ -327,6 +345,51 @@ C8O.dboCopy.run = function (args) {
     }
   } catch (_ignoreSegment) {}
 
+  // What the copy holds, one line per object, so that it is adapted without reading it again with tree-get: the page lines
+  // of project-brief for an NGX object, a short line per step or variable otherwise.
+  var structure = null;
+  try {
+    var outlineLines = [];
+    var outlineTruncated = false;
+    if (/\.beans\.ngx\.components\./.test(String(copy.getClass().getName()))) {
+      if (typeof C8O.projectBrief === "undefined" || typeof C8O.projectBrief.outlineOf !== "function") {
+        include("js/project_brief.js");
+      }
+      var outline = C8O.projectBrief.outlineOf(copy);
+      outlineLines = outline.lines || [];
+      outlineTruncated = outline.truncated === true;
+    } else {
+      var base = qnameOf(copy);
+      walk(copy, function (dbo) {
+        if (dbo.equals(copy)) {
+          return;
+        }
+        var line = qnameOf(dbo).substring(base.length + 1) + "  " + (C8O.util.fromFqcn ? String(C8O.util.fromFqcn(dbo.getClass().getName())) : String(dbo.getClass().getSimpleName()));
+        var getters = [["getSourceTransaction", "calls"], ["getSourceSequence", "calls"], ["getCondition", "if"], ["getExpression", "js"], ["getSqlQuery", "sql"]];
+        getters.forEach(function (g) {
+          try {
+            if (typeof dbo[g[0]] === "function") {
+              var v = String(dbo[g[0]]() || "").replace(/\s+/g, " ").trim();
+              if (v.length) {
+                line += " " + g[1] + "=" + (v.length > 90 ? v.substring(0, 89) + "…" : v);
+              }
+            }
+          } catch (_ignoreGetter) {}
+        });
+        outlineLines.push(line);
+      });
+    }
+    var bounded = api.boundLines(outlineLines, api.STRUCTURE_CHARS);
+    structure = {
+      lines: bounded.lines,
+      truncated: bounded.truncated || outlineTruncated,
+      how: "One line per object of the copy: its QName is " + qnameOf(copy) + ", a dot, and the path at the start of the line. " +
+        "Patch from these lines with databaseobject-tree-apply; read with databaseobject-tree-get only what a line does not show."
+    };
+  } catch (_ignoreStructure) {
+    structure = null;
+  }
+
   var autoSave = C8O.util.parseAutoSaveFlag(args.autoSave, true);
   var save = C8O.dbo.saveProjectIfNeeded(project, autoSave, errors);
   try {
@@ -348,11 +411,12 @@ C8O.dboCopy.run = function (args) {
     retargeted: sourceProject !== targetProject && (args.retargetProject === true || String(args.retargetProject) === "true"),
     saved: save && save.saved === true,
     saveMessage: save && save.message ? String(save.message) : "",
+    structure: structure,
     warnings: warnings,
     errors: errors.map(function (e) {
       return e && e.message ? String(e.message) : String(e);
     }),
     next: "Adapt the copy where it differs from its source with databaseobject-tree-apply on " + qnameOf(copy) +
-      " (texts, bindings, the sequence it calls), then check it; databaseobject-tree-get only for the parts you change."
+      " (texts, bindings, the sequence it calls), from the lines of structure, then check it."
   };
 };

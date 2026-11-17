@@ -2106,6 +2106,15 @@ if (typeof include === "function") {
     textReview.texts = shownOrder.length;
     textReview.i18nFiles = i18n.files;
 
+    // A lint without error is where agents write their final report: the report comes from what changed, not from memory
+    // (runs of 17/11 said "nothing else was modified" after changing an existing sequence, and never called project-changes).
+    if (counts.bySeverity.error === 0) {
+      add("NEXT-REPORT-CHANGES", "info", String(project.getName()),
+        "No error left. Before the final report, list what this conversation changed with project-changes {project:\"" +
+          String(project.getName()) + "\"}.",
+        "Name every object, file and run it lists, say which ones the user did not ask to change, and give the last status of each run.");
+    }
+
     var listed = C8O.lint.listFindings(findings, (options || {}).rule, LISTED_FINDINGS);
     var answer = {
       project: String(project.getName()),

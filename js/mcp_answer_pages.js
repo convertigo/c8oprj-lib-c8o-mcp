@@ -255,7 +255,7 @@ if (typeof C8O === "undefined") {
     return "The answer of " + record.tool + " is " + size + ", more than a client shows at once (" + api.BUDGET +
       "): it comes as its JSON text in " + pages + " pages. Read pages 2 to " + pages + " with " + api.TOOL +
       " {answerId, page}, in order; the texts of pages 1 to " + pages + " joined are the whole answer (JSON.parse it in a " +
-      "script). Kept " + Math.round(api.KEEP_MS / 60000) + " minutes; " + NARROWER + ".";
+      "script; each page's text is partialAnswer.text of its answer, this one included). Kept " + Math.round(api.KEEP_MS / 60000) + " minutes; " + NARROWER + ".";
   }
 
   // Page number of a record: {partialAnswer: {...}}, with the notes of the call first on page 1.

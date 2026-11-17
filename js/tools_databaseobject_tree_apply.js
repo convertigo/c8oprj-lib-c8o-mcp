@@ -758,6 +758,23 @@ if (treeApplyResult && treeApplyResult.dryRun !== true) {
   } catch (_ignoreStepVariableCheck) {}
 }
 
+// The contracts of the requestables this call changed (js/requestable_contract.js): the output of one that existed before
+// this conversation, the access of a new one that writes. Read from the applied entries, before the answer is compact.
+if (treeApplyResult && treeApplyResult.dryRun !== true && treeApplyResult.status !== "failed") {
+  try {
+    if (typeof C8O.requestableContract === "undefined" || typeof C8O.requestableContract.warningsFor !== "function") {
+      include("js/requestable_contract.js");
+    }
+    var treeApplyContractWarnings = C8O.requestableContract.warningsFor(treeApplyResult, typeof context !== "undefined" ? context : null);
+    if (treeApplyContractWarnings.length) {
+      treeApplyResult.warnings = Array.isArray(treeApplyResult.warnings) ? treeApplyResult.warnings : [];
+      for (var cwi = 0; cwi < treeApplyContractWarnings.length; cwi++) {
+        treeApplyResult.warnings.push(treeApplyContractWarnings[cwi]);
+      }
+    }
+  } catch (_ignoreContractCheck) {}
+}
+
 var responseDetailInput = (typeof responseDetail !== "undefined" && asTrimmed(responseDetail).toLowerCase() === "full") ? "full" : "compact";
 if (treeApplyResult && responseDetailInput !== "full") {
   treeApplyResult = treeApplyCompactResult(treeApplyResult);

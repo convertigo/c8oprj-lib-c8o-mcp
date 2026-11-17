@@ -310,7 +310,9 @@ C8O.projectBrief = C8O.projectBrief || {};
         var root = data.localObject || data.globalObject || (json.filter ? String(json.filter).toLowerCase() : "");
         path = (root || "") + (model.path || "");
       } catch (_notJson) {}
-      return "{{" + clip(path || label || text) + "}}";
+      // A SOURCE binding and a SCRIPT expression read alike as {{...}} and are written differently: say which one it is
+      // (an agent re-read a whole page with tree-get to learn the modes before copying it, 17/11).
+      return "source:{{" + clip(path || label || text) + "}}";
     }
     return "{{" + clip(text) + "}}";
   };
@@ -465,6 +467,13 @@ C8O.projectBrief = C8O.projectBrief || {};
     var q = str(qname);
     return q.indexOf(base + ".") === 0 ? q.substring(base.length + 1) : q;
   }
+
+  // The outline of one NGX object (a page, a shared component or a part of them), one line per object as project-brief's
+  // page detail gives it: what databaseobject-copy answers about a copy, so it is adapted without a tree-get.
+  api.outlineOf = function (dbo) {
+    var scan = scanPage(dbo, nameOf(dbo.getProject()), true);
+    return { lines: scan.outline, truncated: scan.truncated };
+  };
 
   // One page: its calls, navigations, classes, own styles and an outline of its objects.
   function scanPage(page, project, withOutline) {
