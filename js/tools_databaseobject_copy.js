@@ -276,6 +276,20 @@ C8O.dboCopy.run = function (args) {
     throw new Error("The copy of " + sourceQName + " under " + qnameOf(parent) + " failed, nothing was kept: " +
       String(pasteError && pasteError.message ? pasteError.message : pasteError).replace(/^.*EngineException: /, ""));
   }
+  // An NGX element read before it has a parent loads its Ionic definition from the default component manager, not the
+  // one of the project's template: its attributes then lose their names (a live copy generated <ion-icon {{...}}> for
+  // <ion-icon name="{{...}}"> and failed to compile). Once the copy is in place, each one is loaded again from the
+  // project's own manager, as a project load does.
+  try {
+    var NgxComponentManager = Packages.com.twinsoft.convertigo.beans.ngx.components.dynamic.ComponentManager;
+    walk(copy, function (dbo) {
+      if (/\.beans\.ngx\./.test(String(dbo.getClass().getName())) && typeof dbo.loadBean === "function" && typeof dbo.getBeanData === "function") {
+        dbo.loadBean(NgxComponentManager.of(dbo));
+      }
+    });
+  } catch (beanError) {
+    warnings.push("The NGX elements of the copy could not be loaded again (" + String(beanError) + "): reload the project before building it.");
+  }
   if (at !== "inside" && !(parent instanceof IContainerOrdered)) {
     warnings.push(qnameOf(parent) + " does not order its children: the copy is listed among them, not exactly " + at + " " + name(anchor) + ".");
   }
