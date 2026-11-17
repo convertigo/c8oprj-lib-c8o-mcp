@@ -8,6 +8,7 @@ if (typeof include === "function") {
 }
 // SEQ-ORPHAN-SOURCE: the step sources naming a step the sequence no longer has (js/step_sources.js).
 // SEQ-GUARD-AFTER-WRITE: a refusal (If block with an XMLErrorStep) placed after a call that writes (js/sequence_guards.js).
+// SEQ-SOURCE-MISSING: an IfExist check or a source step without source tests or reads nothing (js/sequence_guards.js).
 if (typeof include === "function") {
   include("js/step_sources.js");
 }
@@ -1538,6 +1539,10 @@ if (typeof include === "function") {
         C8O.sequenceGuards.guardsAfterWrite(sequence, C8O.sequenceGuards.engineHooks()).forEach(function (finding) {
           add("SEQ-GUARD-AFTER-WRITE", "error", finding.guard, C8O.sequenceGuards.message(qnameOf(sequence), finding),
             C8O.sequenceGuards.fix(finding));
+        });
+        C8O.sequenceGuards.sourcelessChecks(sequence, C8O.sequenceGuards.engineHooks()).forEach(function (finding) {
+          add("SEQ-SOURCE-MISSING", finding.kind === "check" ? "error" : "warning", finding.step,
+            C8O.sequenceGuards.sourcelessMessage(qnameOf(sequence), finding), C8O.sequenceGuards.sourcelessFix(finding));
         });
       } catch (_ignoreGuardCheck) {}
       // A source naming a step deleted or created again: requestable-execute fails with "Did not find source (N) for step".

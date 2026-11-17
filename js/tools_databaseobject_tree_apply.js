@@ -829,6 +829,10 @@ if (treeApplyResult && treeApplyResult.dryRun !== true && treeApplyResult.status
         treeApplyResult.warnings = Array.isArray(treeApplyResult.warnings) ? treeApplyResult.warnings : [];
         treeApplyResult.warnings.push(C8O.sequenceGuards.message(sq, finding) + " " + C8O.sequenceGuards.fix(finding));
       });
+      C8O.sequenceGuards.sourcelessChecks(sequenceDbo, C8O.sequenceGuards.engineHooks()).slice(0, 6).forEach(function (finding) {
+        treeApplyResult.warnings = Array.isArray(treeApplyResult.warnings) ? treeApplyResult.warnings : [];
+        treeApplyResult.warnings.push(C8O.sequenceGuards.sourcelessMessage(sq, finding) + " " + C8O.sequenceGuards.sourcelessFix(finding));
+      });
     });
   } catch (_ignoreGuardWarning) {}
 }

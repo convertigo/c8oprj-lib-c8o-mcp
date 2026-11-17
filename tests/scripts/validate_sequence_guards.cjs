@@ -83,3 +83,29 @@ test('project-lint reports SEQ-GUARD-AFTER-WRITE as an error and tree-apply warn
   const hook = tree.indexOf('C8O.sequenceGuards.guardsAfterWrite(sequenceDbo');
   assert.ok(hook > 0 && hook < tree.indexOf('treeApplyResult = treeApplyCompactResult(treeApplyResult);'));
 });
+
+test('an error check reading the write through a source step is a result check; a check without source is reported apart', () => {
+  const G = load();
+  // the seed shape the guides ask for: the write, a source step on its answer, an IfExist on that step
+  const seedWrite = node('TransactionStep', 'CallSeedCompanies');
+  const src = node('JsonSourceStep', 'SrcCompanies', { src: seedWrite, getVariableName: () => 'docCompanies' });
+  const check = node('IfExistThenElseStep', 'CheckCompanies', { src }, [node('ThenStep', 'jThen', {}, [node('XMLErrorStep', 'SeedError'), node('ReturnStep', 'Stop')])]);
+  assert.deepEqual(names(G.guardsAfterWrite(seq([seedWrite, src, check]), hooks([seedWrite]))), [], 'a check of the write, one step away');
+  // measured run (17/11): the same checks created with sources naming placeholder priorities, refused, left without source
+  const write2 = node('TransactionStep', 'CallSeedContacts');
+  const src2 = node('JsonSourceStep', 'SrcContacts', { getVariableName: () => 'docContacts' });
+  const check2 = node('IfExistThenElseStep', 'CheckContacts', {}, [node('ThenStep', 'jThen', {}, [node('XMLErrorStep', 'SeedError')])]);
+  const sequence = seq([write2, src2, check2]);
+  assert.deepEqual(names(G.guardsAfterWrite(sequence, hooks([write2]))), [], 'not reported as a guard');
+  const missing = JSON.parse(JSON.stringify(Array.from(G.sourcelessChecks(sequence, hooks([write2])), f => [f.stepName, f.kind])));
+  assert.deepEqual(missing, [['SrcContacts', 'source'], ['CheckContacts', 'check']]);
+  assert.match(G.sourcelessMessage('App.sq:seed', { stepName: 'CheckContacts', kind: 'check' }), /CheckContacts has no source: it tests nothing, so its then branch \(the error it should answer\) never runs\./);
+  assert.match(G.sourcelessFix({ stepName: 'CheckContacts' }), /\{"step":"<the call it checks>","xpath":"\.\/document\/error"\}/);
+  assert.match(read('js/tools_project_lint.js'), /add\("SEQ-SOURCE-MISSING", finding\.kind === "check" \? "error" : "warning"/);
+});
+
+test('batch-call names the first errors of its partial calls in its message, at the top of a paged answer', () => {
+  const batch = read('js/tools_batch_call.js');
+  assert.match(batch, /partialErrors\.push\(report\.callId \+ ": " \+/);
+  assert.match(batch, /message \+= " Not applied: " \+ partialErrors\.slice\(0, 3\)\.join\("; "\)/);
+});

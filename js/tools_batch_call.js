@@ -1009,6 +1009,10 @@ if (typeof C8O.editProfile === "undefined") {
     var mutationTouchedQNameSet = {};
     var optimizedMutationCalls = 0;
 
+    // The first errors of the calls that ended partial, for the message: a long answer is paged, and its calls (where these
+    // errors sit) come after the first page; an agent read "partial" and missed that the sources of its checks were
+    // refused (measured run, 17/11).
+    var partialErrors = [];
     var summary = {
       planned: calls.length,
       applied: 0,
@@ -1136,6 +1140,12 @@ if (typeof C8O.editProfile === "undefined") {
         }
         summary.applied += 1;
         if (report.status === "partial") {
+          (payload && Array.isArray(payload.errors) ? payload.errors : []).forEach(function (entry) {
+            var text = safeString(entry && typeof entry === "object" ? (entry.message || entry.code || "") : entry);
+            if (text.length) {
+              partialErrors.push(report.callId + ": " + (text.length > 220 ? text.substring(0, 217) + "..." : text));
+            }
+          });
           summary.partialCalls += 1;
           summary.successfulCalls += 1;
         } else {
@@ -1196,6 +1206,10 @@ if (typeof C8O.editProfile === "undefined") {
       message = summary.failedCalls > 0 || errors.length > 0
         ? "Batch call completed with errors."
         : "Batch call completed with warnings.";
+    }
+    if (partialErrors.length) {
+      message += " Not applied: " + partialErrors.slice(0, 3).join("; ") +
+        (partialErrors.length > 3 ? " (+" + (partialErrors.length - 3) + " more in calls[].errors)" : "") + ".";
     }
 
     var resumeFromIndex = calls.length;
