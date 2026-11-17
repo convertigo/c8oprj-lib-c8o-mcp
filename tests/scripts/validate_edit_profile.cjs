@@ -231,7 +231,9 @@ test('project-reload declares and answers the ionic fields in the html profile o
     const input = overrides.decorateInput('tools_project_reload', derivedInput(), null);
     assert.deepEqual(Object.keys(input.properties), ['project']);
     const output = overrides.decorateOutput('tools_project_reload', derivedOutput(), null, null);
-    assert.deepEqual(Object.keys(output.properties).filter(key => !/^(error|argumentWarning|operatorNote|repeatedFailure|partialAnswer)$/.test(key)), ['project', 'reloaded', 'errors']);
+    // What every answer may carry, and the held answer of a write tool ("Confirmer avant de modifier").
+    const decorated = /^(error|argumentWarning|operatorNote|repeatedFailure|partialAnswer|status|saved|reason|tool|message|requestId|secondsLeft|writes)$/;
+    assert.deepEqual(Object.keys(output.properties).filter(key => !decorated.test(key)), ['project', 'reloaded', 'errors']);
     const open = overrides.decorateOutput('tools_mobile_builder_open', { type: 'object', properties: { status: { type: 'string' } } }, null, null);
     assert.equal(open.properties.ionicFiles, undefined);
   }

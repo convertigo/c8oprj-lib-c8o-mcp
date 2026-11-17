@@ -3364,6 +3364,135 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return cloneObject(outputSchema, openObjectSchema({}));
   };
 
+  // The tools whose call "Confirmer avant de modifier" or "Lecture seule" of the Tigo panel may hold: the WRITE_TOOLS of
+  // js/studio_write_confirm.js, which include those of js/nocode_write_confirm.js (tests/scripts/
+  // validate_held_answer_schemas.cjs fails when the lists differ). The router then answers the held answer instead of the
+  // tool's: {status: "awaiting_confirmation", saved: false, tool, requestId, secondsLeft, message} after the 40 s wait,
+  // {status: "refused", saved: false, reason, tool, message, writes (batch-call)}, or {status: "error", ...} for a batch
+  // whose file cannot be read. Vibe and the MCP SDKs check it against the tool's output schema: undeclared (closed
+  // schemas of batch-call, tree-apply, requestable-execute, upsert-crud...) or outside a status enum, the answer failed
+  // as mcp_transport_failed after the wait (TigoAccess 478da587, e1b3b113, 17/11).
+  var HELD_WRITE_TOOLS = {
+    tools_databaseobject_tree_apply: true,
+    tools_databaseobject_delete: true,
+    tools_databaseobject_move: true,
+    tools_databaseobject_rename: true,
+    tools_batch_call: true,
+    tools_business_sequence_create: true,
+    tools_sql_transaction_create: true,
+    tools_upsert_crud: true,
+    tools_ngx_page_create: true,
+    tools_ngx_theme_apply: true,
+    tools_project_js_set: true,
+    tools_project_notes_write: true,
+    tools_project_save: true,
+    tools_project_delete: true,
+    tools_project_reload: true,
+    tools_mobile_builder_build: true,
+    tools_marketplace_import: true,
+    tools_scheduler_apply: true,
+    tools_requestable_stub_set: true,
+    tools_tags_apply: true,
+    tools_requestable_execute: true,
+    tools_subagent_run: true,
+    tools_nocode_form_create: true,
+    tools_nocode_form_edit: true,
+    tools_nocode_form_update: true,
+    tools_nocode_form_publish: true,
+    tools_nocode_app_create: true,
+    tools_nocode_baserow_schema_apply: true
+  };
+  C8O.schemaOverrides.HELD_WRITE_TOOLS = HELD_WRITE_TOOLS;
+  var HELD_STATUSES = ["awaiting_confirmation", "refused", "error"];
+  var HELD_FIELDS = {
+    status: { type: "string" },
+    saved: { type: "boolean" },
+    reason: { type: "string" },
+    tool: { type: "string" },
+    message: { type: "string" },
+    requestId: { type: "string" },
+    secondsLeft: { type: "integer" },
+    writes: { type: "array", items: { type: "string" } }
+  };
+
+  function typesOf(schema) {
+    if (!schema || typeof schema !== "object") {
+      return [];
+    }
+    if (typeof schema.type === "string") {
+      return [schema.type];
+    }
+    return Array.isArray(schema.type) ? schema.type.slice(0) : [];
+  }
+
+  // A declared field keeps its type and values and also admits the held answer's; an undeclared one is declared.
+  function admitHeldField(schema, name) {
+    var held = HELD_FIELDS[name];
+    var declared = schema.properties[name];
+    if (!declared || typeof declared !== "object" || Array.isArray(declared)) {
+      schema.properties[name] = JSON.parse(JSON.stringify(held));
+      if (name === "status") {
+        schema.properties[name].description = "awaiting_confirmation or refused when the user's confirmation holds the change: nothing was saved.";
+      }
+      return;
+    }
+    var field = {};
+    for (var key in declared) {
+      if (Object.prototype.hasOwnProperty.call(declared, key)) {
+        field[key] = declared[key];
+      }
+    }
+    if (field.anyOf || field.oneOf || field.allOf || field.not || field.$ref) {
+      // A combination this code does not widen: the field accepts any value of the held type or of its own.
+      schema.properties[name] = { anyOf: [field, JSON.parse(JSON.stringify(held))] };
+      return;
+    }
+    var types = typesOf(field);
+    if (types.length) {
+      var wanted = held.type === "integer" ? ["integer", "number"] : [held.type];
+      var admitted = wanted.some(function (t) { return types.indexOf(t) >= 0; });
+      if (!admitted) {
+        types.push(held.type);
+        field.type = types;
+      }
+    }
+    if (field["const"] !== undefined) {
+      field["enum"] = [field["const"]];
+      delete field["const"];
+    }
+    if (Array.isArray(field["enum"])) {
+      var values = field["enum"].slice(0);
+      if (name === "status") {
+        HELD_STATUSES.forEach(function (status) {
+          if (values.indexOf(status) < 0) {
+            values.push(status);
+          }
+        });
+      } else {
+        // The values of the held answer are open (a reason, a tool name, a count): the enum would refuse them.
+        values = null;
+      }
+      if (values) {
+        field["enum"] = values;
+      } else {
+        delete field["enum"];
+      }
+    }
+    if (name === "writes" && field.items && typeof field.items === "object" && typesOf(field.items).length &&
+        typesOf(field.items).indexOf("string") < 0) {
+      delete field.items;
+    }
+    schema.properties[name] = field;
+  }
+
+  function declareHeldAnswer(schema) {
+    for (var name in HELD_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(HELD_FIELDS, name)) {
+        admitHeldField(schema, name);
+      }
+    }
+  }
+
   // A tool error comes back to a Vibe client as a result whose structured content is {error: {code, message, details}}:
   // Vibe's run_typescript otherwise turns the error into an exception without its message. Every output schema accepts
   // that field as any object, or the MCP client of Vibe rejects the answer as invalid (the typed error envelope had
@@ -3388,6 +3517,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       if (!outputSchema.properties.partialAnswer) {
         outputSchema.properties.partialAnswer = partialAnswerSchema(false);
         outputSchema.properties.partialAnswer.description = "Set instead of the answer when it is over 14,000 characters: its first page; answer-page gives the next.";
+      }
+      if (HELD_WRITE_TOOLS[String(_sequenceName || "").toLowerCase()] === true) {
+        declareHeldAnswer(outputSchema);
       }
     }
     return slimOutputSchema(outputSchema);
