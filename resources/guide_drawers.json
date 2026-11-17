@@ -1820,7 +1820,7 @@
         "when": "Idempotent seeds, credentials and login proof",
         "sha256": "a62361068f096c1b5ea8754654753d3a1aa48f006c89964bec3253787c78e466",
         "bodyOffset": 247,
-        "servedSha256": "0db0d051c6c5270297a62e88f660a86f0c7ec98dc38df101a382e600b60657ea",
+        "servedSha256": "2ef418088b865a7ab02cf853871a76373a47abd95d5769354bb97df8eb111f41",
         "trailingSourceNewlines": 1
       },
       {

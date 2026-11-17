@@ -34,7 +34,8 @@ C8O.sqlSelect = C8O.sqlSelect || {};
   }
 
   // The statement with its texts, quoted names and comments blanked: what is left is the SQL the database reads as words.
-  S.bare = function (sql) {
+  // keepNames keeps the quoted names ("Order", `order`, [order]) as written, to read table names (seed-proof).
+  S.bare = function (sql, keepNames) {
     var text = String(sql || "");
     var out = "";
     var i = 0;
@@ -67,7 +68,7 @@ C8O.sqlSelect = C8O.sqlSelect || {};
           }
           j++;
         }
-        out += c === "'" ? "''" : "q";
+        out += c === "'" ? "''" : (keepNames === true ? text.substring(i, j + 1) : "q");
         i = j + 1;
         continue;
       }
@@ -115,6 +116,7 @@ C8O.sqlSelect = C8O.sqlSelect || {};
     } catch (_noConnectors) {}
     return out;
   }
+  S.sqlConnectors = sqlConnectors;
 
   S.jdbcUrlOf = function (connector) {
     var url = "";
@@ -134,6 +136,18 @@ C8O.sqlSelect = C8O.sqlSelect || {};
       url = url.split(";")[0] + ";ifexists=true";
     }
     return url;
+  };
+
+  // A new connection to the connector's database, with its credentials; S.query makes it read-only. The caller closes it.
+  S.connect = function (connector) {
+    try {
+      java.lang.Class.forName(String(connector.getJdbcDriverClassName()));
+    } catch (_driverLoaded) {}
+    var user = "";
+    var password = "";
+    try { user = str(connector.getRealJdbcUserName()); } catch (_noUser) {}
+    try { password = str(connector.getRealJdbcUserPassword()); } catch (_noPassword) {}
+    return java.sql.DriverManager.getConnection(S.jdbcUrlOf(connector), user, password);
   };
 
   function javaClassOf(value) {
@@ -271,14 +285,7 @@ C8O.sqlSelect = C8O.sqlSelect || {};
     var jdbc = null;
     var answer = null;
     try {
-      try {
-        java.lang.Class.forName(String(connector.getJdbcDriverClassName()));
-      } catch (_driverLoaded) {}
-      var user = "";
-      var password = "";
-      try { user = str(connector.getRealJdbcUserName()); } catch (_noUser) {}
-      try { password = str(connector.getRealJdbcUserPassword()); } catch (_noPassword) {}
-      jdbc = java.sql.DriverManager.getConnection(S.jdbcUrlOf(connector), user, password);
+      jdbc = S.connect(connector);
       answer = S.query(jdbc, checked.statement, maxRows);
     } catch (sqlError) {
       if (sqlError && sqlError.code === "invalid_arguments") {

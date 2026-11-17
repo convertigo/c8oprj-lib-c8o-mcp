@@ -210,6 +210,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       "Convertigo_subagent-run",
       "Convertigo_crud-status",
       "Convertigo_crud-proof",
+      "Convertigo_seed-proof",
       "Convertigo_sql-transaction-create",
       "Convertigo_business-sequence-create",
       "Convertigo_ngx-page-create",

@@ -343,6 +343,46 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     });
   }
 
+  // seed-proof: a seed run twice between counts of the tables it writes (js/tools_seed_proof.js).
+  function seedProofInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        requestable: { type: "string", description: "The seed to prove: <project>.<sequence> or <project>.sq:<sequence> (a transaction: <project>.<connector>.<transaction>)." },
+        variables: {
+          description: "Variables given to each run, as requestable-execute takes them: an object or a JSON string (the demo password the seed needs, for example).",
+          oneOf: [{ type: "string" }, { type: "object", additionalProperties: true }]
+        },
+        authenticatedUser: { type: "string", description: "Optional user each run is made as (what the login sequence passes to context.setAuthenticatedUser), as requestable-execute takes it." },
+        tables: {
+          description: "Tables to count, as connector.table (60 at most). Default: the tables the SQL transactions reached by the seed insert into, update, merge into or delete from.",
+          oneOf: [{ type: "array", items: { type: "string" } }, { type: "string" }]
+        }
+      },
+      required: ["requestable"],
+      additionalProperties: false
+    };
+  }
+
+  function seedProofOutputSchema() {
+    var str = { type: "string" };
+    var count = { type: ["integer", "null"] };
+    return closedObjectSchema({
+      status: str,
+      requestable: str,
+      verdict: { type: "string", enum: ["replayable", "failed"], description: "replayable: both runs answered ok and run 2 left every count as run 1 left it. Report the seed replayable only then." },
+      reasons: { type: "array", items: str, description: "Why the verdict is failed: fix the seed, then prove it again." },
+      freshRun: { type: "boolean", description: "true when every counted table was empty before run 1: run 1 is also the fresh-server proof." },
+      note: str,
+      tables: { type: "array", items: closedObjectSchema({ table: str, before: count, afterRun1: count, afterRun2: count, error: str }) },
+      tablesOmitted: { type: "integer" },
+      runs: { type: "array", items: closedObjectSchema({ run: { type: "integer" }, status: { type: "string", enum: ["ok", "error", "skipped"] }, ms: { type: "integer" }, error: str, note: str }) },
+      notCounted: { type: "array", items: closedObjectSchema({ requestable: str, writes: str }), description: "Writes the seed makes that no table count covers (CouchDB, FullSync, HTTP, accounts)." },
+      notCountedMore: { type: "integer" },
+      warnings: { type: "array", items: str }
+    });
+  }
+
   // mobile-builder-build: the production build of an NGX app (js/tools_mobile_builder_build.js).
   function mobileBuilderBuildInputSchema() {
     return {
@@ -3072,6 +3112,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_sql_select") {
       return sqlSelectInputSchema();
     }
+    if (seq === "tools_seed_proof") {
+      return seedProofInputSchema();
+    }
     if (seq === "tools_marketplace_list") {
       return marketplaceListInputSchema();
     }
@@ -3377,6 +3420,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_sql_select") {
       return sqlSelectOutputSchema();
+    }
+    if (seq === "tools_seed_proof") {
+      return seedProofOutputSchema();
     }
     if (seq === "tools_requestable_execute") {
       return requestableExecuteOutputSchema();

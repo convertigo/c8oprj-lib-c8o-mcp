@@ -1,0 +1,37 @@
+accessibility: Private
+comment: |
+  Prove that a seed is replayable
+  One call: counts the tables a seed writes (SELECT COUNT(*) on a read-only connection), runs the seed as requestable-execute does, counts, runs it again and counts. verdict replayable only when both runs answered ok and the second run left every count as the first left it; failed otherwise, with reasons. An answer with status error blocks every success report about the seed: counts unchanged after an error prove nothing. freshRun true when every counted table was empty before the first run: that run is also the fresh-server proof; otherwise it proves the replay on existing data only. Default tables: the ones the SQL transactions reached by the seed insert into, update, merge into or delete from; writes it cannot count (CouchDB, FullSync, HTTP) come in notCounted. It never empties nor deletes a row and changes nothing in the project; the two runs write the application's data as the seed does.
+↓Include [steps.SimpleStep-1795100000301]: 
+  expression: 'include("js/util.js"); include("js/mcp_auth.js"); include("js/security_audit_rules.js"); include("js/security_audit_collect.js"); include("js/tools_sql_select.js"); include("js/tools_seed_proof.js");'
+↓Run [steps.SimpleStep-1795100000302]: 
+  expression: 'var seedProofResult = C8O.seedProof.execute(context, {requestable: requestable, variables: variables, authenticatedUser: authenticatedUser, tables: tables});'
+↓result [steps.JsonToXmlStep-1795100000303]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: seedProofResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓requestable [variables.RequestableVariable-1795100000311]: 
+  comment: 'The seed to prove: <project>.<sequence>, <project>.sq:<sequence> or <project>.<connector>.<transaction>.'
+  description: 'The seed to prove: <project>.<sequence>, <project>.sq:<sequence> or <project>.<connector>.<transaction>.'
+  value: ''
+↓variables [variables.RequestableVariable-1795100000312]: 
+  comment: 'Variables given to each run, as an object or a JSON string, as requestable-execute takes them.'
+  description: 'Variables given to each run, as an object or a JSON string, as requestable-execute takes them.'
+  value: ''
+↓authenticatedUser [variables.RequestableVariable-1795100000313]: 
+  comment: 'Optional user each run is made as (what the login sequence passes to context.setAuthenticatedUser), as requestable-execute takes it.'
+  description: 'Optional user each run is made as (what the login sequence passes to context.setAuthenticatedUser), as requestable-execute takes it.'
+  value: ''
+↓tables [variables.RequestableVariable-1795100000314]: 
+  comment: 'Optional tables to count, as connector.table (a JSON array or comma separated). Default: the tables the SQL transactions reached by the seed write.'
+  description: 'Optional tables to count, as connector.table (a JSON array or comma separated). Default: the tables the SQL transactions reached by the seed write.'
+  value: ''

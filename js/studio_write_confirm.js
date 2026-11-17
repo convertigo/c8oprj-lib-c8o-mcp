@@ -79,6 +79,8 @@ C8O.studioWriteConfirm = C8O.studioWriteConfirm || {};
     tools_attachment_read: true,
     tools_browser_verify: true,
     tools_crud_proof: true,
+    // runs a seed twice between counts of its tables: the application's data, as crud-proof, never the project
+    tools_seed_proof: true,
     tools_crud_status: true,
     tools_databaseobject_schema: true,
     tools_databaseobject_search: true,

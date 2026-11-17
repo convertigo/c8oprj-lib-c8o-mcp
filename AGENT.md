@@ -264,6 +264,25 @@ Measured on SalesPipeline in the A/B harness of the Electron Studio (16/11, MCP 
 The guides forbid guessing, cracking or resetting a password (common skill, Validation and evidence; authentication
 guide). Tests: `tests/scripts/validate_project_brief.cjs`, `tests/scripts/validate_viewer_session.cjs`.
 
+## seed-proof (a seed proven replayable in one call)
+
+An agent made its demo seed Public "so that a fresh server initializes itself", quieted `SEC-ANONYMOUS-WRITE` with a
+`public-write` line, and reported the seed replayable from a second run that answered `status: error` (the counts were
+unchanged because nothing ran). Two changes answer it:
+- `seed-proof` (`js/tools_seed_proof.js`, read like `crud-proof`: application data only, never the project): counts the
+  tables the seed writes (`SELECT COUNT(*)` on the read-only connection of `js/tools_sql_select.js`), runs the seed through
+  the `tools_requestable_execute` sequence (an internal request with its own context, as crud-proof runs requestables),
+  counts, runs it again, counts. `verdict` `replayable` only when both runs answered ok and run 2 left every count as run 1
+  left it; `freshRun` when every counted table was empty before run 1. Default tables: the ones the SQL transactions the
+  seed reaches (security audit model, `writesReachedFrom`) insert into, update, merge into or delete from; CouchDB,
+  FullSync, HTTP and account writes go to `notCounted`. It never passes `allowDataReset`, and does not run a seed whose SQL
+  empties or drops a table holding rows. Answer bounded under the paging budget (indented by 2).
+- `project-lint`: a `public-write: <reason>` line no longer turns `SEC-ANONYMOUS-WRITE` (nor `SEC-CLIENT-TRANSACTION`)
+  into a warning on a requestable without input variable (`numberOfVariables() == 0`): a visitor has nothing to send it,
+  so it is a job, a seed or an init. `anonymousWrites` and `transactionFindings` take an optional `inputsOf(qname)`.
+The seed guide (`convertigo://guides/common/seed`) defines the replay proof and the fresh-server proof. Tests:
+`tests/scripts/validate_seed_proof.cjs`, `tests/scripts/validate_lint_anonymous_write.cjs`.
+
 ## The No Code skill: SKILL.md and its drawers (contract with lib_ConvertigoAgentBridge)
 
 Vibe saves a tool answer over about 16,000 characters to a file and shows the model its first and last 4,000 or so,

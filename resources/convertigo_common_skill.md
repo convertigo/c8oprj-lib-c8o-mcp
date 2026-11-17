@@ -38,7 +38,7 @@ Symbols require harmless defaults: `${my.symbol=defaultValue}`. Secret `visibili
 
 ## Authentication route
 
-Use standard libraries for accounts/SSO. Generated CRUD `auth_login` accepts any password until replaced. Enforce authentication and roles server-side; hidden exposure alone is insufficient. Details: `convertigo://guides/common/auth`. Seed writes check every call and must be private or authenticated with a role check; prove idempotence and real login, with no literal demo password. Details: `convertigo://guides/common/seed`. To check pages behind the sign-in in a Studio, use `viewer-sign-in` (or `browser-verify` with `signInAs`), without a password. Never guess, try or reset a password, read password hashes, or create an account to get past a sign-in: ask the user for the account.
+Use standard libraries for accounts/SSO. Generated CRUD `auth_login` accepts any password until replaced. Enforce authentication and roles server-side; hidden exposure alone is insufficient. Details: `convertigo://guides/common/auth`. Seed writes check every call and must be private or authenticated with a role check; prove idempotence with `seed-proof` and real login, with no literal demo password. Details: `convertigo://guides/common/seed`. To check pages behind the sign-in in a Studio, use `viewer-sign-in` (or `browser-verify` with `signInAs`), without a password. Never guess, try or reset a password, read password hashes, or create an account to get past a sign-in: ask the user for the account.
 
 ## Proof and long tasks
 
