@@ -18,6 +18,72 @@ if (typeof C8O.tigoAgentsDirectory !== "function") {
 }
 // End shared storage contract.
 
+// Shared sub-agent stop contract across Tigo projects (lib_ConvertigoMCP starts the runs, lib_ConvertigoAgentBridge stops
+// the runs of a conversation it interrupts or closes). Keep this block identical in both. Resolved only on the engine.
+// A run lives in <user workspace>/subagents/<runId>/run.json {conversationId, pid, lockFile}; the runner process started
+// by the Studio is no child of the agent, so stopping the agent's turn or process left it building, and its project lock
+// refused every other write (measured run, 17/11). tigoConversationSubagentRuns lists the live runs of a conversation (a
+// quick read); tigoStopConversationSubagents stops them: stop.json written in the run folder (the runner reports why),
+// SIGTERM to the runner (it stops its own agent and removes its lock), then a hard stop of what is left after 3 s and of
+// the lock it still names. It returns the runIds stopped.
+if (typeof C8O.tigoStopConversationSubagents !== "function") {
+  C8O.tigoConversationSubagentRuns = function (conversationId) {
+    var runs = [];
+    var id = String(conversationId == null ? "" : conversationId).replace(/^\s+|\s+$/g, "");
+    if (!/^[A-Za-z0-9._-]{1,128}$/.test(id)) { return runs; }
+    var File = Packages.java.io.File;
+    var Files = Packages.java.nio.file.Files;
+    var root = new File(new File(String(Packages.com.twinsoft.convertigo.engine.Engine.USER_WORKSPACE_PATH)).getCanonicalFile(), "subagents");
+    var dirs = root.isDirectory() ? root.listFiles() : null;
+    for (var i = 0; dirs !== null && i < dirs.length; i++) {
+      try {
+        var runId = String(dirs[i].getName());
+        var runFile = new File(dirs[i], "run.json");
+        if (!/^(verify|build|sa)-\d{8}-\d{6}-[0-9a-f]{8}$/.test(runId) || !runFile.isFile()) { continue; }
+        var meta = JSON.parse(String(new Packages.java.lang.String(Files.readAllBytes(runFile.toPath()), "UTF-8")));
+        if (String(meta.conversationId || "") !== id) { continue; }
+        var found = Packages.java.lang.ProcessHandle.of(Number(meta.pid || 0));
+        if (found.isPresent() && found.get().isAlive()) {
+          runs.push({ runId: runId, dir: dirs[i], root: root, lockFile: String(meta.lockFile || ""), process: found.get() });
+        }
+      } catch (_ignoreRun) {}
+    }
+    return runs;
+  };
+  C8O.tigoStopConversationSubagents = function (conversationId, reason) {
+    var stopped = [];
+    var Files = Packages.java.nio.file.Files;
+    var System = Packages.java.lang.System;
+    var runs = C8O.tigoConversationSubagentRuns(conversationId);
+    for (var i = 0; i < runs.length; i++) {
+      try {
+        var run = runs[i];
+        Files.write(new Packages.java.io.File(run.dir, "stop.json").toPath(), new Packages.java.lang.String(JSON.stringify({
+          reason: String(reason || "its conversation was stopped"), at: Number(System.currentTimeMillis())
+        })).getBytes("UTF-8"));
+        var children = run.process.descendants().toArray();
+        run.process.destroy();
+        for (var deadline = System.currentTimeMillis() + 3000; run.process.isAlive() && System.currentTimeMillis() < deadline;) {
+          Packages.java.lang.Thread.sleep(100);
+        }
+        for (var c = 0; c < children.length; c++) {
+          if (children[c].isAlive()) { children[c].destroyForcibly(); }
+        }
+        if (run.process.isAlive()) { run.process.destroyForcibly(); }
+        var lock = new Packages.java.io.File(run.lockFile);
+        if (run.lockFile.length && lock.isFile() && String(lock.getCanonicalFile().getParent()) === String(run.root.getPath())) {
+          var holder = {};
+          try { holder = JSON.parse(String(new Packages.java.lang.String(Files.readAllBytes(lock.toPath()), "UTF-8"))); } catch (_badLock) {}
+          if (String(holder.runId || "") === run.runId) { lock["delete"](); }
+        }
+        stopped.push(run.runId);
+      } catch (_ignoreStop) {}
+    }
+    return stopped;
+  };
+}
+// End shared sub-agent stop contract.
+
 /*
  * Tigo sub-agents: the main agent hands a large piece of work to a sub-agent with a fresh context, its own model, its own
  * tools and its own limits, and gets back a short report; the sub-agent's context is then thrown away. The main agent
@@ -260,6 +326,10 @@ C8O.subagents = C8O.subagents || {};
     var runner = runners[run.runner];
     while (true) {
       var output = api.parseOutput(run.output);
+      if (str(run.stopReason).length && (output === null || output.ok !== true) && !run.alive) {
+        throw new Error("The " + run.profile + " sub-agent was stopped: " + str(run.stopReason) + ". It writes nothing more " +
+          "and its project lock is released; start it again if the work is still needed.");
+      }
       if (output !== null) {
         if (output.ok !== true) {
           throw new Error("The " + run.profile + " sub-agent failed: " + str(output.error));
@@ -437,6 +507,10 @@ C8O.subagents = C8O.subagents || {};
     }
     var run = host.readRun(str(holder.runId));
     if (!run.exists || !run.alive) {
+      // The runner is gone (stopped hard, Studio restarted): its lock goes with it.
+      if (typeof host.dropLock === "function") {
+        host.dropLock("project:" + project, str(holder.runId));
+      }
       return null;
     }
     return {
@@ -536,6 +610,15 @@ C8O.subagents = C8O.subagents || {};
           return null;
         }
       },
+      // The lock of a key while it still names this run.
+      dropLock: function (lockKey, runId) {
+        var lockFile = new File(runsRoot, ".lock-" + String(lockKey).replace(/[^0-9A-Za-z]+/g, "_"));
+        try {
+          if (lockFile.isFile() && str(JSON.parse(readText(lockFile)).runId) === str(runId)) {
+            lockFile["delete"]();
+          }
+        } catch (_ignoreDropLock) {}
+      },
       unlock: function (lockPath) {
         try {
           new File(String(lockPath))["delete"]();
@@ -616,6 +699,14 @@ C8O.subagents = C8O.subagents || {};
           pack: str(meta.pack),
           scope: str(meta.scope),
           output: outFile.isFile() ? readText(outFile) : "",
+          stopReason: (function () {
+            try {
+              var stopFile = new File(dir, "stop.json");
+              return stopFile.isFile() ? str(JSON.parse(readText(stopFile)).reason) : "";
+            } catch (_badStop) {
+              return "";
+            }
+          })(),
           alive: alive,
           startedAt: Number(meta.startedAt || 0),
           activity: activity,

@@ -400,6 +400,8 @@ function run(rawConfig, deps) {
   if (launch.warning) logActivity(config, {at: Date.now(), text: "! " + launch.warning});
   return new Promise(function (resolve) {
     var child = (deps.spawn || childProcess.spawn)(launch.bin, launch.prefix.concat(args), { cwd: config.workdir, env: env, stdio: ["ignore", "pipe", "pipe"] });
+    running.child = child;
+    running.outDir = config.outDir;
     var buffer = "";
     var overBudget = false;
     var budgetWatch = setInterval(function () {
@@ -499,7 +501,32 @@ function readStdin() {
   });
 }
 
+// The session a stop must end: the Studio stops a run whose conversation was stopped (C8O.tigoStopConversationSubagents
+// in js/subagents.js) with SIGTERM after writing stop.json in the run folder.
+var running = { child: null, outDir: "", finished: false };
+
+function stopReason(outDir) {
+  try {
+    return str(JSON.parse(fs.readFileSync(path.join(outDir, "stop.json"), "utf8")).reason);
+  } catch (_noStopFile) {
+    return "";
+  }
+}
+
+function onStop(lockFile, exit) {
+  if (running.child) {
+    try { running.child.kill("SIGTERM"); } catch (_gone) {}
+  }
+  var reason = stopReason(running.outDir) || "the Studio stopped it";
+  (exit || finish)({ ok: false, stopped: true, error: "stopped: " + reason }, lockFile);
+}
+
 function finish(output, lockFile) {
+  // One final line: a stop and the end of the session it caused must not both write one.
+  if (running.finished) {
+    return;
+  }
+  running.finished = true;
   process.stdout.write(JSON.stringify(output) + "\n", function () {
     if (lockFile) {
       try {
@@ -515,6 +542,7 @@ async function main() {
   var output;
   try {
     input = JSON.parse(await readStdin() || "{}");
+    process.once("SIGTERM", function () { onStop(str(input.lockFile)); });
     output = await run(input, { env: process.env });
   } catch (e) {
     output = { ok: false, error: String(e && e.message ? e.message : e).substring(0, 600) };
@@ -534,6 +562,8 @@ module.exports = {
   tokenCost: tokenCost,
   run: run,
   rulesOf: rulesOf,
+  onStop: onStop,
+  running: running,
   CONSTRUCTOR_RULES: CONSTRUCTOR_RULES
 };
 
