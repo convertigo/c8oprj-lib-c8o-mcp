@@ -1191,7 +1191,26 @@ if (typeof include === "function") {
   // writes, itself or through what it calls (the security audit's model), empty when it writes nothing. sessionOf(target):
   // "open" for a call that signs a user in (its refusal is an answer to read), "close" for a sign-out, which the caller
   // follows with its own end of session, "" otherwise.
+  // A flow may also give answerReads: {priority: [{xpath, enabled}]}, the paths the sources of the sequence read in each
+  // step's output; a sign-in call is then checked only by a read of its ./document/error (SEQ-SIGNIN-UNCHECKED).
   var SUCCESS_ANSWER = /^\s*(?:ok|okay|true|yes|1|success(?:ful)?|succeeded|done|completed?|saved|created|updated|deleted|removed|seeded|initiali[sz]ed|ready)\b/i;
+  // A path that reads a refusal: the error element, or the whole answer (a JsonSourceStep on ./document tested in JavaScript).
+  var ERROR_PATH = /\berror\b/i;
+  var WHOLE_ANSWER = /^(?:\.?|\*|\.\/\*|\.\/node\(\)|(?:\.\/|\/)?document(?:\/\*|\/\.|\/node\(\))?)$/;
+
+  // Whether a step of the flow reads the refusal of the call at priority: a source on its ./document/error (or on its whole
+  // answer). Without answerReads, or for a source seen without its path, any read counts, as for SEQ-CALL-UNCHECKED.
+  C8O.lint.readsCallError = function (flow, priority) {
+    var read = (flow && flow.read) || {};
+    var reads = flow && flow.answerReads && typeof flow.answerReads === "object" ? flow.answerReads[priority] : null;
+    if (!reads || !reads.length) {
+      return read[priority] === true;
+    }
+    return reads.some(function (r) {
+      var xpath = String((r && r.xpath) || "").trim().replace(/\/+$/, "");
+      return r && r.enabled !== false && (ERROR_PATH.test(xpath) || WHOLE_ANSWER.test(xpath));
+    });
+  };
 
   C8O.lint.uncheckedCalls = function (flows, writesOf, sessionOf) {
     var out = [];
@@ -1209,25 +1228,45 @@ if (typeof include === "function") {
         }
         var isCall = step.className === "SequenceStep" || step.className === "TransactionStep";
         if (isCall && String(step.target || "").length) {
-          if (step.output === true || read[step.priority] === true) {
+          if (step.output === true) {
             return;
           }
           var session = typeof sessionOf === "function" ? String(sessionOf(String(step.target)) || "") : "";
           if (session === "close") {
             return;
           }
+          // A sign-in (its own SetAuthenticatedUser, a library's SignIn, an app login calling one): a wrong password is an
+          // answer with an error, not a failure, so the sequence goes on and answers like a success (S7 runs, 17/11).
+          if (session === "open") {
+            var readAtAll = read[step.priority] === true;
+            if (!C8O.lint.readsCallError(flow, step.priority)) {
+              out.push({ rule: "SEQ-SIGNIN-UNCHECKED", severity: "error", qname: step.qname,
+                message: "The step " + step.name + " calls " + step.target + ", which signs the user in, and " + (readAtAll
+                  ? "no step tests its ./document/error (the steps that read its answer take what it returns as a success)"
+                  : "no step reads its answer") + ": when it refuses the credentials (a wrong password), the sequence goes on and " +
+                  "answers like a success, and a login page takes the user as signed in.",
+                fix: "Right after the call, add an IfExistThenElseStep sourced on the call's ./document/error whose then branch holds " +
+                  "an XMLErrorStep (one message for every refusal) and a ReturnStep, before any step reads the user or the role. " +
+                  "convertigo://guides/auth/email-password-with-lib-usermanager gives the whole login (login and roles recipe)." });
+            }
+            if (!readAtAll) {
+              unchecked.push(step);
+            }
+            return;
+          }
+          if (read[step.priority] === true) {
+            return;
+          }
           var writes = (typeof writesOf === "function" ? writesOf(String(step.target)) : []) || [];
-          if (!writes.length && session !== "open") {
+          if (!writes.length) {
             return;
           }
           unchecked.push(step);
           if (step.className === "SequenceStep") {
             out.push({ rule: "SEQ-CALL-UNCHECKED", severity: "warning", qname: step.qname,
-              message: "The step " + step.name + " calls " + step.target + (session === "open"
-                ? ", which signs the user in, and no step reads its answer: when it refuses the credentials, the sequence goes on and " +
-                  "answers as if the user were signed in."
-                : ", which writes through " + describe(writes) + ", and no step reads its answer: when the call fails (an account that " +
-                  "exists already, an invalid key, a mail relay down, a database error), the sequence goes on as if it had worked."),
+              message: "The step " + step.name + " calls " + step.target + ", which writes through " + describe(writes) +
+                ", and no step reads its answer: when the call fails (an account that exists already, an invalid key, a mail " +
+                "relay down, a database error), the sequence goes on as if it had worked.",
               fix: "Read the answer: an IfExistThenElseStep on the call's ./document/error (a JsonSourceStep for a test in JavaScript) " +
                 "whose then branch ends with an XMLErrorStep, then answer from what the call returned. marketplace-describe gives a " +
                 "library's sequences and their answers." });
@@ -1503,9 +1542,13 @@ if (typeof include === "function") {
     }
 
     // The steps of a sequence in the order they run, with what the lint rules on calls need (C8O.lint.uncheckedCalls,
-    // C8O.lint.stepNamesAsVariables).
+    // C8O.lint.stepNamesAsVariables). answerReads: the paths each source reads in a step's output (js/step_sources.js).
     function sequenceFlow(sequence, variableNames) {
       var flow = { qname: qnameOf(sequence), steps: [], read: {}, declared: {} };
+      var withPaths = !!(C8O.stepSources && typeof C8O.stepSources.refsOf === "function");
+      if (withPaths) {
+        flow.answerReads = {};
+      }
       Object.keys(variableNames).forEach(function (n) { flow.declared[n] = true; });
       var noteSource = function (definition) {
         try {
@@ -1514,18 +1557,31 @@ if (typeof include === "function") {
           }
         } catch (_noDefinition) {}
       };
-      (function walk(parent) {
+      var notePaths = function (node, enabled) {
+        if (!withPaths) {
+          return;
+        }
+        try {
+          C8O.stepSources.refsOf(node).forEach(function (ref) {
+            (flow.answerReads[ref.priority] = flow.answerReads[ref.priority] || []).push({ xpath: ref.xpath, enabled: enabled });
+          });
+        } catch (_noRefs) {}
+      };
+      (function walk(parent, enabled) {
         var nodes = C8O.dbo.getDirectChildren(parent);
         for (var i = 0; i < nodes.length; i++) {
           var node = nodes[i];
           var cls = simpleClassName(node);
           if (/Variable$/.test(cls)) {
             noteSource(call(node, "getSourceDefinition"));
+            notePaths(node, enabled);
             continue;
           }
           if (!/Step$/.test(cls)) {
             continue;
           }
+          var on = enabled && call(node, "isEnabled") !== false;
+          notePaths(node, on);
           try {
             var sources = node.getSources();
             var it = sources ? sources.iterator() : null;
@@ -1565,9 +1621,9 @@ if (typeof include === "function") {
           flow.steps.push({ qname: qnameOf(node), name: String(node.getName()), className: cls, priority: priority, target: target,
             output: call(node, "isOutput") === true, enabled: call(node, "isEnabled") !== false, constant: constant,
             nodeName: str(call(node, "getNodeName")), js: js });
-          walk(node);
+          walk(node, on);
         }
-      })(sequence);
+      })(sequence, true);
       return flow;
     }
 
