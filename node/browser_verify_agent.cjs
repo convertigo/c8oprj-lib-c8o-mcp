@@ -900,15 +900,18 @@ function createTools(state, config) {
       throw error;
     }
   }
+  // The route is decided by the main document's response (page.goto answers only that one). A 404 under the gateway is a
+  // stopped viewer; any other 4xx/5xx of the document is a route failure, a static page's included.
   async function inspectResponse(response) {
     assertApplication(page().url());
     if (response && response.status() >= 400) {
       var status = response.status();
-      var message = status === 404 && /\/gw\//.test(page().url())
+      var stopped = status === 404 && /\/gw\//.test(page().url());
+      var message = stopped
         ? "visualiseur arrêté (HTTP 404). Run dev.ensure for the application project before verifying."
         : "Application route failed (HTTP " + status + "). " + await ariaSnapshot(page(), AUTO_SNAPSHOT_LIMIT);
       var error = new Error(message);
-      error.code = status === 404 ? "VIEWER_STOPPED" : "APPLICATION_ROUTE_FAILED";
+      error.code = stopped ? "VIEWER_STOPPED" : "APPLICATION_ROUTE_FAILED";
       throw error;
     }
   }
@@ -1488,6 +1491,72 @@ function missingBusinessActions(config, trace) {
 // ---------------------------------------------------------------------------------------------------------------
 // Loop
 
+// Passive subresources: what the page shows or decorates itself with, never what it needs to open or an application
+// needs to start. A static page whose favicon.ico answered 404 was stopped as APPLICATION_ROUTE_FAILED before its
+// verification (the browser logs every failed load as a console error, and a console error failed the route). Their
+// failures are notes (the console messages, the failed requests of autoDefects); the main document, the scripts, the
+// API calls and the page errors still fail the route.
+var PASSIVE_RESOURCE_TYPES = /^(image|media|font|manifest|texttrack|stylesheet|subframe)$/;
+// Asked by the browser or the developer tools, whatever the type reported for them.
+var PASSIVE_RESOURCE_URL = /(?:\/favicon\.ico|\.map)$/i;
+// By extension, when the browser reported no type (or "other", as for an icon of a link rel="icon").
+var PASSIVE_RESOURCE_EXTENSION = /\.(?:png|jpe?g|gif|svg|webp|avif|ico|bmp|woff2?|ttf|otf|eot|mp3|mp4|webm|ogg|wav|vtt|webmanifest)$/i;
+var RESOURCE_TYPES_LIMIT = 500;
+
+function resourceKey(url) {
+  return String(url || "").replace(/[?#].*$/, "");
+}
+
+// The type of each request by its address, for the console messages of failed loads (they carry the address only).
+function noteResourceType(state, request) {
+  try {
+    var type = typeof request.resourceType === "function" ? String(request.resourceType() || "") : "";
+    if (type === "document" && typeof request.frame === "function") {
+      var frame = request.frame();
+      if (frame && typeof frame.parentFrame === "function" && frame.parentFrame()) {
+        type = "subframe";
+      }
+    }
+    var key = resourceKey(typeof request.url === "function" ? request.url() : "");
+    if (!type.length || !key.length) {
+      return;
+    }
+    state.resourceTypes.delete(key);
+    state.resourceTypes.set(key, type);
+    if (state.resourceTypes.size > RESOURCE_TYPES_LIMIT) {
+      state.resourceTypes.delete(state.resourceTypes.keys().next().value);
+    }
+  } catch (_noRequestDetails) {}
+}
+
+// The address of a console message that reports a failed load ("Failed to load resource: ..."), else "".
+function failedLoadUrl(message, text) {
+  if (!/^Failed to load resource\b/i.test(text)) {
+    return "";
+  }
+  try {
+    var location = typeof message.location === "function" ? message.location() : null;
+    return location && location.url ? String(location.url) : "";
+  } catch (_noLocation) {
+    return "";
+  }
+}
+
+function isPassiveResource(state, url) {
+  var key = resourceKey(url);
+  if (!key.length) {
+    return false;
+  }
+  if (PASSIVE_RESOURCE_URL.test(key)) {
+    return true;
+  }
+  var type = state.resourceTypes ? state.resourceTypes.get(key) || "" : "";
+  if (type.length && type !== "other") {
+    return PASSIVE_RESOURCE_TYPES.test(type);
+  }
+  return PASSIVE_RESOURCE_EXTENSION.test(key);
+}
+
 function noteFailedRequest(state, url, why) {
   if (/favicon\.ico|\.map(\?|$)|sockjs-node|\/ws(\?|$)/.test(String(url)) || state.failedRequests.length >= 20) {
     return;
@@ -1556,13 +1625,14 @@ async function run(rawConfig, deps) {
   var browserState = await openBrowser(config, deps.playwright);
   try {
   var state = { page: browserState.page, screenshots: [], runtimeErrors: [], consoleMessages: [], network: [], networkTasks: [], requests: new WeakMap(),
-    autoDefects: [], failedRequests: [] };
+    resourceTypes: new Map(), autoDefects: [], failedRequests: [] };
   // Every request that failed or answered an error status, whatever its kind (an image, a script, an API call).
   if (typeof state.page.on === "function") state.page.on("requestfailed", function (request) {
     noteFailedRequest(state, request.url(), (request.failure && request.failure() && request.failure().errorText) || "failed");
   });
   if (typeof state.page.on === "function") state.page.on("request", function(request) {
     state.requests.set(request, state.activeActionId || "");
+    noteResourceType(state, request);
   });
   if (typeof state.page.on === "function") state.page.on("response", function(response) {
     if (response.status() >= 400) {
@@ -1589,9 +1659,15 @@ async function run(rawConfig, deps) {
   if (typeof state.page.on === "function") state.page.on("console", function (message) {
     var type = message.type();
     if (type !== "warning" && type !== "warn" && type !== "error") return;
-    var entry = {type: type, text: cut(message.text(), 1500)};
+    var text = String(message.text());
+    // A failed load names no address in its text: the address is added, and a passive subresource's failure stays a note.
+    var loadUrl = failedLoadUrl(message, text);
+    var passive = type === "error" && loadUrl.length > 0 && isPassiveResource(state, loadUrl);
+    var entry = {type: type, text: cut(text, 1500) + (loadUrl.length && text.indexOf(loadUrl) < 0 ? " (" + cut(resourceKey(loadUrl), 300) + ")" : "") +
+      (passive ? " [subresource: a note, not a route failure]" : "")};
     state.consoleMessages.push(entry);
     if (state.consoleMessages.length > 50) state.consoleMessages.shift();
+    if (passive) return;
     if (type === "error" || /stopped at action/i.test(entry.text)) {
       state.runtimeErrors.push(entry.text);
       if (state.runtimeErrors.length > 50) state.runtimeErrors.shift();
