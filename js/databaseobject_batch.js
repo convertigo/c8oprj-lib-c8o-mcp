@@ -1621,6 +1621,63 @@ include("js/sql_dialect.js");
     }
   }
 
+  // The own attributes and styles of a UI element (folders Attributes and Styles: UIAttribute and its kinds,
+  // UIDynamicAttr, UIStyle, UITheme...): they make the element (its class, its id, its SCSS), they are not its content.
+  // Answers { attrName } for one ("" for a style or an attribute without a name), null for any other child.
+  function ownAttributeOrStyle(dbo) {
+    var folder = folderKeyOf(dbo);
+    if (folder !== "ATTRIBUTE" && folder !== "STYLE") {
+      return null;
+    }
+    var attrName = "";
+    try {
+      attrName = typeof dbo.getAttrName === "function" ? asTrimmed(dbo.getAttrName()) : "";
+    } catch (_noAttrName) {
+      attrName = "";
+    }
+    return { attrName: attrName };
+  }
+
+  // The attrName a child of the tree sets (properties as a map or as [{name, value}], value plain or {value}).
+  function patchAttrName(childPatch) {
+    var props = isPlainObject(childPatch) ? unwrapValue(childPatch.properties) : null;
+    if (typeof props === "string") {
+      props = parseJsonMaybe(props, "properties", null, "");
+    }
+    var value;
+    if (Array.isArray(props)) {
+      for (var pi = 0; pi < props.length; pi++) {
+        var entry = props[pi] || {};
+        if (asTrimmed(entry.name || entry.key || entry.property) === "attrName") {
+          value = entry.value !== undefined ? entry.value : entry.newValue;
+        }
+      }
+    } else if (isPlainObject(props)) {
+      value = props.attrName;
+    }
+    value = unwrapValue(value);
+    if (isPlainObject(value)) {
+      value = value.value !== undefined ? value.value : value.text;
+    }
+    return value === undefined || value === null ? "" : asTrimmed(value);
+  }
+
+  // Answer of a replace that kept own attributes and styles (pruneMissing in upsertChildren): one warning per operation,
+  // bounded, naming each element and what it kept.
+  function warnKeptOwnChildren(kept, report) {
+    if (!kept.length) {
+      return;
+    }
+    var shown = kept.slice(0, 6).map(function (entry) {
+      var names = entry.names.slice(0, 6).join(", ") + (entry.names.length > 6 ? " (+" + (entry.names.length - 6) + ")" : "");
+      return kept.length === 1 ? entry.qname + " the tree did not list: " + names : entry.qname + ": " + names;
+    });
+    pushReportWarning(report, "Kept the attribute(s)/style(s) of " + (kept.length === 1 ? shown[0] :
+      "these elements the tree did not list: " + shown.join("; ") + (kept.length > 6 ? " (+" + (kept.length - 6) + " elements)" : "")) +
+      ". mode replace removes the content a tree leaves out, not the element's own attributes and styles (an attribute is " +
+      "replaced when the tree lists one with the same attrName). To remove one, use databaseobject-delete.");
+  }
+
   function upsertChildren(ctx, parentDbo, parentQName, childrenPatch, strategy, report) {
     if (!Array.isArray(childrenPatch)) {
       return;
@@ -1788,6 +1845,18 @@ include("js/sql_dialect.js");
     }
 
     if (strategy.pruneMissing) {
+      // A replace rewrites what a node contains, not the node: its own attributes and styles the tree leaves out are
+      // kept, at every level of the tree, unless the tree lists another attribute with the same attrName (it replaces
+      // it). An agent filling the content zone of a copied page sent the zone with its new content only, and the zone
+      // lost its class and its look (measured run, 17/11). databaseobject-delete removes one.
+      var listedAttrNames = {};
+      for (var la = 0; la < childrenPatch.length; la++) {
+        var listedAttrName = patchAttrName(childrenPatch[la]);
+        if (listedAttrName.length) {
+          listedAttrNames[listedAttrName] = true;
+        }
+      }
+      var keptOwn = [];
       var runtimeChildren = getDirectChildren(parentDbo);
       for (var r = 0; r < runtimeChildren.length; r++) {
         var runtime = runtimeChildren[r];
@@ -1795,11 +1864,20 @@ include("js/sql_dialect.js");
         if (desiredNameSet[runtimeName]) {
           continue;
         }
+        var own = ownAttributeOrStyle(runtime);
+        if (own && !(own.attrName.length && listedAttrNames[own.attrName])) {
+          keptOwn.push(runtimeName + (own.attrName.length ? " (" + own.attrName + ")" : ""));
+          continue;
+        }
         var runtimeQName = safeQName(runtime);
         var pruneDeleted = deleteObject(ctx, runtimeQName);
         noteOrphanSources(ctx, report, pruneDeleted);
         report.applied.push({ action: "delete", qname: pruneDeleted.qname });
         incrementMutation(ctx, "deleted");
+      }
+      if (keptOwn.length) {
+        ctx.keptOwnChildren = Array.isArray(ctx.keptOwnChildren) ? ctx.keptOwnChildren : [];
+        ctx.keptOwnChildren.push({ qname: parentQName, names: keptOwn });
       }
     }
   }
@@ -1997,7 +2075,13 @@ include("js/sql_dialect.js");
     applyNodeExtras(ctx, root, patch, report);
 
     var childrenPatch = parseChildrenInput(patch.children, qname + ".children", []);
-    upsertChildren(ctx, root, qname, childrenPatch, strategy, report);
+    ctx.keptOwnChildren = [];
+    try {
+      upsertChildren(ctx, root, qname, childrenPatch, strategy, report);
+    } finally {
+      warnKeptOwnChildren(ctx.keptOwnChildren, report);
+      ctx.keptOwnChildren = [];
+    }
   }
 
   function saveTouchedProjects(ctx, globalErrors) {

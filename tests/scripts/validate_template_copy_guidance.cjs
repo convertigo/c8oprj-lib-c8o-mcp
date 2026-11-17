@@ -16,6 +16,7 @@ test('the models drawer: copy the named model, never ngx-page-create, content zo
   assert.match(guide, /A model that cannot be found stops the work: say so, and generate nothing in its place\./);
   assert.match(guide, /Fill only the model's content zone[^]*Never delete, move or restyle its other zones/);
   assert.match(guide, /Before reporting, compare the page with its model/);
+  assert.match(guide, /Add the content inside the zone: `databaseobject-tree-apply` with the zone as target and `at:"inside"`[^]*Never `mode:"replace"` on the zone: it keeps its own attributes and styles/);
   assert.match(guide, /A text the user gave \(a title, a label, a button text\) is written as given/);
   assert.match(read('resources/convertigo_common_skill.md'), /`databaseobject-copy` it, fill only its content zone, never `ngx-page-create`/);
 });

@@ -18,11 +18,15 @@ let lastPriority = 1700000000000;
 const nextPriority = () => ++lastPriority;
 
 function folderOf(className) {
+  // NGX: the engine's folders of UIAttribute (and its kinds) and UIDynamicAttr, of UIStyle (and UITheme), none for an element
+  if (/^ngx\./.test(className)) {
+    return /UIAttribute|UIDynamicAttr/.test(className) ? 'ATTRIBUTE' : (/UIStyle|UITheme/.test(className) ? 'STYLE' : 'NONE');
+  }
   return /Variable$/.test(className) ? 'VARIABLE' : (/Transaction$/.test(className) ? 'TRANSACTION' : 'STEP');
 }
 
 function isOrderedClass(className) {
-  return /(Sequence|IfStep|ThenStep|ElseStep|IfExistThenElseStep|Block)$/.test(className);
+  return /(Sequence|IfStep|ThenStep|ElseStep|IfExistThenElseStep|Block)$/.test(className) || /^ngx\.components\.UIDynamicElement/.test(className);
 }
 
 class Bean {
@@ -33,6 +37,9 @@ class Bean {
     this.priority = nextPriority();
     this.children = [];
     this.props = {};
+    if (/UIAttribute/.test(className)) {
+      this.getAttrName = () => this.props.attrName || 'attr';
+    }
     // Only an ordered container has the methods of IContainerOrdered.
     if (isOrderedClass(className)) {
       this.increasePriority = () => {};
@@ -79,6 +86,7 @@ class Bean {
 
 function build(spec, parent) {
   const bean = new Bean(spec.className, spec.name);
+  Object.assign(bean.props, spec.props || {});
   if (parent) {
     parent.children.push(bean);
     bean.parent = parent;
@@ -396,4 +404,91 @@ test('mode replace: a new step listed before an existing step it keeps goes befo
   });
   assert.ok(['ok', 'partial'].includes(result.status) && result.errors.length === 0, JSON.stringify(result.errors));
   assert.deepEqual(names(project.children[0]), ['username', 'Prepare', 'SignIn', 'GetAccount', 'User']);
+});
+
+// mode replace rewrites what an element contains, not the element: an agent filling the content zone of a page copied
+// from a model sent the zone with its new content only (at:"self", mode:"replace"), and the zone's own class attribute
+// was pruned with the old content, so the zone lost its look (measured run, 17/11).
+const ngxAttr = (name, attrName, attrValue) => ({ className: 'ngx.components.UIAttribute#UIAttribute', name, props: { attrName, attrValue } });
+const ngxStyle = name => ({ className: 'ngx.components.UIStyle#UIStyle', name, props: { styleContent: ':host { display: block; }' } });
+const ngxDiv = (name, children) => ({ className: 'ngx.components.UIDynamicElement#DivTag', name, ...(children ? { children } : {}) });
+const ngxText = name => ({ className: 'ngx.components.UIText', name });
+
+function zoneProject() {
+  return build({
+    className: 'core.Project', name: 'P', children: [{
+      className: 'ngx.components.ApplicationComponent', name: 'App', children: [{
+        className: 'ngx.components.PageComponent', name: 'Page', children: [
+          ngxDiv('Header', [ngxAttr('Attr_class', 'class', 'page-header')]),
+          ngxDiv('Zone', [ngxAttr('Attr_class', 'class', 'page-content'), ngxStyle('ZoneStyle'),
+            ngxDiv('OldCard', [ngxAttr('Attr_class', 'class', 'card'), ngxText('OldTitle')]), ngxText('OldText')]),
+        ],
+      }],
+    }],
+  });
+}
+
+const replaceZone = children => ({
+  target: 'P.App.Page.Zone',
+  operations: [{ type: 'upsertTree', qname: 'P.App.Page.Zone', strategy: 'replace',
+    patch: { name: 'Zone', className: 'ngx.components.UIDynamicElement#DivTag', children } }],
+});
+
+test('mode replace on an element keeps its own attributes and styles the tree does not list, and the answer names them', () => {
+  const project = zoneProject();
+  const zone = project.children[0].children[0].children[1];
+  const D = load(project);
+  const result = D.apply(replaceZone([{ name: 'NewCard', className: 'ngx.components.UIDynamicElement#DivTag', children: [{ name: 'Label', className: 'ngx.components.UIText' }] }]));
+  assert.ok(['ok', 'partial'].includes(result.status) && result.errors.length === 0, JSON.stringify(result.errors));
+  assert.deepEqual(names(zone), ['Attr_class', 'ZoneStyle', 'NewCard']);
+  assert.equal(zone.children[0].props.attrValue, 'page-content');
+  assert.deepEqual(names(zone.children[2]), ['Label']);
+  const warnings = result.operations[0].warnings.join(' ');
+  assert.match(warnings, /Kept the attribute\(s\)\/style\(s\) of P\.App\.Page\.Zone the tree did not list: Attr_class \(class\), ZoneStyle\./);
+  assert.match(warnings, /To remove one, use databaseobject-delete\./);
+  // the other zones of the page are not touched
+  assert.deepEqual(names(project.children[0].children[0].children[0]), ['Attr_class']);
+  // tree-apply sends its mode as the strategy of the upsertTree it runs
+  const target = zone;
+  const { calls } = runTreeApply({ target: 'P.App.Page.Zone', at: 'self', mode: 'replace', tree: { name: 'Zone', className: 'ngx.components.UIDynamicElement#DivTag', children: [] } }, { target });
+  assert.equal(calls.batch[0].operations[0].strategy, 'replace');
+});
+
+test('mode replace: an attribute the tree lists is updated as before, and one listed with the same attrName under another name replaces it', () => {
+  let project = zoneProject();
+  let zone = project.children[0].children[0].children[1];
+  let D = load(project);
+  let result = D.apply(replaceZone([{ name: 'Attr_class', className: 'ngx.components.UIAttribute#UIAttribute', properties: { attrName: 'class', attrValue: 'page-content wide' } },
+    ngxText('Intro')]));
+  assert.ok(['ok', 'partial'].includes(result.status) && result.errors.length === 0, JSON.stringify(result.errors));
+  assert.deepEqual(names(zone), ['Attr_class', 'ZoneStyle', 'Intro']);
+  assert.equal(zone.children[0].props.attrValue, 'page-content wide');
+  assert.match(result.operations[0].warnings.join(' '), /of P\.App\.Page\.Zone the tree did not list: ZoneStyle\./);
+
+  // the attributes shortcut of tree-apply names the child Class: it replaces Attr_class, the zone never gets two class attributes
+  project = zoneProject();
+  zone = project.children[0].children[0].children[1];
+  D = load(project);
+  result = D.apply(replaceZone([{ name: 'Class', className: 'ngx.components.UIAttribute#UIAttribute', properties: { attrName: 'class', attrValue: { mode: 'PLAIN', value: 'page-content' } } },
+    ngxStyle('ZoneStyle'), ngxText('Intro')]));
+  assert.ok(['ok', 'partial'].includes(result.status) && result.errors.length === 0, JSON.stringify(result.errors));
+  assert.deepEqual(names(zone).sort(), ['Class', 'Intro', 'ZoneStyle']);
+  assert.equal(JSON.stringify(result).includes('Kept the attribute'), false);
+});
+
+test('mode replace still removes the content the tree leaves out; a nested element listed keeps its own attributes too', () => {
+  const project = zoneProject();
+  const zone = project.children[0].children[0].children[1];
+  const D = load(project);
+  const result = D.apply(replaceZone([ngxDiv('OldCard', [ngxText('NewTitle')])]));
+  assert.ok(['ok', 'partial'].includes(result.status) && result.errors.length === 0, JSON.stringify(result.errors));
+  assert.deepEqual(names(zone), ['Attr_class', 'ZoneStyle', 'OldCard']);
+  assert.deepEqual(names(zone.children[2]), ['Attr_class', 'NewTitle']);
+  const deleted = result.operations[0].applied.filter(a => a.action === 'delete').map(a => a.qname).sort();
+  assert.deepEqual(deleted, ['P.App.Page.Zone.OldCard.OldTitle', 'P.App.Page.Zone.OldText']);
+  const warnings = result.operations[0].warnings.join(' ');
+  assert.match(warnings, /Kept the attribute\(s\)\/style\(s\) of these elements the tree did not list: P\.App\.Page\.Zone\.OldCard: Attr_class \(class\); P\.App\.Page\.Zone: Attr_class \(class\), ZoneStyle\./);
+  // a merge prunes nothing and says nothing about kept attributes
+  const merged = load(zoneProject()).apply({ target: 'P.App.Page.Zone', operations: [{ type: 'upsertTree', qname: 'P.App.Page.Zone', patch: { children: [ngxText('More')] } }] });
+  assert.equal(JSON.stringify(merged).includes('Kept the attribute'), false);
 });
