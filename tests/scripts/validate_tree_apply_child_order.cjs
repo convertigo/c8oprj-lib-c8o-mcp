@@ -372,3 +372,28 @@ test('a rename made before a patch that failed is undone', () => {
   assert.equal(field.getName(), 'OLD');
   assert.match(JSON.stringify(result.warnings), /The patch failed, so the rename of OLD to new was undone/);
 });
+
+test('mode replace: a new step listed before an existing step it keeps goes before it, the steps left out are removed', () => {
+  // Measured run (17/11): a replace listing the inputs, a new SimpleStep preparing a variable, then the existing call
+  // step reading it saved the call step first, so the call ran before the variable existed.
+  const project = build({
+    className: 'core.Project', name: 'P', children: [{
+      className: 'sequences.GenericSequence', name: 'login', children: [
+        { className: 'variables.RequestableVariable', name: 'username' },
+        step('SignIn', 'steps.SequenceStep'),
+        step('Old', 'steps.JsonFieldStep'),
+      ],
+    }],
+  });
+  const D = load(project);
+  const result = D.apply({
+    target: 'P.login',
+    operations: [{
+      type: 'upsertTree', qname: 'P.login', strategy: 'replace',
+      patch: { children: [{ name: 'username', className: 'variables.RequestableVariable' }, step('Prepare'),
+        step('SignIn', 'steps.SequenceStep'), step('GetAccount', 'steps.SequenceStep'), step('User', 'steps.JsonFieldStep')] },
+    }],
+  });
+  assert.ok(['ok', 'partial'].includes(result.status) && result.errors.length === 0, JSON.stringify(result.errors));
+  assert.deepEqual(names(project.children[0]), ['username', 'Prepare', 'SignIn', 'GetAccount', 'User']);
+});

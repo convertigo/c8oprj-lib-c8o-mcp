@@ -645,7 +645,12 @@ C8O.dbo.requireTargetProject = function (name, verb) {
 };
 
 // Plain text properties that nothing evaluates as JavaScript.
-C8O.dbo._TEXT_ONLY_PROPERTIES = { sqlQuery: true, comment: true, description: true };
+C8O.dbo._TEXT_ONLY_PROPERTIES = { sqlQuery: true, comment: true, description: true, nodeText: true, nodeName: true };
+
+// What to do instead, for a text-only property given a JS expression.
+C8O.dbo._TEXT_ONLY_HINTS = {
+  nodeText: " To output a computed value, point sourceDefinition of this step to the step holding it, or use an ElementStep / AttributeStep whose expression property is the JS."
+};
 
 // The text of a JS string literal ('...' or "..."), or null when the expression is something else.
 C8O.dbo._jsStringLiteralText = function (expression) {
@@ -1511,6 +1516,14 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
     var requestedName = propertyNames[i];
     var requestedLookup = C8O.util.toTrimmedString(requestedName).toLowerCase();
     var rawSpec = C8O.dbo._expandStepSourceShorthand(updates[requestedName], dbo, requestedLookup);
+    // A source that names no step of the sequence resolves to nothing at run time: refused before it is stored.
+    if (requestedLookup === "sourcedefinition") {
+      var sourceProblem = C8O.dbo._stepSourceProblem(rawSpec, dbo);
+      if (sourceProblem.length) {
+        errors.push({ name: requestedName, message: sourceProblem });
+        continue;
+      }
+    }
     var name = requestedName;
     var pd = descriptorMap[name];
     if (!pd) {
@@ -1623,7 +1636,7 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
         if ((wrapMode === "JS" || wrapMode === "SCRIPT") && literalText !== null) {
           wrapped = literalText;
         } else if (wrapMode === "JS" && C8O.dbo._TEXT_ONLY_PROPERTIES[String(name)]) {
-          errors.push({ name: name, message: name + " is plain text, never evaluated: the JS expression would be stored as its source. Give the text itself." });
+          errors.push({ name: name, message: name + " is plain text, never evaluated: the JS expression would be stored as its source. Give the text itself." + (C8O.dbo._TEXT_ONLY_HINTS[String(name)] || "") });
           continue;
         }
         rawSpec = wrapped;
@@ -2033,6 +2046,86 @@ C8O.dbo._expandStepSourceShorthand = function (rawSpec, dbo, propertyLookup) {
   }
   var source = [String(found.priority), C8O.util.toTrimmedString(spec.xpath) || "."];
   return isSourceDefinition ? source : { mode: "SOURCE", sources: source };
+};
+
+// Why a step's sourceDefinition can never resolve, "" when it can: its first element must be the priority of a step of
+// the same sequence. A name ("username") or the priority of a sequence variable was stored with status ok, and the step
+// variable stayed empty at run time: every sign-in of an app was refused (measured runs, 17/11).
+C8O.dbo._stepSourceProblem = function (rawSpec, dbo) {
+  var spec = rawSpec;
+  if (typeof spec === "string") {
+    var text = spec.trim();
+    if (text.charAt(0) !== "[") {
+      return "";
+    }
+    try {
+      spec = JSON.parse(text);
+    } catch (_notJson) {
+      return "";
+    }
+  }
+  if (!Array.isArray(spec) || !spec.length) {
+    return "";
+  }
+  var first = C8O.util.toTrimmedString(spec[0]);
+  if (!first.length) {
+    return "";
+  }
+  var sequence = dbo;
+  for (var guard = 0; sequence && guard < 200; guard++) {
+    if (typeof sequence.getAllSteps === "function" && typeof sequence.getStep === "function") {
+      break;
+    }
+    try {
+      sequence = sequence.getParent ? sequence.getParent() : null;
+    } catch (_ignoreParent) {
+      sequence = null;
+    }
+  }
+  if (!sequence || typeof sequence.getAllSteps !== "function") {
+    return "";
+  }
+  var how = " A step source is [\"<priority of a step of this sequence>\", \"<xpath>\"] or {\"step\":\"<step name>\",\"xpath\":\"<xpath>\"}. " +
+    "To pass an input of the sequence to a call: source an InputVariablesStep (./<input>/text()), or set var <step variable name> = <input>; " +
+    "in a SimpleStep before the call.";
+  if (!/^\d+$/.test(first)) {
+    return "sourceDefinition starts with \"" + first + "\", which is not a step: it would resolve to nothing at run time." + how;
+  }
+  var known = false;
+  var visit = function (list, depth) {
+    for (var i = 0; list && i < list.size() && !known && depth < 50; i++) {
+      var step = list.get(i);
+      if (String(step.priority) === first) {
+        known = true;
+        return;
+      }
+      var children = null;
+      try {
+        children = typeof step.getSteps === "function" ? step.getSteps() : null;
+      } catch (_ignoreChildren) {
+        children = null;
+      }
+      if (children) {
+        visit(children, depth + 1);
+      }
+    }
+  };
+  visit(sequence.getAllSteps(), 0);
+  if (known) {
+    return "";
+  }
+  var variableName = "";
+  try {
+    var variables = typeof sequence.getVariablesList === "function" ? sequence.getVariablesList() : null;
+    for (var v = 0; variables && v < variables.size() && !variableName.length; v++) {
+      if (String(variables.get(v).priority) === first) {
+        variableName = String(variables.get(v).getName());
+      }
+    }
+  } catch (_ignoreVariables) {}
+  return (variableName.length
+    ? "sourceDefinition names " + first + ", the priority of the variable " + variableName + " of " + String(sequence.getName()) + ", not of a step: it resolves to nothing."
+    : "sourceDefinition names " + first + ", the priority of no step of " + String(sequence.getName()) + " (a step of another sequence, or one deleted): it resolves to nothing.") + how;
 };
 
 C8O.dbo._smartSourcePath = function (path) {

@@ -310,4 +310,76 @@ C8O.stepSources = C8O.stepSources || {};
         " with databaseobject-tree-apply, or remove them; project-lint lists them as SEQ-ORPHAN-SOURCE.";
     });
   };
+
+  // The variables of a call step (TransactionStep, SequenceStep) that will be empty at run time. The engine fills each one
+  // from its source, else from the JS variable of the same name in the sequence's scope (a sequence variable, a var of a
+  // jSimple step, the variableName of a source step), else from the context, else from its value. One with no source, no
+  // value and no such name was stored with status ok and sent "" (measured runs, 17/11: every sign-in of an app refused).
+  api.emptyCallVariables = function (step) {
+    var candidates = [];
+    children(step).forEach(function (child) {
+      if (!api.isVariable(child) || api.refsOf(child).length) {
+        return;
+      }
+      var value = null;
+      try {
+        value = typeof child.getValueOrNull === "function" ? child.getValueOrNull() : null;
+      } catch (_noValue) {
+        value = null;
+      }
+      if (value == null || !str(value).length) {
+        candidates.push(str(child.getName()));
+      }
+    });
+    if (!candidates.length) {
+      return [];
+    }
+    var sequence = api.sequenceOf(step);
+    if (!sequence) {
+      return [];
+    }
+    var declared = {};
+    var scripts = [];
+    var walk = function (dbo, depth) {
+      children(dbo).forEach(function (child) {
+        if (api.isVariable(child)) {
+          if (dbo === sequence) {
+            declared[str(child.getName())] = true;
+          }
+          return;
+        }
+        ["getVariableName", "getExpression", "getCondition"].forEach(function (getter) {
+          try {
+            if (typeof child[getter] === "function") {
+              var text = str(child[getter]());
+              if (getter === "getVariableName") {
+                declared[text] = true;
+              } else if (text.length) {
+                scripts.push(text);
+              }
+            }
+          } catch (_noGetter) {}
+        });
+        if (depth < 50) {
+          walk(child, depth + 1);
+        }
+      });
+    };
+    walk(sequence, 0);
+    var script = scripts.join("\n");
+    return candidates.filter(function (name) {
+      if (!name.length || declared[name]) {
+        return false;
+      }
+      var escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return !new RegExp("(^|[^\\w$.])((var|let|const)\\s+" + escaped + "\\b|" + escaped + "\\s*=(?!=))").test(script);
+    });
+  };
+
+  api.emptyCallVariablesWarning = function (qname, names) {
+    return qname + ": " + names.join(", ") + " will be empty at run time. " + (names.length > 1 ? "They have" : "It has") +
+      " no sourceDefinition, no value, and no sequence variable or JS variable of that name in the sequence. Give each a " +
+      "sourceDefinition (an InputVariablesStep or another step of this sequence), a value, or set var <name> = ...; in a " +
+      "SimpleStep before the call.";
+  };
 })(C8O.stepSources);

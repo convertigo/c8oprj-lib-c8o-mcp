@@ -723,6 +723,19 @@ function treeApplyStepVariableWarnings(result) {
     } catch (_ignoreStep) {
       step = null;
     }
+    // A variable of a call step changed alone: check its step.
+    if (step && typeof step.numberOfVariables !== "function" && /Variable$/.test(String(step.getClass().getSimpleName()))) {
+      try {
+        step = step.getParent();
+        qn = String(step.getFullQName());
+      } catch (_ignoreParentStep) {
+        step = null;
+      }
+      if (!step || seen[qn]) {
+        continue;
+      }
+      seen[qn] = true;
+    }
     if (!step || typeof step.numberOfVariables !== "function") {
       continue;
     }
@@ -749,6 +762,17 @@ function treeApplyStepVariableWarnings(result) {
       result.warnings.push(qn + " passes no variable to " + String(target.getName()) + ", which declares " + expected +
         (names.length ? " (" + names.join(", ") + ")" : "") + ": they will arrive empty. Add importVariables:true on the step " +
         "(the step variables then take the JavaScript variables of the same name) or explicit StepVariables.");
+    } else if (step.numberOfVariables() > 0) {
+      try {
+        if (typeof C8O.stepSources === "undefined" || typeof C8O.stepSources.emptyCallVariables !== "function") {
+          include("js/step_sources.js");
+        }
+        var emptyNames = C8O.stepSources.emptyCallVariables(step);
+        if (emptyNames.length) {
+          result.warnings = Array.isArray(result.warnings) ? result.warnings : [];
+          result.warnings.push(C8O.stepSources.emptyCallVariablesWarning(qn, emptyNames));
+        }
+      } catch (_ignoreEmptyVariables) {}
     }
   }
 }
