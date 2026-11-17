@@ -1205,7 +1205,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         chart: { visual: "config.type: line, area, bar, pie or donut; config.height: 'auto' or a number of pixels ('320'); firstColAsXAxis. Chart colors, legend and theme cannot be set.", fields: ["name", "description", "sources", "config"] },
         gallery: { fields: ["name", "description", "sources", "config"], visual: "config.cardsPerLine, cardsPerLineTablet, cardsPerLinePhoneL, cardsPerLinePhoneP: 1, 2, 3, 4 or 6 cards per line (an empty value takes the next larger screen's; phoneP falls back to 1); config.galleryTemplate { str, html: true, type: 'html' } is the HTML of a card. Card images are 180px high (object-fit cover) whatever the template says." },
         "ion-card": { fields: ["name", "label", "description"], visual: "A card with a title: config.title (text, html with personalized:true, size H1 to H6, position text-left/text-center/text-right, label_color). Its children are not compiled by the reduced contract (refused): use a section to group fields in a titled card." },
-        map: { visual: "config.minHeight in pixels ('320', default 400px; any other unit becomes px), config.zoom (0 to 18), config.autoCenter.", fields: ["name", "description", "source", "sourcesMarkers", "config"], markers: "Markers from a Baserow table: source: { table, title, latitude, longitude, filter, sort }, or columns: [title, latitude, longitude] in this order. title is the text of a marker, also its tooltip and its popup (one column for the three); latitude and longitude are number columns in decimal degrees. The tools write it as No Code Studio does, where the viewer reads it: sourcesMarkers[\"lib_BaseRow.formssource_GetTableData\"] (forms_config.columns [title, latitude, longitude], the first entry of sourcesMarkers) with config.sourceMarkersEnabled true. The viewer never reads sources on a map: table data given there is moved, and nocode-form-validate reports a map that still has it (map_source_not_read)." }
+        map: { visual: "config.minHeight in pixels ('320', default 400px; any other unit becomes px), config.zoom (0 to 18, 12 by default), config.autoCenter (true moves the map to the user's GPS position).", fields: ["name", "description", "source", "sourcesMarkers", "config"], markers: "Markers from a Baserow table: source: { table, title, latitude, longitude, filter, sort }, or columns: [title, latitude, longitude] in this order. title is the text of a marker, also its tooltip and its popup (one column for the three); latitude and longitude are number columns in decimal degrees. The tools write it as No Code Studio does, where the viewer reads it: sourcesMarkers[\"lib_BaseRow.formssource_GetTableData\"] (forms_config.columns [title, latitude, longitude], the first entry of sourcesMarkers) with config.sourceMarkersEnabled true. The viewer never reads sources on a map: table data given there is moved, and nocode-form-validate reports a map that still has it (map_source_not_read). The tools center the map on its markers as the center tab of No Code Studio does: sourcesCenter (a copy of the markers source; the viewer centers on its first row) with config.sourceCenterEnabled true, and config.autoCenter false, unless config gives sourceCenterEnabled or autoCenter or the map has a center of its own. The zoom stays config.zoom: nothing fits it to every marker." }
       },
       baserowShorthand: {
         rule: "Prefer these reduced forms to the native sources and actions (baserowSources, backendActions): the tools find the table path and id in the user's catalog, encode every variable and resolve the references to fields and grids. table is a table id or its path Workspace~>Base~>Table from nocode-baserow-catalog-list.",
@@ -2664,6 +2664,52 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return changed;
   }
 
+  // A map whose markers came from a table opened on the default center of lib_Leaflet's LeafletMap (far from its
+  // markers, 17/11). The viewer (viewerPage) centers a map on the first row of the first entry of sourcesCenter when
+  // config.sourceCenterEnabled is set (latitude and longitude: forms_config.columns [1] and [2], or [0] and [1] with two
+  // columns), else on the value of varsCenter; config.autoCenter, true in the prototype, moves the map to the GPS position
+  // of the user (LeafletMap.centerOnCurrentPosition) and config.zoom stays as it is: nothing fits the zoom to every
+  // marker. The reduced source of a map therefore writes, as No Code Studio's center tab does, a center read from the
+  // same table, columns, filter and sort as the markers, and autoCenter false, unless the call gives
+  // config.sourceCenterEnabled or config.autoCenter, or the map has a center of its own.
+  function mapCenterGiven(config) {
+    var given = config && typeof config === "object" && !Array.isArray(config) ? config : {};
+    return { center: hasOwn(given, "sourceCenterEnabled"), autoCenter: hasOwn(given, "autoCenter") };
+  }
+  function mapSourceTableId(entry) {
+    var config = null;
+    try { config = entry && entry.vars && entry.vars.forms_config ? JSON.parse(entry.vars.forms_config.str) : null; } catch (_ignoreCenterConfig) { config = null; }
+    return config && config.table_id_int != null ? String(config.table_id_int) : null;
+  }
+  function mapCenterFollowsMarkers(item, given) {
+    if (!item || item.type !== "map" || (given && given.center)) { return false; }
+    var config = item.config || {};
+    var centers = item.sourcesCenter && typeof item.sourcesCenter === "object" && !Array.isArray(item.sourcesCenter) ? item.sourcesCenter : {};
+    var first = Object.keys(centers)[0];
+    if (boolLike(config.sourceCenterEnabled) && first != null && centers[first] && boolLike(centers[first].enabled)) {
+      // a center the tools wrote from the markers (same table) follows them; a center read elsewhere is kept
+      var markers = item.sourcesMarkers && typeof item.sourcesMarkers === "object" ? item.sourcesMarkers[MAP_MARKER_SOURCE] : null;
+      return first === MAP_MARKER_SOURCE && mapSourceTableId(centers[first]) != null && mapSourceTableId(centers[first]) === mapSourceTableId(markers);
+    }
+    if (!boolLike(config.sourceCenterEnabled)) {
+      var own = item.varsCenter && item.varsCenter.self && item.varsCenter.self.vars ? item.varsCenter.self.vars.selfVar : null;
+      if (own && trimmed(typeof own === "object" ? own.str : own).length) { return false; }
+    }
+    return true;
+  }
+  function writeMapCenterFromMarkers(item, given) {
+    var markers = item.sourcesMarkers && item.sourcesMarkers[MAP_MARKER_SOURCE];
+    if (!markers) { return false; }
+    var centers = {};
+    centers[MAP_MARKER_SOURCE] = clone(markers, {});
+    var previous = item.sourcesCenter && typeof item.sourcesCenter === "object" && !Array.isArray(item.sourcesCenter) ? item.sourcesCenter : {};
+    Object.keys(previous).forEach(function (key) { if (key !== MAP_MARKER_SOURCE) { centers[key] = previous[key]; } });
+    item.sourcesCenter = centers;
+    item.config.sourceCenterEnabled = true;
+    if (!(given && given.autoCenter)) { item.config.autoCenter = false; }
+    return true;
+  }
+
   // SmartSource references $$START<id>{payload}END<id>$$. The viewer reads one with /\$\$(?:START)?(\d+)(.*?)(?:END)?(?:\d+)?\$\$/
   // (viewerPage, stringOf$$ToCode), then the component, ion-card child or flow step of that id (getItemById); id 1 is a
   // toolbox expression whose c8opath is the code. This pattern takes any id, so that one the viewer cannot read is found.
@@ -2867,6 +2913,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     sources.forEach(function (item) {
       var spec = item.__reducedSource;
       delete item.__reducedSource;
+      var centerGiven = item.__mapCenterGiven || null;
+      delete item.__mapCenterGiven;
+      var centerFollows = item.type === "map" && mapCenterFollowsMarkers(item, centerGiven);
       var what = item.name + ".source";
       var table = findTable(spec.table, what);
       var columns = ensureArray(spec.columns).map(function (column) { return trimmed(column); }).filter(function (column) { return column.length; });
@@ -2903,8 +2952,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
       item.sources = item.sources && typeof item.sources === "object" ? item.sources : {};
       item.sources[key] = { enabled: true, fullsync: false, vars: vars };
-      // A map shows its markers from sourcesMarkers only.
+      // A map shows its markers from sourcesMarkers only, and is centered on them.
       moveMapSourceToMarkers(item);
+      if (centerFollows) { writeMapCenterFromMarkers(item, centerGiven); }
     });
 
     saves.forEach(function (element) {
@@ -3042,7 +3092,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var bindings = [];
     function visit(item, path) {
       if (!item || typeof item !== "object") { return; }
-      ["sources", "sourcesMarkers", "sourcesCircles", "sourcesPolygons", "actions"].forEach(function (group) {
+      ["sources", "sourcesMarkers", "sourcesCircles", "sourcesPolygons", "sourcesCenter", "actions"].forEach(function (group) {
         Object.keys(item[group] || {}).forEach(function (key) {
           var entry = item[group][key];
           if (!/^lib_BaseRow\.(formssource_|forms_)/.test(key) || !entry || (!includeDisabled && !boolLike(entry.enabled))) { return; }
@@ -3190,6 +3240,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       if (field.sources != null) { throw new Error(out.name + ": give source (reduced) or sources (native), not both"); }
       if (!field.source || typeof field.source !== "object" || Array.isArray(field.source)) { throw new Error(out.name + ": source must be an object { table, columns, ... }"); }
       out.__reducedSource = clone(field.source, {});
+      if (type === "map") { out.__mapCenterGiven = mapCenterGiven(field.config); }
       out.config.sourceEnabled = true;
       if (CHOICE_SOURCE_TYPES.indexOf(type) >= 0 && field.values == null) { out.children = []; }
     }
@@ -5811,6 +5862,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         // The reduced Baserow source replaces the component's source; applyReducedBaserow builds it after the edits.
         if (!mergePatch.source || typeof mergePatch.source !== "object" || Array.isArray(mergePatch.source)) { throw new Error(fieldFound.item.name + ": source must be an object { table, columns, ... }"); }
         fieldFound.item.__reducedSource = clone(mergePatch.source, {});
+        if (fieldFound.item.type === "map") { fieldFound.item.__mapCenterGiven = mapCenterGiven(mergePatch.config); }
         Object.keys(fieldFound.item.sources || {}).forEach(function (key) { if (/^lib_BaseRow\.formssource_/.test(key)) { delete fieldFound.item.sources[key]; } });
         fieldFound.item.config = fieldFound.item.config || {};
         fieldFound.item.config.sourceEnabled = true;
@@ -6662,7 +6714,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // application went from 21 KB to 10 KB, for each create, edit and read. config.contextDefault stays as saved too:
   // nocode-form-validate compiles it again and compares with selfVar, and without its fallback "" every defaultFrom
   // read back looked stale (29/10).
-  var AGENT_VIEW_VERBATIM_KEYS = { sources: true, sourcesMarkers: true, sourcesCircles: true, sourcesPolygons: true, actions: true, contextDefault: true };
+  var AGENT_VIEW_VERBATIM_KEYS = { sources: true, sourcesMarkers: true, sourcesCircles: true, sourcesPolygons: true, sourcesCenter: true, actions: true, contextDefault: true };
   function agentView(value) {
     if (Array.isArray(value)) {
       return value.map(function (item) { return agentView(item); });

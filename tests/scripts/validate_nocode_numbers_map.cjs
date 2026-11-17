@@ -225,3 +225,124 @@ test('what Baserow refuses reaches the agent with its detail', () => {
   assert.equal(r.status, 'error');
   assert.equal(r.error.message, 'Create row Sites#1: ERROR_REQUEST_BODY_VALIDATION {"Longitude":[{"error":"A valid number is required.","code":"invalid"}]}');
 });
+
+// ---------------------------------------------------------------------------------------------------------------
+// Maps: the C8Oforms tools on an in-memory No Code server (token check, Baserow fields, forms written through the
+// C8Oforms write guard), as validate_nocode_triage_1117.cjs does.
+function formsHarness(columnsByTable) {
+  const state = { forms: {}, user: 'creator@example.invalid', creates: 0 };
+  const guardContext = {};
+  vm.runInNewContext(fs.readFileSync(path.join(formsRoot, 'js/form_write_guard.js'), 'utf8'), guardContext);
+  const client = load((sequence, params) => {
+    if (sequence === 'nocode_validate_token') return { document: { result: { authenticated: true, user: state.user } } };
+    if (sequence === 'formscommon_ApplicationsList') return { document: { array: [] } };
+    if (sequence === 'formscommon_FieldsList') return { document: { array: plain(columnsByTable[JSON.parse(params.forms_config).table_id] || []) } };
+    if (sequence === 'APIV2_getDocument') return { document: { res: plain(state.forms[params.id] || {}) } };
+    if (sequence === 'APIV2_updateFormulaireDocument') {
+      const form = JSON.parse(params.meta);
+      const guarded = guardContext.c8oFormWriteGuard.prepare(form, id => state.forms[id]);
+      if (guarded.error) return { document: { res: guarded.error } };
+      if (!form._id) {
+        state.creates++;
+        form._id = 'server-form-' + state.creates;
+        form.creator = state.user;
+        form['~c8oAcl'] = state.user;
+      }
+      const current = state.forms[form._id];
+      form._rev = String(current ? Number(current._rev.split('-')[0]) + 1 : 1) + '-saved';
+      state.forms[form._id] = plain(form);
+      return { document: { res: { ok: true, id: form._id, rev: form._rev } } };
+    }
+    throw new Error('Unexpected requestable ' + sequence);
+  }, ['js/nocode_forms.js']).nocodeForms;
+  return { state, client, auth: { token: 'unit-test-token-not-a-credential', tableIndex: siteTables } };
+}
+const MARKERS = 'lib_BaseRow.formssource_GetTableData';
+const siteTables = [{ id: 9401, name: 'Sites', path: 'Team~>Field~>Sites' }, { id: 9402, name: 'Depots', path: 'Team~>Field~>Depots' }];
+const coordinates = base => [{ id: base + 1, name: 'Name', type: 'text', primary: true }, { id: base + 2, name: 'Lat', type: 'number' }, { id: base + 3, name: 'Lng', type: 'number' }, { id: base + 4, name: 'Region', type: 'text' }];
+const siteColumns = { 9401: coordinates(40), 9402: coordinates(50) };
+const rows = [{ Name: { value: 'West site' }, Lat: { value: '44.83779' }, Lng: { value: '-0.57918' } }, { Name: { value: 'East site' }, Lat: { value: '45.76404' }, Lng: { value: '4.83566' } }];
+const mapApp = (map = {}) => ({ name: 'Field', navigationMode: 'custom', pages: [{ name: 'Map', fields: [{ type: 'map', name: 'sites_map', label: 'Sites', source: { table: 9401, title: 'Name', latitude: 'Lat', longitude: 'Lng', filter: { column: 'Region', operator: 'equal', value: 'West' } }, ...map }] }] });
+const mapOf = form => form.formulaire.find(item => item && item.name === 'sites_map');
+const configOf = (map, group) => JSON.parse(map[group][Object.keys(map[group])[0]].vars.forms_config.str);
+// What the viewer (viewerPage of C8Oforms NGX) gives LeafletMap as center: with config.sourceCenterEnabled, the first row
+// of the first entry of sourcesCenter (columns [1] and [2], or [0] and [1] with two columns), else varsCenter.
+function viewerCenter(map, answer) {
+  if (!map.config.sourceCenterEnabled) return undefined;
+  const columns = configOf(map, 'sourcesCenter').columns;
+  const row = answer[0];
+  const lat = columns.length > 2 ? columns[1] : columns[0];
+  const lng = columns.length > 2 ? columns[2] : columns[1];
+  return { lat: +row[lat].value, lng: +row[lng].value };
+}
+
+test('a map whose markers come from a table is centered on them, as the center tab of No Code Studio does', () => {
+  const h = formsHarness(siteColumns);
+  const r = h.client.create(mapApp(), h.auth);
+  assert.equal(r.saved, true, JSON.stringify(r.validation || r.error));
+  assert.equal(r.bindingFinalization.status, 'ready', JSON.stringify(r.bindingFinalization));
+  const map = mapOf(h.state.forms[r.form._id]);
+  assert.deepEqual([map.config.sourceMarkersEnabled, map.config.sourceCenterEnabled, map.config.autoCenter], [true, true, false]);
+  assert.deepEqual(Object.keys(map.sourcesCenter), [MARKERS]);
+  // The same source, identities included: a respondent of the published form reads the center as the markers.
+  assert.deepEqual(map.sourcesCenter[MARKERS], map.sourcesMarkers[MARKERS]);
+  const center = configOf(map, 'sourcesCenter');
+  assert.deepEqual([center.table_id_int, center.columns, center.form_id, String(center.source_id), center.source_owner], [9401, ['Name', 'Lat', 'Lng'], r.form._id, String(map.id), h.state.user]);
+  assert.equal(map.sourcesCenter[MARKERS].vars.forms_tableFilter.conds[0].val1.name, 'Region', 'the rows of the markers');
+  assert.deepEqual(viewerCenter(map, rows), { lat: 44.83779, lng: -0.57918 }, 'the first marker');
+});
+
+test('an explicit center choice is kept', () => {
+  const kept = formsHarness(siteColumns);
+  const gps = kept.client.create(mapApp({ config: { autoCenter: true } }), kept.auth);
+  const gpsMap = mapOf(kept.state.forms[gps.form._id]);
+  assert.deepEqual([gpsMap.config.sourceCenterEnabled, gpsMap.config.autoCenter], [true, true], 'the GPS position the call asks');
+  const none = formsHarness(siteColumns);
+  const off = none.client.create(mapApp({ config: { sourceCenterEnabled: false } }), none.auth);
+  const offMap = mapOf(none.state.forms[off.form._id]);
+  assert.equal(offMap.config.sourceCenterEnabled, false);
+  assert.ok(!Object.keys(offMap.sourcesCenter || {}).length, 'no center source');
+  assert.equal(offMap.config.autoCenter, true, 'the prototype value, untouched');
+});
+
+test('an edit of a map source moves a center the tools wrote, and keeps a center of its own', () => {
+  const h = formsHarness(siteColumns);
+  const r = h.client.create(mapApp(), h.auth);
+  const id = r.form._id;
+  const rebind = h.client.edit(id, [{ action: 'update_field', fieldName: 'sites_map', patch: { source: { table: 9402, title: 'Name', latitude: 'Lat', longitude: 'Lng' } } }], h.auth);
+  assert.equal(rebind.saved, true, JSON.stringify(rebind.validation || rebind.error));
+  let map = mapOf(h.state.forms[id]);
+  assert.deepEqual([configOf(map, 'sourcesMarkers').table_id_int, configOf(map, 'sourcesCenter').table_id_int], [9402, 9402]);
+  assert.deepEqual(map.sourcesCenter[MARKERS], map.sourcesMarkers[MARKERS]);
+
+  // A center value of its own (varsCenter), set in No Code Studio: kept, as autoCenter.
+  const own = h.state.forms[id];
+  const ownMap = mapOf(own);
+  ownMap.config.sourceCenterEnabled = false;
+  ownMap.config.autoCenter = true;
+  ownMap.sourcesCenter = {};
+  ownMap.varsCenter = { self: { enabled: true, vars: { selfVar: { str: '{"lat":48.85,"lng":2.35}', type: 'text', html: false } } } };
+  const kept = h.client.edit(id, [{ action: 'update_field', fieldName: 'sites_map', patch: { source: { table: 9401, title: 'Name', latitude: 'Lat', longitude: 'Lng' } } }], h.auth);
+  assert.equal(kept.saved, true, JSON.stringify(kept.validation || kept.error));
+  map = mapOf(h.state.forms[id]);
+  assert.deepEqual([map.config.sourceCenterEnabled, map.config.autoCenter, Object.keys(map.sourcesCenter || {}).length], [false, true, 0]);
+
+  // A center read from another table: kept.
+  const other = mapOf(h.state.forms[id]);
+  other.config.sourceCenterEnabled = true;
+  other.sourcesCenter = { [MARKERS]: plain(other.sourcesMarkers[MARKERS]) };
+  const otherConfig = configOf(other, 'sourcesCenter');
+  otherConfig.table_id_int = 9402;
+  other.sourcesCenter[MARKERS].vars.forms_config.str = JSON.stringify(otherConfig);
+  h.client.edit(id, [{ action: 'update_field', fieldName: 'sites_map', patch: { source: { table: 9401, title: 'Name', latitude: 'Lat', longitude: 'Lng', sort: 'Name' } } }], h.auth);
+  map = mapOf(h.state.forms[id]);
+  assert.equal(configOf(map, 'sourcesCenter').table_id_int, 9402);
+});
+
+test('the contract tells how the short form centers a map', () => {
+  const contract = load(() => { throw new Error('no call'); }, ['js/nocode_forms.js']).nocodeForms.contract({ sections: ['all'] }).authoringContract;
+  const map = JSON.stringify(contract.componentAuthoring.map);
+  assert.match(map, /sourcesCenter/);
+  assert.match(map, /config\.autoCenter \(true moves the map to the user's GPS position\)/);
+  assert.match(map, /nothing fits it to every marker/);
+});
