@@ -414,7 +414,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       notes: [
         "Do not treat an empty c8opath inside the payload as invalid by itself; the START/END id envelope is the important runtime reference.",
         "Do not replace SmartSource envelopes with plain text ids, raw field names, or hand-written JavaScript expressions unless the target property explicitly expects JavaScript.",
-        "When the referenced component, formula, or action id changes, update both START and END ids together."
+        "When the referenced component, formula, or action id changes, update both START and END ids together.",
+        "A reference to a component added in the same nocode-form-edit (or nocode-form-create) may name it in place of its id ($$START<name>{...}END<name>$$, or a c8opath starting with its name): the tools write the id it is saved with and list it in referencesResolved. A reference this write brings whose id names no component, formula or step is refused (unknown_reference_id); one the saved form already had is reported as a warning."
       ]
     };
   }
@@ -1204,11 +1205,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         chart: { visual: "config.type: line, area, bar, pie or donut; config.height: 'auto' or a number of pixels ('320'); firstColAsXAxis. Chart colors, legend and theme cannot be set.", fields: ["name", "description", "sources", "config"] },
         gallery: { fields: ["name", "description", "sources", "config"], visual: "config.cardsPerLine, cardsPerLineTablet, cardsPerLinePhoneL, cardsPerLinePhoneP: 1, 2, 3, 4 or 6 cards per line (an empty value takes the next larger screen's; phoneP falls back to 1); config.galleryTemplate { str, html: true, type: 'html' } is the HTML of a card. Card images are 180px high (object-fit cover) whatever the template says." },
         "ion-card": { fields: ["name", "label", "description"], visual: "A card with a title: config.title (text, html with personalized:true, size H1 to H6, position text-left/text-center/text-right, label_color). Its children are not compiled by the reduced contract (refused): use a section to group fields in a titled card." },
-        map: { visual: "config.minHeight in pixels ('320', default 400px; any other unit becomes px), config.zoom (0 to 18), config.autoCenter.", fields: ["name", "description", "sources", "config"] }
+        map: { visual: "config.minHeight in pixels ('320', default 400px; any other unit becomes px), config.zoom (0 to 18), config.autoCenter.", fields: ["name", "description", "source", "sourcesMarkers", "config"], markers: "Markers from a Baserow table: source: { table, title, latitude, longitude, filter, sort }, or columns: [title, latitude, longitude] in this order. title is the text of a marker, also its tooltip and its popup (one column for the three); latitude and longitude are number columns in decimal degrees. The tools write it as No Code Studio does, where the viewer reads it: sourcesMarkers[\"lib_BaseRow.formssource_GetTableData\"] (forms_config.columns [title, latitude, longitude], the first entry of sourcesMarkers) with config.sourceMarkersEnabled true. The viewer never reads sources on a map: table data given there is moved, and nocode-form-validate reports a map that still has it (map_source_not_read)." }
       },
       baserowShorthand: {
         rule: "Prefer these reduced forms to the native sources and actions (baserowSources, backendActions): the tools find the table path and id in the user's catalog, encode every variable and resolve the references to fields and grids. table is a table id or its path Workspace~>Base~>Table from nocode-baserow-catalog-list.",
-        dataView: { on: "grid, chart, map, gallery", shape: "source: { table, columns: [...], hidden, filter, sort: \"Name,-Date\", distinct, groupBy, aggregations: \"count=Label,sum:Amount=Label\" }" },
+        dataView: { on: "grid, chart, map, gallery", shape: "source: { table, columns: [...], hidden, filter, sort: \"Name,-Date\", distinct, groupBy, aggregations: \"count=Label,sum:Amount=Label\" }", map: "source: { table, title, latitude, longitude, filter, sort }: the markers of a map (title, latitude, longitude name columns of the table; see componentAuthoring.map)" },
         choices: { on: "select, radio, checkbox", columnChoices: "source: { table, field: \"Status\" } lists the options of a single select column", rows: "source: { table, display: \"Name\", value: \"Code\", filter, sort } lists the rows of a table", linkedRows: "for a link_row column, list the linked table with value: \"id\": the answer is the linked row id" },
         filter: "A condition { column, operator, value }, or { all: [...] } / { any: [...] } nested: { all: [{ any: [{ column: \"Title\", operator: \"contains\", value: { field: \"search\" } }, { column: \"Description\", operator: \"contains\", value: { field: \"search\" } }] }, { column: \"Priority\", operator: \"single_select_equal\", value: \"High\" }] }. A plain value is a literal; { field: \"name\" } reads that component at runtime.",
         operators: { text: ["contains", "contains_not", "contains_word", "equal", "not_equal", "empty", "not_empty"], number: ["equal", "higher_than", "higher_than_or_equal", "lower_than", "lower_than_or_equal"], singleSelect: ["single_select_equal", "single_select_not_equal", "single_select_is_any_of"], other: ["boolean", "link_row_has", "multiple_select_has"], all: "baserowSources.filter.operators lists every Baserow filter type" },
@@ -2617,6 +2618,158 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return "$$START" + id + JSON.stringify(payload) + "END" + id + "$$";
   }
 
+  // c0b79c0d (17/11): the markers of a map bound to a table never showed. The viewer (viewerPage, fillFormSubmit) reads a
+  // map's data from sourcesMarkers when config.sourceMarkersEnabled is set, never from sources, and takes the columns of
+  // the first entry of sourcesMarkers in their order: forms_config.columns[0] is the title of a marker (also its tooltip
+  // and its popup), [1] its latitude and [2] its longitude, each read as +cell.value. No Code Studio writes it so too
+  // (itemMapEditor: configEnabled sourceMarkersEnabled, path sourcesMarkers).
+  var MAP_MARKER_SOURCE = "lib_BaseRow.formssource_GetTableData";
+  // The column of each part of a marker in the reduced source of a map: { table, title, latitude, longitude } (popup
+  // is the title: the viewer shows one column as the three), else the first three columns in that order.
+  function mapMarkerColumns(spec, columns, what) {
+    var title = trimmed(spec.title), popup = trimmed(spec.popup);
+    if (title.length && popup.length && title !== popup) { throw new Error(what + ": a marker shows one column as its title, tooltip and popup; give title (or popup) once"); }
+    var named = [title || popup, trimmed(spec.latitude || spec.lat), trimmed(spec.longitude || spec.lng || spec.lon)];
+    var given = named.filter(function (column) { return column.length; }).length;
+    if (given === 3) {
+      return named.concat(columns.filter(function (column) { return named.indexOf(column) < 0; }));
+    }
+    if (given || columns.length < 3) {
+      throw new Error(what + ": a map reads its markers from three columns of the table: source { table, title, latitude, longitude } (title is also the tooltip and the popup; latitude and longitude are number columns in decimal degrees), or columns [title, latitude, longitude] in this order");
+    }
+    return columns;
+  }
+  // A map given its Baserow table data the way a grid takes it (sources, native or merged by a patch): moved to
+  // sourcesMarkers, first, with sourceMarkersEnabled, where the viewer reads it. True when the map changed.
+  function moveMapSourceToMarkers(item) {
+    if (!item || item.type !== "map" || !item.config || typeof item.config !== "object") { return false; }
+    var changed = false;
+    var moved = item.sources && typeof item.sources === "object" && !Array.isArray(item.sources) ? item.sources[MAP_MARKER_SOURCE] : null;
+    if (moved) {
+      var markers = {};
+      markers[MAP_MARKER_SOURCE] = moved;
+      Object.keys(item.sourcesMarkers || {}).forEach(function (key) { if (key !== MAP_MARKER_SOURCE) { markers[key] = item.sourcesMarkers[key]; } });
+      item.sourcesMarkers = markers;
+      delete item.sources[MAP_MARKER_SOURCE];
+      if (!Object.keys(item.sources).length) { delete item.sources; }
+      changed = true;
+    }
+    var entry = item.sourcesMarkers && typeof item.sourcesMarkers === "object" ? item.sourcesMarkers[MAP_MARKER_SOURCE] : null;
+    if (entry && boolLike(entry.enabled) && !boolLike(item.config.sourceMarkersEnabled)) {
+      item.config.sourceMarkersEnabled = true;
+      changed = true;
+    }
+    // sourceEnabled is the switch of a grid's source; a map has its own per layer.
+    if (changed || hasOwn(item.config, "sourceEnabled")) { delete item.config.sourceEnabled; }
+    return changed;
+  }
+
+  // SmartSource references $$START<id>{payload}END<id>$$. The viewer reads one with /\$\$(?:START)?(\d+)(.*?)(?:END)?(?:\d+)?\$\$/
+  // (viewerPage, stringOf$$ToCode), then the component, ion-card child or flow step of that id (getItemById); id 1 is a
+  // toolbox expression whose c8opath is the code. This pattern takes any id, so that one the viewer cannot read is found.
+  function referenceTokenPattern() { return /\$\$START([^\s{}$]*)(\{[\s\S]*?\})END([^\s{}$]*)\$\$/g; }
+  function referencePayload(text) {
+    try { return JSON.parse(text); } catch (_payload) {
+      try { return JSON.parse(String(text).replace(/\\/g, "")); } catch (_escapedPayload) { return null; }
+    }
+  }
+  // What a reference can name, as the viewer looks for it: components (and the children of an old ion-card), flow steps
+  // (formulas, actions) and the actions of the form; by id and by name.
+  function referenceTargets(form) {
+    var ids = {}, names = {};
+    function add(item) {
+      if (!item || typeof item !== "object") { return; }
+      if (item.id != null) { ids[String(item.id)] = item; }
+      var name = trimmed(item.name);
+      if (name.length) { names[name] = (names[name] || []).concat([item]); }
+    }
+    function visit(item) {
+      add(item);
+      if (item && item.type === "ion-card") { ensureArray(item.children).forEach(visit); }
+    }
+    ensureArray(form && form.formulaire).forEach(visit);
+    ensureArray(form && form.flows).forEach(function (flow) { ensureArray(flow && flow.elements).forEach(add); });
+    ensureArray(form && form.actions).forEach(add);
+    return { ids: ids, names: names };
+  }
+  function readableReference(id, targets) { return id === "1" || (/^\d+$/.test(id) && hasOwn(targets.ids, id)); }
+  // The one element a reference with an unknown id means: its id read as a name ("amount_min", "fields.amount_min"), the
+  // name of its payload, the first segment of its c8opath (the component the path starts from), its c8oName.
+  function referenceTarget(id, meta, targets) {
+    var texts = [id, meta && meta.name, meta && meta.c8opath, meta && meta.c8oName];
+    for (var t = 0; t < texts.length; t++) {
+      var text = trimmed(typeof texts[t] === "string" ? texts[t] : "").replace(/^fields?\./, "");
+      var candidates = [text, text.split(".")[0]];
+      for (var c = 0; c < candidates.length; c++) {
+        var found = candidates[c].length ? targets.names[candidates[c]] : null;
+        if (found && found.length === 1 && /^\d+$/.test(String(found[0].id))) { return found[0]; }
+      }
+    }
+    return null;
+  }
+  // Every string of value, given to visit(text, path, holder); a string it returns replaces the old one.
+  function eachString(value, visit, path) {
+    if (!value || typeof value !== "object") { return; }
+    Object.keys(value).forEach(function (key) {
+      var child = value[key], childPath = path + "/" + key;
+      if (typeof child === "string") {
+        var replaced = visit(child, childPath, value);
+        if (typeof replaced === "string" && replaced !== child) { value[key] = replaced; }
+      } else if (child && typeof child === "object") {
+        eachString(child, visit, childPath);
+      }
+    });
+  }
+  // The parts of a form whose strings can hold references, with their paths.
+  function eachReferenceHolder(form, visit) {
+    ["formulaire", "pages", "actions"].forEach(function (key) {
+      ensureArray(form && form[key]).forEach(function (item, index) { visit(item, "/" + key + "/" + index); });
+    });
+    ensureArray(form && form.flows).forEach(function (flow, index) {
+      ensureArray(flow && flow.elements).forEach(function (element, ei) { visit(element, "/flows/" + index + "/elements/" + ei); });
+    });
+  }
+  function referenceTokens(form) {
+    var tokens = {};
+    eachReferenceHolder(form, function (holder, path) {
+      eachString(holder, function (text) {
+        if (text.indexOf("$$START") < 0) { return; }
+        text.replace(referenceTokenPattern(), function (token) { tokens[token] = true; return token; });
+      }, path);
+    });
+    return tokens;
+  }
+  // cd535141 (17/11): an edit added an input and, in the same call, wired it into the filter of a grid's source with a
+  // reference written by hand: its id was a made-up one (or a c8opath), not the id the input got, and the filter read
+  // nothing. Like resolveAuthoringReferences for the names of reduced JSON, each reference this write brings (one absent
+  // from kept, the references of the saved form) whose id names nothing is given the id of the one element its id, its
+  // name or its c8opath names; its c8opath and name starting with the old id start with that element's name.
+  function resolveReferenceIds(form, kept) {
+    var targets = referenceTargets(form);
+    var resolved = [];
+    eachReferenceHolder(form, function (holder, holderPath) {
+      eachString(holder, function (text, path) {
+        if (text.indexOf("$$START") < 0) { return text; }
+        return text.replace(referenceTokenPattern(), function (token, id, payload) {
+          if ((kept && kept[token] === true) || readableReference(id, targets)) { return token; }
+          var meta = referencePayload(payload);
+          var target = referenceTarget(id, meta, targets);
+          if (!target) { return token; }
+          var newId = String(target.id);
+          if (meta && typeof meta === "object" && id !== target.name) {
+            var renamed = false;
+            if (typeof meta.c8opath === "string" && meta.c8opath.split(".")[0] === id) { meta.c8opath = [target.name].concat(meta.c8opath.split(".").slice(1)).join("."); renamed = true; }
+            if (meta.name === id) { meta.name = target.name; renamed = true; }
+            if (renamed) { payload = JSON.stringify(meta); }
+          }
+          resolved.push({ path: path, from: id, to: newId, name: target.name });
+          return "$$START" + newId + payload + "END" + newId + "$$";
+        });
+      }, holderPath);
+    });
+    return resolved;
+  }
+
   function listText(value) {
     return Array.isArray(value) ? value.map(function (item) { return trimmed(item); }).join(",") : trimmed(value);
   }
@@ -2733,6 +2886,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         if (spec.filter != null) { vars.forms_Filter = filterVariable(spec.filter, what); }
         if (spec.sort != null) { vars.forms_tableSort = sortVariable(spec.sort); }
       } else if (TABLE_SOURCE_TYPES.indexOf(item.type) >= 0) {
+        if (item.type === "map") { columns = mapMarkerColumns(spec, columns, what); }
         if (!columns.length) { throw new Error(what + ": columns lists the table columns to read"); }
         key = "lib_BaseRow.formssource_GetTableData";
         vars.forms_config = plain(JSON.stringify({ table_id: table.path, table_id_int: table.id, columns: columns, hidden: ensureArray(spec.hidden), link_row_table_id: [] }));
@@ -2749,6 +2903,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       }
       item.sources = item.sources && typeof item.sources === "object" ? item.sources : {};
       item.sources[key] = { enabled: true, fullsync: false, vars: vars };
+      // A map shows its markers from sourcesMarkers only.
+      moveMapSourceToMarkers(item);
     });
 
     saves.forEach(function (element) {
@@ -3049,6 +3205,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (field.actions) {
       out.actions = normalizeRequestableEntries(clone(field.actions, {}));
     }
+    if (type === "map" && field.sourcesMarkers && typeof field.sourcesMarkers === "object" && !Array.isArray(field.sourcesMarkers)) {
+      out.sourcesMarkers = normalizeRequestableEntries(clone(field.sourcesMarkers, {}));
+    }
+    // native table data given to a map as to a grid: where the viewer reads it
+    if (field.source == null) { moveMapSourceToMarkers(out); }
     if (field.flow) {
       out.flow = field.flow;
     }
@@ -3292,6 +3453,45 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // Usage tests (29/10, test-nocode): a total read from a grouped grid was shown with a token on its cell
   // (`<grid>.0.<aggregate>`) in a description; the text showed the cell's display HTML as text
   // (« <div style="display:flex; …">1500.00</div> »): the viewer escapes a token's text unless its path names displayValue.
+  // cd535141 (17/11): a reference whose id names nothing reads nothing (a grid filter on it filters on an empty value).
+  // An issue for a reference a write brings: all of a new form (compile, create), those absent from kept (the references
+  // of the saved form, for an edit or an update). A warning for one a saved form already had: an edit of an older form
+  // is not refused for a part it does not touch, nor its publication (No Code Studio can leave a text reading a component
+  // deleted since). At most REFERENCE_REPORT_LIMIT are listed.
+  var REFERENCE_REPORT_LIMIT = 5;
+  function validateReferenceIds(form, issue, warning, opts) {
+    var kept = opts.keptReferenceTokens && typeof opts.keptReferenceTokens === "object" ? opts.keptReferenceTokens : null;
+    var newForm = opts.generation === true || !trimmed(form && form._id).length;
+    var targets = referenceTargets(form);
+    var count = 0, moreBrought = false;
+    eachReferenceHolder(form, function (holder, holderPath) {
+      var owner = holder && typeof holder === "object" ? trimmed(holder.name) || trimmed(holder.pageTechName) || trimmed(holder.id) : "";
+      eachString(holder, function (text, path, parent) {
+        if (text.indexOf("$$START") < 0) { return; }
+        var pattern = referenceTokenPattern(), match;
+        while ((match = pattern.exec(text))) {
+          var id = match[1];
+          if (readableReference(id, targets)) { continue; }
+          var meta = referencePayload(match[2]);
+          // In code (type ts) the viewer reads a reference to an unknown id by the name of its payload (pathPrefix fields).
+          if (parent && parent.type === "ts" && meta && meta.pathPrefix === "fields" && hasOwn(targets.names, trimmed(meta.name))) { continue; }
+          var brought = kept ? kept[match[0]] !== true : newForm;
+          count++;
+          if (count > REFERENCE_REPORT_LIMIT) { moreBrought = moreBrought || brought; continue; }
+          var named = hasOwn(targets.ids, id) ? targets.ids[id] : null;
+          var meant = referenceTarget(id, meta, targets);
+          var message = (owner || "A component") + ": the reference $$START" + id + "{...}END" + id + "$$ " +
+            (named ? "names " + (named.name || id) + " by an id that is not a number: the viewer reads only digits there (give a new component no id: the tools number it, and a reference may name it in place of its id)" : (/^\d+$/.test(id) ? "names no component, formula or step of the form (id " + id + ")" : "has the id " + JSON.stringify(id) + ", not a number: the viewer reads only the id of a component there")) +
+            ", so it reads nothing. " + (meant ? "Write the id of " + meant.name + ", " + meant.id + ", in START and END" : "Write the id of the component it reads (nocode-form-get, or the answer of its add_field), or a reduced filter value { field: \"<name>\" }: the tools write the reference");
+          (brought ? issue : warning)("unknown_reference_id", message, path);
+        }
+      }, holderPath);
+    });
+    if (count > REFERENCE_REPORT_LIMIT) {
+      (moreBrought ? issue : warning)("unknown_reference_id", (count - REFERENCE_REPORT_LIMIT) + " more references name no component of the form; fix the ones listed, then validate again", "/formulaire");
+    }
+  }
+
   var CELL_TOKEN_ENDS = ["value", "displayValue"];
   function validateCellTokens(form, warning) {
     var byId = componentsById(form);
@@ -3474,6 +3674,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     });
     doc.flows.forEach(function (flow) { flow.name = flowDisplayName(flow, doc.formulaire); });
     resolveAuthoringReferences(doc);
+    var referencesResolved = resolveReferenceIds(doc, null);
     normalizeRelationRefs(doc);
     normalizeQuestionLabels(doc);
     var bindingCount = prepareNewBaserowBindings(doc);
@@ -3494,7 +3695,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       validation.issueCount = validation.issues.length;
       validation.valid = false;
     }
-    return {
+    var compiled = {
       bindingFinalization: { status: bindingCount ? "pending_creation" : "not_required", bindingCount: bindingCount },
       status: validation.valid ? "ok" : "invalid",
       project: projectName,
@@ -3502,6 +3703,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       form: doc,
       validation: validation
     };
+    if (referencesResolved.length) { compiled.referencesResolved = referencesResolved; }
+    return compiled;
   }
 
   // A reference equal to an id as text but not of its type ("1793012950260" for 1793012950260): the viewer and the
@@ -4074,6 +4277,26 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           if (config.sourceEnabled === false && !ensureArray(config.columns).length) { issue("grid_without_columns", "Local grid needs columns", path + "/config/columns"); }
           if (config.sourceEnabled === false) { warning("local_grid_not_persistent", "Local grid rows disappear on reload. This cannot deliver business storage or tracking; bind a real source unless transient UI state is intended", path); }
         }
+        if (item.type === "map") {
+          // c0b79c0d (17/11): the viewer reads the markers of a map from sourcesMarkers when sourceMarkersEnabled is set,
+          // the columns of its first entry being [title, latitude, longitude]; it never reads sources on a map.
+          var mapHint = "Give the map source: { table, title, latitude, longitude } (update_field patch.source): the tools write sourcesMarkers and sourceMarkersEnabled, as No Code Studio does";
+          enabledEntries(item.sources).filter(function (key) { return key !== "self"; }).forEach(function (key) {
+            incomplete("map_source_not_read", (item.name || item.id) + ": a map shows no data from sources (" + key + "): the viewer reads its markers from sourcesMarkers with config.sourceMarkersEnabled. " + mapHint, path + "/sources/" + key);
+          });
+          var markerKeys = Object.keys(item.sourcesMarkers || {});
+          var markerSource = markerKeys.length && item.sourcesMarkers[markerKeys[0]] && boolLike(item.sourcesMarkers[markerKeys[0]].enabled) ? item.sourcesMarkers[markerKeys[0]] : null;
+          if (boolLike(config.sourceMarkersEnabled) && !markerSource) {
+            incomplete("map_markers_without_source", (item.name || item.id) + ": sourceMarkersEnabled is set but the first entry of sourcesMarkers is not an enabled source: the map shows no marker. " + mapHint, path + "/sourcesMarkers");
+          }
+          if (markerSource && boolLike(config.sourceMarkersEnabled) && markerKeys[0] === MAP_MARKER_SOURCE) {
+            var markerConfig = null;
+            try { markerConfig = JSON.parse(markerSource.vars.forms_config.str); } catch (_invalidMarkerConfig) { markerConfig = null; }
+            if (markerConfig && ensureArray(markerConfig.columns).length < 3) {
+              incomplete("map_marker_columns", (item.name || item.id) + ": the markers read forms_config.columns as [title, latitude, longitude] (the title is also the tooltip and the popup); this source lists " + JSON.stringify(ensureArray(markerConfig.columns)) + ". " + mapHint, path + "/sourcesMarkers/" + MAP_MARKER_SOURCE + "/vars/forms_config");
+            }
+          }
+        }
         ["boxStyle", "questionBoxStyle", "componentBoxStyle"].forEach(function (key) {
           validateStyle(config[key], path + "/config/" + key);
         });
@@ -4135,6 +4358,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       validateGeneratedLogic(form, warning);
       validateStickyPlacement(form, warning);
       validateCellTokens(form, warning);
+      validateReferenceIds(form, issue, warning, opts);
       eachConditionGroup(form, function (group, groupPath) {
         eachCondition(group, groupPath, function (cond, condPath) {
           if (!cond || typeof cond !== "object" || cond.subject !== "field") { return; }
@@ -4392,6 +4616,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // of another table) shows « unnamed row N ». Neither the edit answer nor validate said so.
   var COMPUTED_FIELD_TYPES = ["formula", "autonumber", "created_on", "last_modified", "created_by", "last_modified_by", "uuid", "count", "rollup", "lookup"];
   function primaryFieldNotFilled(form, binding, fields, validation) {
+    // 92fec1e3 (17/11): a save whose forms_id names a row (saveTo.row, the id of the row selected in a grid) updates that
+    // row and adds none: the row keeps the primary value it has, and the warning told the agent of rows it never adds.
+    var rowId = binding.entry && binding.entry.vars ? binding.entry.vars.forms_id : null;
+    if (trimmed(rowId && typeof rowId === "object" ? rowId.str : rowId).length) { return; }
     var primary = ensureArray(fields).filter(function (field) { return field && (field.primary === true || field.primary === "true"); })[0];
     if (!primary || COMPUTED_FIELD_TYPES.indexOf(String(primary.type)) >= 0) { return; }
     var name = String(primary.name);
@@ -4406,6 +4634,27 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (filled) { return; }
     var table = String(binding.config.table_id || binding.config.table_id_int).split("~>").pop();
     validation.warnings.push({ code: "primary_field_not_filled", message: (binding.item && (binding.item.name || binding.item.id) || "A save") + " adds rows to " + table + " without filling its primary field " + JSON.stringify(name) + ": in Baserow and in every link to those rows (a select or a grid column of another table) they show as « unnamed row N ». Keep an input named " + JSON.stringify(name) + " in the form, or map it in forms_AddRowFromData together with every other column the save must keep writing, or tell the user that the rows will have no name", path: binding.path });
+  }
+
+  // A map marker is { title: +columns[0] cell value, lat: +columns[1], lng: +columns[2] } (viewerPage, case "markers"): a
+  // latitude or longitude column that holds no number puts no marker, a title column whose cells are objects (a select,
+  // a link) shows « [object Object] ».
+  var MARKER_COORDINATE_TYPES = ["number", "text", "long_text", "formula", "rollup", "lookup"];
+  var MARKER_TITLE_OBJECT_TYPES = ["single_select", "multiple_select", "link_row", "file", "multiple_collaborators"];
+  function mapMarkerColumnTypes(binding, fields, validation) {
+    var columns = ensureArray(binding.config && binding.config.columns);
+    if (columns.length < 3) { return; }
+    var typeOf = {};
+    ensureArray(fields).forEach(function (field) { if (field && field.name != null) { typeOf[String(field.name)] = String(field.type); } });
+    var wrong = [];
+    [["latitude", columns[1]], ["longitude", columns[2]]].forEach(function (part) {
+      var type = typeOf[String(part[1])];
+      if (type && MARKER_COORDINATE_TYPES.indexOf(type) < 0) { wrong.push("the " + part[0] + " column " + JSON.stringify(part[1]) + " is a " + type + " column, not a number"); }
+    });
+    var titleType = typeOf[String(columns[0])];
+    if (titleType && MARKER_TITLE_OBJECT_TYPES.indexOf(titleType) >= 0) { wrong.push("the title column " + JSON.stringify(columns[0]) + " is a " + titleType + " column, shown as an object"); }
+    if (!wrong.length) { return; }
+    validation.warnings.push({ code: "map_marker_column_type", message: (binding.item && (binding.item.name || binding.item.id) || "A map") + " reads its markers from the columns [title, latitude, longitude] in this order: " + wrong.join("; ") + ". Give the source title, latitude and longitude (latitude and longitude: number columns in decimal degrees)", path: binding.path + "/vars/forms_config" });
   }
 
   // Usage tests (29/10, test-nocode): to keep a primary field filled, an agent replaced a save by name (forms_AddRow)
@@ -4478,6 +4727,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           problem("unmapped_baserow_inputs", "No input technical name matches the selected table columns. Use forms_AddRowFromData with an explicit column/value mapping");
         }
       }
+      if (/\/sourcesMarkers\//.test(binding.path)) { mapMarkerColumnTypes(binding, fields, validation); }
       if (/\/lib_BaseRow\.forms_AddRow(FromData)?$/.test(binding.path)) { primaryFieldNotFilled(form, binding, fields, validation); }
       if (/\/lib_BaseRow\.forms_AddRowFromData$/.test(binding.path)) { inputsNotSaved(form, binding, fields, validation); }
       // As the editor writes it (modalConfigure): the tables the link_row columns of the table point to. After a save, the
@@ -5588,8 +5838,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         throw new Error(fieldFound.item.name + ": sources.self.vars.selfVar is compiled from defaultFrom (declared in config.contextDefault) and the viewer runs it. Change the value with patch { defaultFrom: { source: \"expression\", expression: \"...\", mode: \"reactive\" } } alone: the tool compiles selfVar from it. To keep a hand-written selfVar instead, remove the declaration in the same patch with config: { contextDefault: null }");
       }
       if (mergePatch.sources) { normalizeRequestableEntries(mergePatch.sources); }
+      if (mergePatch.sourcesMarkers) { normalizeRequestableEntries(mergePatch.sourcesMarkers); }
       if (mergePatch.actions) { normalizeRequestableEntries(mergePatch.actions); }
       form.formulaire[fieldFound.index] = applyMergePatch(fieldFound.item, mergePatch);
+      if (mergePatch.sources || mergePatch.sourcesMarkers) { moveMapSourceToMarkers(form.formulaire[fieldFound.index]); }
       if (Object.keys(conditionPatch).length) {
         var compiledConditions = {};
         applyFieldConditions(compiledConditions, conditionPatch);
@@ -5821,7 +6073,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     ensureButtonFlows(edited);
     resolveAuthoringReferences(edited);
     applyReducedBaserow(edited, opts);
-    return { form: edited, operations: summary, allTypesPath: contract.file };
+    var referencesResolved = resolveReferenceIds(edited, referenceTokens(form));
+    return { form: edited, operations: summary, allTypesPath: contract.file, referencesResolved: referencesResolved };
   }
 
   // The whole contract is about 100 KB (146 KB indented). Vibe keeps a tool result inline up to about 16 KB of its
@@ -5845,7 +6098,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         section: "{ type: \"section\", name, title, subtitle, columns: 1 to 4 (default 2), fields: [...] }: a titled card grouping fields; fullWidth:true puts a field on its own line. Use one section per group of an entry or detail page.",
         layout: "{ type: \"layout\", name, cols, tablet, phoneL, phoneP: six { size } summing to 12 each, children: [...] }: a row, for example an action bar of buttons.",
         button: "{ type: \"button\", name, label, flow: <flow id>, variant: primary|secondary|danger|ghost, icon, expand: \"block\", disabledIf }.",
-        dataViews: "grid, chart, gallery, map: source (see baserow), or a local grid with columns: [{ name, type }]. chart config.type: line, area, bar, pie or donut; grid config.gridPaginationEnabled and gridRowsPerPage.",
+        dataViews: "grid, chart, gallery, map: source (see baserow); local grid: columns [{ name, type }]. chart config.type: line|area|bar|pie|donut; grid config.gridPaginationEnabled, gridRowsPerPage.",
         others: "img, file, signature, location, barcode: name, label, mandatory, config. ion-card is a card title only: group fields with section."
       },
       conditions: "visibleIf, and disabledIf on a button: { field, operator, value }, { all: [...] } or { any: [...] } nested, or { never: true }. Operators: equals, different, greater, greaterequals, minus, minusequals, among_following and out_following (value is an array), contains, not_contains, is_filled and is_empty (no value). A grid is empty until a row is selected. A hidden component is not checked as mandatory.",
@@ -5853,7 +6106,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       flows: "flows: [{ id, name (visible, in the user's language), elements: [...] }]; a button's flow is the flow id. Elements: push_page { targetPage: page name, or __c8o_back }, submit with saveTo or deleteFrom (Baserow, see baserow) or actions (section backendActions: an e-mail...), toast { message, color: success|danger|warning|info, duration }, reset_fields { scope: page|component|application, targetPage, targetField }, refresh_grid { targetGrid }, if_else { condition, then: [...], else: [...] }, add_row_to_local_grid { targetGrid, row }. Computed values: business_logic { name, expression } in the flow with id formulas, read as actions.<name>. A submit without an action is refused. A questionnaire (navigationMode buttons) ends with the viewer's own Envoyer button on its last page, which saves the responses: add no button of your own for it, nor a page header repeating the form name (the title card shows it). Put reset_fields before the push_page that leaves the page; never test a submit's outcome with if_else (a failed submit stops the flow). Triggers, set_value, lifetime: flowAuthoring.",
       baserow: {
         tables: "table is a table id or its path Workspace~>Base~>Table from nocode-baserow-catalog-list; the tools find the other half, encode the variables and resolve { field } and row references. Columns must be the table's real names.",
-        dataView: "grid, chart, gallery, map: source: { table, columns: [...], hidden, filter, sort: \"Name,-Date\", distinct, groupBy, aggregations: \"count=Label,sum:Amount=Label\" }.",
+        dataView: "grid, chart, gallery: source: { table, columns: [...], hidden, filter, sort: \"Name,-Date\", distinct, groupBy, aggregations: \"count=Label,sum:Amount=Label\" }; map: { table, title, latitude, longitude }.",
         choices: "select, radio, checkbox: source: { table, field: \"Status\" } (the options of a single select column; the answer is the option id) or { table, display: \"Name\", value: \"Code\", filter, sort } (rows of a table; value: \"id\" for a link_row column, the linked row id).",
         filter: "{ column, operator, value }, or { all: [...] } / { any: [...] } nested. value is a literal, or { field: \"name\" } to read that component at runtime. A search over two columns: { all: [{ any: [{ column: \"Title\", operator: \"contains\", value: { field: \"search\" } }, { column: \"Description\", operator: \"contains\", value: { field: \"search\" } }] }, { column: \"Priority\", operator: \"single_select_equal\", value: { field: \"priority\" } }] }.",
         operators: "text: contains, contains_not, contains_word, equal, not_equal, empty, not_empty; number: equal, higher_than, higher_than_or_equal, lower_than, lower_than_or_equal; single select: single_select_equal, single_select_not_equal, single_select_is_any_of (an option label or id); other: boolean, link_row_has, multiple_select_has. Section baserowSources lists every Baserow filter type.",
@@ -6200,7 +6453,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   // The warnings of a save about what it changed or read from Baserow (the link_row selects it rewrote or reports, the
   // columns it added to a select): the static validation of the read-back form cannot find them again.
-  var SAVE_TIME_WARNING_CODES = ["link_row_select_value_rewritten", "link_row_select_value", "link_row_select_table", "select_columns_completed", "plain_labels_converted", "primary_field_not_filled", "inputs_not_saved"];
+  var SAVE_TIME_WARNING_CODES = ["link_row_select_value_rewritten", "link_row_select_value", "link_row_select_table", "select_columns_completed", "plain_labels_converted", "primary_field_not_filled", "inputs_not_saved", "map_marker_column_type"];
   function saveTimeWarnings(validation) {
     return (validation && Array.isArray(validation.warnings) ? validation.warnings : []).filter(function (item) { return item && SAVE_TIME_WARNING_CODES.indexOf(item.code) >= 0; });
   }
@@ -6254,6 +6507,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var finalOptions = clone(options || {}, {});
       delete finalOptions.thumbnailImage;
       delete finalOptions.rev;
+      finalOptions.keptReferenceTokens = referenceTokens(saved.form);
       try {
         // A fresh revision check prevents knowingly overwriting an intervening
         // editor save. The existing Forms API remains the only write path.
@@ -6301,6 +6555,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     // Root identity cannot be replaced through a merge patch.
     edited._id = current._id;
     edited._rev = current._rev;
+    opts.keptReferenceTokens = referenceTokens(current);
     opts.strictBindingPaths = prepareEditedBaserowBindings(current, edited, trimmed(authentication.user));
     var editedNames = {};
     ensureArray(edited.formulaire).forEach(function (item) { if (item && item.name) { editedNames[item.name] = true; } });
@@ -6341,6 +6596,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       createOptions.thumbnailImage = reduced.thumbnailImage;
     }
     var saved = saveForm(compiled.form, createOptions);
+    if (compiled.referencesResolved) { saved.referencesResolved = compiled.referencesResolved; }
     attachSavedForm(saved, compiled.form, createOptions);
     // The columns the compilation added to a native select source.
     if (saved.validation) { keepSaveTimeWarnings(saved.validation, saveTimeWarnings(compiled.validation)); }
@@ -6362,7 +6618,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     var currentForm = current && current.res ? current.res : current;
     var patched = applyMergePatch(currentForm, patch);
-    return saveEditedForm(currentForm, patched, options);
+    var referencesResolved = resolveReferenceIds(patched, referenceTokens(currentForm));
+    var saved = saveEditedForm(currentForm, patched, options);
+    if (referencesResolved.length) { saved.referencesResolved = referencesResolved; }
+    return saved;
   };
   C8O.nocodeForms.edit = function (id, operations, options) {
     try {
@@ -6381,6 +6640,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var applied = applyEditOperations(currentForm, operations, options);
       var saved = saveEditedForm(currentForm, applied.form, options);
       saved.operations = applied.operations;
+      if (applied.referencesResolved.length) { saved.referencesResolved = applied.referencesResolved; }
       saved.allTypesPath = applied.allTypesPath;
       return saved;
     } catch (e) {
