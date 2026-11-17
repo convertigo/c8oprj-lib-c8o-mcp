@@ -40,6 +40,7 @@ C8O.studioWriteConfirm = C8O.studioWriteConfirm || {};
     tools_databaseobject_delete: "databaseobject-delete",
     tools_databaseobject_move: "databaseobject-move",
     tools_databaseobject_rename: "databaseobject-rename",
+    tools_databaseobject_copy: "databaseobject-copy",
     tools_batch_call: "batch-call",
     tools_business_sequence_create: "business-sequence-create",
     tools_sql_transaction_create: "sql-transaction-create",
@@ -288,6 +289,11 @@ C8O.studioWriteConfirm = C8O.studioWriteConfirm || {};
         return { action: "move", project: projectOf(args.qname), target: trimmed(args.qname), to: trimmed(args.target), detail: trimmed(args.position) };
       case "tools_databaseobject_rename":
         return { action: "rename", project: projectOf(args.qname), target: trimmed(args.qname), name: trimmed(args.name) };
+      case "tools_databaseobject_copy":
+        // a copy is a creation in its target (inside) or next to it (before, after), named after its source by default
+        var copyAt = trimmed(args.at).toLowerCase();
+        return { action: copyAt === "before" || copyAt === "after" ? "tree_insert" : "tree_create", project: projectOf(args.target), target: trimmed(args.target),
+          names: [trimmed(args.name) || trimmed(args.source).split(".").pop().replace(/^[a-z]+:/, "")].filter(function (n) { return n.length; }), detail: "" };
       case "tools_business_sequence_create":
         return { action: "create_sequence", project: project, name: trimmed(args.name) };
       case "tools_sql_transaction_create":

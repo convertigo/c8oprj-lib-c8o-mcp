@@ -12,13 +12,13 @@ Keep the exact requested project name and target project. New NGX projects use `
 
 Inspect with `databaseobject-tree-get`, mutate with `databaseobject-tree-apply`, order dependent writes in `batch-call`, prove through `requestable-execute`, and persist with `project-save`. Check `result.error`, partial mutations and skipped properties. Use structured objects/arrays; use generated `callsFile` for large lots. Details: `convertigo://guides/common/batching` and `convertigo://guides/common/readback`.
 
-A file the user attached in the Tigo panel (a spreadsheet, CSV, PDF, Word or text file) is read with `attachment-read` `{name}`: its sheets and rows, or its text, a page at a time with `offset`.
+A file attached in the Tigo panel (spreadsheet, CSV, PDF, Word, text) is read with `attachment-read` `{name}`, a page at a time with `offset`.
 
 A tool answer stays under 14,000 characters. From a script, return the answer itself or the part the task needs, never only its keys. An answer with `partialAnswer` is its first page: read pages 2 to `pages` with `answer-page` `{answerId, page}` and join their `text` in order before `JSON.parse`; an answer listing `remaining` sections or a next page says what to ask in the next call.
 
 ## Existing project: notes and brief first
 
-A change to an existing project starts from its notes (`_private/docs/PROGRESS.md`, never served, or `docs/generated/PROGRESS.md` until `project-notes-write` moves them; given at the start of the turn as `Project notes kept by Tigo`) and `project-brief({project})`, then `project-brief({project, page})` for each page you change: patch from the QNames it shows instead of searching or reading whole pages; keep `databaseobject-search`, `databaseobject-tree-get` and `palette-*` for what the brief does not answer. Where frequent changes go (shared and page styles, colours, KPI cards, list columns, links in rows, texts): `convertigo://guides/common/existing-project`.
+A change to an existing project starts from its notes (`_private/docs/PROGRESS.md`, given at the start of the turn as `Project notes kept by Tigo`) and `project-brief({project})`, then `project-brief({project, page})` for each page you change: patch from the QNames it shows instead of searching or reading whole pages; keep `databaseobject-search`, `databaseobject-tree-get` and `palette-*` for what the brief does not answer. Start from a model with `databaseobject-copy`, then adapt the copy. An existing requestable's output is a contract: adapt new pages to it, change it only when asked. Frequent changes (styles, colours, KPI cards, columns, links in rows, texts), copies and contracts: `convertigo://guides/common/existing-project`.
 
 ## Task routes
 

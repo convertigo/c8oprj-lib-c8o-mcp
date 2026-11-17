@@ -50,6 +50,7 @@
   ↓tools_business_sequence_create [sequences.GenericSequence]: 🗏 sequences/tools_business_sequence_create.yaml
   ↓tools_crud_proof [sequences.GenericSequence]: 🗏 sequences/tools_crud_proof.yaml
   ↓tools_crud_status [sequences.GenericSequence]: 🗏 sequences/tools_crud_status.yaml
+  ↓tools_databaseobject_copy [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_copy.yaml
   ↓tools_databaseobject_delete [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_delete.yaml
   ↓tools_databaseobject_move [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_move.yaml
   ↓tools_databaseobject_rename [sequences.GenericSequence]: 🗏 sequences/tools_databaseobject_rename.yaml

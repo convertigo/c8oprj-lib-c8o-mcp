@@ -27,6 +27,7 @@ C8O.editProfile = (function () {
     tools_databaseobject_delete: "databaseobject-delete",
     tools_databaseobject_move: "databaseobject-move",
     tools_databaseobject_rename: "databaseobject-rename",
+    tools_databaseobject_copy: "databaseobject-copy",
     tools_project_save: "project-save",
     tools_project_js_set: "project-js-set",
     tools_project_delete: "project-delete",

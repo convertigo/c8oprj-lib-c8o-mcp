@@ -196,6 +196,7 @@ C8O.setupVibe = C8O.setupVibe || {};
       "Convertigo_palette-describe",
       "Convertigo_databaseobject-tree-apply",
       "Convertigo_databaseobject-delete",
+      "Convertigo_databaseobject-copy",
       "Convertigo_mobile-builder-open",
       "Convertigo_mobile-builder-build",
       "Convertigo_project-save",

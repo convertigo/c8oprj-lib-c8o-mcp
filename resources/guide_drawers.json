@@ -1688,7 +1688,7 @@
         "when": "Existing project: notes, brief and frequent changes",
         "sha256": "89eb32151916eed92e7c9b42bb9a57a3d8451921724c3acdf8b1ce8e70c34c5e",
         "bodyOffset": 259,
-        "servedSha256": "9b00ae70ca5acea66675e9636069b76284bb5c6c0a5c5a034375b5f4479c15a5",
+        "servedSha256": "382ec35b0dda365024d705a3c55b43428e2595dff73d20046c636433fd398275",
         "trailingSourceNewlines": 1
       },
       {
@@ -1749,7 +1749,7 @@
         "when": "Iterators, dependencies and backend invariants",
         "sha256": "a438c8a4f31f3cb4bac200fcb3fd2dc74b162d28a4ee24661886ece13996be82",
         "bodyOffset": 239,
-        "servedSha256": "5e9077138925c31b637beb6026ff271a2dc6963e95f80f6ea792778a5606cee2",
+        "servedSha256": "99081bd3bb5769195626fa1fa0b4c32e289942b462c470d98f96fa68ce24eb8c",
         "trailingSourceNewlines": 1
       },
       {

@@ -1844,6 +1844,45 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     });
   }
 
+  // databaseobject-copy (js/tools_databaseobject_copy.js): a copy of an object and its children, priorities renewed.
+  function databaseobjectCopyInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        source: { type: "string", description: "QName of the object to copy, for example App.Application.NgxApp.pg:Model or App.sq:model_sequence." },
+        target: { type: "string", description: "The parent to copy into (at inside), or the sibling to copy next to (at before or after)." },
+        at: { type: "string", enum: ["inside", "before", "after"], default: "inside", description: "inside: last child of target; before or after: next to target, under its parent." },
+        name: { type: "string", description: "Name of the copy; default the source name. A name the target parent already has is refused." },
+        retargetProject: { type: "boolean", default: false, description: "For a copy into another project: the copy's references to the source project name the target project instead." },
+        autoSave: { type: "boolean", default: true, description: "Set false to keep the copy in memory and skip the project save." }
+      },
+      required: ["source", "target"],
+      additionalProperties: false
+    };
+  }
+
+  function databaseobjectCopyOutputSchema() {
+    return openObjectSchema({
+      status: { type: "string" },
+      source: { type: "string" },
+      qname: { type: "string", description: "QName of the copy: adapt it with databaseobject-tree-apply." },
+      parentQName: { type: "string" },
+      name: { type: "string" },
+      className: { type: "string" },
+      at: { type: "string" },
+      objects: { type: "number", description: "Objects created: the copy and everything under it." },
+      prioritiesRenewed: { type: "number" },
+      referencesRenewed: { type: "number" },
+      sourceProjectReferences: { type: "number" },
+      retargeted: { type: "boolean" },
+      saved: { type: "boolean" },
+      saveMessage: { type: "string" },
+      warnings: stringArraySchema(),
+      errors: stringArraySchema(),
+      next: { type: "string" }
+    });
+  }
+
   function viewerSignInInputSchema() {
     return {
       type: "object",
@@ -2925,6 +2964,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_project_notes_write") {
       return projectNotesWriteInputSchema();
     }
+    if (seq === "tools_databaseobject_copy") {
+      return databaseobjectCopyInputSchema();
+    }
     if (seq === "tools_viewer_sign_in") {
       return viewerSignInInputSchema();
     }
@@ -3314,6 +3356,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_project_notes_write") {
       return projectNotesWriteOutputSchema();
+    }
+    if (seq === "tools_databaseobject_copy") {
+      return databaseobjectCopyOutputSchema();
     }
     if (seq === "tools_viewer_sign_in") {
       return viewerSignInOutputSchema();

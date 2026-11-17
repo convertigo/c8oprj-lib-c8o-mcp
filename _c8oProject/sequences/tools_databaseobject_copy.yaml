@@ -1,0 +1,45 @@
+accessibility: Private
+comment: |
+  Copy an object and everything under it
+  Copies an existing object (a page, a shared component, a sequence, a step and its children, a transaction...) inside or next to a target, in the same project or another one, in one call: every property comes with it, and the priorities of the copied objects and the sources that name them inside the copy are renewed, so the copy runs on its own steps and components. To start from a model or an existing object, copy it, then adapt the copy with databaseobject-tree-apply: never rebuild it from tree-get reads. A name already taken under the target parent is refused. References to the source project stay unless retargetProject is true; the answer lists what the copy still reads outside itself. Saves the project.
+↓Include [steps.SimpleStep-1795100000101]: 
+  expression: 'include("js/databaseobject.js"); include("js/databaseobject_ops.js"); include("js/tools_databaseobject_copy.js");'
+↓Run [steps.SimpleStep-1795100000102]: 
+  expression: 'var databaseobjectCopyResult = C8O.dboCopy.run({source: source, target: target, at: at, name: name, retargetProject: retargetProject, autoSave: autoSave});'
+↓result [steps.JsonToXmlStep-1795100000103]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: databaseobjectCopyResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓source [variables.RequestableVariable-1795100000111]: 
+  comment: 'The QName of the object to copy, for example App.Application.NgxApp.pg:Model or App.sq:model_sequence.'
+  description: 'The QName of the object to copy, for example App.Application.NgxApp.pg:Model or App.sq:model_sequence.'
+  value: ''
+↓target [variables.RequestableVariable-1795100000112]: 
+  comment: 'Where the copy goes: the parent to copy into (at inside), or the sibling to copy next to (at before or after).'
+  description: 'Where the copy goes: the parent to copy into (at inside), or the sibling to copy next to (at before or after).'
+  value: ''
+↓at [variables.RequestableVariable-1795100000113]: 
+  comment: 'inside (default): last child of target; before or after: next to target, under its parent.'
+  description: 'inside (default): last child of target; before or after: next to target, under its parent.'
+  value: ''
+↓name [variables.RequestableVariable-1795100000114]: 
+  comment: 'The name of the copy; default the source name, refused when the target parent already has it.'
+  description: 'The name of the copy; default the source name, refused when the target parent already has it.'
+  value: ''
+↓retargetProject [variables.RequestableVariable-1795100000115]: 
+  comment: 'true: the references of the copy to the source project name the target project instead (a copy into another project).'
+  description: 'true: the references of the copy to the source project name the target project instead (a copy into another project).'
+  value: ''
+↓autoSave [variables.RequestableVariable-1795100000116]: 
+  comment: 'Set false to keep the copy in memory and skip the project save.'
+  description: 'Set false to keep the copy in memory and skip the project save.'
+  value: ''
