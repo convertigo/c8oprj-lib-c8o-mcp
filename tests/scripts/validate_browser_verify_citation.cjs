@@ -54,6 +54,21 @@ test('a paraphrased quote is replaced by the exact excerpt of the cited observat
   assert.equal(fromEvidence.checks[0].observedText, 'Order #42 — Paid — 3 items');
 });
 
+test('a check proven by its screenshot also gets the exact excerpt of its paraphrased quote', () => {
+  // A real run (17/11): the model quoted a table row with the cells joined by bars, its screenshot being valid.
+  const rows = snapshot('A2', '- heading "Order desk"\n- row "#1043 Boulangerie Vidal Waiting for payment 98,50 EUR"\n- row "#1044 Garage Lenoir In preparation 774,00 EUR"');
+  const check = passed({ check: 'Order 1043 awaits its payment', observedText: '#1043 | Boulangerie Vidal | Waiting for payment | 98,50 EUR', screenshot: 'desk.png' });
+  const report = agent.normalizeReport({ verdict: 'passed', checks: [check] }, { checks: ['Order 1043 awaits its payment'] }, [{ file: 'desk.png' }], {}, [trace[0], rows], []);
+  assert.equal(report.checks[0].status, 'passed');
+  assert.equal(report.checks[0].observedText, '#1043 Boulangerie Vidal Waiting for payment 98,50 EUR');
+  assert.match(report.checks[0].evidence, /\[quote matched in A2\]$/);
+  // Nothing found: the screenshot still proves the check, its words stay as the model wrote them.
+  const unknown = agent.normalizeReport({ verdict: 'passed', checks: [Object.assign({}, check, { observedText: 'Shown in the table' })] },
+    { checks: ['Order 1043 awaits its payment'] }, [{ file: 'desk.png' }], {}, [trace[0], rows], []);
+  assert.equal(unknown.checks[0].status, 'passed');
+  assert.equal(unknown.checks[0].observedText, 'Shown in the table');
+});
+
 test('a claim that no recorded observation holds stays not_checked', () => {
   for (const claim of ['Order 77 refunded to the customer', 'order 43 paid 3 items', 'invented result', '']) {
     const report = judge(passed({ observedText: claim }));

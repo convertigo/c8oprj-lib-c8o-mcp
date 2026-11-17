@@ -1270,6 +1270,16 @@ function tokensOf(text) {
   return out;
 }
 
+// The excerpt [start, end) of text with the punctuation glued to its first and last words ("#1043", "items."), never a
+// quote mark of the snapshot around it.
+function widenExcerpt(text, start, end) {
+  var value = String(text);
+  var glued = /[^\s"'\u201c\u201d\u00ab\u00bb]/;
+  while (start > 0 && glued.test(value.charAt(start - 1))) start--;
+  while (end < value.length && glued.test(value.charAt(end))) end++;
+  return value.substring(start, end);
+}
+
 // The claim as whole words of the text, whatever its case, accents, spacing and punctuation: the exact excerpt, or "".
 function exactExcerpt(claim, text) {
   var c = normalizeMap(claim).text;
@@ -1277,7 +1287,7 @@ function exactExcerpt(claim, text) {
   var o = normalizeMap(text);
   var at = (" " + o.text + " ").indexOf(" " + c + " ");
   if (at < 0) return "";
-  return String(text).substring(o.map[at], o.map[at + c.length - 1] + 1);
+  return widenExcerpt(text, o.map[at], o.map[at + c.length - 1] + 1);
 }
 
 // A run of words of one line of the text holding 80 % of the claim's distinct words (paraphrase words aside) and all its
@@ -1313,7 +1323,7 @@ function overlapExcerpt(claim, text) {
     }
   }
   if (!best || best.end - best.start > CITATION_MAX) return null;
-  return { excerpt: String(text).substring(best.start, best.end), covered: best.count / distinct.length };
+  return { excerpt: widenExcerpt(text, best.start, best.end), covered: best.count / distinct.length };
 }
 
 // The exact excerpt behind a check's quote (observedText, else the quoted parts of its evidence): looked for in the cited
@@ -1416,10 +1426,11 @@ function normalizeReport(args, config, shots, pendingFailures, trace, network) {
       var shotOk = !!c.screenshot && shots.some(function(shot) { return shot.file === c.screenshot; });
       var quoteOk = !!c.observedText && cited.some(function(entry) { return entry && observationText(entry).includes(c.observedText); });
       // A paraphrased quote or a wrong id: the exact excerpt is looked for in the recorded observations, the cited ones first.
-      if (!cited.length || cited.some(function(entry) { return !entry; }) || (!shotOk && !quoteOk)) {
+      // A check proven by its screenshot gets the exact excerpt too: observedText is always a quote when one is found.
+      if (!cited.length || cited.some(function(entry) { return !entry; }) || !quoteOk) {
         var recovered = recoverCitation(c, observations, cited);
         if (recovered) {
-          if (!shotOk && !quoteOk) {
+          if (!quoteOk) {
             c.observedText = recovered.excerpt;
           }
           c.evidenceRefs = c.evidenceRefs.filter(function(id) { return observations.some(function(entry) { return entry.id === id; }); });
