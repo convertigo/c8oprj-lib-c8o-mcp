@@ -3393,6 +3393,17 @@
     "expandGuidance": true
   },
   {
+    "uri": "convertigo://guides/common/models",
+    "name": "Convertigo common guidance — Models, templates and output contracts",
+    "description": "Open for Models, templates and output contracts.",
+    "mimeType": "text/markdown",
+    "file": "guides/common/models.md",
+    "guideId": "convertigo/common/models",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/common",
+    "expandGuidance": true
+  },
+  {
     "uri": "convertigo://guides/common/batching",
     "name": "Convertigo common guidance — Tree shortcuts and file-backed batch calls",
     "description": "Open for Tree shortcuts and file-backed batch calls.",
@@ -3580,6 +3591,7 @@
       "convertigo://guides/common/mcp",
       "convertigo://guides/common/libraries",
       "convertigo://guides/common/existing-project",
+      "convertigo://guides/common/models",
       "convertigo://guides/common/batching",
       "convertigo://guides/common/readback",
       "convertigo://guides/common/progress",

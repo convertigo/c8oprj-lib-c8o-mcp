@@ -319,10 +319,11 @@ C8O.dboCopy.run = function (args) {
       : "The copy still names " + projectRefs.count + " object(s) of " + sourceProject + " (calls, sequences, styles). Keep them only if " +
         targetProject + " references " + sourceProject + "; else copy again with retargetProject:true, or change them with databaseobject-tree-apply.");
   }
+  // The engine gives a page it adds a default route and title (path-to-<name>, Title for <name>): the copy needs its own.
   try {
-    if (typeof copy.getSegment === "function" && typeof source.getSegment === "function" && parent.equals(source.getParent()) &&
-        String(copy.getSegment()) === String(source.getSegment()) && String(copy.getSegment()).length) {
-      warnings.push("The copy keeps the route segment \"" + String(copy.getSegment()) + "\" of " + name(source) + ": give it its own segment (and title).");
+    if (typeof copy.getSegment === "function" && typeof copy.getTitle === "function") {
+      warnings.push("The copied page has the default route segment \"" + String(copy.getSegment()) + "\" and title \"" + String(copy.getTitle()) +
+        "\": set its own (properties segment and title with databaseobject-tree-apply).");
     }
   } catch (_ignoreSegment) {}
 

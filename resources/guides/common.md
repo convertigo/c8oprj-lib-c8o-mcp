@@ -6,6 +6,7 @@ Convertigo MCP is the authoring surface: inspect, mutate, prove, then project-sa
 - `convertigo://guides/common/mcp` — Guidance freshness and MCP-only authoring.
 - `convertigo://guides/common/libraries` — Standard libraries and bootstrap decisions.
 - `convertigo://guides/common/existing-project` — Existing project: notes, brief and frequent changes.
+- `convertigo://guides/common/models` — Models, templates and output contracts.
 - `convertigo://guides/common/batching` — Tree shortcuts and file-backed batch calls.
 - `convertigo://guides/common/readback` — QNames, source priorities and precise readback.
 - `convertigo://guides/common/progress` — Project notes and resume.

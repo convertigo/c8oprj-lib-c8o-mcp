@@ -202,7 +202,10 @@ if (typeof include === "function") {
       add("TEXT-REVIEW", "warning", item.where.split(", ")[0],
         "\"" + item.text.substring(0, 80) + "\" (" + str(kind || "spelling") + ", " + label +
         (language ? ", " + language : "") + ")" + (item.where.indexOf(",") > 0 ? "; also in " + item.where.substring(item.where.indexOf(",") + 2) : ""),
-        "Write \"" + str(fixed).substring(0, 120) + "\".");
+        // A language finding on a text the user gave (a title, a label) must not get it translated: the user's words win.
+        str(kind).toLowerCase() === "language"
+          ? "If the user gave this text as it is (a title, a label), keep it and tell the user; otherwise write \"" + str(fixed).substring(0, 120) + "\"."
+          : "Write \"" + str(fixed).substring(0, 120) + "\".");
     };
     // The verdicts already known: reported again without a call. The other texts are reviewed, REVIEW_BATCH strings per
     // call (a long list makes the model skip strings).

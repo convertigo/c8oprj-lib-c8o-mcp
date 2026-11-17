@@ -28,7 +28,7 @@
         "when": "Mutations, CRUD page generators and backend contracts",
         "sha256": "d03a6c2c2c296252cd6e6b492cef65e63f5685b7360b1f253faac24fc6a4ae50",
         "bodyOffset": 281,
-        "servedSha256": "f8f8578bd4cf53224ce53731556a93412797d6e8c61b70a29f0371ebfba3545e"
+        "servedSha256": "a83c79809cba1b9c3d952d5d76c34e52845e672a40f8ffd33f481efb58de70b2"
       },
       {
         "uri": "convertigo://guides/start/mandatory-workflow-3",
@@ -1627,7 +1627,7 @@
         "when": "NGX pages",
         "sha256": "95a20d82c7d32f6a6c8591a50a40f3b694339f5b878859500c7cf39e8ec8edcb",
         "bodyOffset": 185,
-        "servedSha256": "703fdaa7557c5fe1a510feee85272ee79447797b992c8ef7f17ca612b75e56c1"
+        "servedSha256": "cdd975a092a89e778e0c96c9ad2085dd9e874d83906f6482d520cafb6dc8641d"
       },
       {
         "uri": "convertigo://guides/multipage/ngx-pages-2",
@@ -1644,7 +1644,7 @@
         "when": "Order of work",
         "sha256": "27cc00253d8599c8fbc866c2a983f5cae073e44fd25311f811c6ac3d3eb62315",
         "bodyOffset": 196,
-        "servedSha256": "1f57c03f9175b800561bac038cd02392cbc86bed8eeb975fddee07c028a9af5e",
+        "servedSha256": "634a503e626ea02abfda1e110ee789d6060e81347131c4e18fd5fbb7306839e7",
         "trailingSourceNewlines": 1
       },
       {
@@ -1687,17 +1687,25 @@
         "file": "guides/common/existing-project.md",
         "when": "Existing project: notes, brief and frequent changes",
         "sha256": "89eb32151916eed92e7c9b42bb9a57a3d8451921724c3acdf8b1ce8e70c34c5e",
-        "bodyOffset": 259,
-        "servedSha256": "382ec35b0dda365024d705a3c55b43428e2595dff73d20046c636433fd398275",
+        "bodyOffset": 257,
+        "servedSha256": "fa1867a13f29dfb3d1c4d8f0107df9dff2aaa51028ec68192cf4aec8a4e941f7",
         "trailingSourceNewlines": 1
+      },
+      {
+        "uri": "convertigo://guides/common/models",
+        "file": "guides/common/models.md",
+        "when": "Models, templates and output contracts",
+        "sha256": "f2d8b9d10ae0c8d4bb9b7583fcd971506ea71cdb9851f5b17cd84bea35ec53e4",
+        "bodyOffset": 240,
+        "servedSha256": "f2d8b9d10ae0c8d4bb9b7583fcd971506ea71cdb9851f5b17cd84bea35ec53e4"
       },
       {
         "uri": "convertigo://guides/common/batching",
         "file": "guides/common/batching.md",
         "when": "Tree shortcuts and file-backed batch calls",
         "sha256": "c7b4fc6cbaa3f1d43f69fb7366014d39ec2a87c78d2366c6ad9403c6eab7319c",
-        "bodyOffset": 248,
-        "servedSha256": "9db2e7d386968c53752aed2287f7ddf8caeea7e6e0727f1c17c9b23bc14040ed"
+        "bodyOffset": 238,
+        "servedSha256": "6caed7e48060cf8024adf42a6457fec9d58a92d60fd452332c61aa29a12de2b1"
       },
       {
         "uri": "convertigo://guides/common/readback",
@@ -1832,7 +1840,7 @@
         "servedSha256": "48d5b07cbff577bb75de043dd4154146cf4b6fb86cc8a5d1d8dd1ce5b7e80f53"
       }
     ],
-    "summarySha256": "4b2570781131d44201b5ccf32086af80e78ea5ff09d4aa3ba30ed234cd427972"
+    "summarySha256": "68691e9ddebb3a83273d5e0b8750758b4189b418618e629a627ed120d0da0090"
   },
   {
     "oldUri": "convertigo://resources/convertigo-yaml-editing",

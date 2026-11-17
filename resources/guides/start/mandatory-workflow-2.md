@@ -16,7 +16,7 @@ Previous: `convertigo://guides/start/mandatory-workflow`. Next: `convertigo://gu
 15. For a low-detail CRUD request, stop after the first green scaffold plus seeded demo data. Do not start a second refinement pass on layout, labels, or field-level UX unless the user explicitly asked for it.
 16. Once the CRUD fast path is selected, do not call `rag-query` unless the built-in guides and tools no longer answer the task.
 17. When a CRUD domain obviously contains relations, declare them explicitly in `spec.relations[]`; use `field.references` only as the compatibility layer for simple FK fields.
-18. Build the CRUD pages with `ngx-page-create` on the generated business sequences, not by hand; `databaseobject-tree-apply` only for what it does not cover.
+18. Build the CRUD pages with `ngx-page-create` on the generated business sequences, not by hand; `databaseobject-tree-apply` only for what it does not cover. A page whose model or template a skill or the project names is a copy of it instead (`databaseobject-copy`, then its content zone only).
 19. For credible demo rows, prefer `seed.data` over patching `init_schema` manually after generation.
 20. Do not grep the local workspace to rediscover the public CRUD shapes of `relations[]`, `ui.relationFields`, or `seed.data` once the built-in guides already document them.
 21. Generated CRUD business sequences are hidden requestables with `authenticated context required=true`; the app opens that session once on its `Login` entry page (an `ngx-page-create` form page on `auth_login(username,password)` with `root:true`), which then opens the home page as root.

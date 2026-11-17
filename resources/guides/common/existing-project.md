@@ -1,7 +1,7 @@
 # Existing project: notes, brief and frequent changes
 
 Read when: Existing project: notes, brief and frequent changes. Summary: `convertigo://guides/common`.
-Previous: `convertigo://guides/common/libraries`. Next: `convertigo://guides/common/batching`.
+Previous: `convertigo://guides/common/libraries`. Next: `convertigo://guides/common/models`.
 
 ---
 
@@ -13,11 +13,9 @@ A change to a project that already exists starts from what the project says abou
 - Patch from those QNames with `databaseobject-tree-apply`: the QName of an object is the page QName, a dot, and the path at the start of its line. Do not search for the page, tree-get the whole page, or read the palette for an object type the page already uses; copy its shape from the line.
 - Keep `databaseobject-search`, `databaseobject-tree-get` and `palette-*` for what the brief does not answer: a value it cuts, an object type the project does not use yet.
 
-## Start from what exists, and keep its contracts
+## Models, templates and contracts
 
-- To start a page, a sequence or any object from a model or from an existing one (a page the user names as a model, a sequence that already does most of the job), copy it with `databaseobject-copy({source, target, name})`, then adapt the copy with `databaseobject-tree-apply` on the QNames of its new place: its texts, bindings, the sequence it calls, its route segment. Never rebuild it from `databaseobject-tree-get` reads: a copy keeps every property and gives the copy its own step and component priorities, so its sources point at its own objects. Read only the parts you change.
-- A copy into another project keeps its references to the source project (calls, sequences, styles) unless you pass `retargetProject:true`; the answer lists what the copy still reads outside itself. Fix those before anything else.
-- The output of an existing sequence or transaction is a contract other pages and sequences consume. A new page binds to that output as it is (its keys and their case): adapt the page's bindings, never the requestable. Do not change an existing requestable's output, its keys, its steps or its SQL aliases unless the user asked for it; when the page needs a field the output lacks, add a new requestable or ask. A change the user did not ask for is named as such in the final report.
+To start from a model page, a template or an existing object, and to keep the contracts of existing requestables: `convertigo://guides/common/models`.
 
 ## Frequent changes: where they go
 

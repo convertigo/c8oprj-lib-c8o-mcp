@@ -6,6 +6,7 @@ Previous: `convertigo://guides/multipage/session`. Next: `convertigo://guides/mu
 ---
 
 ## NGX pages
+A page whose model or template a skill or the project names is a copy of that model (`databaseobject-copy`), filled in its content zone only, never an `ngx-page-create` page: `convertigo://guides/common/existing-project`.
 Every page below is built from events and actions: no page loads data from `scriptContent` (`this.c8o.callJson`), which bypasses Angular change detection and leaves the view stale.
 - Entry page (`isRoot`): page-enter event -> `CallSequenceAction` `auth_getCurrentUser` with `noAutoLogin` and `noLoading` -> one `IfAction` per role on `out?.success && out?.data?.user?.role == '<ROLE>'` -> `RootPageAction` to that role's home page. Otherwise it shows the login form or buttons.
 - Login: `CallSequenceAction` login with `noAutoLogin` -> child `IfAction` on `out?.success` -> `RootPageAction` home; its Failure handler sets a network error local.

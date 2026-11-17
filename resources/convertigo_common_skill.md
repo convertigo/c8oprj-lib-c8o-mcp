@@ -18,7 +18,7 @@ A tool answer stays under 14,000 characters. From a script, return the answer it
 
 ## Existing project: notes and brief first
 
-A change to an existing project starts from its notes (`_private/docs/PROGRESS.md`, given at the start of the turn as `Project notes kept by Tigo`) and `project-brief({project})`, then `project-brief({project, page})` for each page you change: patch from the QNames it shows instead of searching or reading whole pages; keep `databaseobject-search`, `databaseobject-tree-get` and `palette-*` for what the brief does not answer. Start from a model with `databaseobject-copy`, then adapt the copy. An existing requestable's output is a contract: adapt new pages to it, change it only when asked. Frequent changes (styles, colours, KPI cards, columns, links in rows, texts), copies and contracts: `convertigo://guides/common/existing-project`.
+A change to an existing project starts from its notes (`_private/docs/PROGRESS.md`, given at the start of the turn as `Project notes kept by Tigo`) and `project-brief({project})`, then `project-brief({project, page})` for each page you change: patch from the QNames it shows instead of searching or reading whole pages; keep `databaseobject-search`, `databaseobject-tree-get` and `palette-*` for what the brief does not answer. A model page or template a skill or the project names: `databaseobject-copy` it, fill only its content zone, never `ngx-page-create`. An existing requestable's output is a contract: adapt new pages to it, change it only when asked (`convertigo://guides/common/models`). Frequent changes (styles, KPI cards, columns, links, texts): `convertigo://guides/common/existing-project`.
 
 ## Task routes
 
