@@ -31,6 +31,19 @@ var DEFAULTS = {
 var SNAPSHOT_LIMIT = 7000;
 var AUTO_SNAPSHOT_LIMIT = 3500;
 var FINISH_RESERVE_MS = 30000;
+// One model request may take REQUEST_TIMEOUT_MS. The run is stopped WATCHDOG_GRACE_MS after its time budget (main), so
+// the gateway client gives up GATEWAY_GRACE_MS after the budget: each request (and each wait on a 429) gets only what is
+// left until then, a request is not sent with less than MIN_REQUEST_MS left, and the loop still has time to return the
+// partial report before the watchdog.
+var REQUEST_TIMEOUT_MS = 120000;
+var GATEWAY_GRACE_MS = 40000;
+var WATCHDOG_GRACE_MS = 60000;
+var MIN_REQUEST_MS = 5000;
+// A partial report lists the last DIGEST_STEPS steps of the walk in its summary; the whole trace stays in report.json.
+var DIGEST_STEPS = 10;
+// The text of an observation kept for the citation check, and the longest excerpt a recovered citation may be.
+var OBSERVED_LIMIT = 20000;
+var CITATION_MAX = 300;
 
 function str(value) {
   return value == null ? "" : String(value).trim();
@@ -286,7 +299,26 @@ function targetProps(extra) {
 // ---------------------------------------------------------------------------------------------------------------
 // Gateway
 
+// The time a model request may take when leftMs remain before the gateway deadline: 0 when too little is left.
+function requestTimeoutMs(leftMs) {
+  if (!isFinite(leftMs)) {
+    return REQUEST_TIMEOUT_MS;
+  }
+  return leftMs < MIN_REQUEST_MS ? 0 : Math.min(REQUEST_TIMEOUT_MS, Math.floor(leftMs));
+}
+
+function budgetError(detail) {
+  var error = new Error("The time budget of the verification is used up: " + detail);
+  error.code = "TIME_BUDGET";
+  return error;
+}
+
+// config.deadlineAt (ms, optional): no request, retry or wait past it; the run sets it from its time budget.
 function createGateway(config, key, fetchImpl) {
+  var now = typeof config.now === "function" ? config.now : Date.now;
+  function leftMs() {
+    return config.deadlineAt ? config.deadlineAt - now() : Infinity;
+  }
   var usage = {
     tool: config.usageTool,
     callId: config.callId,
@@ -337,21 +369,33 @@ function createGateway(config, key, fetchImpl) {
     // asks (Retry-After), else longer each time, up to 75 s of waiting in all, instead of failing the verification.
     var waitedMs = 0;
     for (var attempt = 0; attempt < 6; attempt++) {
+      var timeoutMs = requestTimeoutMs(leftMs());
+      if (!timeoutMs) {
+        throw budgetError(lastError ? "no time is left to ask the model again after: " + lastError.message : "no time is left for another model request.");
+      }
       var started = Date.now();
       var response;
+      var text;
       try {
         response = await fetchImpl(config.gatewayUrl.replace(/\/+$/, "") + "/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
           body: JSON.stringify(request),
-          signal: AbortSignal.timeout(120000)
+          signal: AbortSignal.timeout(timeoutMs)
         });
+        text = await response.text();
       } catch (e) {
-        lastError = new Error("The LLM gateway could not be reached: " + redact(e && e.message ? e.message : e, key));
-        await sleep(1500 * (attempt + 1));
+        var timedOut = e && (e.name === "TimeoutError" || e.name === "AbortError");
+        lastError = timedOut
+          ? new Error("The model did not answer within " + Math.round(timeoutMs / 1000) + " s.")
+          : new Error("The LLM gateway could not be reached: " + redact(e && e.message ? e.message : e, key));
+        var pause = 1500 * (attempt + 1);
+        if (pause > leftMs() - MIN_REQUEST_MS) {
+          throw budgetError(lastError.message);
+        }
+        await sleep(pause);
         continue;
       }
-      var text = await response.text();
       if (response.status === 400 && request.reasoning_effort && /reasoning_effort/i.test(text)) {
         delete request.reasoning_effort;
         reasoning = "";
@@ -371,6 +415,10 @@ function createGateway(config, key, fetchImpl) {
         wait = Math.min(wait, 30000, Math.max(0, 75000 - waitedMs));
         if (wait <= 0) {
           break;
+        }
+        if (wait > leftMs() - MIN_REQUEST_MS) {
+          throw budgetError("the LLM gateway answered HTTP " + response.status + " and no time is left to wait " +
+            Math.round(wait / 1000) + " s and ask again.");
         }
         waitedMs += wait;
         if (typeof config.onWait === "function") {
@@ -1179,6 +1227,127 @@ function parseArgs(text) {
   }
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// Citations: a check passes on an exact excerpt of a recorded observation (a step A..., a network answer N...). Models
+// often paraphrase it (other case, spacing, punctuation, a word left out): the exact excerpt is recovered from the
+// observations when it can be found deterministically; a claim no observation holds stays unproven.
+
+function observationText(entry) {
+  if (!entry) return "";
+  return String(entry.observed || entry.result || entry.message || entry.errorCode || "");
+}
+
+// Letters and digits only, lower case, without accents, one space between words; map[i] is the index in text of the
+// normalized character i.
+function normalizeMap(text) {
+  var chars = [], map = [], pending = false;
+  var value = String(text == null ? "" : text);
+  for (var i = 0; i < value.length; i++) {
+    var c = value.charAt(i).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    if (c.length && /^[\p{L}\p{N}]+$/u.test(c)) {
+      if (pending && chars.length) { chars.push(" "); map.push(i); }
+      pending = false;
+      for (var k = 0; k < c.length; k++) { chars.push(c.charAt(k)); map.push(i); }
+    } else {
+      pending = true;
+    }
+  }
+  return { text: chars.join(""), map: map };
+}
+
+// The words of a text: {word, start, end (in text), line}.
+function tokensOf(text) {
+  var value = String(text == null ? "" : text);
+  var n = normalizeMap(value), out = [], re = /[^ ]+/g, m, line = 0, scanned = 0;
+  while ((m = re.exec(n.text))) {
+    var start = n.map[m.index];
+    while (scanned < start) {
+      if (value.charAt(scanned) === "\n") line++;
+      scanned++;
+    }
+    out.push({ word: m[0], start: start, end: n.map[m.index + m[0].length - 1] + 1, line: line });
+  }
+  return out;
+}
+
+// The claim as whole words of the text, whatever its case, accents, spacing and punctuation: the exact excerpt, or "".
+function exactExcerpt(claim, text) {
+  var c = normalizeMap(claim).text;
+  if (c.length < 3) return "";
+  var o = normalizeMap(text);
+  var at = (" " + o.text + " ").indexOf(" " + c + " ");
+  if (at < 0) return "";
+  return String(text).substring(o.map[at], o.map[at + c.length - 1] + 1);
+}
+
+// A run of words of one line of the text holding 80 % of the claim's distinct words (paraphrase words aside) and all its
+// numbers, at most about twice as long as the claim, from a word of the claim to the last one it holds; the run holding
+// the most of them, then the shortest: {excerpt, covered}, or null. Claims of fewer than 3 such words never match this way.
+// Words a paraphrase adds around a quote (articles, links, "is shown"): never required in the observation.
+var PARAPHRASE_WORDS = /^(?:the|an|is|are|was|were|be|been|as|with|of|to|in|on|at|by|for|and|or|it|its|this|that|these|those|has|have|now|still|then|show|shows|shown|showing|display|displays|displayed|visible|appear|appears|appeared|le|la|les|un|une|des|du|de|est|sont|et|ou|avec|pour|dans|sur|au|aux|en|ce|cet|cette|ces|affiche|affichee|affiches|affichees|apparait)$/;
+
+function overlapExcerpt(claim, text) {
+  var words = tokensOf(claim).map(function (t) { return t.word; }).filter(function (w) {
+    return (w.length >= 2 || /\d/.test(w)) && !PARAPHRASE_WORDS.test(w);
+  });
+  var wanted = {};
+  var distinct = [];
+  words.forEach(function (w) { if (!wanted[w]) { wanted[w] = true; distinct.push(w); } });
+  if (distinct.length < 3) return null;
+  var numbers = distinct.filter(function (w) { return /\d/.test(w); });
+  var need = Math.ceil(distinct.length * 0.8);
+  var maxSpan = words.length * 2 + 4;
+  var tokens = tokensOf(text);
+  var best = null;
+  for (var i = 0; i < tokens.length; i++) {
+    if (!wanted[tokens[i].word]) continue;
+    var seen = {}, count = 0, last = i;
+    for (var j = i; j < tokens.length && j - i < maxSpan && tokens[j].line === tokens[i].line; j++) {
+      var w = tokens[j].word;
+      if (wanted[w] && !seen[w]) { seen[w] = true; count++; last = j; }
+    }
+    if (count >= need && numbers.every(function (n) { return seen[n]; })) {
+      if (!best || count > best.count || (count === best.count && last - i < best.span)) {
+        best = { count: count, span: last - i, start: tokens[i].start, end: tokens[last].end };
+      }
+    }
+  }
+  if (!best || best.end - best.start > CITATION_MAX) return null;
+  return { excerpt: String(text).substring(best.start, best.end), covered: best.count / distinct.length };
+}
+
+// The exact excerpt behind a check's quote (observedText, else the quoted parts of its evidence): looked for in the cited
+// observations first, then in the others from the latest; exact words before a word overlap. {id, excerpt} or null.
+function recoverCitation(check, observations, cited) {
+  var claims = [];
+  if (str(check.observedText).length) {
+    claims.push(str(check.observedText));
+  } else {
+    var quoted = /["\u201c\u00ab]([^"\u201d\u00bb]{3,200})["\u201d\u00bb]/g, m;
+    while ((m = quoted.exec(str(check.evidence)))) claims.push(m[1]);
+  }
+  if (!claims.length) return null;
+  var first = (cited || []).filter(function (entry) { return !!entry; });
+  var others = (observations || []).filter(function (entry) { return entry && first.indexOf(entry) < 0; }).reverse();
+  var ordered = first.concat(others);
+  for (var a = 0; a < claims.length; a++) {
+    for (var b = 0; b < ordered.length; b++) {
+      var exact = exactExcerpt(claims[a], observationText(ordered[b]));
+      if (exact.length) return { id: ordered[b].id, excerpt: exact };
+    }
+  }
+  var best = null;
+  for (var x = 0; x < claims.length; x++) {
+    for (var y = 0; y < ordered.length; y++) {
+      var found = overlapExcerpt(claims[x], observationText(ordered[y]));
+      if (found && (!best || found.covered > best.covered)) {
+        best = { id: ordered[y].id, excerpt: found.excerpt, covered: found.covered };
+      }
+    }
+  }
+  return best ? { id: best.id, excerpt: best.excerpt } : null;
+}
+
 function normalizeReport(args, config, shots, pendingFailures, trace, network) {
   var known = {};
   shots.forEach(function (s) {
@@ -1244,9 +1413,24 @@ function normalizeReport(args, config, shots, pendingFailures, trace, network) {
     var issues = unresolved.slice();
     if (c.status === "passed") {
       var observations = (trace || []).concat(network || []), cited = c.evidenceRefs.map(function(id) { return observations.find(function(entry) { return entry.id === id; }); });
+      var shotOk = !!c.screenshot && shots.some(function(shot) { return shot.file === c.screenshot; });
+      var quoteOk = !!c.observedText && cited.some(function(entry) { return entry && observationText(entry).includes(c.observedText); });
+      // A paraphrased quote or a wrong id: the exact excerpt is looked for in the recorded observations, the cited ones first.
+      if (!cited.length || cited.some(function(entry) { return !entry; }) || (!shotOk && !quoteOk)) {
+        var recovered = recoverCitation(c, observations, cited);
+        if (recovered) {
+          if (!shotOk && !quoteOk) {
+            c.observedText = recovered.excerpt;
+          }
+          c.evidenceRefs = c.evidenceRefs.filter(function(id) { return observations.some(function(entry) { return entry.id === id; }); });
+          if (c.evidenceRefs.indexOf(recovered.id) < 0) c.evidenceRefs.push(recovered.id);
+          cited = c.evidenceRefs.map(function(id) { return observations.find(function(entry) { return entry.id === id; }); });
+          c.evidence = (c.evidence ? c.evidence + " " : "") + "[quote matched in " + recovered.id + "]";
+        }
+      }
       if (!cited.length || cited.some(function(entry) { return !entry; })) issues.push("cite actual journal evidenceRefs");
-      if (!c.screenshot || !shots.some(function(shot) { return shot.file === c.screenshot; })) {
-        if (!c.observedText || !cited.some(function(entry) { return entry && String(entry.result || entry.message || entry.errorCode || "").includes(c.observedText); })) issues.push("observedText must quote the cited observation");
+      if (!shotOk) {
+        if (!c.observedText || !cited.some(function(entry) { return entry && observationText(entry).includes(c.observedText); })) issues.push("observedText must quote the cited observation");
       }
       var actions = c.actionRefs.map(function(id) { return (trace || []).find(function(entry) { return entry.id === id; }); });
       if (new Set(c.actionRefs).size !== c.actionRefs.length) issues.push("actionRefs must cite distinct journal actions");
@@ -1342,6 +1526,9 @@ function autoDefectsOf(state) {
 async function run(rawConfig, deps) {
   var config = normalizeConfig(rawConfig);
   var started = Date.now();
+  // deps.now (tests) moves the gateway's clock only; the loop keeps the real time.
+  config.now = typeof deps.now === "function" ? deps.now : Date.now;
+  config.deadlineAt = config.now() + config.timeBudgetMs + GATEWAY_GRACE_MS;
   var key = str(deps.key);
   if (!key.length) {
     throw new Error("No gateway key.");
@@ -1412,6 +1599,28 @@ async function run(rawConfig, deps) {
   var finishTurns = 0;
   var forcing = false;
   var stopReason = "";
+  var lastThought = "";
+
+  // What the walk collected so far, as a partial report: the requested checks not_checked, the steps done in the summary,
+  // the screenshots and the defects the script found. The time budget, the watchdog (deps.onPartial) and a gateway
+  // failure after the first turn end the run with it instead of an error that would lose the walk.
+  function partialReport(note, reason) {
+    var partial = normalizeReport({ verdict: "partial", summary: note + stepsDigest(trace, lastThought), checks: [] }, config, state.screenshots, pendingFailures);
+    partial.checks.forEach(function (c) {
+      if (c.evidence === "No evidence returned for this requested check.") {
+        c.evidence = "Not reported: the verification was cut before its report (see summary).";
+      }
+    });
+    partial.partial = true;
+    partial.partialReason = reason;
+    return partial;
+  }
+  if (typeof deps.onPartial === "function") {
+    deps.onPartial(function (note) {
+      return buildResult(partialReport(note + " (turn " + turns + "). " + PARTIAL_NOTE,
+        "time budget: stopped " + Math.round(WATCHDOG_GRACE_MS / 1000) + " s after the budget, before the report"), "time budget");
+    });
+  }
 
   // Load the application before spending a model call. A stopped gateway or a broken first render is a terminal
   // platform/application diagnostic, never a reason to explore a different Convertigo surface.
@@ -1438,13 +1647,33 @@ async function run(rawConfig, deps) {
     }
     compactHistory(messages, config);
     var toolChoice = finishTurns > 0 ? { type: "function", "function": { name: "finish" } } : (forcing ? "required" : null);
-    var body = await gateway.complete(wireMessages(messages), toolChoice ? { toolChoice: toolChoice } : null);
+    var body;
+    try {
+      body = await gateway.complete(wireMessages(messages), toolChoice ? { toolChoice: toolChoice } : null);
+    } catch (e) {
+      // A refused key or model at the first turn stays an error; later, the walk done so far is the report.
+      if (e.code !== "TIME_BUDGET" && turns === 0) {
+        throw e;
+      }
+      var seconds = Math.round((Date.now() - started) / 1000);
+      stopReason = e.code === "TIME_BUDGET" ? "time budget" : "gateway error";
+      report = partialReport(e.code === "TIME_BUDGET"
+        ? "Cut by the time budget (" + Math.round(config.timeBudgetMs / 1000) + " s): the verifier was stopped after " + seconds +
+          " s while it waited for the model (turn " + (turns + 1) + "), before it sent its report. " + PARTIAL_NOTE
+        : "Stopped after " + seconds + " s by a model gateway error at turn " + (turns + 1) + ": " + shortError(e) + " " + PARTIAL_NOTE,
+        e.code === "TIME_BUDGET" ? "time budget: the model did not answer before the budget ran out" : "gateway error: " + shortError(e));
+      break;
+    }
     turns++;
     var choice = (body.choices && body.choices[0]) || {};
     var message = choice.message || {};
     var calls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
     var assistant = { role: "assistant", content: typeof message.content === "string" ? message.content : "" };
     logThought(config, turns, message);
+    var thought = messageThought(message);
+    if (thought.text.length) {
+      lastThought = thought.text;
+    }
     if (calls.length) {
       assistant.tool_calls = calls.map(function (c) {
         return { id: c.id, type: "function", "function": { name: c["function"].name, arguments: c["function"].arguments || "{}" } };
@@ -1511,6 +1740,9 @@ async function run(rawConfig, deps) {
       var observationId = "A" + (trace.length + 1);
       state.activeActionId = "";
       trace.push({ id: observationId, turn: turns, tool: name, args: summarizeArgs(args), failed: /^Error:/.test(outcome.text), ms: Date.now() - callStarted, result: cut(outcome.text, 1200) });
+      // The whole text the model saw, for its quotes (report.json keeps the 1200 first characters): a quote from the end of
+      // a long page text could not be found in the cut one.
+      Object.defineProperty(trace[trace.length - 1], "observed", { value: cut(outcome.text, OBSERVED_LIMIT), enumerable: false });
       logActivity(config, { id: observationId, at: Date.now(), turn: turns, text: activityText(name, args, outcome) });
       var progress = "\n[" + Math.round((Date.now() - started) / 1000) + " s of " + Math.round(config.timeBudgetMs / 1000) +
         " s, turn " + turns + " of " + config.maxSteps + "]";
@@ -1531,28 +1763,68 @@ async function run(rawConfig, deps) {
   }
 
   if (!report) {
-    report = normalizeReport({ verdict: "partial", summary: "The verification agent did not send a report within its budget.", checks: [] }, config, state.screenshots);
+    report = partialReport("The verification agent did not send a report within its budget. " + PARTIAL_NOTE, "no report within the budget");
   }
-  var result = {
-    report: Object.assign(report, {consoleMessages: state.consoleMessages, autoDefects: autoDefectsOf(state)}),
-    consoleMessages: state.consoleMessages,
-    screenshots: state.screenshots.map(function (s) { return { name: s.name, file: s.file, url: s.url }; }),
-    finalUrl: state.page.url(),
-    startUrl: browserState.startUrl,
-    turns: turns,
-    toolCalls: trace.length,
-    stopReason: stopReason || "finished",
-    durationMs: Date.now() - started,
-    usage: gateway.finalUsage(),
-    trace: trace
-  };
-  try {
-    fs.writeFileSync(path.join(config.outDir, (config.outPrefix || "") + "report.json"), JSON.stringify(result, null, 2));
-  } catch (_noReportFile) {}
-  return result;
+  return buildResult(report, stopReason || "finished");
+
+  function buildResult(finalReport, reason) {
+    var result = {
+      report: Object.assign(finalReport, {consoleMessages: state.consoleMessages, autoDefects: autoDefectsOf(state)}),
+      consoleMessages: state.consoleMessages,
+      screenshots: state.screenshots.map(function (s) { return { name: s.name, file: s.file, url: s.url }; }),
+      finalUrl: state.page.url(),
+      startUrl: browserState.startUrl,
+      turns: turns,
+      toolCalls: trace.length,
+      stopReason: reason,
+      durationMs: Date.now() - started,
+      usage: gateway.finalUsage(),
+      trace: trace
+    };
+    try {
+      fs.writeFileSync(path.join(config.outDir, (config.outPrefix || "") + "report.json"), JSON.stringify(result, null, 2));
+    } catch (_noReportFile) {}
+    return result;
+  }
   } finally {
     await restoreViewport(browserState);
   }
+}
+
+var PARTIAL_NOTE = "This is a partial report: the checks it did not report are not_checked; its last steps are below and " +
+  "the full step trace is in reportFile. Verify only what is still open, in a new call with fewer paths or a larger timeBudgetSec.";
+
+// The last steps of the walk for a partial report, one short line each, and what the verifier last said it was doing.
+function stepsDigest(trace, lastThought) {
+  var steps = (trace || []).filter(function (t) { return t && t.tool !== "finish"; });
+  if (!steps.length && !str(lastThought).length) {
+    return "\nNo browser step was done.";
+  }
+  var shown = steps.slice(-DIGEST_STEPS);
+  var lines = shown.map(function (t) {
+    var a = t.args || {};
+    var target = str(a.target || a.url || a.name || a.text || a.key || a.to || a.expression);
+    var result = str(t.result).replace(/\s+/g, " ");
+    return t.id + " " + (t.failed ? "FAILED " : "") + t.tool + (target ? " " + cut(target, 60) : "") + (result ? ": " + cut(result, 140) : "");
+  });
+  var head = steps.length > shown.length ? "\nLast " + shown.length + " of " + steps.length + " steps:" : (steps.length ? "\nSteps:" : "");
+  return head + (lines.length ? "\n" + lines.join("\n") : "") + (str(lastThought).length ? "\nLast said: " + cut(str(lastThought).replace(/\s+/g, " "), 300) : "");
+}
+
+// The watchdog's answer: the partial report of the run when it can still be built, else the error it always gave.
+function watchdogOutput(partial, budgetMs) {
+  var note = "Cut by the time budget (" + Math.round(budgetMs / 1000) + " s): the verifier was stopped " + Math.round(WATCHDOG_GRACE_MS / 1000) +
+    " s after its budget, before it sent its report";
+  if (typeof partial === "function") {
+    try {
+      var output = partial(note);
+      if (output && output.report) {
+        output.ok = true;
+        return output;
+      }
+    } catch (_noPartial) {}
+  }
+  return { ok: false, error: "The verification agent was stopped after its time budget and " + Math.round(WATCHDOG_GRACE_MS / 1000) + " s more." };
 }
 
 // One line per step in activity.jsonl: the calling agent sees it while the run goes on, and Tigo shows it in the block of
@@ -1637,8 +1909,13 @@ function readStdin() {
 }
 
 // The MCP tool returns before the agent ends; the agent releases the browser lock itself, and a watchdog makes sure it
-// ends even if the browser or the gateway hangs.
+// ends even if the browser or the gateway hangs. The first answer wins.
+var finished = false;
 function finish(output, lockFile) {
+  if (finished) {
+    return;
+  }
+  finished = true;
   process.stdout.write(JSON.stringify(output) + "\n", function () {
     if (lockFile) {
       try {
@@ -1654,14 +1931,15 @@ async function main() {
   var key = process.env.CONVERTIGO_LLM_API_KEY || "";
   var output;
   var input = {};
+  var partial = null;
   try {
     input = JSON.parse(await readStdin() || "{}");
     var budget = clampInt(input.timeBudgetMs, DEFAULTS.timeBudgetMs, 30000, 900000);
     setTimeout(function () {
-      finish({ ok: false, error: "The verification agent was stopped after its time budget and 60 s more." }, str(input.lockFile));
-    }, budget + 60000).unref();
+      finish(watchdogOutput(partial, budget), str(input.lockFile));
+    }, budget + WATCHDOG_GRACE_MS).unref();
     var playwright = require(str(input.playwrightModule) || "playwright-core");
-    output = await run(input, { key: key, playwright: playwright, fetch: fetch });
+    output = await run(input, { key: key, playwright: playwright, fetch: fetch, onPartial: function (fn) { partial = fn; } });
     output.ok = true;
   } catch (e) {
     output = { ok: false, error: redact(shortError(e), key) };
@@ -1673,6 +1951,10 @@ module.exports = {
   normalizeConfig: normalizeConfig,
   buildTask: buildTask,
   createGateway: createGateway,
+  requestTimeoutMs: requestTimeoutMs,
+  stepsDigest: stepsDigest,
+  recoverCitation: recoverCitation,
+  watchdogOutput: watchdogOutput,
   normalizeReport: normalizeReport,
   compactHistory: compactHistory,
   layoutScan: layoutScan,

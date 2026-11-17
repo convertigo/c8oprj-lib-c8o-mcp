@@ -10,8 +10,11 @@ test('a plausible passed story cannot substitute for journal evidence',()=>{
 });
 test('observations, claimed actions and actual Flow errors constrain every passed check',()=>{
  assert.equal(agent.normalizeReport({verdict:'passed',checks:[check]},config,[],{},trace).verdict,'passed');
- for(const change of [{actionRefs:['A9']},{observedText:'invented result'},{evidenceRefs:['A9']}])
+ for(const change of [{actionRefs:['A9']},{observedText:'invented result'},{evidenceRefs:['A9'],observedText:'3 loans'}])
   assert.equal(agent.normalizeReport({verdict:'passed',checks:[{...check,...change}]},config,[],{},trace).verdict,'partial');
+ // A wrong id over a quote a recorded observation holds word for word: the citation is repaired to that observation.
+ const repaired=agent.normalizeReport({verdict:'passed',checks:[{...check,evidenceRefs:['A9']}]},config,[],{},trace);
+ assert.equal(repaired.verdict,'passed');assert.deepEqual([...repaired.checks[0].evidenceRefs],['A2']);
  const network=[{id:'N1',action:'A2',failed:true,status:200,errorCode:'LOAN_LIMIT_REACHED',message:'Limit reached'}];
  assert.equal(agent.normalizeReport({verdict:'passed',checks:[check]},config,[],{},trace,network).verdict,'partial');
  const expected={...check,check:'Third request refused',evidence:'Limit reached',observedText:'Limit reached',evidenceRefs:['N1'],actionRefs:['A2'],expectedErrorCode:'LOAN_LIMIT_REACHED'};

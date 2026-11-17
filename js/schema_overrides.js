@@ -2321,6 +2321,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       message: { type: "string", description: "With status running: what to do next." },
       activity: subagentActivitySchema(),
       verdict: { type: "string", enum: ["passed", "failed", "partial"], description: "passed only when every check passed and no blocking defect was seen; partial when something could not be checked." },
+      partial: { type: "boolean", description: "true when the time budget or a gateway failure cut the walk: the report holds what was seen until then, the checks not seen are not_checked." },
+      partialReason: { type: "string", description: "With partial: why the walk stopped." },
       summary: { type: "string" },
       checks: {
         type: "array",

@@ -308,6 +308,7 @@ C8O.browserVerify = C8O.browserVerify || {};
     // trace stays in report.json next to the screenshots.
     toResult: function (output, run, root) {
       var report = output.report || {};
+      // A partial report (cut by the time budget) carries its last steps in the summary: bounded with the rest.
       var rel = function (file) { return file ? sa().relativePath(root, file) : ""; };
       var mapShot = function (entry) {
         var copy = {};
@@ -328,7 +329,10 @@ C8O.browserVerify = C8O.browserVerify || {};
         task: run.task,
         report: {
           verdict: str(report.verdict) || "partial",
-          summary: str(report.summary),
+          summary: cut(report.summary, SUMMARY_MAX),
+          // A report cut by the time budget (or a gateway failure): what the verifier collected until then.
+          partial: report.partial === true ? true : undefined,
+          partialReason: report.partial === true ? str(report.partialReason) : undefined,
           checks: (report.checks || []).map(mapShot),
           network: report.network || [],
           visualDefects: (report.visualDefects || []).map(mapShot),
@@ -359,6 +363,7 @@ C8O.browserVerify = C8O.browserVerify || {};
   // of them; per page its summary, the points passed and its screenshots. Every check and measure stays in report.json.
   var DESIGN_FIXES = 14;
   var DESIGN_TEXT = 200;
+  var SUMMARY_MAX = 4000;
   function cut(text, max) {
     var t = str(text);
     return t.length > max ? t.substring(0, max - 1) + "…" : t;
@@ -407,6 +412,9 @@ C8O.browserVerify = C8O.browserVerify || {};
       status: "finished",
       verificationId: result.runId,
       verdict: report.verdict,
+      // A report cut by the time budget or a gateway failure: what the verifier collected until then, and why it stopped.
+      partial: report.partial === true ? true : undefined,
+      partialReason: report.partial === true ? report.partialReason : undefined,
       summary: report.summary,
       checks: report.checks,
       visualDefects: report.visualDefects,
