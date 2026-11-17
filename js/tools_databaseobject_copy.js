@@ -81,7 +81,7 @@ C8O.dboCopy.run = function (args) {
     return String(dbo.getName());
   }
   function qnameOf(dbo) {
-    return C8O.dbo.safeQName(dbo);
+    return C8O.dbo.safeFullQName(dbo) || C8O.dbo.safeQName(dbo);
   }
   function folderOf(dbo) {
     try {
@@ -215,6 +215,12 @@ C8O.dboCopy.run = function (args) {
     if (nodes.item(n).getNodeType() === Packages.org.w3c.dom.Node.ELEMENT_NODE) {
       firstElement = nodes.item(n);
     }
+  }
+  // One root page (or menu) per application, and the engine gives the root to any page added as root: the copy of the root
+  // page would take it from its source. The copy is never the root.
+  if (firstElement != null && String(firstElement.getAttribute("isRoot")) === "true") {
+    firstElement.setAttribute("isRoot", "false");
+    warnings.push("The copy is not the root of the application: " + name(source) + " stays the root.");
   }
   var afterValue = null;
   if (at === "after") {
