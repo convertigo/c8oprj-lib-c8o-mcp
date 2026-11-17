@@ -1632,6 +1632,11 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     } else if (!studioMode) {
       message = message + " Studio mode is disabled; this tool is intended for Studio usage.";
     }
+    // The measured runs proved their pages with dozens of Playwright calls by hand (72 in one run), never browser-verify.
+    if (ready && (compileState === "success" || compileState === "not_required")) {
+      message = message + " To prove what a page shows, call browser-verify {url, checks}: one call, a verifier drives this " +
+        "viewer and answers what it saw with screenshots, instead of many browser calls by hand.";
+    }
     var publicEditorResult = {
       requested: editorResult && editorResult.requested === true,
       opened: editorResult && editorResult.opened === true,

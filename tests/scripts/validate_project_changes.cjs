@@ -515,3 +515,16 @@ test('objects created by the conversation, still there and named as a probe, are
   none.call('tools_sql_transaction_create', { status: 'ok', transactions: [{ qname: 'DemoApp.cn:db.tr:q_testimonials' }] }, { project: 'DemoApp' });
   assert.equal(none.changes({}).temporary, undefined);
 });
+
+test('the distinct objects of a project the conversation wrote, and the save that reminds project-changes', () => {
+  const j = load();
+  assert.equal(j.api.changedCount(j.conversation, 'DemoApp'), 0);
+  j.call('tools_databaseobject_delete', { qname: 'DemoApp.sq:A', removed: true });
+  j.call('tools_databaseobject_delete', { qname: 'DemoApp.sq:B', removed: true });
+  j.call('tools_databaseobject_delete', { qname: 'OtherApp.sq:A', removed: true });
+  assert.equal(j.api.changedCount(j.conversation, 'DemoApp'), 2);
+  assert.equal(j.api.changedCount(j.conversation, 'Demo'), 0, 'a whole project name, not a prefix');
+  assert.equal(j.api.changedCount(j.contextFor({ conversation: 'conv-2' }), 'DemoApp'), 0, 'another conversation');
+  const router = read('js/mcp_endpoint_router.js');
+  assert.match(router, /if \(sequenceName === "tools_project_save"\) \{[\s\S]*?C8O\.writeJournal\.changedCount\(context, savedProject\) > 0[\s\S]*?"Before your final answer, call project-changes \{project:\\"" \+ savedProject/);
+});

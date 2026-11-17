@@ -835,6 +835,32 @@ if (typeof C8O === "undefined") {
     }
   };
 
+  // How many distinct objects of a project this conversation (else this bearer) wrote: created, changed, moved, renamed or
+  // deleted. 0 when unknown.
+  api.changedCount = function (contextObject, project) {
+    try {
+      var store = contextObject ? contextObject.server : null;
+      var name = text(project);
+      if (store == null || !name.length) {
+        return 0;
+      }
+      var seen = {};
+      var count = 0;
+      api.read(store, api.keyOf(contextObject, "").key, api.host.now()).entries.forEach(function (entry) {
+        (entry.objects || []).forEach(function (o) {
+          var q = o && typeof o.q === "string" ? o.q : "";
+          if ((q === name || q.indexOf(name + ".") === 0) && !seen[q]) {
+            seen[q] = true;
+            count++;
+          }
+        });
+      });
+      return count;
+    } catch (_unknownChanges) {
+      return 0;
+    }
+  };
+
   // How many runs of a requestable this conversation (else this bearer) recorded, with requestable-execute. 0 when unknown.
   api.runCount = function (contextObject, requestable) {
     try {

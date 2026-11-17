@@ -100,3 +100,8 @@ test('the structure a copy answers stays whole lines under its budget', () => {
   assert.equal(bounded.lines[0], lines[0]);
   assert.deepEqual(plain(copy.boundLines(['a', 'b'], 100)), { lines: ['a', 'b'], truncated: false });
 });
+
+test('a viewer ready and compiled points to browser-verify for the proof of a page', () => {
+  const open = read('js/tools_mobile_builder_open.js');
+  assert.match(open, /if \(ready && \(compileState === "success" \|\| compileState === "not_required"\)\) \{\s*message = message \+ " To prove what a page shows, call browser-verify \{url, checks\}/);
+});

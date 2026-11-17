@@ -294,6 +294,18 @@ function journalAfterToolCall(sequenceName, toolResult, callArguments) {
           "a run that answers an error proves nothing.";
       }
     }
+    // The measured runs saved, compiled and answered without project-changes, the report of what the conversation changed
+    // (probes left included): the save that ends a change says when to call it, in its message.
+    if (sequenceName === "tools_project_save") {
+      var savedAnswer = toolResult.result && typeof toolResult.result === "object" ? toolResult.result : toolResult;
+      var savedProject = savedAnswer && savedAnswer.saved === true ? String(savedAnswer.project || "") : "";
+      if (savedProject.length && C8O.writeJournal.changedCount(context, savedProject) > 0 &&
+          (savedAnswer.message === undefined || typeof savedAnswer.message === "string")) {
+        var reminder = "Before your final answer, call project-changes {project:\"" + savedProject + "\"}: it lists what this " +
+          "conversation created, changed and deleted, and the probes it left; report from it.";
+        savedAnswer.message = savedAnswer.message ? savedAnswer.message + " " + reminder : reminder;
+      }
+    }
     return journalEntry;
   } catch (_ignoreJournal) {
     return null;
