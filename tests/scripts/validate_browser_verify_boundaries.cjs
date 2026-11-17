@@ -88,8 +88,26 @@ test('console warnings are visible to the model and included in its final report
  const answer=await agent.run(cfg,{key:'fake',playwright:f.playwright,fetch});
  assert.equal(answer.report.consoleMessages.length,2);assert.equal(answer.consoleMessages[0].text,'A useful browser warning');
 });
-test('two reloads of the same DOM stop a frozen verification',async()=>{
- const f=fixture();let calls=0;const fetch=async()=>({ok:true,status:200,headers:{get:()=>null},text:async()=>JSON.stringify({choices:[{message:{tool_calls:[{id:String(++calls),type:'function',function:{name:'navigate',arguments:JSON.stringify({url:cfg.url})}}]}}]})});
+// A working page loaded again is the same page: the verifier is told so, and only a loop of loads ends the walk, without
+// blaming the application (measured run 17/11: three loads of a working page stopped the proof as a frozen application).
+test('the same page loaded again gets a note; only a loop of loads ends the walk, without blaming the application',async()=>{
+ const f=fixture();let calls=0;const seen=[];
+ const fetch=async(_url,init)=>{const body=JSON.parse(init.body);const last=body.messages[body.messages.length-1];if(last&&last.role==='tool')seen.push(String(last.content));
+  return {ok:true,status:200,headers:{get:()=>null},text:async()=>JSON.stringify({choices:[{message:{tool_calls:[{id:String(++calls),type:'function',function:{name:'navigate',arguments:JSON.stringify({url:cfg.url})}}]}}]})};};
  const answer=await agent.run(cfg,{key:'fake',playwright:f.playwright,fetch});
- assert.equal(calls,2);assert.equal(answer.stopReason,'APPLICATION_FROZEN');assert.match(answer.report.summary,/two reloads/);
+ assert.equal(calls,4);assert.equal(answer.stopReason,'RELOAD_LOOP');
+ assert.match(answer.report.summary,/loaded the same page 5 times in a row without any change, so the walk stopped there\. This says nothing against the application/);
+ assert.doesNotMatch(answer.report.summary,/action bindings|browser console/);
+ assert.ok(seen.some(t=>/Note: same page as the last load: loading it again changes nothing/.test(t)),'the verifier was told before the stop');
+});
+test('an address the application redirects is named as a redirect, never a defect',async()=>{
+ const f=fixture();
+ f.page.goto=async next=>{f.navigated.push(next);return {status:()=>200};};
+ const tools=agent.createTools({page:f.page,screenshots:[]},cfg);
+ const first=await tools.navigate({url:'/convertigo/gw/ticket/top-companies'});
+ assert.doesNotMatch(first.text,/Note:/);
+ const second=await tools.navigate({url:'/convertigo/gw/ticket/top-companies'});
+ assert.match(second.text,/Note: navigating to http:\/\/localhost:28080\/convertigo\/gw\/ticket\/top-companies showed http:\/\/localhost:28080\/convertigo\/gw\/ticket\/ again: the application redirects this address/);
+ assert.match(second.text,/Reach the page through the application's menu, tabs or links instead/);
+ assert.match(agent.SYSTEM_PROMPT,/After the first page, move like a user: through the application's menu, tabs, buttons and links\./);
 });

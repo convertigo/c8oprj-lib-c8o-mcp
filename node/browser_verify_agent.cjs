@@ -133,6 +133,9 @@ function normalizeConfig(raw) {
   };
 }
 
+// Loads of the same page in a row (same address and content) before the walk stops: the verifier gets a note before that.
+var RELOAD_LOOP_LIMIT = 4;
+
 var SYSTEM_PROMPT = [
   "You are a browser verification agent. Another agent built a web application and asks you to prove that given paths work and look right. You drive the browser with the tools, you look at your screenshots, and you finish with a short factual report. You report; you never fix.",
   "",
@@ -140,6 +143,7 @@ var SYSTEM_PROMPT = [
   "- You only observe and use the application like a user (log in, click, fill forms, as the paths say). You never change its code, configuration or files, and you never read its source: no fetch of scripts, bundles or routes, no study of how it is built.",
   "- When a step's precondition already holds (for example the app is already signed in and shows its home page), say so in the evidence and go on. When a step stays blocked after two attempts, mark its checks not_checked with what you saw and go to the next path: every path must get its turn. Each tool result ends with the time and turns used so far.",
   "- Requested business actions (send, refuse, cancel, download) must actually run, including their confirmation and resulting state. Seeing a button is not a proof. For downloads use download and cite its filename and byte count. An expired wait is not a successful check; mark it not_checked unless a later successful observation proves that same condition.",
+  "- After the first page, move like a user: through the application's menu, tabs, buttons and links. Loading an address restarts the whole application: it can come back to its first page, redirect elsewhere or lose a sign-in it keeps in memory. Use navigate again only when nothing in the application leads to the page; when navigate lands on another page than asked, go there through the application.",
   "- Stay inside the application URL and its gateway path. Never search the Convertigo dashboard, administration console or alternative deployments. A gateway 404 means visualiseur arrêté: stop immediately.",
   "- Walk each path once, exactly as written. Never repeat an action that changes data (save, declare, delete, submit...) to get a better result: the first outcome is the result. Retry only an action that did not happen (the tool returned an error), once, another way.",
   "- A figure or text in a check, and in the summary, is the one read on the page that check is about: name that page, and never carry a value read on another page (an admin dashboard's counts are not the home page's).",
@@ -925,20 +929,36 @@ function createTools(state, config) {
       throw error;
     }
     var snapshot = await ariaSnapshot(page(), AUTO_SNAPSHOT_LIMIT);
+    var note = "";
     if (navigation) {
+      // A page loaded again with the same address and content is no defect of the application: a working page reloads the
+      // same, and an address the app redirects (a deep link sent back to its first page, or to its sign-in when the app
+      // keeps its sign-in in memory) lands on the same page each time. Three such loads used to stop the proof as a
+      // frozen application, and the agent that asked for it went on by hand until its time cap (measured run, 17/11).
+      // The verifier is told what happened; only a loop of RELOAD_LOOP_LIMIT loads ends the walk, without blame.
       var dom = typeof page().content === "function" ? await page().content() : snapshot;
       var identity = page().url() + "\n" + require("node:crypto").createHash("sha256").update(dom).digest("hex");
       state.unchangedReloads = state.lastNavigationSnapshot === identity ? (state.unchangedReloads || 0) + 1 : 0;
       state.lastNavigationSnapshot = identity;
-      if (state.unchangedReloads >= 2) {
-        var frozen = new Error("Application DOM unchanged after two reloads. Stop reloading; inspect the action bindings and browser console. " +
-          (state.consoleMessages || []).map(function (entry) { return entry.type + ": " + entry.text; }).join("; "));
-        frozen.code = "APPLICATION_FROZEN";
-        throw frozen;
+      if (state.unchangedReloads >= RELOAD_LOOP_LIMIT) {
+        var loop = new Error("The verifier loaded the same page " + (state.unchangedReloads + 1) + " times in a row without any change, " +
+          "so the walk stopped there. This says nothing against the application: the checks not seen are not_checked.");
+        loop.code = "RELOAD_LOOP";
+        throw loop;
+      }
+      if (state.unchangedReloads >= 1) {
+        var requested = typeof navigation === "string" ? navigation : "";
+        var landed = page().url();
+        note = requested.length && requested.split("#")[0] !== landed.split("#")[0]
+          ? "\nNote: navigating to " + requested + " showed " + landed + " again: the application redirects this address (loading an " +
+            "address restarts the app at its first page, and can lose a sign-in it keeps in memory). This is not a defect. Reach the " +
+            "page through the application's menu, tabs or links instead; do not navigate to this address again."
+          : "\nNote: same page as the last load: loading it again changes nothing. Check what you need on it, or go on through the " +
+            "application's menu, tabs or links.";
       }
     }
     var consoleText = (state.consoleMessages || []).map(function (entry) { return entry.type + ": " + entry.text; }).join("\n");
-    return { text: prefix + "\n" + snapshot + (consoleText ? "\nBrowser console:\n" + consoleText : ""), snapshot: true };
+    return { text: prefix + note + "\n" + snapshot + (consoleText ? "\nBrowser console:\n" + consoleText : ""), snapshot: true };
   }
 
   return {
@@ -951,7 +971,7 @@ function createTools(state, config) {
       assertApplication(absolute);
       var response = await page().goto(absolute, { waitUntil: "domcontentloaded", timeout: 20000 });
       await inspectResponse(response);
-      return withSnapshot("Navigated.", true);
+      return withSnapshot("Navigated.", absolute);
     },
     download: async function (args) {
       assertApplication(page().url());
@@ -1816,9 +1836,12 @@ async function run(rawConfig, deps) {
           outcome = await tools[name](args);
           delete pendingFailures[name + JSON.stringify(args)];
         } catch (e) {
-          pendingFailures[name + JSON.stringify(args)] = name + ": " + shortError(e);
+          // A reload loop is the verifier's, not a failed action of the application.
+          if (e.code !== "RELOAD_LOOP") {
+            pendingFailures[name + JSON.stringify(args)] = name + ": " + shortError(e);
+          }
           outcome = { text: "Error: " + shortError(e) };
-          if (/^(VIEWER_STOPPED|APPLICATION_ROUTE_FAILED|APPLICATION_BOUNDARY|APPLICATION_FROZEN)$/.test(e.code || "")) {
+          if (/^(VIEWER_STOPPED|APPLICATION_ROUTE_FAILED|APPLICATION_BOUNDARY|RELOAD_LOOP)$/.test(e.code || "")) {
             report = normalizeReport({ verdict: "partial", summary: shortError(e) }, config, state.screenshots, pendingFailures);
             stopReason = e.code;
           }
