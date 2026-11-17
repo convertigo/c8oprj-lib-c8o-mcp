@@ -147,6 +147,7 @@ function load(project, options = {}) {
           return { removed: true, qname: String(qname), parentQName: parent.getFullQName(), errors: [] };
         },
         existedBeforeConversation: options.existedBefore,
+        logicalClassNameForDbo: options.logicalClass,
         moveObject: options.moveObject || (({ qname, target, position }) => {
           const dbo = resolve(qname);
           const anchor = resolve(target);
@@ -512,4 +513,37 @@ test('a tree-apply create named like a sequence the conversation did not create 
   result = load(project, { existedBefore: () => true }).apply({ target: 'P', operations: [create(undefined)] });
   assert.ok(['ok', 'partial'].includes(result.status), 'other tools (no flag) keep their upsert');
   assert.match(read('js/tools_databaseobject_tree_apply.js'), /keepExistingRequestable: true/);
+});
+
+test('mode merge on NGX elements listed with their kind keeps what the tree leaves out; another kind is still replaced', () => {
+  // Measured run (17/11): a merge on a copied page listed Header > ToolBar > BarTitle and Content > Bandeau with their
+  // kinds (UIDynamicElement#Header...). The Java class of an element never carries the kind, so each one was taken for a
+  // class change, deleted and created again with only the listed children: the menu button, the footer and the classes
+  // of the zones were lost.
+  const ngx = (name, kind, children) => ({ className: 'ngx.components.UIDynamicElement', name, kind, children: children || [] });
+  const project = build({ className: 'core.Project', name: 'P', children: [{ className: 'ngx.components.PageComponent', name: 'Page', children: [
+    ngx('Header', 'Header', [ngx('ToolBar', 'ToolBar', [ngx('Start', 'ButtonSet'), ngx('BarTitle', 'BarTitle')])]),
+    ngx('Content', 'Content', [{ className: 'ngx.components.UIAttribute', name: 'Attr_class' }, ngx('Bandeau', 'DivTag'), ngx('Pied', 'DivTag')]),
+  ] }] });
+  const kinds = new Map();
+  (function index(b, spec) { (spec.children || []).forEach((c, i) => { kinds.set(b.children[i], c.kind); index(b.children[i], c); }); })(project.children[0],
+    { children: [{ kind: 'Header', children: [{ kind: 'ToolBar', children: [{ kind: 'ButtonSet' }, { kind: 'BarTitle' }] }] },
+      { kind: 'Content', children: [{}, { kind: 'DivTag' }, { kind: 'DivTag' }] }] });
+  const logicalClass = dbo => 'ngx.components.UIDynamicElement' + (kinds.get(dbo) ? '#' + kinds.get(dbo) : '');
+  const D = load(project, { logicalClass });
+  const el = (name, kind, children) => ({ name, className: 'ngx.components.UIDynamicElement#' + kind, ...(children ? { children } : {}) });
+  let result = D.apply({ target: 'P.Page', operations: [{ type: 'upsertTree', qname: 'P.Page', strategy: 'merge', patch: { children: [
+    el('Header', 'Header', [el('ToolBar', 'ToolBar', [el('BarTitle', 'BarTitle')])]),
+    el('Content', 'Content', [el('Bandeau', 'DivTag')]),
+  ] } }] });
+  assert.ok(['ok', 'partial'].includes(result.status), JSON.stringify(result.errors));
+  const page = project.children[0];
+  assert.deepEqual(names(page.children[0].children[0]), ['Start', 'BarTitle'], 'the menu button stays');
+  assert.deepEqual(names(page.children[1]), ['Attr_class', 'Bandeau', 'Pied'], 'the class and the footer stay');
+  assert.equal(JSON.stringify(result).includes('"action":"delete"'), false);
+  result = D.apply({ target: 'P.Page', operations: [{ type: 'upsertTree', qname: 'P.Page', strategy: 'merge', patch: { children: [
+    el('Content', 'Content', [el('Bandeau', 'Paragraph')]),
+  ] } }] });
+  assert.match(JSON.stringify(result), /"action":"delete","qname":"P\.Page\.Content\.Bandeau"/, 'a DivTag listed as a Paragraph is replaced');
+  assert.match(read('js/databaseobject_batch.js'), /\} else if \(isPlainObject\(input\) \|\| Array\.isArray\(input\)\) \{/, 'a list of {name, value} properties is read as JSON');
 });

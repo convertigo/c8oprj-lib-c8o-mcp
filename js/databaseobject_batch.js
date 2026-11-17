@@ -223,7 +223,9 @@ include("js/sql_dialect.js");
     var text = "";
     if (typeof input === "string") {
       text = input;
-    } else if (isPlainObject(input)) {
+    } else if (isPlainObject(input) || Array.isArray(input)) {
+      // an array of {name, value} entries is a documented form: parsed as JSON text, it read "[object Object]" and
+      // answered "SyntaxError: Unexpected token: o" (measured run, 17/11)
       text = safeJsonStringify(input);
     } else {
       var parsed = parseJsonMaybe(input, label, errors, "object");
@@ -368,7 +370,11 @@ include("js/sql_dialect.js");
     return C8O.util.fromFqcn ? C8O.util.fromFqcn(String(className)) : String(className);
   }
 
-  function classNamesMatch(runtimeClassName, desiredClassName) {
+  // A desired class with an NGX kind ("ngx.components.UIDynamicElement#Header") matches an object of that Java class and
+  // that kind. The Java class of the object never carries the kind: compared as text, every NGX element a tree listed
+  // with its kind was taken for a class change, deleted and created again with only the children the tree listed (a
+  // merge on a copied page lost its menu button, its footer and the classes of its zones, measured run 17/11).
+  function classNamesMatch(runtimeClassName, desiredClassName, runtimeDbo) {
     var runtimeText = asTrimmed(runtimeClassName);
     var desiredText = asTrimmed(desiredClassName);
     if (!desiredText.length) {
@@ -380,7 +386,23 @@ include("js/sql_dialect.js");
     }
     var runtimeShort = shortClassName(runtimeText);
     var desiredShort = shortClassName(desiredFqcn);
-    return runtimeShort === desiredText || runtimeShort === desiredShort;
+    if (runtimeShort === desiredText || runtimeShort === desiredShort) {
+      return true;
+    }
+    var hash = desiredShort.indexOf("#");
+    if (hash < 0 || runtimeShort.indexOf("#") >= 0 || runtimeShort !== desiredShort.substring(0, hash)) {
+      return false;
+    }
+    var desiredKind = desiredShort.substring(hash + 1).toLowerCase();
+    var logical = "";
+    try {
+      logical = runtimeDbo && C8O.dbo && typeof C8O.dbo.logicalClassNameForDbo === "function" ? asTrimmed(C8O.dbo.logicalClassNameForDbo(runtimeDbo)) : "";
+    } catch (_noLogicalClass) {
+      logical = "";
+    }
+    var logicalHash = logical.indexOf("#");
+    // the same Java class, and the same kind when the object's kind is known
+    return logicalHash < 0 || logical.substring(logicalHash + 1).toLowerCase() === desiredKind;
   }
 
   function makeOpError(code, message, phase, detail, qname) {
@@ -1807,7 +1829,7 @@ include("js/sql_dialect.js");
       }
 
       var runtimeClass = runtimeChild.getClass ? String(runtimeChild.getClass().getName()) : "";
-      if (childClass.length && !classNamesMatch(runtimeClass, childClass)) {
+      if (childClass.length && !classNamesMatch(runtimeClass, childClass, runtimeChild)) {
         if (!strategy.replaceOnClassMismatch) {
           report.errors.push(
             makeOpError(
