@@ -127,7 +127,9 @@ function route(name) {
   vm.runInNewContext(read('js/nocode_tool_policy.js'), ctx);
   vm.runInNewContext(read('js/gateway_tool_policy.js'), ctx);
   ctx.Engine = ctx.Packages.com.twinsoft.convertigo.engine.Engine;
-  vm.runInNewContext(routerSource.slice(start, end) + '\n    }\n  }', Object.assign(ctx, { requestIdJson: 'null', JSON }));
+  // The argument aliases the routing checks (argumentAliasConflict), defined above it in the router.
+  const helpers = routerSource.slice(routerSource.indexOf('var ARGUMENT_ALIASES = {'), routerSource.indexOf("// Arguments that are neither in the tool's schema"));
+  vm.runInNewContext(helpers + '\n' + routerSource.slice(start, end) + '\n    }\n  }', Object.assign(ctx, { requestIdJson: 'null', JSON }));
   return ctx;
 }
 

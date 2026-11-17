@@ -516,9 +516,17 @@ function coerceToolArguments(argumentsObject, sequenceName, requestableObject) {
 }
 
 // Arguments agents give under another name: the tool ignored them and answered as if they were absent
-// (databaseobject-search with query and project scanned nothing and found nothing, run 9a).
+// (databaseobject-search with query and project scanned nothing and found nothing, run 9a). An alias is used when its
+// field is not given; the field and an alias, or two aliases, given different values refuse the call
+// (argumentAliasConflict). A client that checks the arguments against a closed input schema (Vibe) refuses a name the
+// schema does not declare before the call is sent: the aliases of the databaseobject tools are declared in their schemas
+// ("Alias of <field>.", js/schema_overrides.js), as agents guessed them (search with project and query, tree-get with
+// qname, move with at, 17/11).
 var ARGUMENT_ALIASES = {
   tools_databaseobject_search: { query: "filter", q: "filter", text: "filter", search: "filter", project: "qname", target: "qname" },
+  tools_databaseobject_tree_get: { qname: "target", depth: "childrenDepth" },
+  tools_databaseobject_move: { at: "position" },
+  tools_databaseobject_copy: { position: "at" },
   tools_nocode_baserow_rows_list: { tableId: "table", table_id: "table", table_id_int: "table", columns: "fields", where: "filter", order: "sort", orderBy: "sort", order_by: "sort", pageSize: "size", limit: "size" },
   tools_nocode_form_list: { query: "name", q: "name", search: "name", filter: "name", text: "name", size: "limit", pageSize: "limit", page_size: "limit", nextCursor: "cursor", pageToken: "cursor", page_token: "cursor", next: "cursor" },
   // a path the agent saw keeps only its file name (js/attachment_read.js)
@@ -583,13 +591,52 @@ function applyArgumentAliases(sequenceName, args) {
   for (var alias in aliases) {
     if (Object.prototype.hasOwnProperty.call(aliases, alias) && Object.prototype.hasOwnProperty.call(args, alias)) {
       var canonical = aliases[alias];
-      if (args[canonical] === undefined || args[canonical] === null || String(args[canonical]).trim() === "") {
+      if (!argumentGiven(args[canonical])) {
         args[canonical] = args[alias];
       }
       delete args[alias];
     }
   }
   return args;
+}
+
+function argumentGiven(value) {
+  return value !== undefined && value !== null && String(value).trim() !== "";
+}
+
+function argumentText(value) {
+  return value !== null && typeof value === "object" ? JSON.stringify(value) : String(value).trim();
+}
+
+// The field of a tool and an alias of it (or two of its aliases) given different values: which one the agent meant is
+// unknown, so the call is refused, naming the field to give once, rather than run on one of them.
+function argumentAliasConflict(sequenceName, args) {
+  var aliases = ARGUMENT_ALIASES[sequenceName];
+  if (!aliases || !args || typeof args !== "object") {
+    return "";
+  }
+  var given = {};
+  for (var alias in aliases) {
+    if (Object.prototype.hasOwnProperty.call(aliases, alias) && Object.prototype.hasOwnProperty.call(args, alias) && argumentGiven(args[alias])) {
+      var canonical = aliases[alias];
+      if (!given[canonical]) {
+        given[canonical] = argumentGiven(args[canonical]) ? [canonical] : [];
+      }
+      given[canonical].push(alias);
+    }
+  }
+  var conflicts = [];
+  for (var field in given) {
+    var names = given[field];
+    var values = names.map(function (name) { return argumentText(args[name]); });
+    if (values.some(function (value) { return value !== values[0]; })) {
+      conflicts.push(field + " is given twice with different values (" + names.map(function (name, n) {
+        var shown = values[n].length > 80 ? values[n].substring(0, 77) + "..." : values[n];
+        return name + (name === field ? "" : " is an alias of " + field) + ": " + JSON.stringify(shown);
+      }).join("; ") + "): give " + field + " once");
+    }
+  }
+  return conflicts.length ? "Nothing was run: " + conflicts.join(". ") + "." : "";
 }
 
 // Arguments that are neither in the tool's schema nor variables of its sequence were dropped with no word: marketplace-list
@@ -934,6 +981,7 @@ if (methodName === "initialize") {
     } catch (_unknownSequence) {
       requestable = null;
     }
+    var aliasConflict = requestable == null ? "" : argumentAliasConflict(targetSequence, toolArgs || {});
     if (requestable == null) {
       callSequence = "mcp_error_response";
       responseStatus = "404";
@@ -968,6 +1016,17 @@ if (methodName === "initialize") {
         code: "-32601",
         message: "Unknown tool " + toolNameRaw + (closeTools.length ? ". Close tools: " + closeTools.join(", ") : "") + ". tools/list gives every tool.",
         dataJson: JSON.stringify({ name: toolNameRaw, sequence: targetSequence, closeTools: closeTools }),
+        requestIdJson: requestIdJson
+      };
+    } else if (aliasConflict.length) {
+      // Answered as the error of the tool with HTTP 200, so that the client hands its message to the agent.
+      callSequence = "mcp_error_response";
+      responseStatus = "200";
+      callVariables = {
+        status: "200",
+        code: "-32602",
+        message: aliasConflict,
+        dataJson: JSON.stringify({ name: toolNameRaw, aliases: ARGUMENT_ALIASES[targetSequence] }),
         requestIdJson: requestIdJson
       };
     } else {

@@ -183,7 +183,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return {
       type: "object",
       properties: {
-        target: { type: "string", description: "Existing QName. Case-sensitive." },
+        target: { type: "string", description: "Existing QName. Case-sensitive. Required (or its alias qname)." },
+        qname: { type: "string", description: "Alias of target." },
         childrenDepth: {
           type: "integer",
           minimum: 0,
@@ -195,7 +196,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "integer",
           minimum: 0,
           maximum: 20,
-          description: "Compatibility alias for childrenDepth. Prefer childrenDepth."
+          description: "Alias of childrenDepth."
         },
         properties: {
           type: "string",
@@ -220,7 +221,6 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           description: "Opaque cursor from a previous response. Internal pagination token."
         }
       },
-      required: ["target"],
       additionalProperties: false
     };
   }
@@ -597,6 +597,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           enum: ["inside", "before", "after"],
           description: "Allowed values: inside, before, after. inside moves under the target; before or after reorders next to it."
         },
+        at: { type: "string", enum: ["inside", "before", "after"], description: "Alias of position." },
         autoSave: booleanFlagSchema(true, "Set false to keep the move in memory and skip project export."),
         refresh: booleanFlagSchema(true, "Set false to skip Studio tree refresh.")
       },
@@ -644,8 +645,14 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return {
       type: "object",
       properties: {
-        qname: { type: "string", description: "Optional root QName. Omit to search across all loaded projects." },
+        qname: { type: "string", description: "Optional root QName. Omit to search across all loaded projects. Alone (no filter, no objectType), answers the object at that QName. With *, a QName pattern: App.*.q_* keeps the objects under App whose QName matches, type prefixes (cn:, tr:, sq:...) optional." },
         filter: { type: "string", description: "Search text. Space-separated terms must all appear in the object's YAML (name, comment and every property value: shown texts, labels, SQL, expressions); pair with useRegExp=true for a regex." },
+        query: { type: "string", description: "Alias of filter." },
+        q: { type: "string", description: "Alias of filter." },
+        text: { type: "string", description: "Alias of filter." },
+        search: { type: "string", description: "Alias of filter." },
+        project: { type: "string", description: "Alias of qname." },
+        target: { type: "string", description: "Alias of qname." },
         limit: integerSchema(1, 1000, 200, "Maximum matches returned per call. 1 to 1000; default 200."),
         matchCase: booleanFlagSchema(false, "Set true for case-sensitive matching."),
         useRegExp: booleanFlagSchema(false, "Set true to treat filter as a Java regular expression."),
@@ -1901,6 +1908,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         source: { type: "string", description: "QName of the object to copy, for example App.Application.NgxApp.pg:Model or App.sq:model_sequence." },
         target: { type: "string", description: "The parent to copy into (at inside), or the sibling to copy next to (at before or after)." },
         at: { type: "string", enum: ["inside", "before", "after"], default: "inside", description: "inside: last child of target; before or after: next to target, under its parent." },
+        position: { type: "string", enum: ["inside", "before", "after"], description: "Alias of at." },
         name: { type: "string", description: "Name of the copy; default the source name. A name the target parent already has is refused." },
         retargetProject: { type: "boolean", default: false, description: "For a copy into another project: the copy's references to the source project name the target project instead." },
         autoSave: { type: "boolean", default: true, description: "Set false to keep the copy in memory and skip the project save." }

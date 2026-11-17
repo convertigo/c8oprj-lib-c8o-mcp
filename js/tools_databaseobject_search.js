@@ -46,9 +46,34 @@ if (cursorRaw.length > 0) {
 var pageUpperBound = startIndex + limitValue;
 
 var searchActive = searchText.length > 0;
-if (!searchActive && objectTypeText === "*") {
-  // Without either, the search scanned nothing and answered no match, which read as "not found" (run 9a).
-  throw new Error("filter is required: the text to find (space-separated terms that must all appear in the object's YAML), or objectType to list one type. qname limits the search to a project or a subtree.");
+
+// A * in qname makes it a QName pattern (App.*.q_top): looked up as a QName, it was never found (17/11). The scan runs
+// under its leading segments without *, all projects when there are none, and keeps the objects whose full QName
+// matches: * stands for any characters, dots included; a segment written without its type prefix (cn:, tr:, sq:...)
+// matches with any, as in C8O.dbo.resolve, and one written with a prefix keeps it.
+var qnamePattern = null;
+var rootQName = sourceQName;
+if (sourceQName.indexOf("*") !== -1) {
+  var patternSegments = sourceQName.split(".");
+  var fixedSegments = [];
+  for (var ps = 0; ps < patternSegments.length && patternSegments[ps].indexOf("*") === -1; ps++) {
+    fixedSegments.push(patternSegments[ps]);
+  }
+  rootQName = fixedSegments.join(".");
+  qnamePattern = new RegExp("^" + patternSegments.map(function (segment) {
+    var typed = /^([A-Za-z]{1,4}:)(.*)$/.exec(segment);
+    return (typed ? typed[1] : "(?:[A-Za-z]{1,4}:)?") + (typed ? typed[2] : segment).split("*").map(function (part) {
+      return part.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+    }).join(".*");
+  }).join("\\.") + "$", matchCaseFlag ? "" : "i");
+}
+var typeActive = objectTypeText !== "*";
+// qname alone, without *, answers the object at that QName: an agent checking that an object exists, or what it is,
+// got "filter is required" (17/11).
+var singleObject = !searchActive && !typeActive && qnamePattern === null && sourceQName.length > 0;
+if (!searchActive && !typeActive && !sourceQName.length) {
+  // Without any, the search scanned nothing and answered no match, which read as "not found" (run 9a).
+  throw new Error("filter is required: the text to find (space-separated terms that must all appear in the object's YAML), or objectType to list one type. qname limits the search to a project or a subtree; alone, it answers the object at that QName, and with * it is a QName pattern (App.*.q_*).");
 }
 var pattern = null;
 var substringText = matchCaseFlag ? searchText : searchText.toLowerCase();
@@ -151,6 +176,13 @@ function extractSnippet(text, start, end) {
   return snippet;
 }
 
+function matchesQNamePattern(dbo) {
+  if (qnamePattern === null) {
+    return true;
+  }
+  return qnamePattern.test(C8O.dbo.safeFullQName ? C8O.dbo.safeFullQName(dbo) : C8O.dbo.safeQName(dbo));
+}
+
 function matchesSearch(dbo) {
   if (!searchActive) {
     return null;
@@ -210,7 +242,14 @@ function matchesSearch(dbo) {
   return null;
 }
 
-if (searchActive) {
+if (singleObject) {
+  var singleDbo = C8O.dbo.resolve(sourceQName, { messagePrefix: "qname" });
+  scanned = 1;
+  totalMatches = 1;
+  if (startIndex === 0) {
+    matchesWindow.push(buildRecord(singleDbo, 0, ""));
+  }
+} else {
   var stack = [];
   var projectNames = manager.getAllProjectNamesList();
 
@@ -221,8 +260,8 @@ if (searchActive) {
     stack.push({ dbo: dbo, depth: depth });
   }
 
-  if (sourceQName.length > 0) {
-    var rootDbo = C8O.dbo.resolve(sourceQName, { messagePrefix: "qname" });
+  if (rootQName.length > 0) {
+    var rootDbo = C8O.dbo.resolve(rootQName, { messagePrefix: "qname" });
     pushNode(rootDbo, 0);
   } else {
     for (var i = 0; i < projectNames.size(); i++) {
@@ -249,8 +288,9 @@ if (searchActive) {
       continue;
     }
     scanned++;
-    var typeMatch = matchesObjectType(dbo);
-    var snippet = typeMatch ? matchesSearch(dbo) : null;
+    var typeMatch = matchesObjectType(dbo) && matchesQNamePattern(dbo);
+    // Without filter, objectType or the qname pattern selects alone: the scan listed nothing before (objectType only).
+    var snippet = typeMatch ? (searchActive ? matchesSearch(dbo) : "") : null;
     var searchMatch = typeMatch && snippet !== null;
     if (searchMatch) {
       var currentIndex = totalMatches;
@@ -294,6 +334,7 @@ searchQuery = {
   objectType: objectTypeText,
   limit: limitValue,
   active: searchActive,
+  pattern: qnamePattern !== null,
   startIndex: startIndex,
   cursorInput: cursorRaw
 };
