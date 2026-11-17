@@ -36,7 +36,11 @@ C8O.imageDescribe = C8O.imageDescribe || {};
   var MAX_IMAGE_BYTES = 10 * 1024 * 1024;
   var DEFAULT_MAX_TOKENS = 2000;
   var DEFAULT_REASONING = "none";
-  var REQUEST_TIMEOUT_MS = 120000;
+  // The whole call (both gateway requests included) ends within CALL_DEADLINE_MS: agents give up on a tool call
+  // at 60 s, so a slower answer would be lost anyway and the agent would only see a timeout. The second request
+  // (without reasoning_effort) is sent only when at least RETRY_MIN_MS of that budget is left.
+  var CALL_DEADLINE_MS = 45000;
+  var RETRY_MIN_MS = 5000;
   var DEFAULT_QUESTION = "Describe this screenshot for a developer who cannot see it: the visible text, the layout, " +
     "the colors, and anything that looks broken (overlapping, cut off, misaligned, empty, unreadable or error states).";
   var SYSTEM_PROMPT = "You describe images for a software agent that cannot see them. Answer the question about the image " +
@@ -47,6 +51,8 @@ C8O.imageDescribe = C8O.imageDescribe || {};
   api.GATEWAY_URL = GATEWAY_URL;
   api.DEFAULT_MODEL = DEFAULT_MODEL;
   api.MAX_IMAGE_BYTES = MAX_IMAGE_BYTES;
+  api.CALL_DEADLINE_MS = CALL_DEADLINE_MS;
+  api.RETRY_MIN_MS = RETRY_MIN_MS;
 
   function str(value) {
     return value == null ? "" : String(value).trim();
@@ -209,8 +215,17 @@ C8O.imageDescribe = C8O.imageDescribe || {};
     return new Error("The LLM gateway refused the image request (HTTP " + status + "): " + api.redact(message, key) + hint);
   }
 
+  function deadlineError(model, elapsedMs, what) {
+    return new Error("image-describe stopped after " + Math.round(elapsedMs / 1000) + " s: " + what +
+      " Every call is bounded to " + Math.round(CALL_DEADLINE_MS / 1000) + " s (agents give up on a tool call at 60 s), " +
+      "so nothing was described and no gateway answer will follow (model " + model + "). " +
+      "Retry at most once with a smaller image (crop to one element, or a smaller viewport) or a narrower question, " +
+      "or go on without the description.");
+  }
+
   // host: readKey(), readImageFile(path) -> {bytes, path}, decodeBase64(text) -> bytes, encodeBase64(bytes) -> text,
-  // post(url, key, bodyText, timeoutMs) -> {status, body, header(name)}, now() -> ms.
+  // post(url, key, bodyText, timeoutMs) -> {status, body, header(name)} (an error with timeout: true when timeoutMs
+  // passed before the whole answer arrived), now() -> ms.
   api.run = function (params, host) {
     params = params || {};
     var pathText = str(params.path);
@@ -253,19 +268,30 @@ C8O.imageDescribe = C8O.imageDescribe || {};
       maxTokens: api.normalizeMaxTokens(params.maxTokens),
       reasoning: api.normalizeReasoning(params.reasoning)
     });
-    var post = function () {
+    var started = host.now();
+    var deadline = started + CALL_DEADLINE_MS;
+    var post = function (timeoutMs, which) {
       try {
-        return host.post(GATEWAY_URL + "/chat/completions", key, JSON.stringify(request), REQUEST_TIMEOUT_MS);
+        return host.post(GATEWAY_URL + "/chat/completions", key, JSON.stringify(request), timeoutMs);
       } catch (e) {
+        var elapsed = host.now() - started;
+        if ((e && e.timeout === true) || elapsed >= CALL_DEADLINE_MS) {
+          throw deadlineError(model, Math.max(elapsed, timeoutMs), "the vision model did not answer the " + which + " in time.");
+        }
         throw new Error("The LLM gateway could not be reached: " + api.redact(e && e.message ? e.message : e, key));
       }
     };
-    var started = host.now();
-    var response = post();
-    // A model without that reasoning level refuses the request before any token is spent: ask again with its default.
+    var response = post(CALL_DEADLINE_MS, "request");
+    // A model without that reasoning level refuses the request before any token is spent: ask again with its default,
+    // within what is left of the call budget.
     if (response.status === 400 && /reasoning_effort/i.test(response.body) && request.reasoning_effort) {
+      var left = deadline - host.now();
+      if (left < RETRY_MIN_MS) {
+        throw deadlineError(model, CALL_DEADLINE_MS - left, "the gateway refused reasoning " + request.reasoning_effort +
+          " for this model and too little time was left to ask again without it.");
+      }
       delete request.reasoning_effort;
-      response = post();
+      response = post(left, "second request (sent without reasoning_effort after a refusal)");
     }
     var durationMs = host.now() - started;
     if (response.status < 200 || response.status >= 300) {
@@ -367,16 +393,34 @@ C8O.imageDescribe = C8O.imageDescribe || {};
       encodeBase64: function (bytes) {
         return String(java.util.Base64.getEncoder().encodeToString(bytes));
       },
+      // timeoutMs bounds the whole exchange, body included: the request timeout of the HTTP client stops at the
+      // response headers, so the future is awaited with the same bound and cancelled when it passes.
       post: function (url, key, bodyText, timeoutMs) {
         var Http = java.net.http;
-        var client = Http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(20)).build();
+        var bound = Math.max(1, Math.floor(timeoutMs));
+        var client = Http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofMillis(Math.min(20000, bound))).build();
         var request = Http.HttpRequest.newBuilder(java.net.URI.create(url))
-          .timeout(java.time.Duration.ofMillis(timeoutMs))
+          .timeout(java.time.Duration.ofMillis(bound))
           .header("Content-Type", "application/json")
           .header("Authorization", "Bearer " + key)
           .POST(Http.HttpRequest.BodyPublishers.ofString(bodyText, java.nio.charset.StandardCharsets.UTF_8))
           .build();
-        var response = client.send(request, Http.HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
+        var future = client.sendAsync(request, Http.HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
+        var response;
+        try {
+          response = future.get(bound, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (e) {
+          future.cancel(true);
+          var cause = e && e.javaException ? e.javaException : null;
+          if (cause instanceof java.util.concurrent.ExecutionException && cause.getCause() !== null) {
+            cause = cause.getCause();
+          }
+          var className = cause ? String(cause.getClass().getName()) : "";
+          var failure = new Error(cause ? String(cause.getMessage() || className) : String(e && e.message ? e.message : e));
+          failure.timeout = className === "java.util.concurrent.TimeoutException" ||
+            className === "java.net.http.HttpTimeoutException";
+          throw failure;
+        }
         return {
           status: Number(response.statusCode()),
           body: String(response.body()),

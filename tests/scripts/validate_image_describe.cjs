@@ -109,6 +109,73 @@ test('reasoning high is passed on, and a model without that level is asked again
   assert.equal(result.description, 'A login form with a blue Save button.');
 });
 
+test('the whole call is bounded to 45 s: the second request only gets what is left of that budget', () => {
+  const api = load();
+  assert.equal(api.CALL_DEADLINE_MS, 45000);
+  const { h, seen } = host();
+  api.run({ path: 'a.png' }, h);
+  assert.equal(seen.posts[0].timeoutMs, 45000, 'the first request never gets more than the call budget');
+  let clock = 0;
+  const timeouts = [];
+  const retry = host({
+    now: () => clock,
+    post: (url, key, body, timeoutMs) => {
+      timeouts.push(timeoutMs);
+      if (timeouts.length === 1) {
+        clock += 12000;
+        return { status: 400, body: JSON.stringify({ error: { message: 'reasoning_effort none is not supported' } }), header: () => '' };
+      }
+      clock += 3000;
+      return { status: 200, body: gatewayBody(), header: () => '' };
+    }
+  });
+  const result = api.run({ path: 'a.png', model: 'other/vision' }, retry.h);
+  assert.deepEqual(timeouts, [45000, 33000], 'the second request shares the deadline of the first');
+  assert.equal(result.usage.durationMs, 15000);
+});
+
+test('no second request when too little of the budget is left after a reasoning refusal', () => {
+  const api = load();
+  let clock = 0;
+  let posts = 0;
+  const late = host({
+    now: () => clock,
+    post: () => {
+      posts++;
+      clock += 42000;
+      return { status: 400, body: JSON.stringify({ error: { message: 'reasoning_effort none is not supported' } }), header: () => '' };
+    }
+  });
+  assert.throws(() => api.run({ path: 'a.png', model: 'other/vision' }, late.h), e =>
+    /stopped after 42 s/.test(e.message) && /bounded to 45 s/.test(e.message) && /too little time was left/.test(e.message) &&
+    /smaller image/.test(e.message) && /or go on without the description/.test(e.message));
+  assert.equal(posts, 1);
+});
+
+test('a request cut by the deadline gives a clear answer, never a bare timeout, and never the key', () => {
+  const api = load();
+  let clock = 0;
+  const slow = host({
+    now: () => clock,
+    post: (url, key, body, timeoutMs) => {
+      clock += timeoutMs;
+      const e = new Error('request timed out for ' + KEY);
+      e.timeout = true;
+      throw e;
+    }
+  });
+  assert.throws(() => api.run({ path: 'a.png' }, slow.h), e =>
+    /^image-describe stopped after 45 s: the vision model did not answer the request in time\./.test(e.message) &&
+    /Retry at most once with a smaller image/.test(e.message) && /mistral\/mistral-large-4/.test(e.message) && !e.message.includes(KEY));
+  // A failure that is not flagged as a timeout but ends past the deadline is reported the same way.
+  let clock2 = 0;
+  const stalled = host({
+    now: () => clock2,
+    post: () => { clock2 += 46000; throw new Error('stream closed'); }
+  });
+  assert.throws(() => api.run({ path: 'a.png' }, stalled.h), /stopped after 46 s.*did not answer the request in time/);
+});
+
 test('exactly one image is required and only images are sent', () => {
   const api = load();
   assert.throws(() => api.run({}, host().h), /exactly one image/);
