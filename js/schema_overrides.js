@@ -3514,6 +3514,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     tools_databaseobject_delete: true,
     tools_databaseobject_move: true,
     tools_databaseobject_rename: true,
+    tools_databaseobject_copy: true,
     tools_batch_call: true,
     tools_business_sequence_create: true,
     tools_sql_transaction_create: true,
