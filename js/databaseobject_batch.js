@@ -905,6 +905,15 @@ include("js/sql_dialect.js");
         return;
       }
     } catch (_ignorePlacementMove) {}
+    // Some parents keep their own order whatever the priority (test cases and mapping responses by name, the variables
+    // of an HTTP transaction at the end): there the object stays where the engine put it, with a warning. Steps and
+    // page components run or show in their order: refused.
+    var placedClass = String(dbo.getClass().getName());
+    if (!/\.beans\.(steps|ngx\.components|mobile\.components)\./.test(placedClass)) {
+      ctx.classNameNotes = (ctx.classNameNotes || []).concat([String(dbo.getName()) + " stays where " + safeQName(parent) +
+        " orders its children, not " + position + " " + String(anchor.getName()) + " as the tree lists it."]);
+      return;
+    }
     var placedQName = safeQName(dbo);
     try {
       deleteObject(ctx, placedQName);

@@ -27,8 +27,9 @@ C8O.seedProof = C8O.seedProof || {};
   // A table name as SQL writes it: plain, "quoted", `quoted` or [quoted], with its schema before a dot.
   var NAME = "(?:\"[^\"]+\"|`[^`]+`|\\[[^\\]]+\\]|[A-Za-z_][\\w$#]*)";
   var VALID_TABLE = new RegExp("^" + NAME + "(?:\\." + NAME + "){0,2}$");
-  // Words that follow a write verb without being a table (UPDATE SET in a MERGE, ON UPDATE CASCADE in a foreign key).
-  var NOT_A_TABLE = /^(set|only|cascade|restrict|no|row|rows|of|nowait|skip|from|into|table|select|values|with|default)$/i;
+  // Words that follow a write verb without being a table (UPDATE SET in a MERGE, ON UPDATE CASCADE in a foreign key,
+  // AFTER UPDATE ON in a trigger, GRANT UPDATE ON).
+  var NOT_A_TABLE = /^(set|only|cascade|restrict|no|row|rows|of|on|nowait|skip|from|into|table|select|values|with|default)$/i;
   var DATA_WRITE = /^SQL (INSERT|UPDATE|DELETE|MERGE|REPLACE|TRUNCATE)$/;
 
   function trimmed(value) {
@@ -561,6 +562,10 @@ C8O.seedProof = C8O.seedProof || {};
     resets.forEach(function (r, i) {
       if (resetCounts[i] && resetCounts[i].rows > 0) {
         holding.push(r.connector + "." + r.table + " (" + resetCounts[i].rows + " rows, by " + r.by + ")");
+      } else if (!resetCounts[i] || resetCounts[i].rows === null) {
+        // A table it empties or drops that cannot be counted (a schema or a quoted name read otherwise) may hold rows:
+        // never run it on a guess.
+        holding.push(r.connector + "." + r.table + " (could not be counted, by " + r.by + ")");
       }
     });
     reach.resets.filter(function (r) { return r.table === "*"; }).forEach(function (r) {
@@ -579,8 +584,9 @@ C8O.seedProof = C8O.seedProof || {};
     });
     if (holding.length) {
       answer.tables = rows;
-      answer.reasons.push("The seed empties or drops tables that hold rows: " + holding.join(", ") + ". Run, it deletes them; " +
-        "seed-proof never empties data, so nothing was run. A seed inserts what is missing and deletes nothing.");
+      answer.reasons.push("The seed empties or drops tables that hold rows or could not be counted: " + holding.join(", ") +
+        ". Run, it may delete their rows; seed-proof never empties data, so nothing was run. A seed inserts what is missing " +
+        "and deletes nothing.");
       answer.note = "Nothing was run.";
       return api.fit(answer);
     }

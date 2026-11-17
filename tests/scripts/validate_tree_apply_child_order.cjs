@@ -301,7 +301,7 @@ function runTreeApply(globals, fakes = {}) {
     },
     batchApply: args => {
       calls.batch.push(JSON.parse(JSON.stringify(args)));
-      return { status: 'ok', operations: [{ index: 0, applied: [], warnings: [], errors: [] }], warnings: [], errors: [], touchedQNames: [], saveResults: [{ project: 'P', saved: true }] };
+      return { status: fakes.batchStatus || 'ok', operations: [{ index: 0, applied: [], warnings: [], errors: [] }], warnings: [], errors: [], touchedQNames: [], saveResults: [{ project: 'P', saved: true }] };
     },
     reloadForLibraryComponents: () => '',
     computeBatchRefreshQName: () => '',
@@ -333,4 +333,42 @@ test('at:self with another class is still refused, and a dry run or a taken name
   assert.deepEqual(dry.calls.rename, []);
   assert.match(JSON.stringify(dry.result.warnings), /dryRun: A would be renamed C before the patch/);
   assert.equal(a.getName(), 'A');
+});
+
+test('outside steps and page components, an object the engine keeps in its own order stays there, with a warning', () => {
+  const project = build({ className: 'core.Project', name: 'P', children: [{ className: 'sequences.GenericSequence', name: 'S', children: [
+    { className: 'variables.RequestableVariable', name: 'first' }, { className: 'variables.RequestableVariable', name: 'second' }] }] });
+  const sequence = project.children[0];
+  sequence.ignoresAfter = true;
+  const D = load(project, { moveObject: () => ({ done: false, errors: [{ message: 'kept in order' }] }) });
+  const result = D.apply({ target: 'P.S', operations: [{ type: 'upsertTree', qname: 'P.S', patch: { children: [
+    { name: 'first', className: 'variables.RequestableVariable' }, { name: 'between', className: 'variables.RequestableVariable' },
+    { name: 'second', className: 'variables.RequestableVariable' }] } }] });
+  assert.equal(result.errors.length, 0, JSON.stringify(result.errors));
+  assert.deepEqual(names(sequence), ['first', 'second', 'between']);
+  assert.match(JSON.stringify(result), /between stays where P\.S orders its children, not after first as the tree lists it/);
+});
+
+test('at:self renames only for the exact class, NGX kind included, or a properties-only tree', () => {
+  const project = build({ className: 'core.Project', name: 'P', children: [{ className: 'sequences.GenericSequence', name: 'S', children: [step('A', 'steps.JsonFieldStep')] }] });
+  const a = project.children[0].children[0];
+  // a tree with children and no class may be a child sent without at:"inside"
+  assert.throws(() => runTreeApply({ target: 'P.S.A', at: 'self', tree: { name: 'Child', children: [{ name: 'x', className: 'steps.SimpleStep' }] } }, { target: a }),
+    /send its own className \(steps\.JsonFieldStep\) or only properties; or use databaseobject-rename/);
+  // an NGX element of another kind is not the same class
+  const list = { className: 'ngx.components.UIDynamicElement#ion-list', name: 'list', parent: null, children: [],
+    getName() { return this.name; }, setName(n) { this.name = n; }, getParent() { return { getDatabaseObjectChildren: () => ({ size: () => 0 }) }; },
+    getFullQName() { return 'P.App.pg:Home.' + this.name; }, getClass() { return { getName: () => 'x' }; }, equals(o) { return o === this; } };
+  assert.throws(() => runTreeApply({ target: 'P.App.pg:Home.list', at: 'self', tree: { name: 'item', className: 'ngx.components.UIDynamicElement#ion-item' } }, { target: list }),
+    /but tree names item \(ngx\.components\.UIDynamicElement#ion-item\)/);
+  assert.equal(list.name, 'list');
+});
+
+test('a rename made before a patch that failed is undone', () => {
+  const project = build({ className: 'core.Project', name: 'P', children: [{ className: 'sequences.GenericSequence', name: 'S', children: [step('OLD', 'steps.JsonFieldStep')] }] });
+  const field = project.children[0].children[0];
+  const { calls, result } = runTreeApply({ target: 'P.S.OLD', at: 'self', tree: { name: 'new', properties: { key: 'x' } } }, { target: field, batchStatus: 'failed' });
+  assert.deepEqual(calls.rename.map(r => r.name), ['new', 'OLD']);
+  assert.equal(field.getName(), 'OLD');
+  assert.match(JSON.stringify(result.warnings), /The patch failed, so the rename of OLD to new was undone/);
 });

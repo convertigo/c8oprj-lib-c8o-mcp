@@ -223,13 +223,18 @@ C8O.dboCopy.run = function (args) {
     warnings.push("The copy is not the root of the application: " + name(source) + " stays the root.");
   }
   var afterValue = null;
-  if (at === "after") {
+  if (at !== "inside" && folderOf(anchor) !== folderOf(source)) {
+    // A step next to a variable, for example: they are ordered apart, so the copy goes last among its own kind.
+    warnings.push(name(anchor) + " is not of the kind of the copy: the copy is the last of its kind in " + qnameOf(parent) +
+      ", not " + at + " " + name(anchor) + ". Move it with databaseobject-move next to an object of its kind.");
+  } else if (at === "after") {
     afterValue = java.lang.Long.valueOf(anchor.priority);
   } else if (at === "before") {
     var previous = anchor.getPreviousSiblingInFolder ? anchor.getPreviousSiblingInFolder() : null;
     afterValue = java.lang.Long.valueOf(previous != null ? previous.priority : 0);
   }
   var created = 0;
+  var pastedRoot = null;
   var paste = function (node, into, isRoot) {
     var dbo = DatabaseObject.read(node);
     if (isRoot) {
@@ -241,6 +246,9 @@ C8O.dboCopy.run = function (args) {
       into.add(dbo, afterValue);
     } else {
       into.add(dbo);
+    }
+    if (isRoot) {
+      pastedRoot = dbo;
     }
     created++;
     var childNodes = node.getChildNodes();
@@ -262,15 +270,10 @@ C8O.dboCopy.run = function (args) {
     }, "a copy of " + sourceQName);
   } catch (pasteError) {
     // all or nothing: what was pasted before the error is removed
+    // the object pasted, whatever name the engine gave it
     try {
-      var partial = null;
-      childrenOf(parent).forEach(function (child) {
-        if (name(child) === newName && child.bNew === true && folderOf(child) === folderOf(source)) {
-          partial = child;
-        }
-      });
-      if (partial) {
-        parent.remove(partial);
+      if (pastedRoot != null && pastedRoot.getParent() != null) {
+        parent.remove(pastedRoot);
       }
     } catch (_ignoreCleanup) {}
     throw new Error("The copy of " + sourceQName + " under " + qnameOf(parent) + " failed, nothing was kept: " +

@@ -223,7 +223,7 @@ test('a seed that empties a table holding rows is never run', () => {
   const { host, calls } = fakeHost({ model, sql, db: { parents: 5, 'public.children': 0, '"Events"': 0 }, behave: () => assert.fail('never run') });
   const answer = plain(S.prove({ requestable: 'P.seed_demo' }, host));
   assert.equal(answer.verdict, 'failed');
-  assert.match(answer.reasons[0], /^The seed empties or drops tables that hold rows: db\.parents \(5 rows, by P\.db\.reset_parents\)\. .*seed-proof never empties data, so nothing was run/);
+  assert.match(answer.reasons[0], /^The seed empties or drops tables that hold rows or could not be counted: db\.parents \(5 rows, by P\.db\.reset_parents\)\. .*seed-proof never empties data, so nothing was run/);
   assert.equal(calls.execute.length, 0);
   // On empty tables it deletes nothing: the proof runs.
   const empty = fakeHost({ model, sql, behave: idempotent });
@@ -377,4 +377,10 @@ test('the seed guide says what a replay proof and a fresh-server proof are, and 
   assert.match(guide, /Never put a `public-write` line on a seed, an init or any job/);
   assert.match(guide, /Prove a seed with `seed-proof`/);
   assert.match(read('resources/convertigo_common_skill.md'), /prove idempotence with `seed-proof`/);
+});
+
+test('a trigger or a grant naming UPDATE ON is not a write of a table named ON', () => {
+  const S = load().seedProof;
+  assert.deepEqual(plain(S.writtenTables('CREATE TRIGGER t AFTER UPDATE ON items FOR EACH ROW CALL x')), []);
+  assert.deepEqual(plain(S.writtenTables('GRANT SELECT, UPDATE ON items TO app; INSERT INTO items (n) VALUES (1)')), ['items']);
 });

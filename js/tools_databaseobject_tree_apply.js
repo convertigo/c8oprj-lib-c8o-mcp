@@ -413,9 +413,20 @@ if (atInput === "self") {
         (treeName || selfName) + (treeClass ? " (" + treeClass + ")" : "") + ". To create or update that child, add at:\"inside\"; " +
         "to patch an existing object, use its own QName as target. To rename the target, use databaseobject-rename.");
     }
-    // The same class under another name renames the target: an agent sent {name:"total", properties:{...}} on a step
-    // named TOTAL four times, was refused each time, then deleted and recreated it (measured run, 17/11).
+    // Another name on the target itself renames it: an agent sent {name:"total", properties:{...}} on a step named TOTAL
+    // four times, was refused each time, then deleted and recreated it (measured run, 17/11). Only when the tree can only
+    // mean the target: its exact class (an NGX element with its #kind), or no class and no children (a patch of the
+    // target's properties). Anything else that names another object is still refused: a child sent without at:"inside".
     if (treeName.length && treeName !== selfName) {
+      var fullTreeClass = asTrimmed(treeObject.className);
+      var sameFullClass = fullTreeClass.length > 0 && (fullTreeClass.toLowerCase() === selfClass.toLowerCase() ||
+        (fullTreeClass.indexOf("#") < 0 && selfClass.indexOf("#") < 0 && lastSegment(fullTreeClass) === lastSegment(selfClass)));
+      var propertiesOnly = !fullTreeClass.length && !(Array.isArray(treeObject.children) && treeObject.children.length > 0);
+      if (!sameFullClass && !propertiesOnly) {
+        throw new Error("at:\"self\" (the default) patches the target itself, " + selfName + " (" + selfClass + "), but tree names " +
+          treeName + (fullTreeClass ? " (" + fullTreeClass + ")" : "") + ". To create or update that child, add at:\"inside\"; " +
+          "to rename " + selfName + " and patch it, send its own className (" + selfClass + ") or only properties; or use databaseobject-rename.");
+      }
       treeApplyRenameTarget(selfTarget, selfName, treeName);
     }
   }
@@ -477,6 +488,25 @@ treeApplyResult = C8O.dbo.batchApply({
   executionId: executionIdInput,
   dryRun: dryRunInput
 });
+
+// A rename made before a patch that failed is undone: the call changes nothing it did not report.
+if (treeApplyRenamed && treeApplyResult && treeApplyResult.status === "failed") {
+  var undoRename = null;
+  try {
+    undoRename = C8O.dbo.withStudioLock(function () {
+      return C8O.dbo.renameObject({ qname: treeApplyRenamed.to, name: treeApplyRenamed.oldName, update: "update_local" });
+    }, "the undo of a rename of " + treeApplyRenamed.to);
+  } catch (_ignoreUndoRename) {
+    undoRename = null;
+  }
+  treeApplyWarnings.push(undoRename && undoRename.renamed === true
+    ? "The patch failed, so the rename of " + treeApplyRenamed.oldName + " to " + treeApplyRenamed.newName + " was undone."
+    : "The patch failed after " + treeApplyRenamed.oldName + " was renamed " + treeApplyRenamed.newName + ", and the rename could not be undone: rename it back with databaseobject-rename.");
+  if (undoRename && undoRename.renamed === true) {
+    targetInput = treeApplyRenamed.from;
+    treeApplyRenamed = null;
+  }
+}
 
 // The rename made before the patch: in the first operation's applied entries and notes, among the touched objects, and
 // saved even when the patch changed no property.

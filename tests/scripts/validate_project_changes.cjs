@@ -432,7 +432,7 @@ test('every write tool of the Studio confirmation is journaled, by a handler of 
   // a write tool added later is journaled from what its answer names
   writes.tools_databaseobject_copy = 'databaseobject-copy';
   assert.deepEqual(plain(j.api.entryOf('tools_databaseobject_copy', { status: 'ok', source: 'DemoApp.sq:A', qname: 'DemoApp.sq:A_copy', objects: 4 }, { source: 'DemoApp.sq:A' }, {})),
-    { tool: 'databaseobject-copy', status: 'ok', objects: [{ q: 'DemoApp.sq:A_copy', c: 'created' }] });
+    { tool: 'databaseobject-copy', status: 'ok', objects: [{ q: 'DemoApp.sq:A_copy', c: 'created', d: 'copy of DemoApp.sq:A' }] });
   // No Code: the form by its id, never a value of the form
   assert.deepEqual(plain(j.api.entryOf('tools_nocode_form_edit', { status: 'ok', saved: true }, { id: 'a1b2c3', operations: '[{"action":"add_field"}]' }, {})).objects,
     [{ q: 'form a1b2c3', c: 'changed', k: 'form', pr: 'C8Oforms' }]);

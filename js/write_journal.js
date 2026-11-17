@@ -503,6 +503,13 @@ if (typeof C8O === "undefined") {
     return null;
   }
 
+  // databaseobject-copy: the copy is a new object, with its source named.
+  function copy(r) {
+    var out = [];
+    objectOut(out, r.qname, "created", { d: qnameOf(r.source).length ? "copy of " + qnameOf(r.source) : "" });
+    return out.length ? { objects: out } : null;
+  }
+
   // A write tool with no handler of its own (a tool added later): what its answer names.
   function generic(r, args, ctx) {
     var out = generated(r);
@@ -563,6 +570,7 @@ if (typeof C8O === "undefined") {
     tools_databaseobject_rename: rename,
     tools_databaseobject_move: move,
     tools_databaseobject_delete: remove,
+    tools_databaseobject_copy: copy,
     tools_business_sequence_create: sequenceCreate,
     tools_sql_transaction_create: sqlTransactionCreate,
     tools_upsert_crud: crud,
