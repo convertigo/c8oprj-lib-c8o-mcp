@@ -36,6 +36,7 @@ comment: |
     
     deleteInfo = removal;
     deleteErrors = Array.isArray(removal.errors) ? removal.errors : [];
+    deleteWarnings = Array.isArray(removal.warnings) ? removal.warnings : [];
     deleteAutoSave = autoSaveFlag;
     deleteProject = removal.project || null;
     deleteSaved = false;
@@ -283,6 +284,20 @@ comment: |
               - SmartType: 
                 - ↑mode: JS
                 - →→: 'item && item.message ? String(item.message) : ""'
+  ↓warnings [steps.JsonToXmlStep-1795410000001]: 
+    comment: Step sources the change left orphan (one text per step gone); empty when none
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'Array.isArray(deleteWarnings) ? deleteWarnings : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: warnings
 ↓qname [variables.RequestableVariable-1762372536796]: 
   comment: Existing QName. Case-sensitive.
   description: Existing QName. Case-sensitive.

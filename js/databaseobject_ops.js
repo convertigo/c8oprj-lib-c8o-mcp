@@ -11,6 +11,28 @@ if (typeof include === "function" && (typeof C8O.ionicRoundTrip === "undefined" 
   include("js/edit_profile.js");
   include("js/ionic_roundtrip.js");
 }
+// the step sources a delete or a move leaves orphan (js/step_sources.js)
+if (typeof include === "function" && typeof C8O.stepSources === "undefined") {
+  include("js/step_sources.js");
+}
+
+// Before a delete or a move: what is needed to tell, after it, which step sources it left orphan (null when it cannot).
+function _c8oWatchStepSources(dbo) {
+  try {
+    return C8O.stepSources ? C8O.stepSources.watch(dbo) : null;
+  } catch (_noWatch) {
+    return null;
+  }
+}
+
+// After it: the orphan sources ([] when none or when they cannot be read); the operation itself is never failed by this.
+function _c8oLeftOrphanSources(watch, others) {
+  try {
+    return watch ? C8O.stepSources.leftOrphan(watch, others) : [];
+  } catch (_noCheck) {
+    return [];
+  }
+}
 
 // Refuses, in the html edit profile, a change of a page or shared component whose generated files hold edits not imported
 // yet (C8O.ionicRoundTrip.assertNoPendingEdits); nothing elsewhere.
@@ -103,12 +125,18 @@ function _c8oPendingIonicEdits(dbo, action) {
       project: project,
       projectName: project != null ? String(project.getName()) : "",
       removed: false,
-      errors: errors
+      errors: errors,
+      // the step sources of the sequence that named the removed step(s), and a warning per removed step
+      orphanedSources: [],
+      warnings: []
     };
+    var sourcesWatch = _c8oWatchStepSources(dbo);
 
     try {
       parent.remove(dbo);
       info.removed = true;
+      info.orphanedSources = _c8oLeftOrphanSources(sourcesWatch);
+      info.warnings = info.orphanedSources.length ? C8O.stepSources.warnings(info.orphanedSources) : [];
       parent.hasChanged = true;
       if (project != null) {
         project.hasChanged = true;
@@ -273,6 +301,8 @@ function _c8oPendingIonicEdits(dbo, action) {
     var previousParent = currentParent;
     var previousSibling = dbo.getPreviousSiblingInFolder();
     var done = false;
+    var sourcesWatch = _c8oWatchStepSources(dbo);
+    var orphanedSources = [];
 
     try {
       dbo.delete();
@@ -282,6 +312,10 @@ function _c8oPendingIonicEdits(dbo, action) {
         parentDestination.add(dbo);
       }
       done = true;
+      // A step moved to another sequence: the sources of the old one that named it, and its own sources naming steps
+      // of the old one, name no step any more.
+      var movedTo = C8O.stepSources ? C8O.stepSources.sequenceOf(dbo) : null;
+      orphanedSources = _c8oLeftOrphanSources(sourcesWatch, movedTo ? [movedTo] : []);
       parentDestination.hasChanged = true;
       dbo.hasChanged = true;
       if (project != null) {
@@ -322,6 +356,8 @@ function _c8oPendingIonicEdits(dbo, action) {
       project: project,
       projectName: project != null ? String(project.getName()) : "",
       errors: errors,
+      orphanedSources: orphanedSources,
+      warnings: orphanedSources.length ? C8O.stepSources.warnings(orphanedSources) : [],
       done: done
     };
   };

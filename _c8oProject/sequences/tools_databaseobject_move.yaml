@@ -35,6 +35,7 @@ comment: |
     
     moveInfo = moveResult;
     moveErrors = Array.isArray(moveResult.errors) ? moveResult.errors : [];
+    moveWarnings = Array.isArray(moveResult.warnings) ? moveResult.warnings : [];
     moveAutoSave = autoSaveFlag;
     moveProject = moveResult.project || null;
     moveSaved = false;
@@ -418,6 +419,20 @@ comment: |
               - SmartType: 
                 - ↑mode: JS
                 - →→: 'item && item.message ? String(item.message) : ""'
+  ↓warnings [steps.JsonToXmlStep-1795410000002]: 
+    comment: Step sources the change left orphan (one text per step gone); empty when none
+    jsonObject: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: JS
+          - →→: 'Array.isArray(moveWarnings) ? moveWarnings : []'
+    key: 
+      - xmlizable: 
+        - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+        - SmartType: 
+          - ↑mode: PLAIN
+          - →→: warnings
 ↓qname [variables.RequestableVariable-1762372534736]: 
   comment: Existing QName. Case-sensitive.
   description: Existing QName. Case-sensitive.

@@ -843,6 +843,54 @@ include("js/sql_dialect.js");
     return removeInfo;
   }
 
+  // Step sources a delete, a move or a replace left orphan, kept with the report of their operation: the batch warns
+  // about those still orphan once every operation ran (a later one may point them at the new step).
+  function noteOrphanSources(ctx, report, info, replacement) {
+    var orphans = info && Array.isArray(info.orphanedSources) ? info.orphanedSources : [];
+    for (var oi = 0; oi < orphans.length; oi++) {
+      ctx.orphanSources.push({ report: report, orphan: orphans[oi], replacement: replacement || null });
+    }
+  }
+
+  function warnOrphanSources(ctx) {
+    if (!ctx.orphanSources.length || !C8O.stepSources) {
+      return;
+    }
+    var still = [];
+    try {
+      still = C8O.stepSources.stillOrphan(ctx.orphanSources.map(function (entry) { return entry.orphan; }));
+    } catch (_noRecheck) {
+      return;
+    }
+    var byReport = [];
+    for (var ci = 0; ci < ctx.orphanSources.length; ci++) {
+      var entry = ctx.orphanSources[ci];
+      if (still.indexOf(entry.orphan) < 0) {
+        continue;
+      }
+      var group = null;
+      for (var gi = 0; gi < byReport.length; gi++) {
+        if (byReport[gi].report === entry.report) {
+          group = byReport[gi];
+        }
+      }
+      if (!group) {
+        group = { report: entry.report, orphans: [], replacements: {} };
+        byReport.push(group);
+      }
+      group.orphans.push(entry.orphan);
+      if (entry.replacement) {
+        group.replacements[entry.orphan.gone] = entry.replacement;
+      }
+    }
+    for (var ri = 0; ri < byReport.length; ri++) {
+      var texts = C8O.stepSources.warnings(byReport[ri].orphans, byReport[ri].replacements);
+      for (var ti = 0; ti < texts.length; ti++) {
+        pushReportWarning(byReport[ri].report, texts[ti]);
+      }
+    }
+  }
+
   function moveObject(ctx, qname, target, position) {
     var moveInfo = C8O.dbo.moveObject({
       qname: qname,
@@ -1524,6 +1572,7 @@ include("js/sql_dialect.js");
         var recreateUpdates = parsePropertiesMap(childPatch.properties, [], childQName + ".properties");
         var recreated = createObject(ctx, parentDbo, childClass, childName, null, recreateUpdates);
         flushClassNameNotes(ctx, report);
+        noteOrphanSources(ctx, report, deleted, { qname: safeQName(recreated), priority: C8O.stepSources ? C8O.stepSources.priorityOf(recreated) : "" });
         report.applied.push({
           action: "create",
           parentQName: parentQName,
@@ -1563,6 +1612,7 @@ include("js/sql_dialect.js");
         }
         var runtimeQName = safeQName(runtime);
         var pruneDeleted = deleteObject(ctx, runtimeQName);
+        noteOrphanSources(ctx, report, pruneDeleted);
         report.applied.push({ action: "delete", qname: pruneDeleted.qname });
         incrementMutation(ctx, "deleted");
       }
@@ -1693,6 +1743,7 @@ include("js/sql_dialect.js");
       throw makeOpError("validation_error", "delete operation requires qname", "validate", "", "");
     }
     var deleted = deleteObject(ctx, qname);
+    noteOrphanSources(ctx, report, deleted);
     report.applied.push({ action: "delete", qname: deleted.qname, parentQName: deleted.parentQName });
     incrementMutation(ctx, "deleted");
   }
@@ -1708,6 +1759,7 @@ include("js/sql_dialect.js");
       throw makeOpError("validation_error", "move operation requires target", "validate", "", qname);
     }
     var moved = moveObject(ctx, qname, target, position);
+    noteOrphanSources(ctx, report, moved);
     report.applied.push({
       action: "move",
       qname: moved.qname,
@@ -1852,6 +1904,7 @@ include("js/sql_dialect.js");
       projectMap: {},
       projectAnchorMap: {},
       refs: {},
+      orphanSources: [],
       summary: {
         planned: operations.length,
         applied: 0,
@@ -2038,6 +2091,8 @@ include("js/sql_dialect.js");
         ctx.summary.notRunOps += 1;
       }
     }
+
+    warnOrphanSources(ctx);
 
     var mobileBuilderResults = [];
     if (!dryRun && triggerMobileBuilder) {

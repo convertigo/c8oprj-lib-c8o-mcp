@@ -6,6 +6,10 @@ if (typeof include === "function") {
   include("js/security_audit_rules.js");
   include("js/security_audit_collect.js");
 }
+// SEQ-ORPHAN-SOURCE: the step sources naming a step the sequence no longer has (js/step_sources.js).
+if (typeof include === "function") {
+  include("js/step_sources.js");
+}
 (function () {
   C8O.lint = C8O.lint || {};
 
@@ -1443,6 +1447,13 @@ if (typeof include === "function") {
       }
       var flow = sequenceFlow(sequence, variableNames);
       sequenceFlows.push(flow);
+      // A source naming a step deleted or created again: requestable-execute fails with "Did not find source (N) for step".
+      if (C8O.stepSources) {
+        C8O.stepSources.orphans(C8O.stepSources.collect(sequence)).forEach(function (ref) {
+          var orphan = C8O.stepSources.lintFinding(ref, qnameOf(sequence));
+          add(orphan.rule, orphan.severity, orphan.qname, orphan.message, orphan.fix);
+        });
+      }
       C8O.lint.stepNamesAsVariables(flow).forEach(function (use) {
         add("SEQ-STEP-AS-VARIABLE", "error", use.qname, "The JavaScript reads " + use.name + ", the name of a step of the sequence: a step is not a " +
           "JavaScript variable, so it reads undefined (a test on it always takes the same branch, a value taken from it is empty).",
