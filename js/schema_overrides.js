@@ -1970,6 +1970,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       notListed: { type: "string" },
       note: { type: "string" },
       kept: { type: "string" },
+      temporary: lines("Objects this conversation created that are still there and named as a probe or a test (zz_, tmp_, probe...): delete them before the report."),
+      temporaryNote: { type: "string" },
       howToUse: { type: "string" }
     });
   }

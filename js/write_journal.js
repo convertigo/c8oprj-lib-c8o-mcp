@@ -1118,6 +1118,10 @@ if (typeof C8O === "undefined") {
   }
 
   // The answer of project-changes over the entries of a journal. options: {scope, project, since, full}
+  // A name an agent gives to an object it means to delete: a probe, a test, a scratch copy. A run stopped at its time cap
+  // left six probe transactions (zz_probe, zz_p_*) in an application's connector (17/11).
+  api.TEMPORARY_NAME = /^(zz|tmp|temp|scratch|probe|test|essai)(_|\d|$)|(^|_)(probe|tmp|scratch)(_|\d|$)/i;
+
   api.summarize = function (entries, options) {
     var opts = options || {};
     var project = text(opts.project);
@@ -1173,6 +1177,17 @@ if (typeof C8O === "undefined") {
     }
     answer.objects = objects.map(function (s) { return line(labelOf(s) + ": " + stateText(s) + "; " + usage(s, considered)); });
     answer.files = files.map(function (s) { return line(s.q + ": " + stateText(s) + "; " + usage(s, considered)); });
+    // Objects this conversation created that are still there and named as a probe: delete them, or say why they stay.
+    var temporary = objects.filter(function (s) {
+      var last = String(s.q).split(".").pop().replace(/^[a-z]{2,3}:/, "");
+      return s.created && !s.deleted && api.TEMPORARY_NAME.test(last);
+    }).map(function (s) { return labelOf(s); });
+    if (temporary.length) {
+      answer.temporary = temporary.slice(0, 20);
+      answer.temporaryNote = "Created by this conversation, still there, and named as a probe or a test: delete them with " +
+        "databaseobject-delete before the final report, unless the user asked for them (an SQL expression is tried with sql-select, " +
+        "not with a transaction created for it).";
+    }
     answer.runs = runList.map(function (r) {
       return line(r.r + ": " + r.runs + (r.runs > 1 ? " runs, " + r.errors + (r.errors === 1 ? " error" : " errors") + ", the last " : " run, ") +
         (r.ok ? "ok" : "in error") + " at " + api.time(r.last));

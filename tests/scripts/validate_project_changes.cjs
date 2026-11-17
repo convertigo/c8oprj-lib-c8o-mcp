@@ -502,3 +502,16 @@ test('the close-the-task guide and the common skill say to report from project-c
   assert.match(guide, /nothing else was modified/);
   assert.match(read('resources/convertigo_common_skill.md'), /`project-changes`/);
 });
+
+test('objects created by the conversation, still there and named as a probe, are listed apart with what to do', () => {
+  const j = load();
+  j.call('tools_sql_transaction_create', { status: 'ok', transactions: [{ qname: 'DemoApp.cn:db.tr:zz_probe' }, { qname: 'DemoApp.cn:db.tr:zz_p_alias' }, { qname: 'DemoApp.cn:db.tr:q_latest' }] }, { project: 'DemoApp' });
+  j.call('tools_sql_transaction_create', { status: 'ok', transactions: [{ qname: 'DemoApp.cn:db.tr:tmp_check' }] }, { project: 'DemoApp' });
+  j.call('tools_databaseobject_delete', { qname: 'DemoApp.cn:db.tr:tmp_check', removed: true }, {});
+  const answer = j.changes({ project: 'DemoApp' });
+  assert.deepEqual(answer.temporary, ['DemoApp.cn:db.tr:zz_p_alias', 'DemoApp.cn:db.tr:zz_probe']);
+  assert.match(answer.temporaryNote, /delete them with databaseobject-delete before the final report/);
+  const none = load();
+  none.call('tools_sql_transaction_create', { status: 'ok', transactions: [{ qname: 'DemoApp.cn:db.tr:q_testimonials' }] }, { project: 'DemoApp' });
+  assert.equal(none.changes({}).temporary, undefined);
+});
