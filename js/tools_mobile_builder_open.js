@@ -1634,7 +1634,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     }
     // The measured runs proved their pages with dozens of Playwright calls by hand (72 in one run), never browser-verify.
     if (ready && (compileState === "success" || compileState === "not_required")) {
-      message = message + " To prove what a page shows, call browser-verify {url, checks}: one call, a verifier drives this " +
+      message = message + " To prove what a page shows, call browser-verify {url, paths}: one call, a verifier drives this " +
         "viewer and answers what it saw with screenshots, instead of many browser calls by hand.";
     }
     var publicEditorResult = {

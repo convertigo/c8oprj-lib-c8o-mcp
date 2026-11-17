@@ -103,5 +103,5 @@ test('the structure a copy answers stays whole lines under its budget', () => {
 
 test('a viewer ready and compiled points to browser-verify for the proof of a page', () => {
   const open = read('js/tools_mobile_builder_open.js');
-  assert.match(open, /if \(ready && \(compileState === "success" \|\| compileState === "not_required"\)\) \{\s*message = message \+ " To prove what a page shows, call browser-verify \{url, checks\}/);
+  assert.match(open, /if \(ready && \(compileState === "success" \|\| compileState === "not_required"\)\) \{\s*message = message \+ " To prove what a page shows, call browser-verify \{url, paths\}/);
 });

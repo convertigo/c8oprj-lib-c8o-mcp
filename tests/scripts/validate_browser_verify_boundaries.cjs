@@ -111,3 +111,22 @@ test('an address the application redirects is named as a redirect, never a defec
  assert.match(second.text,/Reach the page through the application's menu, tabs or links instead/);
  assert.match(agent.SYSTEM_PROMPT,/After the first page, move like a user: through the application's menu, tabs, buttons and links\./);
 });
+test('once the application is loaded, an address of it is opened by its own router; a page that does not react is loaded', async () => {
+ const f = fixture(); let dom = '<app>dashboard</app>'; const evaluated = [];
+ f.page.content = async () => dom;
+ f.page.evaluate = async (fn, target) => { evaluated.push(target); if (/top-companies/.test(target)) dom = '<app>top companies</app>'; return true; };
+ const tools = agent.createTools({ page: f.page, screenshots: [] }, cfg);
+ await tools.navigate({ url: '/convertigo/gw/ticket/dashboard' });
+ assert.equal(f.navigated.length, 1, 'the first page is loaded');
+ const inApp = await tools.navigate({ url: '/convertigo/gw/ticket/top-companies' });
+ assert.match(inApp.text, /^Navigated inside the application, by its own router \(no reload: its sign-in and state are kept\)\./);
+ assert.equal(f.navigated.length, 1, 'no reload');
+ assert.deepEqual(evaluated, ['http://localhost:28080/convertigo/gw/ticket/top-companies']);
+ const loaded = await tools.navigate({ url: '/convertigo/gw/ticket/static.html' });
+ assert.match(loaded.text, /^Navigated\./, 'the page did not change: the address is loaded');
+ assert.equal(f.navigated.length, 2);
+});
+test('checks alone are the paths to walk', () => {
+ const source = fs.readFileSync(path.join(__dirname, '../../js/tools_browser_verify.js'), 'utf8');
+ assert.match(source, /if \(!paths\.length && checks\.length\) \{\s*paths = checks\.slice\(0, MAX_PATHS\);/);
+});

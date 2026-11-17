@@ -188,6 +188,11 @@ C8O.browserVerify = C8O.browserVerify || {};
     if (!paths.length && str(params.task).length) {
       paths = [str(params.task)];
     }
+    // checks alone are the paths to walk: the first call of a measured run gave only checks and was refused (17/11)
+    var checks = api.parseList(pick("checks"), "checks", MAX_CHECKS);
+    if (!paths.length && checks.length) {
+      paths = checks.slice(0, MAX_PATHS);
+    }
     var design = api.isDesign(params) || api.isDesign(inputs);
     return {
       url: str(pick("url")),
@@ -197,7 +202,7 @@ C8O.browserVerify = C8O.browserVerify || {};
       maxPages: Math.max(1, Math.min(MAX_DESIGN_PAGES, parseInt(str(pick("maxPages")) || "6", 10) || 6)),
       viewport: api.parseViewport(pick("viewport")),
       paths: paths,
-      checks: api.parseList(pick("checks"), "checks", MAX_CHECKS),
+      checks: checks,
       hints: [api.hintsText(pick("hints")), str(params.reportFormat).length ? "Report format asked: " + str(params.reportFormat) : ""]
         .filter(function (x) { return x.length; }).join("\n")
     };

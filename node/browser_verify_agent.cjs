@@ -920,6 +920,43 @@ function createTools(state, config) {
     }
   }
 
+  // Once the application is loaded, an address of the same application is opened by its own router, as a link does
+  // (history.pushState then popstate; a #hash for hash routing): loading the address restarts a single-page app, which
+  // goes back to its first page and loses a sign-in it keeps in memory (measured run, 17/11: the proof lost its
+  // session and ended partial). When the page does not change, the address is loaded as before.
+  async function navigateInApp(absolute) {
+    try {
+      var current = new URL(page().url());
+      var wanted = new URL(absolute);
+      if (!/^https?:$/.test(current.protocol) || current.origin !== wanted.origin || typeof page().evaluate !== "function") {
+        return false;
+      }
+      var before = typeof page().content === "function" ? await page().content() : "";
+      var moved = await page().evaluate(function (target) {
+        try {
+          var url = new URL(target);
+          if (url.hash && url.pathname === window.location.pathname && url.search === window.location.search) {
+            window.location.hash = url.hash;
+          } else {
+            window.history.pushState(window.history.state, "", target);
+            window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
+          }
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }, absolute);
+      if (!moved) {
+        return false;
+      }
+      await settle(page());
+      var after = typeof page().content === "function" ? await page().content() : "";
+      return after !== before;
+    } catch (_noInAppNavigation) {
+      return false;
+    }
+  }
+
   async function withSnapshot(prefix, navigation) {
     assertApplication(page().url());
     await settle(page());
@@ -969,8 +1006,12 @@ function createTools(state, config) {
       }
       var absolute = new URL(target, page().url() && /^https?:/.test(page().url()) ? page().url() : (config.url || undefined)).href;
       assertApplication(absolute);
+      if (state.appLoaded && await navigateInApp(absolute)) {
+        return withSnapshot("Navigated inside the application, by its own router (no reload: its sign-in and state are kept).", absolute);
+      }
       var response = await page().goto(absolute, { waitUntil: "domcontentloaded", timeout: 20000 });
       await inspectResponse(response);
+      state.appLoaded = true;
       return withSnapshot("Navigated.", absolute);
     },
     download: async function (args) {
