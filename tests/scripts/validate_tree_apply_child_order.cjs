@@ -146,6 +146,7 @@ function load(project, options = {}) {
           parent.remove(dbo);
           return { removed: true, qname: String(qname), parentQName: parent.getFullQName(), errors: [] };
         },
+        existedBeforeConversation: options.existedBefore,
         moveObject: options.moveObject || (({ qname, target, position }) => {
           const dbo = resolve(qname);
           const anchor = resolve(target);
@@ -491,4 +492,24 @@ test('mode replace still removes the content the tree leaves out; a nested eleme
   // a merge prunes nothing and says nothing about kept attributes
   const merged = load(zoneProject()).apply({ target: 'P.App.Page.Zone', operations: [{ type: 'upsertTree', qname: 'P.App.Page.Zone', patch: { children: [ngxText('More')] } }] });
   assert.equal(JSON.stringify(merged).includes('Kept the attribute'), false);
+});
+
+test('a tree-apply create named like a sequence the conversation did not create is refused; one it created merges as before', () => {
+  // Measured run (17/11): an agent that missed an existing sequence created its own under the same name; the create merged
+  // into the existing one and changed an output the app reads.
+  const create = keep => ({ type: 'create', related: 'P', mode: 'inside', className: 'sequences.GenericSequence', name: 'Seed',
+    keepExistingRequestable: keep, children: [step('Other', 'steps.SimpleStep')] });
+  let project = sequenceProject();
+  let result = load(project, { existedBefore: () => true }).apply({ target: 'P', operations: [create(true)] });
+  assert.equal(result.status, 'failed');
+  assert.match(JSON.stringify(result), /P\.Seed already exists and this conversation did not create it: a create with its name would merge into it/);
+  assert.deepEqual(names(project.children[0]), ['mode', 'Count', 'Total', 'IfEmpty', 'Final'], 'nothing merged');
+  project = sequenceProject();
+  result = load(project, { existedBefore: () => false }).apply({ target: 'P', operations: [create(true)] });
+  assert.ok(['ok', 'partial'].includes(result.status), 'created by this conversation: merged');
+  assert.ok(names(project.children[0]).includes('Other'));
+  project = sequenceProject();
+  result = load(project, { existedBefore: () => true }).apply({ target: 'P', operations: [create(undefined)] });
+  assert.ok(['ok', 'partial'].includes(result.status), 'other tools (no flag) keep their upsert');
+  assert.match(read('js/tools_databaseobject_tree_apply.js'), /keepExistingRequestable: true/);
 });

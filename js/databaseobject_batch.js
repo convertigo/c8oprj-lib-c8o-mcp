@@ -1454,6 +1454,26 @@ include("js/sql_dialect.js");
     }
   }
 
+  // Whether a requestable existed before this conversation: not in the objects its write journal lists as created
+  // (js/write_journal.js). Unknown (no conversation, no journal) answers false: nothing is refused then. A test may set
+  // C8O.dbo.existedBeforeConversation.
+  function requestableExistedBefore(dbo) {
+    try {
+      if (C8O.dbo && typeof C8O.dbo.existedBeforeConversation === "function") {
+        return C8O.dbo.existedBeforeConversation(dbo) === true;
+      }
+      if (typeof context === "undefined" || !context || !context.server) {
+        return false;
+      }
+      if (typeof C8O.writeJournal === "undefined" || typeof C8O.writeJournal.createdQNames !== "function") {
+        include("js/write_journal.js");
+      }
+      return C8O.writeJournal.createdQNames(context).indexOf(String(safeQName(dbo))) < 0;
+    } catch (_unknownJournal) {
+      return false;
+    }
+  }
+
   function findDirectChildByName(parent, name) {
     var children = getDirectChildren(parent);
     for (var i = 0; i < children.length; i++) {
@@ -1914,6 +1934,15 @@ include("js/sql_dialect.js");
           " of class " + existingClass + "; delete it or choose another name.", "validate", "", parentQNameForExisting);
       }
       var existingQName = safeQName(existing);
+      // A tree-apply create named like a sequence or a transaction that this conversation did not create merged into it:
+      // an agent that missed the existing one sent its own design, the merge changed 4 objects of an output the app
+      // reads, and the hint led it to replace the rest (measured run, 17/11).
+      if (op.keepExistingRequestable === true && /(Sequence|Transaction)$/.test(existingClass) && requestableExistedBefore(existing)) {
+        throw makeOpError("existing_requestable", existingQName + " already exists and this conversation did not create it: a " +
+          "create with its name would merge into it and change an output that pages or sequences read. Use it as it is " +
+          "(databaseobject-tree-get " + existingQName + "), or give the new object another name; change it only if the user " +
+          "asked for it, with at:\"self\" on " + existingQName + ".", "validate", "", existingQName);
+      }
       pushReportNote(report, name + " already exists under " + parentQNameForExisting +
         ": updated in place (at:" + mode + " does not create " + name + "1).");
       report.applied.push({ action: "updateExisting", qname: existingQName, name: name, className: existingClass });
@@ -1942,7 +1971,7 @@ include("js/sql_dialect.js");
         if (kept.length) {
           pushReportWarning(report, existingQName + " already existed and was merged, not rebuilt: its children " +
             kept.slice(0, 10).join(", ") + (kept.length > 10 ? " (+" + (kept.length - 10) + ")" : "") +
-            " are not in the tree and were kept. To rebuild it, delete it first (check with tree-get), or patch it with at:\"self\" and mode:\"replace\".");
+            " are not in the tree and were kept. If the user did not ask to change it, use it as it is; to rebuild it, delete it first (check with tree-get), or patch it with at:\"self\" and mode:\"replace\".");
         }
       }
       return;

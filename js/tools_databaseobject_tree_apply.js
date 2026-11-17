@@ -460,7 +460,9 @@ if (atInput === "self") {
     related: targetInput,
     mode: atInput,
     className: classNameInput,
-    name: nameInput
+    name: nameInput,
+    // a create named like a requestable this conversation did not create is refused (js/databaseobject_batch.js)
+    keepExistingRequestable: true
   };
 
   if (treeObject.properties !== undefined) {
@@ -859,7 +861,8 @@ if (treeApplyResult && Array.isArray(treeApplyResult.warnings) && treeApplyResul
     }
     treeApplyResult.warnings = treeApplyResult.warnings.map(function (warning) {
       var text = String(warning);
-      var key = repeatKey + "|" + text.substring(0, 300);
+      // counts change from one call to the next ("changed 4 object(s)", then 5): the same warning all the same
+      var key = repeatKey + "|" + text.substring(0, 300).replace(/\d+/g, "#");
       var seen = Number(repeats.getOrDefault(key, 0)) + 1;
       repeats.put(key, java.lang.Integer.valueOf(seen));
       return C8O.treeApplyRepeatNote ? C8O.treeApplyRepeatNote(text, seen) : text;
