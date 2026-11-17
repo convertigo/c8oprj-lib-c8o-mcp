@@ -13,20 +13,15 @@ comment: |
     var jsDir = new java.io.File(targetProject.getDirPath(), "js");
     var filenameText = filename == null ? "" : String(filename).trim();
     if (!filenameText.length) { throw new Error("filename is required"); }
-    var normalized = filenameText.replace(/\\/g, "/");
-    while (normalized.indexOf("//") >= 0) { normalized = normalized.replace("//", "/"); }
-    if (normalized.startsWith("/")) { normalized = normalized.substring(1); }
-    if (normalized.indexOf("js/") === 0) { normalized = normalized.substring(3); }
-    requestedName = normalized;
-    var baseFile = jsDir.getCanonicalFile();
-    var basePath = baseFile.toPath();
-    var targetFile = new java.io.File(baseFile, normalized).getCanonicalFile();
+    include("js/project_js_files.js");
+    var resolved = C8O.projectJsFiles.resolve(jsDir, filenameText, projectName, java.io.File);
+    requestedName = resolved.name;
+    var targetFile = resolved.file;
     var targetPath = targetFile.toPath();
-    if (!targetPath.startsWith(basePath)) { throw new Error("Invalid filename: " + normalized); }
-    directoryExists = jsDir.exists();
-    fileExists = targetFile.exists();
+    directoryExists = jsDir.isDirectory();
+    fileExists = targetFile.isFile();
     fileCanonicalPath = String(targetFile.getPath());
-    fileRelativePath = basePath.relativize(targetPath).toString();
+    fileRelativePath = resolved.name;
     resultTimestamp = java.lang.System.currentTimeMillis();
     if (fileExists) {
       var bytes = java.nio.file.Files.readAllBytes(targetPath);
@@ -37,7 +32,9 @@ comment: |
     } else {
       fileContent = "";
       resultStatus = directoryExists ? "missing" : "uninitialized";
-      resultMessage = directoryExists ? "File not found" : "js directory not created";
+      resultMessage = directoryExists
+        ? "File not found: js/" + resolved.name + " of " + projectName + ". " + C8O.projectJsFiles.listText(resolved.base, "js/")
+        : "js directory not created: " + projectName + " has no js/ folder yet (project-js-set creates it with its first file).";
       resultBytes = 0;
     }
     if (typeof includeContent !== "undefined" && includeContent != null && String(includeContent).trim().toLowerCase() === "false") {

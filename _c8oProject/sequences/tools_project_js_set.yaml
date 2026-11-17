@@ -14,16 +14,13 @@ comment: |
     var jsDir = new java.io.File(targetProject.getDirPath(), "js");
     var filenameText = filename == null ? "" : String(filename).trim();
     if (!filenameText.length) { throw new Error("filename is required"); }
-    var normalized = filenameText.replace(/\\/g, "/");
-    while (normalized.indexOf("//") >= 0) { normalized = normalized.replace("//", "/"); }
-    if (normalized.startsWith("/")) { normalized = normalized.substring(1); }
-    if (normalized.indexOf("js/") === 0) { normalized = normalized.substring(3); }
-    requestedName = normalized;
-    var baseFile = jsDir.getCanonicalFile();
+    include("js/project_js_files.js");
+    var resolved = C8O.projectJsFiles.resolve(jsDir, filenameText, projectName, java.io.File);
+    requestedName = resolved.name;
+    var baseFile = resolved.base;
     var basePath = baseFile.toPath();
-    var targetFile = new java.io.File(baseFile, normalized).getCanonicalFile();
+    var targetFile = resolved.file;
     var targetPath = targetFile.toPath();
-    if (!targetPath.startsWith(basePath)) { throw new Error("Invalid filename: " + normalized); }
     var parentDir = targetFile.getParentFile();
     java.nio.file.Files.createDirectories(parentDir.toPath());
     var existed = targetFile.exists();

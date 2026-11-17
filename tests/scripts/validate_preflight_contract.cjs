@@ -323,9 +323,14 @@ test('a tool error reaches a Vibe client as a readable result, and every output 
 });
 
 test('project-js-set and project-js-get take js/app.js as app.js (run 11a F-02)', () => {
+  // Both resolve the file name through js/project_js_files.js (validate_project_js_files.cjs covers folders and outside paths).
   for (const file of ['tools_project_js_set', 'tools_project_js_get']) {
-    assert.match(read('_c8oProject/sequences/' + file + '.yaml'), /if \(normalized\.indexOf\("js\/"\) === 0\) \{ normalized = normalized\.substring\(3\); \}/);
+    assert.match(read('_c8oProject/sequences/' + file + '.yaml'), /C8O\.projectJsFiles\.resolve\(jsDir, filenameText, projectName, java\.io\.File\)/);
   }
+  const ctx = { C8O: {} };
+  vm.runInNewContext(read('js/project_js_files.js'), ctx);
+  assert.equal(ctx.C8O.projectJsFiles.normalize('js/app.js'), 'app.js');
+  assert.equal(ctx.C8O.projectJsFiles.normalize('app.js'), 'app.js');
 });
 
 // --- values of number, boolean and enum properties -------------------------------------------------
