@@ -25,7 +25,8 @@ const DRAWER_BUDGET = 12000;
 // that the drawers still put back in place give the whole text, each part once.
 // Then one line on the attachments, read with nocode-attachment-read.
 // Then the Long answers section (partialAnswer, answer-page, remaining).
-const SKILL_TEXT_SHA256 = '1e68f050175ceff5dc52ebe2d7e9f5f90bf0006e9aeb43b876bc4e9eeb93a270';
+// Then the Maps section of sources.md and its line on hand-written references (17/11).
+const SKILL_TEXT_SHA256 = '50f28321a4f60cbbcd8b394445253e218fd83bc0c08f6231cbc7be469903e381';
 
 test('SKILL.md names each drawer once, and each drawer file of its folder is named', () => {
   const named = pointers.map(p => p.file);
