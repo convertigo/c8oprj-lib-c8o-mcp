@@ -59,7 +59,7 @@ comment: |
     moveSummaryErrors = moveErrors.length;
     // moved:false with reordered:true is a success: same parent, new place, steps run in the new order.
     moveMessage = !moveDone ? "" : (moveReordered
-      ? "Reordered inside " + toParentText + " (same parent, so moved is false): steps run in the new order."
+      ? "Reordered inside " + toParentText + " (same parent, so moved is false)" + (/Step$/.test(classNameText) ? ": steps run in the new order." : ".")
       : "Moved under " + toParentText + ".");
     '
 ↓Export [steps.SimpleStep-1762369943166]: 

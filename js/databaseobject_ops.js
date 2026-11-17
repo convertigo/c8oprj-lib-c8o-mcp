@@ -329,7 +329,15 @@ function _c8oPendingIonicEdits(dbo, action) {
         }
       } catch (_ignoredNotify) {}
     } catch (moveError) {
-      errors.push({ name: "move", message: String(moveError) });
+      // Two objects of the same kind (two pages, two steps) without a position: the default "inside" puts one in the
+      // other, which the engine refuses; to reorder them the position is before or after (measured run, 17/11).
+      var sameKind = false;
+      try {
+        sameKind = position === "inside" && String(dbo.getClass().getName()) === String(targetDbo.getClass().getName());
+      } catch (_ignoreKind) {}
+      errors.push({ name: "move", message: String(moveError) + (sameKind
+        ? " To put " + String(dbo.getName()) + " before or after " + String(targetDbo.getName()) + ", give position \"before\" or \"after\" (the default, inside, puts it in the target)."
+        : "") });
       try {
         if (dbo.getParent() == null && previousParent != null) {
           var restoreAfter = previousSibling == null ? java.lang.Long.valueOf(0)

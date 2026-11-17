@@ -3514,7 +3514,24 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (!outputSchema || typeof outputSchema !== "object" || Array.isArray(outputSchema)) {
       return openObjectSchema({});
     }
-    return cloneObject(outputSchema, openObjectSchema({}));
+    var derived = cloneObject(outputSchema, openObjectSchema({}));
+    // A field a JsonToXmlStep builds at run time has an empty text as sample: the derived schema says string. warnings of
+    // databaseobject-move and databaseobject-delete is a list: a client that checks the answer against its schema (Vibe)
+    // refused every move and delete as mcp_transport_failed, though the MCP answered in 30 ms (measured run, 17/11).
+    var runtimeFields = RUNTIME_OUTPUT_FIELDS[seq];
+    if (runtimeFields && derived.properties && typeof derived.properties === "object") {
+      Object.keys(runtimeFields).forEach(function (key) {
+        derived.properties[key] = runtimeFields[key]();
+      });
+    }
+    return derived;
+  };
+
+  // The fields of a tool answer built at run time by a JsonToXmlStep, with their real shape, for the tools whose output
+  // schema is derived (no override above). tests/scripts/validate_runtime_output_fields.cjs checks every such field.
+  var RUNTIME_OUTPUT_FIELDS = {
+    tools_databaseobject_move: { warnings: function () { return stringArraySchema(); } },
+    tools_databaseobject_delete: { warnings: function () { return stringArraySchema(); } }
   };
 
   // The tools whose call "Confirmer avant de modifier" or "Lecture seule" of the Tigo panel may hold: the WRITE_TOOLS of
