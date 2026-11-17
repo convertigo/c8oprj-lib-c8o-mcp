@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   List scheduled sequence runs
-  Lists the engine scheduler jobs, CRON schedules and scheduled jobs (the Administration Console Scheduler objects), optionally for one project. Read-only.
+  Lists the engine scheduler jobs, CRON schedules and scheduled jobs (the Administration Console Scheduler objects), optionally for one project, with the next run of each enabled CRON schedule and the time zone the engine evaluates CRON expressions in (timeZone, utcOffset: the JVM's default zone). Read-only.
 ↓Include [steps.SimpleStep-1792171000041]: 
   expression: include("js/tools_scheduler.js");
 ↓Run [steps.SimpleStep-1792171000042]: 

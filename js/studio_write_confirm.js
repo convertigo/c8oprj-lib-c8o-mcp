@@ -34,7 +34,7 @@ C8O.studioWriteConfirm = C8O.studioWriteConfirm || {};
   api.MODES = { off: true, confirm: true, readonly: true };
 
   // The tools that change a project, the Studio or its data, by sequence. Some change nothing with some arguments
-  // (writesOf): a dry run of tree-apply, a batch of reads, the report of a sub-agent already running.
+  // (writesOf): a dry run of tree-apply or scheduler-apply, a batch of reads, the report of a sub-agent already running.
   api.WRITE_TOOLS = {
     tools_databaseobject_tree_apply: "databaseobject-tree-apply",
     tools_databaseobject_delete: "databaseobject-delete",
@@ -199,7 +199,7 @@ C8O.studioWriteConfirm = C8O.studioWriteConfirm || {};
 
   function writes(sequence, args) {
     args = args || {};
-    if (sequence === "tools_databaseobject_tree_apply") {
+    if (sequence === "tools_databaseobject_tree_apply" || sequence === "tools_scheduler_apply") {
       return !truthy(args.dryRun);
     }
     if (sequence === "tools_subagent_run") {

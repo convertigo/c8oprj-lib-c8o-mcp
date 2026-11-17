@@ -2882,7 +2882,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           parameters: { type: "object", additionalProperties: true, description: "Sequence variables sent at each run, as a JSON object." },
           contextName: { type: "string", description: "Engine context name used by the runs; defaults to name." },
           writeOutput: { type: "boolean", default: false, description: "true writes each run output to the engine output folder." },
-          description: { type: "string", description: "Optional description shown in the Administration Console." }
+          description: { type: "string", description: "Optional description shown in the Administration Console." },
+          dryRun: { type: "boolean", default: false, description: "true checks the definition and answers its next runs (nextRuns) and the time zone of the CRON expression (timeZone, utcOffset), saving nothing. Preview with it, then apply." }
         },
         required: ["name"],
         additionalProperties: false
