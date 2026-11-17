@@ -2664,8 +2664,8 @@
   },
   {
     "uri": "convertigo://guides/auth/email-password-with-lib-usermanager",
-    "name": "Convertigo Authentication — Email + password with lib_UserManager",
-    "description": "Open for Email + password with lib_UserManager.",
+    "name": "Convertigo Authentication — Accounts with a password (lib_UserManager): login and roles recipe",
+    "description": "Open for Accounts with a password (lib_UserManager): login and roles recipe.",
     "mimeType": "text/markdown",
     "file": "guides/auth/email-password-with-lib-usermanager.md",
     "guideId": "convertigo/authentication/email-password-with-lib-usermanager",

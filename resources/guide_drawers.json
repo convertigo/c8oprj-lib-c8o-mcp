@@ -403,7 +403,7 @@
         "when": "Running upsert-crud again",
         "sha256": "58f43f0d3abb3bb04d627e6a0fdf3e2072636d11266c1affebb4bb1255716a03",
         "bodyOffset": 236,
-        "servedSha256": "86bdb073edad0d438036f34bb9b28bb42c1d4f7c96b7ebdf6e5440f853753315",
+        "servedSha256": "6d9620d39c86a314de86b8faf719e6f20114d1f2cb10d949488379f250938594",
         "trailingSourceNewlines": 1
       },
       {
@@ -433,7 +433,7 @@
         "servedSha256": "4942facfea0801ae2a7ea7d9c63076f1f5e4b2b8e19697bd9fa94bd48d8416bf"
       }
     ],
-    "summarySha256": "22be151b4b2c3a2b72da8afd6389c3c31b68b3dddb06cb8199fd4bf534635367"
+    "summarySha256": "847204295d8c688898142b848d759d39690ae2913c7bbaa4c91c86a28454175d"
   },
   {
     "oldUri": "convertigo://resources/convertigo-platform-big-picture",
@@ -1106,7 +1106,7 @@
         "when": "Choosing a flow",
         "sha256": "067ab4aca12b42940b40b63b4ca115ba4d9db306b62ece8c682966ea4f263e60",
         "bodyOffset": 194,
-        "servedSha256": "1b5262a1e514a19eaba33bc296c812885bb688ddd1a3aed1c121afb07a953b6c",
+        "servedSha256": "d0c6dfddff0ad782c2c85d33f2060f67a4bf90f5e4bdcf42219eb4856c50cba4",
         "trailingSourceNewlines": 1
       },
       {
@@ -1130,10 +1130,10 @@
       {
         "uri": "convertigo://guides/auth/email-password-with-lib-usermanager",
         "file": "guides/auth/email-password-with-lib-usermanager.md",
-        "when": "Email + password with lib_UserManager",
+        "when": "Accounts with a password (lib_UserManager): login and roles recipe",
         "sha256": "494cd0ecddff425bd51d1c8a1e097c0938953d3130bdd26c9e13cba69c6d458c",
-        "bodyOffset": 280,
-        "servedSha256": "db8d129236e87566a68ed558b7fc2928620fe127556f7294754e0c4b355e43c1",
+        "bodyOffset": 313,
+        "servedSha256": "2a8f47442eec4088fa438e2785963354af077f0362f358c09ca2026172b1f00f",
         "trailingSourceNewlines": 1
       },
       {
@@ -1142,7 +1142,7 @@
         "when": "Seed access control, role checks and demo-account proof",
         "sha256": "6087ab379fb05a086a9896fa84e11f5730e7661bd202d9745142432d28d48c76",
         "bodyOffset": 289,
-        "servedSha256": "d8f21891be6ddb38720a43eb5ed4f6490b746a8fd03a9575349b23e3771adc68",
+        "servedSha256": "6bf7c7ec75acb156d50e7c1ab8a9392404ced1a26f6fd28e35422009264c06c9",
         "trailingSourceNewlines": 1
       },
       {
@@ -1151,7 +1151,7 @@
         "when": "NGX client",
         "sha256": "b6c3c6bacdf7e981987a47d0c1bc1e436cd0f6dd45de86e0700537ec6d090393",
         "bodyOffset": 203,
-        "servedSha256": "a9c1fb61cea2da9b56037152eec72f0db0fcad5b33299a49a7d153ff4dd6765c"
+        "servedSha256": "64147ec0f87dee87c6bddd378cf731145d3635e681e4922480b8e4a6fd1934eb"
       },
       {
         "uri": "convertigo://guides/auth/ngx-client-2",
@@ -1162,7 +1162,7 @@
         "servedSha256": "9f5bdbe1807c177c09dae5ed6b0f9656d524507b8a8cd201fe5556e0fc0712ad"
       }
     ],
-    "summarySha256": "d33841fcaae13a539170f4e8f5f4ac89f9884f2e8339f8b2967053e2769260a1"
+    "summarySha256": "e8f1c10f24c9c588cf34b88a8f31d5b54b178ee250bc4e320dec87e1d5911aa1"
   },
   {
     "oldUri": "convertigo://resources/convertigo-recipe-ngx-data-page",

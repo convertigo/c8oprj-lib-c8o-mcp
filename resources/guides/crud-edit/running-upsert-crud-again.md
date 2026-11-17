@@ -30,9 +30,15 @@ takes the filter (`business-sequence-create` reading the list transaction with a
 to the page with `filters:[{name, label, type:"select", options}]` or `type:"search"`. No hand edit of the list.
 
 ## Real users (a login form)
-- The generated `auth_login` accepts any user name. For real users, make the login sequence check the password and
-  refuse with an error: an `IfStep` holding an `XMLErrorStep` (the message the form shows) and a `ReturnStep`, before
-  its `SetAuthenticatedUser` step. Or use the app's own login sequence.
+- The generated `auth_login` accepts any user name. Named accounts with a password go through `lib_UserManager`, never
+  a password checked in the app: follow the login and roles recipe of
+  `convertigo://guides/auth/email-password-with-lib-usermanager`. In short: accounts created through the library with
+  their role (`CreateAccount`, `SetUserAttribute`) by an administrator, ids as the user gives them (an e-mail only when
+  given), no literal password in the project; `auth_login` = `InputVariablesStep`, the `SignIn` call with its step
+  variables sourced on it (`./username/text()`) or a `var user = username;` before the call (a step variable without
+  source nor value takes the JavaScript variable of the same name only), an `IfExistThenElseStep` on the call's
+  `./document/error` ending in an `XMLErrorStep`, then the role read (`GetUserAttribute`) and the answer `user` + `role`;
+  each protected sequence checks the role server side (`IfStep` + `XMLErrorStep`) before its transaction call.
 - The login page is an `ngx-page-create` form page with `root:true`: `form.submit` the login sequence, one field per
   variable of it (`type:"password"` for the password), `success:{page:"<home page>", kind:"root"}`. It shows the
   refusal, and every protected page takes `authRedirect` to it. A login page that signs in without asking anything
