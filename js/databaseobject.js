@@ -1523,6 +1523,14 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
         errors.push({ name: requestedName, message: sourceProblem });
         continue;
       }
+    } else if (rawSpec && typeof rawSpec === "object" && !Array.isArray(rawSpec) && rawSpec.mode != null &&
+        String(rawSpec.mode).toUpperCase() === "SOURCE" && Array.isArray(rawSpec.sources)) {
+      // A SmartType of a sequence step in SOURCE mode reads a step the same way.
+      var smartProblem = C8O.dbo._stepSourceProblem(rawSpec.sources, dbo, requestedName + " (SOURCE)");
+      if (smartProblem.length) {
+        errors.push({ name: requestedName, message: smartProblem });
+        continue;
+      }
     }
     var name = requestedName;
     var pd = descriptorMap[name];
@@ -1992,7 +2000,50 @@ C8O.dbo._preparePropertyValue = function (pd, rawSpec) {
 // to a sibling created earlier in the same call:
 //   sourceDefinition: {"step":"callMe","xpath":"./document/sql_output"} -> ["<priority>", xpath]
 //   SmartType {"mode":"SOURCE","step":"callMe","xpath":"..."}         -> {"mode":"SOURCE","sources":[...]}
+// A step source given with the step's name where its priority goes (sourceDefinition ["CountAll", "./document"], a SmartType
+// {"mode":"SOURCE","sources":["CountAll", "./document"]}), or as a one-item list ([{"step":"CountAll","xpath":"."}]), reads
+// as the {"step"} form below. Measured run (18/11): a seed's summary field was stored with the step name in its SmartType
+// sources, unchecked, and stayed empty; three more calls went into sources refused for naming a step.
+C8O.dbo._stepSourceNameForm = function (rawSpec, propertyLookup) {
+  var spec = rawSpec;
+  if (typeof spec === "string") {
+    var text = spec.trim();
+    if (!/^[\[{]/.test(text)) {
+      return rawSpec;
+    }
+    try {
+      spec = JSON.parse(text);
+    } catch (_notJson) {
+      return rawSpec;
+    }
+  }
+  var smart = !!spec && typeof spec === "object" && !Array.isArray(spec) && spec.mode != null &&
+    String(spec.mode).toUpperCase() === "SOURCE" && Array.isArray(spec.sources);
+  var list = smart ? spec.sources : (propertyLookup === "sourcedefinition" && Array.isArray(spec) ? spec : null);
+  if (!list || !list.length || list.length > 2) {
+    return rawSpec;
+  }
+  var named = null;
+  if (list.length === 1 && list[0] && typeof list[0] === "object" && !Array.isArray(list[0]) && list[0].step != null) {
+    named = { step: list[0].step, xpath: list[0].xpath };
+  } else if (typeof list[0] === "string" || list[0] instanceof String) {
+    var first = C8O.util.toTrimmedString(list[0]);
+    if (/^[A-Za-z_][\w-]*$/.test(first)) {
+      named = { step: first, xpath: list.length > 1 ? C8O.util.toTrimmedString(list[1]) : "." };
+    }
+  }
+  if (!named) {
+    return rawSpec;
+  }
+  if (smart) {
+    named.mode = "SOURCE";
+  }
+  return named;
+};
+
 C8O.dbo._expandStepSourceShorthand = function (rawSpec, dbo, propertyLookup) {
+  var given = rawSpec;
+  rawSpec = C8O.dbo._stepSourceNameForm(rawSpec, propertyLookup);
   var spec = rawSpec;
   if (typeof spec === "string") {
     var trimmed = spec.trim();
@@ -2026,6 +2077,9 @@ C8O.dbo._expandStepSourceShorthand = function (rawSpec, dbo, propertyLookup) {
     }
   }
   if (!sequence || typeof sequence.getAllSteps !== "function") {
+    if (given !== rawSpec) {
+      return given;
+    }
     throw new Error("Step source {step:\"" + stepName + "\"} only works inside a sequence.");
   }
   // Steps nested in IfStep, iterators or blocks count too: getAllSteps lists the top level only.
@@ -2050,7 +2104,37 @@ C8O.dbo._expandStepSourceShorthand = function (rawSpec, dbo, propertyLookup) {
   };
   findIn(sequence.getAllSteps(), 0);
   if (!found) {
+    var known = [];
+    var listNames = function (list, depth) {
+      for (var i = 0; list && i < list.size() && known.length < 13 && depth < 50; i++) {
+        var step = list.get(i);
+        known.push(String(step.getName()));
+        var children = null;
+        try {
+          children = typeof step.getSteps === "function" ? step.getSteps() : null;
+        } catch (_ignoreChildren) {
+          children = null;
+        }
+        if (children) {
+          listNames(children, depth + 1);
+        }
+      }
+    };
+    listNames(sequence.getAllSteps(), 0);
+    var isInput = false;
+    try {
+      var inputs = typeof sequence.getVariablesList === "function" ? sequence.getVariablesList() : null;
+      for (var v = 0; inputs && v < inputs.size() && !isInput; v++) {
+        isInput = String(inputs.get(v).getName()) === stepName;
+      }
+    } catch (_ignoreInputs) {}
+    if (isInput) {
+      throw new Error(stepName + " is an input variable of sequence " + String(sequence.getName()) + ", not a step: a source naming it " +
+        "resolves to nothing. Source an InputVariablesStep (./" + stepName + "/text()), or set var <step variable name> = " +
+        stepName + "; in a SimpleStep before the call.");
+    }
     throw new Error("No step named " + stepName + " in sequence " + String(sequence.getName()) +
+      (known.length ? " (its steps: " + known.slice(0, 12).join(", ") + (known.length > 12 ? ", ..." : "") + ")" : "") +
       ": create it before the step that sources it (an earlier sibling in the same tree works), or pass [\"<priority>\", \"<xpath>\"].");
   }
   var source = [String(found.priority), C8O.util.toTrimmedString(spec.xpath) || "."];
@@ -2060,7 +2144,8 @@ C8O.dbo._expandStepSourceShorthand = function (rawSpec, dbo, propertyLookup) {
 // Why a step's sourceDefinition can never resolve, "" when it can: its first element must be the priority of a step of
 // the same sequence that runs before the step reading it (or contains it). A name ("username") or the priority of a sequence variable was stored with status ok, and the step
 // variable stayed empty at run time: every sign-in of an app was refused (measured runs, 17/11).
-C8O.dbo._stepSourceProblem = function (rawSpec, dbo) {
+C8O.dbo._stepSourceProblem = function (rawSpec, dbo, label) {
+  var what = label || "sourceDefinition";
   var spec = rawSpec;
   if (typeof spec === "string") {
     var text = spec.trim();
@@ -2098,7 +2183,7 @@ C8O.dbo._stepSourceProblem = function (rawSpec, dbo) {
     "To pass an input of the sequence to a call: source an InputVariablesStep (./<input>/text()), or set var <step variable name> = <input>; " +
     "in a SimpleStep before the call.";
   if (!/^\d+$/.test(first)) {
-    return "sourceDefinition starts with \"" + first + "\", which is not a step: it would resolve to nothing at run time." + how;
+    return what + " starts with \"" + first + "\", which is not a step: it would resolve to nothing at run time." + how;
   }
   // Steps in run order (a parent before its children): a source must run before the step that reads it, or contain it.
   var order = [];
@@ -2135,7 +2220,7 @@ C8O.dbo._stepSourceProblem = function (rawSpec, dbo) {
     if (readerIndex < 0 || sourceIndex < readerIndex) {
       return "";
     }
-    return "sourceDefinition names " + first + ", the step " + names[first] + (sourceIndex === readerIndex ? ", the step itself" :
+    return what + " names " + first + ", the step " + names[first] + (sourceIndex === readerIndex ? ", the step itself" :
       ", which runs after " + names[order[readerIndex]]) + ": it has no output yet when " + names[order[readerIndex]] +
       " reads it. Point it to a step before " + names[order[readerIndex]] + ", or move " + names[first] + " before it (databaseobject-move)." + how;
   }
@@ -2149,8 +2234,8 @@ C8O.dbo._stepSourceProblem = function (rawSpec, dbo) {
     }
   } catch (_ignoreVariables) {}
   return (variableName.length
-    ? "sourceDefinition names " + first + ", the priority of the variable " + variableName + " of " + String(sequence.getName()) + ", not of a step: it resolves to nothing."
-    : "sourceDefinition names " + first + ", the priority of no step of " + String(sequence.getName()) + " (a step of another sequence, or one deleted): it resolves to nothing.") + how;
+    ? what + " names " + first + ", the priority of the variable " + variableName + " of " + String(sequence.getName()) + ", not of a step: it resolves to nothing."
+    : what + " names " + first + ", the priority of no step of " + String(sequence.getName()) + " (a step of another sequence, or one deleted): it resolves to nothing.") + how;
 };
 
 C8O.dbo._smartSourcePath = function (path) {
