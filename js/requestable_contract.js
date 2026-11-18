@@ -170,15 +170,18 @@ C8O.requestableContract = C8O.requestableContract || {};
     });
   };
 
-  api.existingRefusal = function (requestable, callers) {
+  api.existingRefusal = function (requestable, callers, callees) {
     var list = callers.length ? callers.slice(0, 8).join(", ") + (callers.length > 8 ? " (+" + (callers.length - 8) + ")" : "") : "";
+    var calls = (callees || []).slice(0, 6);
     return "Nothing was changed: " + requestable + " existed before this conversation, and " +
       (list.length ? "its callers (" + list + ")" : "the app") + " read its output and its variables. If the user asked to " +
-      "change " + requestable + ", call again with the same arguments and changeExisting:[\"" + requestable + "\"]: later " +
-      "changes to it in this conversation then pass; name the change in the final report. Otherwise leave it as it is: create " +
-      "a separate object (a new sequence or transaction under another name), or adapt the caller to its output as it is " +
-      "(requestable-execute shows it).";
+      "change " + requestable + ", call again with the same arguments and changeExisting:[\"" + requestable + "\"" +
+      (calls.length ? "] (add " + calls.map(function (c) { return "\"" + c + "\""; }).join(", ") + ", which it calls, if the " +
+        "change goes into them too)" : "]") + ": later changes to it in this conversation then pass; name the change in the " +
+      "final report. Otherwise leave it as it is: create a separate object (a new sequence or transaction under another name), " +
+      "or adapt the caller to its output as it is (requestable-execute shows it).";
   };
+
 
 
   api.confirmedNote = function (requestable) {
@@ -245,6 +248,45 @@ C8O.requestableContract.isConfirmed = function (contextObject, requestable) {
   }
 };
 
+// The transactions and sequences of its own project a sequence calls (typed QNames), that existed before this conversation
+// too: a change the user asked for in its output often goes into the SQL of the transaction it calls, a second refusal.
+C8O.requestableContract.calleesOf = function (sequence) {
+  var out = [];
+  try {
+    var project = String(sequence.getProject().getName());
+    var walk = function (dbo, depth) {
+      var list = null;
+      try {
+        list = dbo.getDatabaseObjectChildren();
+      } catch (_noChildren) {
+        list = null;
+      }
+      for (var i = 0; list && i < list.size() && depth < 50 && out.length < 6; i++) {
+        var child = list.get(i);
+        var cls = String(child.getClass().getName());
+        var target = null;
+        try {
+          target = /TransactionStep$/.test(cls) && typeof child.getTargetTransaction === "function" ? child.getTargetTransaction()
+            : /SequenceStep$/.test(cls) && typeof child.getTargetSequence === "function" ? child.getTargetSequence() : null;
+        } catch (_noTarget) {
+          target = null;
+        }
+        if (target && String(target.getProject().getName()) === project) {
+          var qname = String(C8O.dbo.safeFullQName(target) || "");
+          if (qname.length && out.indexOf(qname) < 0) {
+            out.push(qname);
+          }
+        }
+        if (/Step$/.test(cls)) {
+          walk(child, depth + 1);
+        }
+      }
+    };
+    walk(sequence, 0);
+  } catch (_unknownCallees) {}
+  return out;
+};
+
 C8O.requestableContract.gateExisting = function (contextObject, targetQName, at, mode, tree, changeExisting) {
   var api = C8O.requestableContract;
   try {
@@ -262,14 +304,26 @@ C8O.requestableContract.gateExisting = function (contextObject, targetQName, at,
     if (api.createdBefore(requestable, C8O.writeJournal.createdQNames(contextObject)) || api.isConfirmed(contextObject, requestable)) {
       return null;
     }
-    if (api.names(api.parseNames(changeExisting), requestable)) {
+    var named = api.parseNames(changeExisting);
+    if (api.names(named, requestable)) {
       var map = api.confirmedStore(contextObject);
       if (map != null) {
-        map.put(api.confirmedKey(contextObject, requestable), java.lang.Long.valueOf(java.lang.System.currentTimeMillis()));
+        var now = java.lang.Long.valueOf(java.lang.System.currentTimeMillis());
+        map.put(api.confirmedKey(contextObject, requestable), now);
+        // the other requestables the call names (the transaction a sequence calls) pass too, without a refusal of their own
+        named.forEach(function (name) {
+          try {
+            var other = C8O.dbo.resolve(name, { optional: true });
+            var otherQName = other ? api.requestableOf(String(C8O.dbo.safeFullQName(other) || "")) : "";
+            if (otherQName.length && otherQName !== requestable) {
+              map.put(api.confirmedKey(contextObject, otherQName), now);
+            }
+          } catch (_unknownName) {}
+        });
       }
       return { note: api.confirmedNote(requestable), requestable: requestable };
     }
-    return { refusal: api.existingRefusal(requestable, api.callersOf(dbo, requestable)), requestable: requestable };
+    return { refusal: api.existingRefusal(requestable, api.callersOf(dbo, requestable), api.calleesOf(dbo)), requestable: requestable };
   } catch (_gateUnknown) {
     return null;
   }

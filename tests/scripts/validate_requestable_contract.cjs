@@ -154,9 +154,10 @@ function gateWorld(created = []) {
   vm.createContext(sandbox);
   vm.runInContext(read('js/requestable_contract.js'), sandbox, { filename: 'requestable_contract.js' });
   const C8O = sandbox.C8O;
-  C8O.dbo = { resolve: q => (/^App\.(sq|cn):/.test(q) ? { q } : null) };
+  C8O.dbo = { resolve: q => (/^App\.(sq|cn):/.test(q) ? { q } : null), safeFullQName: d => d.q };
   C8O.writeJournal = { createdQNames: () => created.slice(), keyOf: ctx => ({ key: 'k-' + ctx.conversation }) };
   C8O.requestableContract.callersOf = () => ['page Home'];
+  C8O.requestableContract.calleesOf = () => ['App.cn:db.tr:q_list'];
   const context = conversation => ({ server, conversation });
   return { C: C8O.requestableContract, context };
 }
@@ -165,7 +166,8 @@ test('the gate refuses a change inside an existing requestable, lets it through 
   const { C, context } = gateWorld();
   const one = context('c1');
   const refused = C.gateExisting(one, 'App.sq:list.st:Call', 'after', 'merge', { name: 'Rows', className: 'steps.JsonArrayStep' }, null);
-  assert.match(refused.refusal, /^Nothing was changed: App\.sq:list existed before this conversation, and its callers \(page Home\) read its output and its variables\. If the user asked to change App\.sq:list, call again with the same arguments and changeExisting:\["App\.sq:list"\]: later changes to it in this conversation then pass; name the change in the final report\. Otherwise leave it as it is: create a separate object \(a new sequence or transaction under another name\), or adapt the caller to its output as it is \(requestable-execute shows it\)\.$/);
+  assert.match(refused.refusal, /^Nothing was changed: App\.sq:list existed before this conversation, and its callers \(page Home\) read its output and its variables\. If the user asked to change App\.sq:list, call again with the same arguments and changeExisting:\["App\.sq:list"\] \(add "App\.cn:db\.tr:q_list", which it calls, if the change goes into them too\): later changes to it in this conversation then pass; name the change in the final report\. Otherwise leave it as it is: create a separate object \(a new sequence or transaction under another name\), or adapt the caller to its output as it is \(requestable-execute shows it\)\.$/);
+  assert.match(C.existingRefusal('App.cn:db.tr:q', [], []), /^Nothing was changed: App\.cn:db\.tr:q existed before this conversation, and the app read its output and its variables\. If the user asked to change App\.cn:db\.tr:q, call again with the same arguments and changeExisting:\["App\.cn:db\.tr:q"\]: later changes/);
   assert.equal(C.isConfirmed(one, 'App.sq:list'), false);
   const named = C.gateExisting(one, 'App.sq:list.st:Call', 'after', 'merge', { name: 'Rows', className: 'steps.JsonArrayStep' }, ['App.sq:list']);
   assert.match(named.note, /^App\.sq:list existed before this conversation and was changed as named in changeExisting: say it in the final report \(project-changes lists it under existingChanged\)\.$/);
@@ -201,4 +203,13 @@ test('a list argument handed over as a Java string (an object whose text is the 
   JString.prototype.toString = function () { return this.s; };
   assert.deepEqual(plain(C.parseNames(new JString('["App.sq:list"]'))), ['App.sq:list']);
   assert.deepEqual(plain(C.parseNames(new JString('App.sq:list'))), ['App.sq:list']);
+});
+
+test('the other requestables a call names in changeExisting pass too: the transaction a sequence calls is not refused apart', () => {
+  const { C, context } = gateWorld();
+  const one = context('c1');
+  assert.ok(C.gateExisting(one, 'App.sq:list.st:Call', 'after', 'merge', { name: 'Count', className: 'steps.SimpleStep' },
+    ['App.sq:list', 'App.cn:db.tr:q_list']).note);
+  assert.equal(C.gateExisting(one, 'App.cn:db.tr:q_list', 'self', 'merge', { properties: { sqlQuery: 'SELECT 1' } }, null), null);
+  assert.ok(C.gateExisting(one, 'App.cn:db.tr:q_other', 'self', 'merge', { properties: { sqlQuery: 'SELECT 2' } }, null).refusal);
 });
