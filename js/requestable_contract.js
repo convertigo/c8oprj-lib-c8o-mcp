@@ -172,13 +172,14 @@ C8O.requestableContract = C8O.requestableContract || {};
 
   api.existingRefusal = function (requestable, callers) {
     var list = callers.length ? callers.slice(0, 8).join(", ") + (callers.length > 8 ? " (+" + (callers.length - 8) + ")" : "") : "";
-    return requestable + " existed before this conversation: its output and its variables are a contract " +
-      (list.length ? "its callers read (" + list + ")" : "the app reads") + ". This change inside it is refused, and nothing " +
-      "was changed. If the user asked to change it, call again with changeExisting:[\"" + requestable + "\"] (once: later " +
-      "changes to it in this conversation pass) and name the change in the final report. Otherwise leave it as it is: bind " +
-      "the new objects to its output as it is (requestable-execute shows it), or create a new requestable under another name " +
-      "(convertigo://guides/common/models).";
+    return "Nothing was changed: " + requestable + " existed before this conversation, and " +
+      (list.length ? "its callers (" + list + ")" : "the app") + " read its output and its variables. If the user asked to " +
+      "change " + requestable + ", call again with the same arguments and changeExisting:[\"" + requestable + "\"]: later " +
+      "changes to it in this conversation then pass; name the change in the final report. Otherwise leave it as it is: create " +
+      "a separate object (a new sequence or transaction under another name), or adapt the caller to its output as it is " +
+      "(requestable-execute shows it).";
   };
+
 
   api.confirmedNote = function (requestable) {
     return requestable + " existed before this conversation and was changed as named in changeExisting: say it in the " +

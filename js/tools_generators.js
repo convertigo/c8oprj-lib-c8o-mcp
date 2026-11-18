@@ -772,6 +772,9 @@ C8O.generators = C8O.generators || {};
     return session.create(plan.connectorQName, plan.node);
   }
 
+  var SQL_ECHO_MAX = 300;
+  var SQL_GENERATED_MAX = 2000;
+
   G.sqlTransactionCreate = function (args) {
     var tool = "sql-transaction-create";
     var projectDbo = projectOf(args.project, tool);
@@ -810,6 +813,7 @@ C8O.generators = C8O.generators || {};
         errors.push(label + ".ifExists must be fail, replace or keep.");
       }
       plan.ifExists = own || ifExists;
+      plan.sqlGiven = isObj(spec) && spec.sql !== undefined && spec.sql !== null && str(spec.sql) !== "";
       return plan;
     });
     plans.forEach(function (p) {
@@ -826,8 +830,18 @@ C8O.generators = C8O.generators || {};
     plans.forEach(function (p) {
       var dbo = createTransaction(session, p, p.ifExists);
       var target = dbo || p.existing;
-      out.push({ qname: studioQNameOf(target), requestable: qnameOf(target), status: p.exists ? (dbo ? "replaced" : "kept") : "created",
-        kind: p.kind, variables: dbo ? variableNames(dbo) : p.variables, sql: p.sql });
+      var entry = { qname: studioQNameOf(target), requestable: qnameOf(target), status: p.exists ? (dbo ? "replaced" : "kept") : "created",
+        kind: p.kind, variables: dbo ? variableNames(dbo) : p.variables };
+      // The SQL the caller wrote is not sent back: a seed of 62 statements came back 15 times, 23,000 characters in two
+      // pages each (measured run, 18/11). Its length and first line say which one was stored; a generated SQL is shown.
+      var sqlText = String(p.sql == null ? "" : p.sql);
+      if (p.sqlGiven && sqlText.length > SQL_ECHO_MAX) {
+        entry.sqlChars = sqlText.length;
+        entry.sqlStart = sqlText.replace(/^\s+/, "").split(/\r?\n/)[0].substring(0, 160);
+      } else {
+        entry.sql = sqlText.length > SQL_GENERATED_MAX ? sqlText.substring(0, SQL_GENERATED_MAX) + "... (" + sqlText.length + " characters)" : sqlText;
+      }
+      out.push(entry);
     });
     var finish = session.finish(null);
     return {

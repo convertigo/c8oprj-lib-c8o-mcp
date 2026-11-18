@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Patch a canonical database object tree
-  Creates or updates canonical tree nodes relative to an existing target. Prefer merge for incremental edits; use replace only when missing children should be pruned in the patched scope.
+  Creates or updates canonical tree nodes relative to an existing target. Prefer merge for incremental edits; use replace only when missing children should be pruned in the patched scope. A change inside a sequence or transaction that existed before this conversation needs changeExisting with its QName, sent when the user asked for that change.
 ↓IncludeHelpers [steps.SimpleStep-1772628069902]: 
   comment: Load shared helpers.
   expression: |

@@ -2361,3 +2361,23 @@ test('the top bar shows who is signed in: remembered at sign-in, read on protect
   assert.match(css, /\.app-user-chip \{/);
 });
 
+
+// The SQL the caller wrote is not sent back (measured run, 18/11: a 62-statement seed came back 15 times, 23,000 characters
+// in two pages each): its length and first line say which one was stored. A short SQL and a generated one are shown.
+test('sql-transaction-create answers the length and first line of a long SQL it was given, never the SQL itself', () => {
+  const world = makeWorld();
+  bean('void', 'com.twinsoft.convertigo.beans.connectors.SqlConnector', world.project);
+  const G = load(world);
+  const long = '-- Demo rows, idempotent\n' + Array.from({ length: 40 }, (_, i) =>
+    "INSERT INTO companies (name) SELECT 'Company " + i + "' FROM (VALUES(0)) v WHERE NOT EXISTS (SELECT 1 FROM companies t WHERE t.name = 'Company " + i + "');").join('\n');
+  const out = G.sqlTransactionCreate({ project: 'App', name: 'w_seed', sql: long });
+  const entry = out.transactions[0];
+  assert.equal(entry.sql, undefined);
+  assert.equal(entry.sqlChars, long.length);
+  assert.equal(entry.sqlStart, '-- Demo rows, idempotent');
+  assert.ok(JSON.stringify(out).length < 3000, 'the answer stays short');
+  const short = G.sqlTransactionCreate({ project: 'App', name: 'q_one', sql: 'SELECT a AS "a" FROM t' });
+  assert.equal(short.transactions[0].sql, 'SELECT a AS "a" FROM t');
+  const built = G.sqlTransactionCreate({ project: 'App', name: 'q_built', select: { from: 't', columns: ['t.a'] } });
+  assert.match(built.transactions[0].sql, /^SELECT t\.a AS "a"/, 'a generated SQL is shown');
+});

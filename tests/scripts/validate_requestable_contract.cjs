@@ -165,7 +165,7 @@ test('the gate refuses a change inside an existing requestable, lets it through 
   const { C, context } = gateWorld();
   const one = context('c1');
   const refused = C.gateExisting(one, 'App.sq:list.st:Call', 'after', 'merge', { name: 'Rows', className: 'steps.JsonArrayStep' }, null);
-  assert.match(refused.refusal, /^App\.sq:list existed before this conversation: its output and its variables are a contract its callers read \(page Home\)\. This change inside it is refused, and nothing was changed\. If the user asked to change it, call again with changeExisting:\["App\.sq:list"\] \(once: later changes to it in this conversation pass\) and name the change in the final report\. Otherwise leave it as it is: bind the new objects to its output as it is/);
+  assert.match(refused.refusal, /^Nothing was changed: App\.sq:list existed before this conversation, and its callers \(page Home\) read its output and its variables\. If the user asked to change App\.sq:list, call again with the same arguments and changeExisting:\["App\.sq:list"\]: later changes to it in this conversation then pass; name the change in the final report\. Otherwise leave it as it is: create a separate object \(a new sequence or transaction under another name\), or adapt the caller to its output as it is \(requestable-execute shows it\)\.$/);
   assert.equal(C.isConfirmed(one, 'App.sq:list'), false);
   const named = C.gateExisting(one, 'App.sq:list.st:Call', 'after', 'merge', { name: 'Rows', className: 'steps.JsonArrayStep' }, ['App.sq:list']);
   assert.match(named.note, /^App\.sq:list existed before this conversation and was changed as named in changeExisting: say it in the final report \(project-changes lists it under existingChanged\)\.$/);
