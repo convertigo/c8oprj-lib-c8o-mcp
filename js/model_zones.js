@@ -61,8 +61,9 @@ C8O.modelZones = C8O.modelZones || {};
     return n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : n + "th";
   }
 
-  // What differs between the zones recorded at the copy and the zones now: ["zone Content.Footer deleted", ...].
-  api.diff = function (recorded, current) {
+  // What differs between the zones recorded at the copy and the zones now: ["zone Content.Footer deleted", ...]. live leaves
+  // out the emptied zones: replacing the placeholder of the content zone empties it for a moment (the final state counts).
+  api.diff = function (recorded, current, live) {
     var now = {};
     (current || []).forEach(function (z) {
       now[z.path] = z;
@@ -84,7 +85,7 @@ C8O.modelZones = C8O.modelZones || {};
       if (z.cls !== still.cls) {
         drifts.push("class of " + z.path + " changed from \"" + z.cls + "\" to \"" + still.cls + "\"");
       }
-      if (z.count > 0 && still.count === 0) {
+      if (!live && z.count > 0 && still.count === 0) {
         drifts.push("zone " + z.path + " emptied");
       }
     });
@@ -139,6 +140,13 @@ C8O.modelZones = C8O.modelZones || {};
 })(C8O.modelZones);
 
 // --- engine side -------------------------------------------------------------------------------------------------------
+
+// The router and project-changes do not load the object helpers: loaded here when needed.
+C8O.modelZones.ensureDbo = function () {
+  if (typeof C8O.dbo === "undefined" || typeof C8O.dbo.resolve !== "function" || typeof C8O.dbo.getDirectChildren !== "function") {
+    include("js/databaseobject.js");
+  }
+};
 
 C8O.modelZones.engineHooks = function () {
   var simple = function (dbo) {
@@ -214,6 +222,7 @@ C8O.modelZones.afterCopy = function (contextObject, answer) {
     if (!copy.length || !source.length || !/PageComponent/.test(String(answer.className || ""))) {
       return false;
     }
+    api.ensureDbo();
     var page = C8O.dbo.resolve(source, { optional: true });
     var map = api.store(contextObject, api.STORE_KEY);
     if (!page || map == null) {
@@ -253,11 +262,12 @@ C8O.modelZones.copies = function (contextObject) {
 };
 
 // The differences of a recorded copy now, [] when it matches its model or is gone.
-C8O.modelZones.driftsOf = function (record) {
+C8O.modelZones.driftsOf = function (record, live) {
   var api = C8O.modelZones;
   try {
+    api.ensureDbo();
     var page = C8O.dbo.resolve(record.copy, { optional: true });
-    return page ? api.diff(record.zones, api.zonesOf(page, api.engineHooks())) : [];
+    return page ? api.diff(record.zones, api.zonesOf(page, api.engineHooks()), live) : [];
   } catch (_unknownDrift) {
     return [];
   }
@@ -273,15 +283,19 @@ C8O.modelZones.warningsAfter = function (contextObject, qnames) {
       if (!api.touches(record.copy, qnames)) {
         return;
       }
-      var drifts = api.driftsOf(record);
+      var drifts = api.driftsOf(record, true);
+      repeats = repeats || api.store(contextObject, api.REPEAT_KEY);
+      // one count per copy: a new difference on a copy that already differed is still open too; back to its model, it starts again
+      var key = api.keyOf(contextObject) + "|" + record.copy;
       if (!drifts.length) {
+        if (repeats != null) {
+          repeats.remove(key);
+        }
         return;
       }
       var text = api.warning(record.copy, record.source, drifts);
-      repeats = repeats || api.store(contextObject, api.REPEAT_KEY);
       var seen = 1;
       if (repeats != null) {
-        var key = api.keyOf(contextObject) + "|" + text.replace(/\d+/g, "#");
         seen = Number(repeats.getOrDefault(key, 0)) + 1;
         repeats.put(key, java.lang.Integer.valueOf(seen));
       }

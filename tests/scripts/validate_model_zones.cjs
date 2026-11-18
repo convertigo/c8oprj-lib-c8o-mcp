@@ -19,6 +19,7 @@ class JMap {
   get(k) { return this.m.has(k) ? this.m.get(k) : null; }
   put(k, v) { this.m.set(k, v); }
   getOrDefault(k, d) { return this.m.has(k) ? this.m.get(k) : d; }
+  remove(k) { this.m.delete(k); }
   size() { return this.m.size; }
   clear() { this.m.clear(); }
   keySet() { const keys = [...this.m.keys()]; return { toArray: () => keys }; }
@@ -96,6 +97,7 @@ test('a filled content zone matches its model; a deleted, emptied, restyled or r
   const gone = model();
   gone.children = gone.children.filter(c => c.name !== 'Content');
   assert.deepEqual(plain(M.diff(recorded, M.zonesOf(gone, hooks))), ['zone Content deleted'], 'the zones under a deleted one are not named again');
+  assert.deepEqual(plain(M.diff(recorded, M.zonesOf(drifted, hooks), true)).filter(d => /emptied/.test(d)), [], 'live: an emptied zone waits for the final state');
 });
 
 test('the warning says what the model imposes and what to do; STILL OPEN when it comes again', () => {
@@ -135,7 +137,12 @@ test('a copy of a page records its model; a write that leaves it different is wa
   assert.equal(M.afterCopy(one, { qname: 'App.pg:Top', source: 'Lib.pg:_model', className: 'ngx.components.PageComponent' }), true);
   assert.equal(M.afterCopy(one, { qname: 'App.pg:Top.Content.X', source: 'App.pg:Other.Content.X', className: 'ngx.components.UIDynamicElement' }), false,
     'a copy of an element records nothing');
+  const zone = pages['App.pg:Top'].children[3].children[2];
+  const placeholder = zone.children.pop();
+  assert.deepEqual(plain(M.warningsAfter(one, ['App.pg:Top.Content.ContentZone.Example'])), [], 'the placeholder of the content zone removed: no warning yet');
+  zone.children.push(node('List', 'UIDynamicElement'));
   assert.deepEqual(plain(M.warningsAfter(one, ['App.pg:Top.Content.ContentZone'])), [], 'still like its model');
+  assert.ok(placeholder);
   const content = pages['App.pg:Top'].children[3];
   content.children = content.children.filter(c => c.name !== 'Footer');
   const first = plain(M.warningsAfter(one, ['App.pg:Top.Content.Footer']));
@@ -143,8 +150,11 @@ test('a copy of a page records its model; a write that leaves it different is wa
   assert.match(first[0], /^App\.pg:Top was copied in this conversation from the model Lib\.pg:_model, and differs from it now: zone Content\.Footer deleted\./);
   assert.match(M.warningsAfter(one, ['App.pg:Top'])[0], /^STILL OPEN \(2nd time in this conversation\): App\.pg:Top was copied/);
   assert.deepEqual(plain(M.warningsAfter(one, ['App.pg:Other'])), [], 'a write elsewhere says nothing');
+  pages['App.pg:Top'].children[3].children[0].value = 'app-page';
+  assert.match(M.warningsAfter(one, ['App.pg:Top.Content'])[0], /^STILL OPEN \(3rd time in this conversation\): .*class of Content changed from "app-page model-page" to "app-page"; zone Content\.Footer deleted\./,
+    'a new difference on a copy that already differed is still open');
   assert.deepEqual(plain(M.warningsAfter(context('c2'), ['App.pg:Top'])), [], 'another conversation copied nothing');
-  assert.deepEqual(plain(M.summary(one, 'App')), ['App.pg:Top (copy of Lib.pg:_model): zone Content.Footer deleted']);
+  assert.deepEqual(plain(M.summary(one, 'App')), ['App.pg:Top (copy of Lib.pg:_model): class of Content changed from "app-page model-page" to "app-page"; zone Content.Footer deleted']);
   assert.deepEqual(plain(M.summary(one, 'Other')), []);
 });
 
