@@ -1697,7 +1697,7 @@
         "when": "Models, templates and output contracts",
         "sha256": "f2d8b9d10ae0c8d4bb9b7583fcd971506ea71cdb9851f5b17cd84bea35ec53e4",
         "bodyOffset": 240,
-        "servedSha256": "3953708995623936f7db05dc3331288ec41dd3a5e8c16eff2bf907ad25955943"
+        "servedSha256": "c2bbf72949cd9107b3da7a49bd50ed90e5e27e223a0e039568f41614ddb410db"
       },
       {
         "uri": "convertigo://guides/common/batching",

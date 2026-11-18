@@ -105,3 +105,92 @@ test('a viewer ready and compiled points to browser-verify for the proof of a pa
   const open = read('js/tools_mobile_builder_open.js');
   assert.match(open, /if \(ready && \(compileState === "success" \|\| compileState === "not_required"\)\) \{\s*message = message \+ " To prove what a page shows, call browser-verify \{url, paths\}/);
 });
+
+// A change inside a requestable that existed before the conversation is refused before it is made, until changeExisting
+// names it (measured run, 18/11: 8 changes into an existing sequence through at:"after" and at:"self", each one warned).
+test('the requestable a tree-apply writes inside: steps, variables, SQL, name; a sibling, a comment or an access are not', () => {
+  const C = load('js/requestable_contract.js', 'requestableContract');
+  assert.equal(C.writeScope('App.sq:list.st:Call', 'after', 'merge', { name: 'Rows', className: 'steps.JsonArrayStep' }), 'App.sq:list');
+  assert.equal(C.writeScope('App.sq:list.st:Rows.Iterator', 'self', 'merge', { properties: { condition: '' } }), 'App.sq:list');
+  assert.equal(C.writeScope('App.sq:list', 'inside', 'merge', { name: 'Rows', className: 'steps.JsonArrayStep' }), 'App.sq:list');
+  assert.equal(C.writeScope('App.cn:db.tr:q_items', 'inside', 'merge', { name: 'limit', className: 'variables.RequestableVariable' }), 'App.cn:db.tr:q_items');
+  assert.equal(C.writeScope('App.cn:db.tr:q_items', 'self', 'merge', { properties: { sqlQuery: 'SELECT 1' } }), 'App.cn:db.tr:q_items');
+  assert.equal(C.writeScope('App.sq:list', 'self', 'merge', { name: 'list_all', properties: {} }), 'App.sq:list', 'a rename');
+  assert.equal(C.writeScope('App.sq:list', 'self', 'replace', { name: 'list' }), 'App.sq:list');
+  assert.equal(C.writeScope('App.sq:list', 'self', 'merge', { name: 'list', children: [{ name: 'A' }] }), 'App.sq:list');
+  assert.equal(C.writeScope('App.sq:list', 'self', 'merge', { name: 'list', properties: { comment: 'x', accessibility: 'Private' } }), '');
+  assert.equal(C.writeScope('App.sq:list', 'after', 'merge', { name: 'list_v2', className: 'sequences.GenericSequence' }), '', 'a new sibling');
+  assert.equal(C.writeScope('App', 'inside', 'merge', { name: 'seed', className: 'sequences.GenericSequence' }), '');
+  assert.equal(C.writeScope('App.Application.NgxApp.pg:Home', 'inside', 'merge', { name: 'Title' }), '');
+});
+
+test('changeExisting names a requestable by QName, runtime path or name, as a list, a JSON list or a comma text', () => {
+  const C = load('js/requestable_contract.js', 'requestableContract');
+  assert.deepEqual(plain(C.parseNames(['App.sq:list', ' App.list '])), ['App.sq:list', 'App.list']);
+  assert.deepEqual(plain(C.parseNames('["App.sq:list"]')), ['App.sq:list']);
+  assert.deepEqual(plain(C.parseNames('App.sq:list, App.cn:db.tr:q')), ['App.sq:list', 'App.cn:db.tr:q']);
+  assert.deepEqual(plain(C.parseNames(null)), []);
+  assert.deepEqual(plain(C.parseNames('')), []);
+  assert.equal(C.names(['App.sq:list'], 'App.sq:list'), true);
+  assert.equal(C.names(['App.list'], 'App.sq:list'), true);
+  assert.equal(C.names(['list'], 'App.sq:list'), true);
+  assert.equal(C.names(['App.db.q'], 'App.cn:db.tr:q'), true);
+  assert.equal(C.names(['list_all'], 'App.sq:list'), false);
+  assert.equal(C.names([], 'App.sq:list'), false);
+});
+
+function gateWorld(created = []) {
+  const values = new Map();
+  const server = { get: k => (values.has(k) ? values.get(k) : null), set: (k, v) => values.set(k, v) };
+  class JMap {
+    constructor() { this.m = new Map(); }
+    size() { return this.m.size; } clear() { this.m.clear(); }
+    containsKey(k) { return this.m.has(k); } put(k, v) { this.m.set(k, v); }
+  }
+  const sandbox = {
+    java: { util: { concurrent: { ConcurrentHashMap: JMap } }, lang: { Long: { valueOf: v => v }, System: { currentTimeMillis: () => 1 } } },
+    include() {},
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(read('js/requestable_contract.js'), sandbox, { filename: 'requestable_contract.js' });
+  const C8O = sandbox.C8O;
+  C8O.dbo = { resolve: q => (/^App\.(sq|cn):/.test(q) ? { q } : null) };
+  C8O.writeJournal = { createdQNames: () => created.slice(), keyOf: ctx => ({ key: 'k-' + ctx.conversation }) };
+  C8O.requestableContract.callersOf = () => ['page Home'];
+  const context = conversation => ({ server, conversation });
+  return { C: C8O.requestableContract, context };
+}
+
+test('the gate refuses a change inside an existing requestable, lets it through once named, and remembers it per conversation', () => {
+  const { C, context } = gateWorld();
+  const one = context('c1');
+  const refused = C.gateExisting(one, 'App.sq:list.st:Call', 'after', 'merge', { name: 'Rows', className: 'steps.JsonArrayStep' }, null);
+  assert.match(refused.refusal, /^App\.sq:list existed before this conversation: its output and its variables are a contract its callers read \(page Home\)\. This change inside it is refused, and nothing was changed\. If the user asked to change it, call again with changeExisting:\["App\.sq:list"\] \(once: later changes to it in this conversation pass\) and name the change in the final report\. Otherwise leave it as it is: bind the new objects to its output as it is/);
+  assert.equal(C.isConfirmed(one, 'App.sq:list'), false);
+  const named = C.gateExisting(one, 'App.sq:list.st:Call', 'after', 'merge', { name: 'Rows', className: 'steps.JsonArrayStep' }, ['App.sq:list']);
+  assert.match(named.note, /^App\.sq:list existed before this conversation and was changed as named in changeExisting: say it in the final report \(project-changes lists it under existingChanged\)\.$/);
+  assert.equal(C.gateExisting(one, 'App.sq:list.st:Rows', 'self', 'merge', { properties: { key: 'rows' } }, null), null, 'later changes pass');
+  assert.equal(C.isConfirmed(one, 'App.sq:list'), true);
+  assert.ok(C.gateExisting(context('c2'), 'App.sq:list.st:Rows', 'self', 'merge', { properties: {} }, null).refusal, 'another conversation is asked again');
+  assert.ok(C.gateExisting(one, 'App.sq:other.st:A', 'self', 'merge', { properties: {} }, ['App.sq:list']).refusal, 'only the named one');
+});
+
+test('the gate lets through a requestable this conversation created, an object outside requestables, and an unknown target', () => {
+  const { C, context } = gateWorld(['App.sq:seed']);
+  const one = context('c1');
+  assert.equal(C.gateExisting(one, 'App.sq:seed.st:Insert', 'after', 'merge', { name: 'Check', className: 'steps.IfStep' }, null), null);
+  assert.equal(C.gateExisting(one, 'App.Application.NgxApp.pg:Home', 'inside', 'merge', { name: 'Title' }, null), null);
+  assert.equal(C.gateExisting(one, 'Gone.sq:list.st:A', 'self', 'merge', { properties: {} }, null), null);
+  assert.equal(C.gateExisting(one, 'App.sq:list', 'self', 'merge', { name: 'list', properties: { accessibility: 'Hidden' } }, null), null);
+});
+
+test('tree-apply checks the gate before anything changes, a dry run aside, and declares changeExisting', () => {
+  const tool = read('js/tools_databaseobject_tree_apply.js');
+  const gate = tool.indexOf("var existingGate = gateTargetQName.length");
+  assert.ok(gate > 0 && gate < tool.indexOf('var op = null;') && gate < tool.indexOf('treeApplyResult = C8O.dbo.batchApply({'));
+  assert.ok(tool.indexOf('treeApplyRenameTarget(selfTarget, selfName, treeName);') > gate, 'before a rename of the target');
+  assert.match(tool, /if \(!\(dryRunInput === true \|\| String\(dryRunInput\) === "true"\)\) \{\n  if \(typeof C8O\.requestableContract === "undefined"/);
+  assert.match(read('js/schema_overrides.js'), /changeExisting: \{\n {10}type: "array",\n {10}items: \{ type: "string" \},\n {10}description: "Only when the user asked to change it:/);
+  assert.match(read('_c8oProject/sequences/tools_databaseobject_tree_apply.yaml'), /\n↓changeExisting \[variables\.RequestableVariable-\d+\]: \n {2}comment: /);
+  assert.match(read('js/requestable_contract.js'), /if \(!newHere && \(info\.inside > 0 \|\| info\.sql\) && !api\.isConfirmed\(contextObject, requestable\)\) \{/);
+});

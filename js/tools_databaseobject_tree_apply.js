@@ -386,6 +386,32 @@ function treeApplyRenameTarget(selfTarget, oldName, newName) {
   targetInput = treeApplyRenamed.to;
 }
 
+// A write inside a requestable that existed before this conversation is refused, before anything changes, until
+// changeExisting names it (js/requestable_contract.js). A dry run changes nothing and is let through.
+var changeExistingInput = (typeof changeExisting !== "undefined") ? changeExisting : null;
+if (!(dryRunInput === true || String(dryRunInput) === "true")) {
+  if (typeof C8O.requestableContract === "undefined" || typeof C8O.requestableContract.gateExisting !== "function") {
+    include("js/requestable_contract.js");
+  }
+  var gateTargetQName = "";
+  try {
+    gateTargetQName = String(C8O.dbo.safeQName(C8O.dbo.resolve(targetInput, { optional: true })) || "");
+  } catch (_ignoreGateTarget) {
+    gateTargetQName = "";
+  }
+  var existingGate = gateTargetQName.length && gateTargetQName !== "null" && C8O.requestableContract &&
+      typeof C8O.requestableContract.gateExisting === "function"
+    ? C8O.requestableContract.gateExisting(typeof context !== "undefined" ? context : null, gateTargetQName, atInput, modeInput,
+      treeObject, changeExistingInput)
+    : null;
+  if (existingGate && existingGate.refusal) {
+    throw new Error(existingGate.refusal);
+  }
+  if (existingGate && existingGate.note) {
+    treeApplyWarnings.push(existingGate.note);
+  }
+}
+
 var op = null;
 if (atInput === "self") {
   // at:"self" (the default) patches the target itself. A tree that names another object is almost

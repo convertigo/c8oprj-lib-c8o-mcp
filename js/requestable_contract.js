@@ -5,7 +5,11 @@
  *   and renamed its SQL aliases to fit its page. The answer names the pages and sequences that call it.
  * - access: a sequence created in this conversation that writes data and is still Public (the default of a new sequence)
  *   can be called by anyone; a seed made that way failed the security lint at the end of a run (17/11).
- * Warnings, never refusals: the user may have asked for the change.
+ * - existing: a tree-apply that writes inside a requestable that existed before this conversation is refused before it
+ *   changes anything, until the call names it in changeExisting (once per conversation; the user asked for that change).
+ *   Measured run (18/11): a page task changed an existing sequence 8 times through at:"after" and at:"self", each answer
+ *   warned (the 5th one "STILL OPEN"), project-changes listed it, and the final report said nothing else was changed.
+ * The output and access findings stay warnings: the user may have asked for the change.
  */
 if (typeof C8O === "undefined") {
   var C8O = {};
@@ -104,6 +108,85 @@ C8O.requestableContract = C8O.requestableContract || {};
     return tr ? "_c8oProject/connectors/" + tr[1] + ".yaml" : "";
   };
 
+  // The requestable a tree-apply writes inside ("" when none): its output steps, its variables, its SQL or its name. at
+  // "before"/"after" a requestable adds a sibling of it, a new requestable; at "self" on the requestable itself counts only
+  // for children, a replace, its SQL or another name (a comment or an accessibility is not its contract).
+  api.writeScope = function (targetQName, at, mode, tree) {
+    var target = str(targetQName);
+    var requestable = api.requestableOf(target);
+    if (!requestable.length) {
+      return "";
+    }
+    var place = str(at).toLowerCase() || "self";
+    if (target !== requestable) {
+      return requestable;
+    }
+    if (place === "before" || place === "after") {
+      return "";
+    }
+    if (place === "inside") {
+      return requestable;
+    }
+    var node = tree && typeof tree === "object" ? tree : {};
+    var name = str(node.name);
+    var own = requestable.replace(/^.*\.(?:sq|tr):/, "");
+    var properties = node.properties && typeof node.properties === "object" ? Object.keys(node.properties) : [];
+    if ((Array.isArray(node.children) && node.children.length > 0) || str(mode).toLowerCase() === "replace" ||
+        (name.length > 0 && name !== own) || properties.some(function (k) { return /^sqlquery$/i.test(k); })) {
+      return requestable;
+    }
+    return "";
+  };
+
+  // The requestables named in changeExisting: a list, a JSON list or a comma separated text; QName, runtime path
+  // ("P.seq", "P.conn.tx") or bare name.
+  api.parseNames = function (value) {
+    var list = value;
+    if (list !== null && list !== undefined && typeof list === "object" && !Array.isArray(list) && typeof list.length === "number") {
+      list = Array.prototype.slice.call(list);
+    }
+    if (!Array.isArray(list)) {
+      var text = str(list);
+      if (!text.length) {
+        return [];
+      }
+      if (text.charAt(0) === "[") {
+        try {
+          list = JSON.parse(text);
+        } catch (_notJson) {
+          list = text.replace(/^\[|\]$/g, "").split(",");
+        }
+      } else {
+        list = text.split(",");
+      }
+    }
+    return (Array.isArray(list) ? list : []).map(function (item) { return str(item).replace(/^["']|["']$/g, ""); })
+      .filter(function (item) { return item.length > 0; });
+  };
+
+  api.names = function (names, requestable) {
+    var own = requestable.replace(/^.*\.(?:sq|tr):/, "");
+    var runtime = api.runtimeName(requestable);
+    return (names || []).some(function (n) {
+      return n === requestable || n === runtime || n === own;
+    });
+  };
+
+  api.existingRefusal = function (requestable, callers) {
+    var list = callers.length ? callers.slice(0, 8).join(", ") + (callers.length > 8 ? " (+" + (callers.length - 8) + ")" : "") : "";
+    return requestable + " existed before this conversation: its output and its variables are a contract " +
+      (list.length ? "its callers read (" + list + ")" : "the app reads") + ". This change inside it is refused, and nothing " +
+      "was changed. If the user asked to change it, call again with changeExisting:[\"" + requestable + "\"] (once: later " +
+      "changes to it in this conversation pass) and name the change in the final report. Otherwise leave it as it is: bind " +
+      "the new objects to its output as it is (requestable-execute shows it), or create a new requestable under another name " +
+      "(convertigo://guides/common/models).";
+  };
+
+  api.confirmedNote = function (requestable) {
+    return requestable + " existed before this conversation and was changed as named in changeExisting: say it in the " +
+      "final report (project-changes lists it under existingChanged).";
+  };
+
   api.outputWarning = function (requestable, info, callers) {
     var what = info.inside > 0 ? info.inside + " object(s) inside it" + (info.sql ? " and its SQL" : "") : "its SQL";
     var list = callers.length ? callers.slice(0, 8).join(", ") + (callers.length > 8 ? " (+" + (callers.length - 8) + ")" : "") : "";
@@ -126,6 +209,72 @@ C8O.requestableContract = C8O.requestableContract || {};
       "Set its accessibility with databaseobject-tree-apply (convertigo://guides/common/seed).";
   };
 })(C8O.requestableContract);
+
+// The engine side of the existing-requestable gate, before a tree-apply changes anything: {refusal} to throw, {note} to add
+// to the answer, or null. Confirmations live per conversation in the store the server shares between requests. Never throws.
+C8O.requestableContract.CONFIRMED_KEY = "lib_ConvertigoMCP.existingChangeConfirmed";
+
+C8O.requestableContract.confirmedKey = function (contextObject, requestable) {
+  if (typeof C8O.writeJournal === "undefined" || typeof C8O.writeJournal.keyOf !== "function") {
+    include("js/write_journal.js");
+  }
+  return C8O.writeJournal.keyOf(contextObject, "").key + "|" + requestable;
+};
+
+C8O.requestableContract.confirmedStore = function (contextObject) {
+  var store = contextObject ? contextObject.server : null;
+  if (store == null) {
+    return null;
+  }
+  var map = store.get(C8O.requestableContract.CONFIRMED_KEY);
+  if (map == null) {
+    store.set(C8O.requestableContract.CONFIRMED_KEY, new java.util.concurrent.ConcurrentHashMap());
+    map = store.get(C8O.requestableContract.CONFIRMED_KEY);
+  }
+  if (map.size() > 5000) {
+    map.clear();
+  }
+  return map;
+};
+
+C8O.requestableContract.isConfirmed = function (contextObject, requestable) {
+  try {
+    var map = C8O.requestableContract.confirmedStore(contextObject);
+    return map != null && map.containsKey(C8O.requestableContract.confirmedKey(contextObject, requestable));
+  } catch (_unknown) {
+    return false;
+  }
+};
+
+C8O.requestableContract.gateExisting = function (contextObject, targetQName, at, mode, tree, changeExisting) {
+  var api = C8O.requestableContract;
+  try {
+    var requestable = api.writeScope(targetQName, at, mode, tree);
+    if (!requestable.length) {
+      return null;
+    }
+    var dbo = C8O.dbo.resolve(requestable, { optional: true });
+    if (!dbo) {
+      return null;
+    }
+    if (typeof C8O.writeJournal === "undefined" || typeof C8O.writeJournal.createdQNames !== "function") {
+      include("js/write_journal.js");
+    }
+    if (api.createdBefore(requestable, C8O.writeJournal.createdQNames(contextObject)) || api.isConfirmed(contextObject, requestable)) {
+      return null;
+    }
+    if (api.names(api.parseNames(changeExisting), requestable)) {
+      var map = api.confirmedStore(contextObject);
+      if (map != null) {
+        map.put(api.confirmedKey(contextObject, requestable), java.lang.Long.valueOf(java.lang.System.currentTimeMillis()));
+      }
+      return { note: api.confirmedNote(requestable), requestable: requestable };
+    }
+    return { refusal: api.existingRefusal(requestable, api.callersOf(dbo, requestable)), requestable: requestable };
+  } catch (_gateUnknown) {
+    return null;
+  }
+};
 
 // The engine side: the warnings of one tree-apply answer (the full one, before it is made compact). Never throws.
 C8O.requestableContract.warningsFor = function (result, contextObject) {
@@ -153,7 +302,8 @@ C8O.requestableContract.warningsFor = function (result, contextObject) {
         return;
       }
       var newHere = info.created || api.createdBefore(requestable, created);
-      if (!newHere && (info.inside > 0 || info.sql)) {
+      // a change the call named in changeExisting was noted when it was let through
+      if (!newHere && (info.inside > 0 || info.sql) && !api.isConfirmed(contextObject, requestable)) {
         warnings.push(api.outputWarning(requestable, info, api.callersOf(dbo, requestable)));
       }
       if (newHere && /\.sq:[^.]+$/.test(requestable)) {

@@ -380,3 +380,6 @@ comment: |
 ↓responseDetail [variables.RequestableVariable-1792171000021]: 
   comment: compact (default) or full. Compact reports applied counts and root touched QNames only.
   description: compact (default) or full. Compact reports applied counts and root touched QNames only.
+↓changeExisting [variables.RequestableVariable-1795006000001]: 
+  comment: QNames of sequences or transactions that existed before this conversation, named only when the user asked to change them.
+  description: QNames of sequences or transactions that existed before this conversation, named only when the user asked to change them.

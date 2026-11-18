@@ -528,3 +528,33 @@ test('the distinct objects of a project the conversation wrote, and the save tha
   const router = read('js/mcp_endpoint_router.js');
   assert.match(router, /if \(sequenceName === "tools_project_save"\) \{[\s\S]*?C8O\.writeJournal\.changedCount\(context, savedProject\) > 0[\s\S]*?"Before your final answer, call project-changes \{project:\\"" \+ savedProject/);
 });
+
+test('requestables that existed before and were changed inside are named apart, those created here are not', () => {
+  const j = load({ children: { DemoApp: { NewOne: 'DemoApp.sq:NewOne' }, 'DemoApp.sq:ListItems': { rows: 'DemoApp.sq:ListItems.st:rows' }, 'DemoApp.sq:NewOne': { init: 'DemoApp.sq:NewOne.st:init' } } });
+  // a step added inside an existing sequence, then a property of an existing call step changed
+  j.call('tools_databaseobject_tree_apply', {
+    status: 'ok', touchedQNames: ['DemoApp.sq:ListItems'],
+    operations: [{ status: 'applied', appliedCount: 2, appliedByAction: { create: 1, setProperties: 1 } }]
+  }, treeArgs('DemoApp.sq:ListItems', 'inside', 'rows'));
+  j.call('tools_databaseobject_tree_apply', {
+    status: 'ok', touchedQNames: ['DemoApp.sq:ListItems.st:call'], operations: [{ status: 'applied', appliedCount: 1, appliedByAction: { setProperties: 1 } }]
+  }, { target: 'DemoApp.sq:ListItems.st:call', tree: '{"properties":{"output":false}}' });
+  // a comment on an existing sequence itself is not its contract; a sequence created here and filled is not listed
+  j.call('tools_databaseobject_tree_apply', {
+    status: 'ok', touchedQNames: ['DemoApp.sq:Other'], operations: [{ status: 'applied', appliedCount: 1, appliedByAction: { setProperties: 1 } }]
+  }, { target: 'DemoApp.sq:Other', tree: '{"properties":{"comment":"x"}}' });
+  j.call('tools_databaseobject_tree_apply', {
+    status: 'ok', touchedQNames: ['DemoApp.sq:NewOne'], operations: [{ status: 'applied', appliedCount: 1, appliedByAction: { create: 1 } }]
+  }, treeArgs('DemoApp', 'inside', 'NewOne', { className: 'sequences.GenericSequence' }));
+  j.call('tools_databaseobject_tree_apply', {
+    status: 'ok', touchedQNames: ['DemoApp.sq:NewOne'], operations: [{ status: 'applied', appliedCount: 1, appliedByAction: { create: 1 } }]
+  }, treeArgs('DemoApp.sq:NewOne', 'inside', 'init'));
+  const answer = j.changes({ project: 'DemoApp' });
+  assert.deepEqual(answer.existingChanged, ['DemoApp.sq:ListItems: 2 objects created, changed or deleted inside it or on it']);
+  assert.match(answer.existingChangedNote, /^These sequences or transactions existed before this conversation and the app reads them: the final report names each one and says whether the user asked for it\. "Nothing else was changed" is false while this list is not empty\.$/);
+  const keys = Object.keys(answer);
+  assert.ok(keys.indexOf('existingChanged') < keys.indexOf('objects'), 'before the objects, where it is read');
+  const none = load();
+  none.call('tools_databaseobject_delete', { qname: 'DemoApp.pg:Old', removed: true });
+  assert.equal(none.changes({}).existingChanged, undefined);
+});

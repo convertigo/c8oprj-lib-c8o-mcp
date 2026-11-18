@@ -263,6 +263,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           enum: ["compact", "full"],
           description: "Default compact: operations report appliedCount and appliedByAction instead of every applied entry, and touchedQNames lists root QNames only. Use full only to diagnose a mutation.",
           default: "compact"
+        },
+        changeExisting: {
+          type: "array",
+          items: { type: "string" },
+          description: "Only when the user asked to change it: the QName of a sequence or transaction that existed before this conversation, to let a change inside it through (its steps, variables, SQL or name). Without it such a change is refused; once named, later changes to it in this conversation pass."
         }
       },
       required: ["target", "tree"],

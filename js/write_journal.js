@@ -1201,6 +1201,32 @@ if (typeof C8O === "undefined") {
       answer.from = api.time(Math.min.apply(null, times));
       answer.to = api.time(Math.max.apply(null, times));
     }
+    // Sequences and transactions that existed before this conversation and that it changed inside (steps, variables, SQL),
+    // deleted or renamed: the app reads them, so the final report names them. Measured run (18/11): such a change was among
+    // the objects of this answer, and the final report still said nothing else was changed.
+    var createdHere = {};
+    states.forEach(function (s) {
+      if (!s.k && s.created) {
+        createdHere[s.q] = true;
+      }
+    });
+    var existing = {};
+    states.forEach(function (s) {
+      var m = s.k ? null : /^([^.]+\.(?:sq:[^.]+|cn:[^.]+\.tr:[^.]+))(?:\.|$)/.exec(String(s.q));
+      if (!m || createdHere[m[1]] || (s.q === m[1] && !s.deleted && !s.renamedFrom)) {
+        return;
+      }
+      existing[m[1]] = (existing[m[1]] || 0) + 1;
+    });
+    var existingNames = Object.keys(existing).sort();
+    if (existingNames.length) {
+      answer.existingChanged = existingNames.slice(0, 20).map(function (r) {
+        return line(r + ": " + existing[r] + " object" + (existing[r] === 1 ? "" : "s") + " created, changed or deleted inside it or on it");
+      });
+      answer.existingChangedNote = "These sequences or transactions existed before this conversation and the app reads them: the " +
+        "final report names each one and says whether the user asked for it. \"Nothing else was changed\" is false while this " +
+        "list is not empty.";
+    }
     answer.objects = objects.map(function (s) { return line(labelOf(s) + ": " + stateText(s) + "; " + usage(s, considered)); });
     answer.files = files.map(function (s) { return line(s.q + ": " + stateText(s) + "; " + usage(s, considered)); });
     // Objects this conversation created that are still there and named as a probe: delete them, or say why they stay.
