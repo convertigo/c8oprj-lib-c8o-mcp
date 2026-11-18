@@ -337,6 +337,14 @@ C8O.dboCopy.run = function (args) {
       : "The copy still names " + projectRefs.count + " object(s) of " + sourceProject + " (calls, sequences, styles). Keep them only if " +
         targetProject + " references " + sourceProject + "; else copy again with retargetProject:true, or change them with databaseobject-tree-apply.");
   }
+  // A page copied after the fallback route page (segment **) never opens: it goes before it (js/databaseobject_ops.js).
+  if (C8O.dbo.keepPageBeforeFallback) {
+    var beforeFallback = C8O.dbo.keepPageBeforeFallback(copy);
+    if (beforeFallback) {
+      warnings.push("The copy was placed before " + beforeFallback.fallback + ", the page of the route ** (any unknown URL): a page " +
+        "after it never opens.");
+    }
+  }
   // The engine gives a page it adds a default route and title (path-to-<name>, Title for <name>): the copy needs its own.
   try {
     if (typeof copy.getSegment === "function" && typeof copy.getTitle === "function") {

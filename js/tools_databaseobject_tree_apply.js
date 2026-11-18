@@ -806,6 +806,25 @@ if (treeApplyResult && treeApplyResult.dryRun !== true && treeApplyResult.status
   } catch (_ignoreContractCheck) {}
 }
 
+// A page this call created after the fallback route page (segment **) never opens: it goes before it.
+if (treeApplyResult && treeApplyResult.dryRun !== true && treeApplyResult.status !== "failed" && C8O.dbo.keepPageBeforeFallback) {
+  try {
+    (Array.isArray(treeApplyResult.operations) ? treeApplyResult.operations : []).forEach(function (operation) {
+      (operation && Array.isArray(operation.applied) ? operation.applied : []).forEach(function (entry) {
+        if (entry && entry.action === "create" && /PageComponent/.test(String(entry.className || "")) && entry.qname) {
+          var createdPage = C8O.dbo.resolve(String(entry.qname), { optional: true });
+          var placed = createdPage ? C8O.dbo.keepPageBeforeFallback(createdPage) : null;
+          if (placed) {
+            treeApplyResult.warnings = Array.isArray(treeApplyResult.warnings) ? treeApplyResult.warnings : [];
+            treeApplyResult.warnings.push(String(entry.qname) + " was placed before " + placed.fallback + ", the page of the route ** " +
+              "(any unknown URL): a page after it never opens.");
+          }
+        }
+      });
+    });
+  } catch (_ignoreFallbackOrder) {}
+}
+
 // A guard placed after a write in a sequence this call changed refuses once the write is done (js/sequence_guards.js).
 if (treeApplyResult && treeApplyResult.dryRun !== true && treeApplyResult.status !== "failed") {
   try {

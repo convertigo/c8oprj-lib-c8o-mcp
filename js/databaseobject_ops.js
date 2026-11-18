@@ -224,6 +224,45 @@ function _c8oPendingIonicEdits(dbo, action) {
     };
   };
 
+  // A page placed after the page whose segment is ** (the route of an unknown URL) never opens: the router takes the
+  // first route that matches. ngx-page-create keeps that page last; a page copied or created by tree-apply went after it,
+  // and its URL opened the fallback page while the agent searched for 17 minutes (measured run, 17/11). The new page is
+  // moved before it. Returns {fallback} when it moved the page, else null. Never throws.
+  C8O.dbo.keepPageBeforeFallback = function (page) {
+    try {
+      var isPage = function (dbo) { return /PageComponent$/.test(String(dbo.getClass().getName())); };
+      var segmentOf = function (dbo) {
+        try {
+          return String(dbo.getSegment() == null ? "" : dbo.getSegment()).trim();
+        } catch (_noSegment) {
+          return "";
+        }
+      };
+      var qnameOf = function (dbo) { return String(C8O.dbo.safeFullQName(dbo) || C8O.dbo.safeQName(dbo)); };
+      if (!page || !isPage(page) || segmentOf(page) === "**" || !page.getParent()) {
+        return null;
+      }
+      var pages = C8O.dbo.getDirectChildren(page.getParent()).filter(isPage).map(function (p) {
+        return { qname: qnameOf(p), name: String(p.getName()), fallback: segmentOf(p) === "**" };
+      });
+      var mine = qnameOf(page);
+      var at = pages.map(function (p) { return p.qname; }).indexOf(mine);
+      var fallbackAt = -1;
+      for (var i = 0; i < pages.length && fallbackAt < 0; i++) {
+        if (pages[i].fallback) {
+          fallbackAt = i;
+        }
+      }
+      if (fallbackAt < 0 || at < fallbackAt) {
+        return null;
+      }
+      var moved = C8O.dbo.moveObject({ qname: mine, target: pages[fallbackAt].qname, position: "before" });
+      return moved && moved.done === true ? { fallback: pages[fallbackAt].name } : null;
+    } catch (_ignoreFallback) {
+      return null;
+    }
+  };
+
   C8O.dbo.moveObject = function (args) {
     args = args || {};
     var errors = [];

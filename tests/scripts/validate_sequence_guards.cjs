@@ -109,3 +109,11 @@ test('batch-call names the first errors of its partial calls in its message, at 
   assert.match(batch, /partialErrors\.push\(report\.callId \+ ": " \+/);
   assert.match(batch, /message \+= " Not applied: " \+ partialErrors\.slice\(0, 3\)\.join\("; "\)/);
 });
+
+test('a page copied or created after the page of the route ** is moved before it, and the answer says so', () => {
+  const ops = read('js/databaseobject_ops.js');
+  assert.match(ops, /C8O\.dbo\.keepPageBeforeFallback = function \(page\) \{/);
+  assert.match(ops, /C8O\.dbo\.moveObject\(\{ qname: mine, target: pages\[fallbackAt\]\.qname, position: "before" \}\)/);
+  assert.match(read('js/tools_databaseobject_copy.js'), /var beforeFallback = C8O\.dbo\.keepPageBeforeFallback\(copy\);/);
+  assert.match(read('js/tools_databaseobject_tree_apply.js'), /var placed = createdPage \? C8O\.dbo\.keepPageBeforeFallback\(createdPage\) : null;/);
+});
