@@ -174,7 +174,7 @@ C8O.requestableContract = C8O.requestableContract || {};
     var list = callers.length ? callers.slice(0, 8).join(", ") + (callers.length > 8 ? " (+" + (callers.length - 8) + ")" : "") : "";
     var calls = (callees || []).slice(0, 6);
     return "Nothing was changed: " + requestable + " existed before this conversation, and " +
-      (list.length ? "its callers (" + list + ")" : "the app") + " read its output and its variables. If the user asked to " +
+      (list.length ? "its callers (" + list + ") read" : "the app reads") + " its output and its variables. If the user asked to " +
       "change " + requestable + ", call again with the same arguments and changeExisting:[\"" + requestable + "\"" +
       (calls.length ? "] (add " + calls.map(function (c) { return "\"" + c + "\""; }).join(", ") + ", which it calls, if the " +
         "change goes into them too)" : "]") + ": later changes to it in this conversation then pass; name the change in the " +
