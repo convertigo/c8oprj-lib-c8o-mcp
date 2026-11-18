@@ -162,7 +162,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return {
       type: "object",
       properties: {
-        id: { type: "string", description: "Optional local id for $ref substitutions inside the submitted tree." },
+        id: { type: "string", description: "Optional id of this node in the answer. To source a step of the same sequence, name it: sourceDefinition {\"step\":\"<step name>\",\"xpath\":\"./document\"}; no id or priority is needed." },
         name: { type: "string", description: "Object name when creating or matching a child." },
         className: {
           type: "string",
@@ -185,6 +185,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       properties: {
         target: { type: "string", description: "Existing QName. Case-sensitive. Required (or its alias qname)." },
         qname: { type: "string", description: "Alias of target." },
+        project: { type: "string", description: "Alias of target." },
         childrenDepth: {
           type: "integer",
           minimum: 0,
@@ -697,7 +698,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         filter: { type: "string", description: "Case-insensitive filter on project name and comment." },
-        limit: integerSchema(1, 100, 10, "Maximum projects returned per call. 1 to 100; default 10.")
+        limit: integerSchema(1, 100, 10, "Maximum projects returned per call. 1 to 100; default 10."),
+        cursor: { type: "string", description: "nextCursor of the previous answer, with the same filter, for the next projects. Omit for the first ones." },
+        nextCursor: { type: "string", description: "Alias of cursor." }
       },
       additionalProperties: false
     };

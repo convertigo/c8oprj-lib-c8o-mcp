@@ -524,7 +524,9 @@ function coerceToolArguments(argumentsObject, sequenceName, requestableObject) {
 // qname, move with at, 17/11).
 var ARGUMENT_ALIASES = {
   tools_databaseobject_search: { query: "filter", q: "filter", text: "filter", search: "filter", project: "qname", target: "qname" },
-  tools_databaseobject_tree_get: { qname: "target", depth: "childrenDepth" },
+  tools_databaseobject_tree_get: { qname: "target", project: "target", depth: "childrenDepth" },
+  // project-list answers nextCursor; the sequence reads it as _nextCursor (an agent's {cursor} was refused, 18/11)
+  tools_project_list: { cursor: "_nextCursor", nextCursor: "_nextCursor" },
   tools_databaseobject_move: { at: "position" },
   tools_databaseobject_copy: { position: "at" },
   tools_nocode_baserow_rows_list: { tableId: "table", table_id: "table", table_id_int: "table", columns: "fields", where: "filter", order: "sort", orderBy: "sort", order_by: "sort", pageSize: "size", limit: "size" },

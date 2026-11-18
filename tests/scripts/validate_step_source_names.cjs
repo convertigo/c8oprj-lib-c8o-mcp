@@ -105,3 +105,19 @@ test('outside a sequence a name form is left as it was given', () => {
   assert.deepEqual(plain(dbo._expandStepSourceShorthand({ mode: 'SOURCE', sources: ['CountAll', '.'] }, loose, 'value')), { mode: 'SOURCE', sources: ['CountAll', '.'] });
   assert.throws(() => dbo._expandStepSourceShorthand({ step: 'CountAll', xpath: '.' }, loose, 'sourcedefinition'), /only works inside a sequence/);
 });
+
+test('a pair wrapped in a list is the pair; a name two steps share is refused rather than guessed', () => {
+  const dbo = load();
+  const { summary, seq } = seed();
+  assert.deepEqual(plain(dbo._expandStepSourceShorthand([['CountAll', './document']], summary, 'sourcedefinition')), ['303', './document']);
+  assert.deepEqual(plain(dbo._expandStepSourceShorthand([['301', './document/error']], summary, 'sourcedefinition')), ['301', './document/error']);
+  assert.deepEqual(plain(dbo._expandStepSourceShorthand({ mode: 'SOURCE', sources: [['CountAll', './text()']] }, summary, 'value')), { mode: 'SOURCE', sources: ['303', './text()'] });
+  assert.deepEqual(plain(dbo._expandStepSourceShorthand({ mode: 'SOURCE', sources: [['302', '.']] }, summary, 'value')), { mode: 'SOURCE', sources: ['302', '.'] });
+  const twin = { priority: 309, getName: () => 'CountAll', getSteps: () => list([]) };
+  const branch = { priority: 308, getName: () => 'IfEmpty', getSteps: () => list([twin]) };
+  const steps = [];
+  for (let i = 0; i < seq.getAllSteps().size(); i++) steps.push(seq.getAllSteps().get(i));
+  seq.getAllSteps = () => list(steps.concat([branch]));
+  assert.throws(() => dbo._expandStepSourceShorthand(['CountAll', '.'], summary, 'sourcedefinition'),
+    /^Error: 2 steps are named CountAll in sequence seed_demo_data: give the priority of the one to read/);
+});

@@ -316,6 +316,28 @@ if (typeof C8O.editProfile === "undefined") {
   // Checks a call's arguments against the tool's declared variables before running it: a misnamed
   // argument is otherwise dropped silently. Common misnamings (target for qname, newName for name)
   // are renamed when the tool only declares the other one, with a warning.
+  // The aliases a tool's input schema declares ("Alias of <field>.", js/schema_overrides.js), mapped as the router maps them
+  // for a direct call: through batch-call they reached the tool under their own name, and it ran without them.
+  function schemaAliases(sequenceName) {
+    try {
+      if (typeof C8O.schemaOverrides === "undefined" || typeof C8O.schemaOverrides.applyInput !== "function") {
+        include("js/schema_overrides.js");
+      }
+      var schema = C8O.schemaOverrides.applyInput(sequenceName, { type: "object", properties: {} }, null);
+      var properties = schema && schema.properties ? schema.properties : {};
+      var out = {};
+      Object.keys(properties).forEach(function (name) {
+        var match = /^Alias of ([A-Za-z_]\w*)\./.exec(String(properties[name] && properties[name].description || ""));
+        if (match) {
+          out[name] = match[1];
+        }
+      });
+      return out;
+    } catch (_noSchema) {
+      return {};
+    }
+  }
+
   function checkCallArguments(requestable, toolName, args, report, givenKeys) {
     if (!requestable || !args || typeof args !== "object" || Array.isArray(args)) {
       return;
@@ -335,6 +357,20 @@ if (typeof C8O.editProfile === "undefined") {
     } catch (_ignoreVariables) {
       return;
     }
+    var declaredAliases = schemaAliases(String(requestable.getName()));
+    Object.keys(declaredAliases).forEach(function (alias) {
+      var field = declaredAliases[alias];
+      if (args[alias] === undefined || declared[alias] || !declared[field]) {
+        return;
+      }
+      if (args[field] === undefined || args[field] === null || String(args[field]).trim() === "") {
+        args[field] = args[alias];
+      } else if (JSON.stringify(args[field]) !== JSON.stringify(args[alias])) {
+        report.warnings.push(toolName + ": " + alias + " is an alias of " + field + " and both were given with different values: " +
+          field + " was kept.");
+      }
+      delete args[alias];
+    });
     var aliases = { target: "qname", qname: "target", newName: "name", name: "newName" };
     var keys = Object.keys(args);
     for (var ki = 0; ki < keys.length; ki++) {

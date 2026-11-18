@@ -85,7 +85,7 @@ test('every alias of the databaseobject tools is declared in its closed input sc
   const { ARGUMENT_ALIASES } = aliasHelpers();
   assert.deepEqual(plain(ARGUMENT_ALIASES.tools_databaseobject_search),
     { query: 'filter', q: 'filter', text: 'filter', search: 'filter', project: 'qname', target: 'qname' });
-  assert.deepEqual(plain(ARGUMENT_ALIASES.tools_databaseobject_tree_get), { qname: 'target', depth: 'childrenDepth' });
+  assert.deepEqual(plain(ARGUMENT_ALIASES.tools_databaseobject_tree_get), { qname: 'target', project: 'target', depth: 'childrenDepth' });
   assert.deepEqual(plain(ARGUMENT_ALIASES.tools_databaseobject_move), { at: 'position' });
   assert.deepEqual(plain(ARGUMENT_ALIASES.tools_databaseobject_copy), { position: 'at' });
   for (const sequence of DATABASEOBJECT_TOOLS) {
@@ -315,4 +315,47 @@ test('the search schema says what qname alone and a qname pattern do', () => {
   const schema = inputSchema('tools_databaseobject_search');
   assert.equal(schema.required, undefined, 'qname alone is a call the client accepts');
   assert.match(schema.properties.qname.description, /Alone \(no filter, no objectType\), answers the object at that QName\. With \*, a QName pattern/);
+});
+
+test('project-list pages with the cursor its answer gives: cursor and nextCursor reach _nextCursor (18/11: {cursor} was refused)', () => {
+  const { ARGUMENT_ALIASES, applyArgumentAliases } = aliasHelpers();
+  assert.deepEqual(plain(ARGUMENT_ALIASES.tools_project_list), { cursor: '_nextCursor', nextCursor: '_nextCursor' });
+  assert.deepEqual(plain(applyArgumentAliases('tools_project_list', { cursor: '10', limit: 10 })), { limit: 10, _nextCursor: '10' });
+  const schema = inputSchema('tools_project_list');
+  assert.equal(schema.additionalProperties, false);
+  assert.ok(schema.properties.cursor && schema.properties.nextCursor, 'both names pass a closed schema');
+  assert.match(schema.properties.cursor.description, /^nextCursor of the previous answer/);
+});
+
+// batch-call runs each tool without the router: it maps the aliases the tool's schema declares the same way.
+function batchCheck() {
+  const source = read('js/tools_batch_call.js');
+  const start = source.indexOf('  function schemaAliases(sequenceName) {');
+  const end = source.indexOf('  // Tool names of the same family');
+  assert.ok(start > 0 && end > start);
+  const sandbox = { C8O: {}, JSON };
+  sandbox.include = file => vm.runInContext(read(file), sandbox, { filename: file });
+  vm.createContext(sandbox);
+  sandbox.include('js/schema_overrides.js');
+  vm.runInContext(source.slice(start, end) + '\nthis.checkCallArguments = checkCallArguments;', sandbox);
+  return sandbox.checkCallArguments;
+}
+
+function sequenceWith(name) {
+  const names = declaredVariables(name);
+  return { getName: () => name, getVariablesList: () => ({ size: () => names.length, get: i => ({ getName: () => names[i] }) }) };
+}
+
+test('batch-call maps the aliases a tool declares, as a direct call does, and keeps the field when both differ', () => {
+  const check = batchCheck();
+  const report = { warnings: [] };
+  const search = { project: 'App', query: 'amount' };
+  check(sequenceWith('tools_databaseobject_search'), 'databaseobject-search', search, report, Object.keys(search));
+  assert.deepEqual(plain(search), { qname: 'App', filter: 'amount' });
+  assert.deepEqual(report.warnings, []);
+  const both = { target: 'App.sq:list', qname: 'App.sq:other' };
+  const report2 = { warnings: [] };
+  check(sequenceWith('tools_databaseobject_tree_get'), 'databaseobject-tree-get', both, report2, Object.keys(both));
+  assert.deepEqual(plain(both), { target: 'App.sq:list' });
+  assert.match(report2.warnings[0], /^databaseobject-tree-get: qname is an alias of target and both were given with different values: target was kept\.$/);
 });

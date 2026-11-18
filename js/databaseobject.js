@@ -2020,6 +2020,14 @@ C8O.dbo._stepSourceNameForm = function (rawSpec, propertyLookup) {
   var smart = !!spec && typeof spec === "object" && !Array.isArray(spec) && spec.mode != null &&
     String(spec.mode).toUpperCase() === "SOURCE" && Array.isArray(spec.sources);
   var list = smart ? spec.sources : (propertyLookup === "sourcedefinition" && Array.isArray(spec) ? spec : null);
+  // one pair wrapped in a list ([["CountAll", "./document"]], [["1794...", "./document"]]): the pair itself
+  if (list && list.length === 1 && Array.isArray(list[0]) && list[0].length >= 1 && list[0].length <= 2) {
+    list = list[0];
+    if (/^\d+$/.test(C8O.util.toTrimmedString(list[0]))) {
+      var pair = [C8O.util.toTrimmedString(list[0]), list.length > 1 ? C8O.util.toTrimmedString(list[1]) : "."];
+      return smart ? { mode: "SOURCE", sources: pair } : pair;
+    }
+  }
   if (!list || !list.length || list.length > 2) {
     return rawSpec;
   }
@@ -2082,14 +2090,16 @@ C8O.dbo._expandStepSourceShorthand = function (rawSpec, dbo, propertyLookup) {
     }
     throw new Error("Step source {step:\"" + stepName + "\"} only works inside a sequence.");
   }
-  // Steps nested in IfStep, iterators or blocks count too: getAllSteps lists the top level only.
+  // Steps nested in IfStep, iterators or blocks count too: getAllSteps lists the top level only. Two steps of that name
+  // (in two branches) are refused rather than one guessed.
   var found = null;
+  var sameName = 0;
   var findIn = function (list, depth) {
-    for (var i = 0; list && i < list.size() && !found && depth < 50; i++) {
+    for (var i = 0; list && i < list.size() && depth < 50; i++) {
       var step = list.get(i);
       if (String(step.getName()) === stepName) {
-        found = step;
-        return;
+        sameName++;
+        found = found || step;
       }
       var children = null;
       try {
@@ -2103,6 +2113,10 @@ C8O.dbo._expandStepSourceShorthand = function (rawSpec, dbo, propertyLookup) {
     }
   };
   findIn(sequence.getAllSteps(), 0);
+  if (sameName > 1) {
+    throw new Error(sameName + " steps are named " + stepName + " in sequence " + String(sequence.getName()) +
+      ": give the priority of the one to read, [\"<priority>\", \"<xpath>\"] (databaseobject-tree-get gives the priorities).");
+  }
   if (!found) {
     var known = [];
     var listNames = function (list, depth) {

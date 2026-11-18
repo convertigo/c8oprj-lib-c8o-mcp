@@ -1705,7 +1705,7 @@
         "when": "Tree shortcuts and file-backed batch calls",
         "sha256": "c7b4fc6cbaa3f1d43f69fb7366014d39ec2a87c78d2366c6ad9403c6eab7319c",
         "bodyOffset": 238,
-        "servedSha256": "6caed7e48060cf8024adf42a6457fec9d58a92d60fd452332c61aa29a12de2b1"
+        "servedSha256": "433784d0730031021473af30d39eafebb314e860c3d8271a4e51a79daa86d190"
       },
       {
         "uri": "convertigo://guides/common/readback",
@@ -1828,7 +1828,7 @@
         "when": "Idempotent seeds, credentials and login proof",
         "sha256": "a62361068f096c1b5ea8754654753d3a1aa48f006c89964bec3253787c78e466",
         "bodyOffset": 247,
-        "servedSha256": "2ef418088b865a7ab02cf853871a76373a47abd95d5769354bb97df8eb111f41",
+        "servedSha256": "4cd4a52a6ce1b82c504d5302a3980631d35de23bfb953818545cf7d7947a88ad",
         "trailingSourceNewlines": 1
       },
       {
