@@ -1688,7 +1688,7 @@
         "when": "Existing project: notes, brief and frequent changes",
         "sha256": "89eb32151916eed92e7c9b42bb9a57a3d8451921724c3acdf8b1ce8e70c34c5e",
         "bodyOffset": 257,
-        "servedSha256": "0a4b15f254d4ff0743606d086f65dd08d55cb74982f662d0d6978c91651ca522",
+        "servedSha256": "2712b472dbd93ab568f674076e21cbb16461d4c677a6373c4440697e715d6b81",
         "trailingSourceNewlines": 1
       },
       {
@@ -1697,7 +1697,7 @@
         "when": "Models, templates and output contracts",
         "sha256": "f2d8b9d10ae0c8d4bb9b7583fcd971506ea71cdb9851f5b17cd84bea35ec53e4",
         "bodyOffset": 240,
-        "servedSha256": "c0a42a753a1e7ea7b465d9da07d1e40b844c640af6a659c2df687df7a6fe8738"
+        "servedSha256": "46e84008b8941f0666b578cadce999f2de4c9db70521cd5d8c455fff86231a7d"
       },
       {
         "uri": "convertigo://guides/common/batching",

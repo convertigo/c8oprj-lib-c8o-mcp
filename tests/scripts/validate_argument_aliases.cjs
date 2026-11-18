@@ -359,3 +359,24 @@ test('batch-call maps the aliases a tool declares, as a direct call does, and ke
   assert.deepEqual(plain(both), { target: 'App.sq:list' });
   assert.match(report2.warnings[0], /^databaseobject-tree-get: qname is an alias of target and both were given with different values: target was kept\.$/);
 });
+
+test('a project and a QName inside it agree: tree-get {project, qname} runs on the QName (18/11: refused as a conflict)', () => {
+  const { applyArgumentAliases, argumentAliasConflict } = aliasHelpers();
+  const args = { project: 'App', qname: 'App.sq:list', childrenDepth: 3 };
+  assert.equal(argumentAliasConflict('tools_databaseobject_tree_get', args), '');
+  assert.deepEqual(plain(applyArgumentAliases('tools_databaseobject_tree_get', args)), { childrenDepth: 3, target: 'App.sq:list' });
+  const reverse = { target: 'App', qname: 'App.sq:list' };
+  assert.equal(argumentAliasConflict('tools_databaseobject_tree_get', reverse), '');
+  assert.deepEqual(plain(applyArgumentAliases('tools_databaseobject_tree_get', reverse)), { target: 'App.sq:list' });
+  assert.match(argumentAliasConflict('tools_databaseobject_tree_get', { project: 'Other', qname: 'App.sq:list' }), /^Nothing was run: target is given twice/);
+  assert.match(argumentAliasConflict('tools_databaseobject_tree_get', { project: 'App', qname: 'Apps.sq:list' }), /^Nothing was run/, 'a whole name, not a prefix');
+});
+
+test('batch-call keeps the QName of a project and a QName inside it, without a warning', () => {
+  const check = batchCheck();
+  const report = { warnings: [] };
+  const args = { project: 'App', qname: 'App.sq:list' };
+  check(sequenceWith('tools_databaseobject_tree_get'), 'databaseobject-tree-get', args, report, Object.keys(args));
+  assert.deepEqual(plain(args), { target: 'App.sq:list' });
+  assert.deepEqual(report.warnings, []);
+});

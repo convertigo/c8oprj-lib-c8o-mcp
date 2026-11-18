@@ -174,12 +174,14 @@ C8O.requestableContract = C8O.requestableContract || {};
     var list = callers.length ? callers.slice(0, 8).join(", ") + (callers.length > 8 ? " (+" + (callers.length - 8) + ")" : "") : "";
     var calls = (callees || []).slice(0, 6);
     return "Nothing was changed: " + requestable + " existed before this conversation, and " +
-      (list.length ? "its callers (" + list + ") read" : "the app reads") + " its output and its variables. If the user asked to " +
-      "change " + requestable + ", call again with the same arguments and changeExisting:[\"" + requestable + "\"" +
+      (list.length ? "its callers (" + list + ") read" : "the app reads") + " its output and its variables. If the user's " +
+      "request asks to change " + requestable + " itself (its output, its fields, its SQL, its steps), call again with the same " +
+      "arguments and changeExisting:[\"" + requestable + "\"" +
       (calls.length ? "] (add " + calls.map(function (c) { return "\"" + c + "\""; }).join(", ") + ", which it calls, if the " +
         "change goes into them too)" : "]") + ": later changes to it in this conversation then pass; name the change in the " +
-      "final report. Otherwise leave it as it is: create a separate object (a new sequence or transaction under another name), " +
-      "or adapt the caller to its output as it is (requestable-execute shows it).";
+      "final report. A request for a page or a sequence that uses it does not ask that: leave it as it is, and bind the new " +
+      "objects to its output as it is (requestable-execute shows it), or create a separate object (a new sequence or " +
+      "transaction under another name).";
   };
 
 

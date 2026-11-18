@@ -268,7 +268,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         changeExisting: {
           type: "array",
           items: { type: "string" },
-          description: "Only when the user asked to change it: the QName of a sequence or transaction that existed before this conversation, to let a change inside it through (its steps, variables, SQL or name). Without it such a change is refused; once named, later changes to it in this conversation pass."
+          description: "Only when the user's request asks to change that sequence or transaction itself (its output, fields, SQL or steps), never for a page or a sequence that uses it: its QName, to let a change inside it through. Without it such a change is refused; once named, later changes to it in this conversation pass."
         }
       },
       required: ["target", "tree"],

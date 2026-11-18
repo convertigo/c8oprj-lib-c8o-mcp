@@ -363,8 +363,13 @@ if (typeof C8O.editProfile === "undefined") {
       if (args[alias] === undefined || declared[alias] || !declared[field]) {
         return;
       }
-      if (args[field] === undefined || args[field] === null || String(args[field]).trim() === "") {
+      var fieldText = args[field] === undefined || args[field] === null ? "" : String(args[field]).trim();
+      var aliasText = String(args[alias] === null ? "" : args[alias]).trim();
+      if (!fieldText.length || (aliasText.length > fieldText.length && aliasText.indexOf(fieldText + ".") === 0)) {
+        // the deeper of a project and a QName inside it is kept
         args[field] = args[alias];
+      } else if (fieldText.indexOf(aliasText + ".") === 0) {
+        // the field already holds a QName inside the project the alias names
       } else if (JSON.stringify(args[field]) !== JSON.stringify(args[alias])) {
         report.warnings.push(toolName + ": " + alias + " is an alias of " + field + " and both were given with different values: " +
           field + " was kept.");

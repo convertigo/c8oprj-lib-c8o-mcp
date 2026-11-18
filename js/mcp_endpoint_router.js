@@ -593,7 +593,10 @@ function applyArgumentAliases(sequenceName, args) {
   for (var alias in aliases) {
     if (Object.prototype.hasOwnProperty.call(aliases, alias) && Object.prototype.hasOwnProperty.call(args, alias)) {
       var canonical = aliases[alias];
-      if (!argumentGiven(args[canonical])) {
+      var given = argumentGiven(args[canonical]) ? argumentText(args[canonical]) : "";
+      var aliasValue = argumentGiven(args[alias]) ? argumentText(args[alias]) : "";
+      // the deeper of a project and a QName inside it is kept, whichever name holds it
+      if (!given.length || (aliasValue.length > given.length && aliasValue.indexOf(given + ".") === 0)) {
         args[canonical] = args[alias];
       }
       delete args[alias];
@@ -631,6 +634,11 @@ function argumentAliasConflict(sequenceName, args) {
   for (var field in given) {
     var names = given[field];
     var values = names.map(function (name) { return argumentText(args[name]); });
+    // A project and a QName inside it agree (tree-get {project, qname}, measured run 18/11): the QName is kept.
+    var deepest = values.reduce(function (a, b) { return b.length > a.length ? b : a; }, "");
+    if (values.every(function (value) { return value === deepest || deepest.indexOf(value + ".") === 0; })) {
+      continue;
+    }
     if (values.some(function (value) { return value !== values[0]; })) {
       conflicts.push(field + " is given twice with different values (" + names.map(function (name, n) {
         var shown = values[n].length > 80 ? values[n].substring(0, 77) + "..." : values[n];
