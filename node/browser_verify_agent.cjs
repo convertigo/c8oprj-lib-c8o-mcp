@@ -1422,6 +1422,35 @@ function recoverCitation(check, observations, cited) {
   return best ? { id: best.id, excerpt: best.excerpt } : null;
 }
 
+// The steps that act on the application like a user; a business action (send, create, delete...) is one of them.
+var INTERACTION_TOOLS = /^(click|press|fill|select|check|download)$/;
+
+// A check id in another shape: "c1", "C-1" or "C 1" is C1, a bare "1" takes the prefix of the requested checks.
+function canonicalCheckId(value, prefix) {
+  var text = str(value).toUpperCase().replace(/[\s_.\-]+/g, "");
+  return /^\d+$/.test(text) ? prefix + text : text;
+}
+
+// A wait that timed out says its text was not on the page then: a later successful observation that shows it settles it,
+// as the rules tell the verifier. (The same call succeeding later removes the failure in the walk.)
+function stepFailureResolved(failure, trace) {
+  var text = failure.tool === "wait_for" && !(failure.args && failure.args.gone) ? str(failure.args && failure.args.text) : "";
+  var at = trace.findIndex(function (entry) { return entry && entry.id === failure.id; });
+  if (!text.length || at < 0) return false;
+  return trace.slice(at + 1).some(function (entry) { return entry && !entry.failed && exactExcerpt(text, observationText(entry)).length > 0; });
+}
+
+// The passed checks a failed step concerns: the checks that cite it, and for a wait that timed out, the checks whose claim
+// holds the waited text. A click, key or fill that failed changed nothing on the page, so it says nothing against what was
+// observed: the verifier is told to retry another way (Escape for a menu it could not close), and a check claiming that
+// action must cite a successful one (actionRefs).
+function stepFailureConcerns(failure, check) {
+  if (failure.id && (check.evidenceRefs.indexOf(failure.id) >= 0 || check.actionRefs.indexOf(failure.id) >= 0)) return true;
+  if (failure.tool !== "wait_for") return false;
+  var text = str(failure.args && failure.args.text);
+  return text.length > 0 && exactExcerpt(text, [check.check, check.evidence, check.observedText].join("\n")).length > 0;
+}
+
 function normalizeReport(args, config, shots, pendingFailures, trace, network) {
   var known = {};
   shots.forEach(function (s) {
@@ -1471,22 +1500,41 @@ function normalizeReport(args, config, shots, pendingFailures, trace, network) {
       };
     }).filter(function (d) { return d.suggestion.length > 0; })
   };
-  // Requested checks cannot disappear when the budget expires, nor pass over a failed wait/action.
+  // Requested checks cannot disappear when the budget expires, nor pass over a failed wait/action they rely on. Their ids
+  // given in another shape (c1, C-1, 1) or their text in other words are still theirs.
+  var prefix = config.checks && config.checks.length ? "C" : "P";
   var expected = Array.isArray(config.checks) && config.checks.length ? config.checks : (config.paths || []).map(function (p) { return p.steps; });
   expected.forEach(function (check, index) {
-    var id = (config.checks && config.checks.length ? "C" : "P") + (index + 1);
-    var matching = report.checks.find(function (c) { return c.id === id || c.check === check; });
-    if (matching) matching.check = check;
-    else {
+    var id = prefix + (index + 1);
+    var matching = report.checks.find(function (c) { return c.id === id || c.check === check; }) ||
+      report.checks.find(function (c) { return canonicalCheckId(c.id, prefix) === id || (c.check.length && normalizeMap(c.check).text === normalizeMap(check).text); });
+    if (matching) {
+      matching.check = check;
+      matching.id = id;
+    } else {
       report.checks.push({ id: id, check: check, status: "not_checked", evidence: "No evidence returned for this requested check.", screenshot: "", path: "" });
     }
   });
-  var unresolved = Object.values(pendingFailures || {});
+  // The failures of the whole walk (preflight, runtime error, network evidence, business path), as text, weigh on every
+  // passed check. A failed step of the walk ({id, tool, args, message}) weighs only on the checks it concerns
+  // (stepFailureConcerns): one menu click that timed out made every proven check of a measured run not_checked (18/11).
+  var walkFailures = [];
+  var stepFailures = [];
+  Object.keys(pendingFailures || {}).forEach(function (key) {
+    var failure = pendingFailures[key];
+    if (failure && typeof failure === "object") {
+      if (!stepFailureResolved(failure, trace || [])) stepFailures.push(failure);
+    } else if (str(failure).length) {
+      walkFailures.push(str(failure));
+    }
+  });
   var downgraded = [];
   report.checks.forEach(function (c) {
-    var issues = unresolved.slice();
+    var issues = walkFailures.slice();
     if (c.status === "passed") {
-      var observations = (trace || []).concat(network || []), cited = c.evidenceRefs.map(function(id) { return observations.find(function(entry) { return entry.id === id; }); });
+      // A failed step proves nothing: its text is the tool's error, never what the page shows.
+      var observations = (trace || []).filter(function (entry) { return entry && !entry.failed; }).concat(network || []);
+      var cited = c.evidenceRefs.map(function(id) { return observations.find(function(entry) { return entry.id === id; }); });
       var shotOk = !!c.screenshot && shots.some(function(shot) { return shot.file === c.screenshot; });
       var quoteOk = !!c.observedText && cited.some(function(entry) { return entry && observationText(entry).includes(c.observedText); });
       // A paraphrased quote or a wrong id: the exact excerpt is looked for in the recorded observations, the cited ones first.
@@ -1503,14 +1551,20 @@ function normalizeReport(args, config, shots, pendingFailures, trace, network) {
           c.evidence = (c.evidence ? c.evidence + " " : "") + "[quote matched in " + recovered.id + "]";
         }
       }
+      stepFailures.forEach(function (failure) {
+        if (stepFailureConcerns(failure, c)) issues.push(failure.message);
+      });
       if (!cited.length || cited.some(function(entry) { return !entry; })) issues.push("cite actual journal evidenceRefs");
       if (!shotOk) {
         if (!c.observedText || !cited.some(function(entry) { return entry && observationText(entry).includes(c.observedText); })) issues.push("observedText must quote the cited observation");
       }
       var actions = c.actionRefs.map(function(id) { return (trace || []).find(function(entry) { return entry.id === id; }); });
       if (new Set(c.actionRefs).size !== c.actionRefs.length) issues.push("actionRefs must cite distinct journal actions");
-      if (actions.some(function(entry) { return !entry || entry.failed || !/^(click|press|fill|select|check|download)$/.test(entry.tool); })) issues.push("claimed action is absent or failed in the journal");
-      if (/\b(?:click|clicked|borrow|emprunt\w*|submit|send|refus\w*|annul\w*|download|created|deleted)\b/i.test(c.check + " " + c.evidence) && !actions.length) issues.push("cite actionRefs for the claimed business action");
+      // Any successful step of the journal may be cited (a navigation loaded the page a display check is about); a business
+      // action needs a successful interaction.
+      if (actions.some(function(entry) { return !entry || entry.failed; })) issues.push("claimed action is absent or failed in the journal");
+      if (/\b(?:click|clicked|borrow|emprunt\w*|submit|send|refus\w*|annul\w*|download|created|deleted)\b/i.test(c.check + " " + c.evidence) &&
+          !actions.some(function(entry) { return entry && !entry.failed && INTERACTION_TOOLS.test(entry.tool); })) issues.push("cite actionRefs for the claimed business action");
       var errors = (network || []).filter(function(entry) { return entry.failed && c.actionRefs.indexOf(entry.action) >= 0; });
       if (errors.some(function(entry) { return !c.expectedErrorCode || entry.errorCode !== c.expectedErrorCode; })) issues.push("the cited action received a Flow/network error: " + errors.map(function(entry) { return entry.errorCode || entry.status; }).join(", "));
       if (c.expectedErrorCode && !cited.some(function(entry) { return entry && entry.errorCode === c.expectedErrorCode; })) issues.push("expectedErrorCode was not observed in the cited network evidence");
@@ -1877,9 +1931,10 @@ async function run(rawConfig, deps) {
           outcome = await tools[name](args);
           delete pendingFailures[name + JSON.stringify(args)];
         } catch (e) {
-          // A reload loop is the verifier's, not a failed action of the application.
+          // A reload loop is the verifier's, not a failed action of the application. A failed step weighs only on the
+          // checks it concerns (normalizeReport): it keeps its journal id and arguments.
           if (e.code !== "RELOAD_LOOP") {
-            pendingFailures[name + JSON.stringify(args)] = name + ": " + shortError(e);
+            pendingFailures[name + JSON.stringify(args)] = { id: state.activeActionId, tool: name, args: args, message: name + ": " + shortError(e) };
           }
           outcome = { text: "Error: " + shortError(e) };
           if (/^(VIEWER_STOPPED|APPLICATION_ROUTE_FAILED|APPLICATION_BOUNDARY|RELOAD_LOOP)$/.test(e.code || "")) {
