@@ -1988,6 +1988,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       kept: { type: "string" },
       temporary: lines("Objects this conversation created that are still there and named as a probe or a test (zz_, tmp_, probe...): delete them before the report."),
       temporaryNote: { type: "string" },
+      existingChanged: lines("Sequences and transactions that existed before this conversation and that it changed: the final report names each one."),
+      existingChangedNote: { type: "string" },
+      modelDrift: lines("Pages copied from a model in this conversation that differ from it now (zones deleted, moved, emptied or restyled): the final report says so."),
+      modelDriftNote: { type: "string" },
       howToUse: { type: "string" }
     });
   }

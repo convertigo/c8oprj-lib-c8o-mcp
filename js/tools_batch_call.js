@@ -517,6 +517,15 @@ if (typeof C8O.editProfile === "undefined") {
       }
       C8O.writeJournal.recordCall(context, sequenceName, payload, callArguments, { via: "batch-call" });
     } catch (_ignoreJournal) {}
+    // a page copied inside a batch records the zones of its model too (js/model_zones.js)
+    if (sequenceName === "tools_databaseobject_copy") {
+      try {
+        if (typeof C8O.modelZones === "undefined" || typeof C8O.modelZones.afterCopy !== "function") {
+          include("js/model_zones.js");
+        }
+        C8O.modelZones.afterCopy(context, payload);
+      } catch (_ignoreZones) {}
+    }
   }
 
   function isMutationSequence(sequenceName) {

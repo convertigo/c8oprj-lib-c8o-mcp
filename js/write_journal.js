@@ -1359,6 +1359,22 @@ if (typeof C8O === "undefined") {
     var who = api.keyOf(contextObject, "");
     var now = api.host.now();
     var journal = api.read(contextObject ? contextObject.server : null, who.key, now);
-    return api.summarize(journal.entries, { scope: who.scope, project: project, since: since, full: journal.full });
+    var summary = api.summarize(journal.entries, { scope: who.scope, project: project, since: since, full: journal.full });
+    // The pages copied from a model in this conversation that differ from it now (js/model_zones.js).
+    try {
+      if (typeof C8O.modelZones === "undefined" || typeof C8O.modelZones.summary !== "function") {
+        include("js/model_zones.js");
+      }
+      var drifted = C8O.modelZones.summary(contextObject, project);
+      if (drifted.length) {
+        var howToUse = summary.howToUse;
+        delete summary.howToUse;
+        summary.modelDrift = drifted.slice(0, 10);
+        summary.modelDriftNote = "These pages were copied from a model in this conversation and differ from it now: the final report " +
+          "says what differs and whether the user asked for it.";
+        summary.howToUse = howToUse;
+      }
+    } catch (_ignoreModelZones) {}
+    return summary;
   };
 })();

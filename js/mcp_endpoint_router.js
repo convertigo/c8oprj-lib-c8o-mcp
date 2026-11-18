@@ -259,6 +259,50 @@ function revealAfterToolCall(sequenceName, toolResult, callArguments) {
   }
 }
 
+// A page copied from a model keeps the model's zones (js/model_zones.js): a copy of a page records them, and a write that
+// touches the copy and leaves it different from its model is warned in its answer, a batch included. Never fails the call.
+function zoneWarningsAfterToolCall(sequenceName, toolResult, callArguments, journalEntry) {
+  try {
+    if (typeof C8O.modelZones === "undefined" || typeof C8O.modelZones.warningsAfter !== "function") {
+      include("js/model_zones.js");
+    }
+    var answer = toolResult.result && typeof toolResult.result === "object" ? toolResult.result : toolResult;
+    if (sequenceName === "tools_databaseobject_copy") {
+      C8O.modelZones.afterCopy(context, answer);
+      return;
+    }
+    var written = [];
+    var add = function (value) {
+      if (typeof value === "string" && value.length) {
+        written.push(value);
+      }
+    };
+    ((journalEntry && journalEntry.objects) || []).forEach(function (o) { add(o && o.q); });
+    add(callArguments && callArguments.target);
+    add(callArguments && callArguments.qname);
+    add(answer.targetQName);
+    add(answer.qname);
+    (Array.isArray(answer.touchedQNames) ? answer.touchedQNames : []).forEach(add);
+    var references = answer.references && typeof answer.references === "object" ? answer.references : {};
+    Object.keys(references).forEach(function (id) {
+      add(references[id] && references[id].targetQName);
+      add(references[id] && references[id].qname);
+    });
+    if (!written.length) {
+      return;
+    }
+    var warnings = C8O.modelZones.warningsAfter(context, written);
+    if (!warnings.length) {
+      return;
+    }
+    if (Array.isArray(answer.warnings)) {
+      warnings.forEach(function (w) { answer.warnings.push(w); });
+    } else if (answer.message === undefined || typeof answer.message === "string") {
+      answer.message = (answer.message ? answer.message + " " : "") + warnings.join(" ");
+    }
+  } catch (_ignoreZones) {}
+}
+
 // After a tool answered (RevealAfterCall of mcp_endpoint): what a write tool created, changed, renamed, moved or deleted,
 // and the runs of requestable-execute, go to the journal of the conversation that project-changes answers
 // (js/write_journal.js). Reads and error answers record nothing; the journal never fails the tool call.
@@ -282,6 +326,9 @@ function journalAfterToolCall(sequenceName, toolResult, callArguments) {
       include("js/write_journal.js");
     }
     var journalEntry = C8O.writeJournal.recordCall(context, sequenceName, toolResult, callArguments, { conversationId: managedConversationId });
+    if (typeof zoneWarningsAfterToolCall === "function") {
+      zoneWarningsAfterToolCall(sequenceName, toolResult, callArguments, journalEntry);
+    }
     // A sequence run again and again in one conversation is usually a seed or a setup being proven by hand (a measured run
     // ran its seed 9 times, then claimed it replayable from an error): say once in a while that seed-proof does it.
     if (sequenceName === "tools_requestable_execute" && journalEntry && journalEntry.run) {
