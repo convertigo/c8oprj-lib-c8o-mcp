@@ -194,3 +194,11 @@ test('tree-apply checks the gate before anything changes, a dry run aside, and d
   assert.match(read('_c8oProject/sequences/tools_databaseobject_tree_apply.yaml'), /\n↓changeExisting \[variables\.RequestableVariable-\d+\]: \n {2}comment: /);
   assert.match(read('js/requestable_contract.js'), /if \(!newHere && \(info\.inside > 0 \|\| info\.sql\) && !api\.isConfirmed\(contextObject, requestable\)\) \{/);
 });
+
+test('a list argument handed over as a Java string (an object whose text is the JSON list) is read as text', () => {
+  const C = load('js/requestable_contract.js', 'requestableContract');
+  function JString(s) { this.s = s; this.length = s.length; }
+  JString.prototype.toString = function () { return this.s; };
+  assert.deepEqual(plain(C.parseNames(new JString('["App.sq:list"]'))), ['App.sq:list']);
+  assert.deepEqual(plain(C.parseNames(new JString('App.sq:list'))), ['App.sq:list']);
+});

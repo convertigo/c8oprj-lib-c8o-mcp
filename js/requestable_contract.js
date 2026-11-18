@@ -141,10 +141,8 @@ C8O.requestableContract = C8O.requestableContract || {};
   // The requestables named in changeExisting: a list, a JSON list or a comma separated text; QName, runtime path
   // ("P.seq", "P.conn.tx") or bare name.
   api.parseNames = function (value) {
+    // the engine hands a list argument over as its JSON text, a Java string: read as text, never as characters
     var list = value;
-    if (list !== null && list !== undefined && typeof list === "object" && !Array.isArray(list) && typeof list.length === "number") {
-      list = Array.prototype.slice.call(list);
-    }
     if (!Array.isArray(list)) {
       var text = str(list);
       if (!text.length) {

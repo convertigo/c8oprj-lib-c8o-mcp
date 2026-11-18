@@ -395,7 +395,7 @@ if (!(dryRunInput === true || String(dryRunInput) === "true")) {
   }
   var gateTargetQName = "";
   try {
-    gateTargetQName = String(C8O.dbo.safeQName(C8O.dbo.resolve(targetInput, { optional: true })) || "");
+    gateTargetQName = String(C8O.dbo.safeFullQName(C8O.dbo.resolve(targetInput, { optional: true })) || "");
   } catch (_ignoreGateTarget) {
     gateTargetQName = "";
   }
