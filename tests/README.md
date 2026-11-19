@@ -150,24 +150,21 @@ Initial defaults require the source value to be ready when the page initializes;
 they deliberately do not subscribe to late changes. Clock defaults use the
 browser clock, and runtime identity is not a server-side access-control check.
 
-Run `node --test tests/scripts/validate_nocode_generation.cjs`. The tests use the
-actual Forms `AllTypes.json` in the sibling `C8oForms` checkout (override with
-`C8OFORMS_PROJECT_ROOT`) and mock only the Java filesystem/engine adapter. They
-cover message mapping, styles (including nested layout children), responsive
-action groups, visible flow names, navigation/grid references, Baserow binding
-configuration, invalid generation, legacy draft compatibility, nested flow
-links and post-save readback. Baserow compiler cases use in-memory test identities;
-they neither write records nor prove backend persistence. Creation lifecycle
-tests now exercise the public create/edit functions and the complete save/read/
-finalize/read cycle using an in-memory requestable transport. They cover server-
-assigned component ids, trusted creator identity, readback failures, second-save
-failure, same-id recovery, idempotency and intervening edits.
+The No Code form contract belongs to C8Oforms since C8Oforms 2.3: its sections, compiler, validator and edit
+operations are C8Oforms `js/nocode_form_contract.js` and `js/nocode_form_components.js`, called through its private
+sequences `NoCode_Contract` and `NoCode_Form`; their tests are in C8Oforms `tests/unit` (`nocode-form-contract`,
+`nocode-form-components`, `nocode-form-style-model`) and run with its unit suite. `js/nocode_forms.js` keeps the agent
+guidance, the paging of the contract, the token check, the reads made with the rights of the user (the no-code
+database catalog and the columns of tables, asked back by C8Oforms) and the saves.
 
-`fixtures/nocode-generation-quality.json` is a legacy transient-grid regression
-fixture, not an application template or a delivery-quality benchmark. Keep it
-for compiler compatibility tests only; do not create it as a replacement for a
-requested application. Its stable input id makes the SmartSource test reproducible
-and must not be copied into unrelated generated applications.
+Run `node --test tests/scripts/validate_nocode_generation.cjs` (and the other `validate_nocode_*` files) with
+`C8OFORMS_PROJECT_ROOT` naming a C8Oforms checkout (default: the sibling `C8oForms`) that carries the contract, with its
+`AllTypes.json` built (`node ionicTpl/extractMetas.js` there). `tests/helpers/c8oforms_contract.cjs` answers
+`NoCode_Contract` and `NoCode_Form` with that checkout's code; the rest of the engine is mocked. They cover the tools:
+creation and edits through the complete save/read/finalize/read cycle with an in-memory requestable transport,
+server-assigned component ids, trusted creator identity, readback failures, second-save failure, same-id recovery,
+idempotency, intervening edits, the token, the answers and the paging of the contract. Baserow cases use in-memory
+test identities; they neither write records nor prove backend persistence.
 
 The earlier 2026-09-11 browser pass only verified transient component behavior,
 including a 390px viewport. It did not verify application delivery or persistence.

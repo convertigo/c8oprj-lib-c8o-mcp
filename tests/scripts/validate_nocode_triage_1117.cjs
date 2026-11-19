@@ -7,12 +7,17 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { formsEngine } = require('../helpers/c8oforms_contract.cjs');
 const root = path.resolve(__dirname, '../..');
 const formsRoot = process.env.C8OFORMS_PROJECT_ROOT || path.resolve(root, '../C8oForms');
 const source = fs.readFileSync(path.join(root, 'js/nocode_forms.js'), 'utf8');
 
 // The tools of js/nocode_forms.js in a sandbox; transport answers the requestables they call.
 function api(transport) {
+  // NoCode_Contract and NoCode_Form: the No Code form contract of the C8Oforms checkout (formsRoot)
+  const forms = formsEngine(formsRoot);
+  const answer = transport;
+  transport = (sequence, params) => forms.handles(sequence) ? forms.sequence(sequence, params) : answer ? answer(sequence, params) : undefined;
   class File {
     constructor(parent, child) { this.path = child ? path.join(String(parent), child) : String(parent); }
     isFile() { return fs.statSync(this.path).isFile(); }
@@ -31,7 +36,7 @@ function api(transport) {
     }
     getContext() { return {}; }
   }
-  const engine = { theApp: { databaseObjectsManager: { getOriginalProjectByName: () => ({ getDirFile: () => formsRoot }) }, contextManager: { remove() {} } } };
+  const engine = { theApp: { databaseObjectsManager: { getOriginalProjectByName: () => forms.project() }, contextManager: { remove() {} } } };
   const packages = new Proxy(empty, { get: (_, key) => {
     if (key === 'java') return { io: { File }, util: { HashMap: transport ? HashMap : empty, Base64: empty } };
     if (key === 'com') return { twinsoft: { convertigo: { engine: { Engine: engine, requesters: transport ? { InternalRequester, InternalHttpServletRequest: class {} } : empty, util: transport ? { XMLUtils: { XmlToJson: response => JSON.stringify(response) } } : empty, enums: empty } } } };

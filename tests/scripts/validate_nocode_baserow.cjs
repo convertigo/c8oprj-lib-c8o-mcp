@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { formsEngine } = require('../helpers/c8oforms_contract.cjs');
 const root = path.resolve(__dirname, '../..');
 const formsRoot = process.env.C8OFORMS_PROJECT_ROOT || path.resolve(root, '../C8oForms');
 // Objects built inside the vm come from another realm: compare their JSON.
@@ -84,6 +85,10 @@ function fakeBaserow(options = {}) {
 }
 
 function load(transport, extraFiles = []) {
+  // NoCode_Contract and NoCode_Form: the No Code form contract of the C8Oforms checkout (formsRoot)
+  const forms = formsEngine(formsRoot);
+  const answer = transport;
+  transport = (sequence, params) => forms.handles(sequence) ? forms.sequence(sequence, params) : answer ? answer(sequence, params) : undefined;
   const empty = new Proxy(function () {}, { get: (_, key) => key === Symbol.toPrimitive ? () => '' : empty });
   class HashMap { constructor() { this.values = {}; } put(key, value) { this.values[key] = value; } }
   class InternalRequester {
@@ -100,7 +105,7 @@ function load(transport, extraFiles = []) {
     isFile() { return fs.statSync(this.path).isFile(); }
     getAbsolutePath() { return this.path; }
   }
-  const engine = { theApp: { databaseObjectsManager: { getOriginalProjectByName: () => ({ getDirFile: () => formsRoot }) }, contextManager: { remove() {} } } };
+  const engine = { theApp: { databaseObjectsManager: { getOriginalProjectByName: () => forms.project() }, contextManager: { remove() {} } } };
   const mdc = {};
   const packages = new Proxy(empty, { get: (_, key) => {
     if (key === 'java') return { io: { File }, util: { HashMap, Base64: empty } };

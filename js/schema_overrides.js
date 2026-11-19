@@ -1557,40 +1557,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       properties: {
         action: {
           type: "string",
-          enum: [
-            "set_root",
-            "set_media",
-            "finalize_baserow_bindings",
-            "add_page",
-            "update_page",
-            "remove_page",
-            "delete_page",
-            "move_page",
-            "add_field",
-            "add_component",
-            "add_element",
-            "update_field",
-            "update_component",
-            "update_element",
-            "remove_field",
-            "remove_component",
-            "remove_element",
-            "delete_field",
-            "delete_component",
-            "delete_element",
-            "move_field",
-            "move_component",
-            "move_element",
-            "add_flow",
-            "update_flow",
-            "remove_flow",
-            "delete_flow",
-            "add_flow_element",
-            "update_flow_element",
-            "remove_flow_element",
-            "delete_flow_element",
-            "move_flow_element"
-          ],
+          // The operations are those of the C8Oforms of the server (its contract, section editTool): no list here, a
+          // newer C8Oforms may add one.
           description: "Semantic edit action. finalize_baserow_bindings resumes an already saved creation, as the only operation, using real ids and the authenticated creator; never retry create. Other common choices: add_page, update_page, add_field, update_field, move_field, add_flow, add_flow_element."
         },
         page: { type: "string", description: "Page technical name or visible page name. Use pageName for clarity when matching by visible name." },

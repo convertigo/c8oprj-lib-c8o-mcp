@@ -5,12 +5,19 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { formsEngine } = require('../helpers/c8oforms_contract.cjs');
 const { skillText: nocodeSkillText } = require('../helpers/nocode_skill.cjs');
 const root = path.resolve(__dirname, '../..');
 const formsRoot = process.env.C8OFORMS_PROJECT_ROOT || path.resolve(root, '../C8oForms');
 const source = fs.readFileSync(path.join(root, 'js/nocode_forms.js'), 'utf8');
+// the text of the No Code form contract of the C8Oforms checkout, where its compiler and validator are
+const formsSource = ['js/nocode_form_components.js', 'js/nocode_form_contract.js'].map(file => fs.readFileSync(path.join(formsRoot, file), 'utf8')).join('\n');
 // extraFiles are loaded in the same context (js/nocode_app.js); api then answers C8O instead of C8O.nocodeForms.
 function api(transport, extraFiles) {
+  // NoCode_Contract and NoCode_Form: the No Code form contract of the C8Oforms checkout (formsRoot)
+  const forms = formsEngine(formsRoot);
+  const answer = transport;
+  transport = (sequence, params) => forms.handles(sequence) ? forms.sequence(sequence, params) : answer ? answer(sequence, params) : undefined;
   class File {
     constructor(parent, child) { this.path = child ? path.join(String(parent), child) : String(parent); }
     isFile() { return fs.statSync(this.path).isFile(); }
@@ -29,7 +36,7 @@ function api(transport, extraFiles) {
     }
     getContext() { return {}; }
   }
-  const engine = { theApp: { databaseObjectsManager: { getOriginalProjectByName: () => ({ getDirFile: () => formsRoot }) }, contextManager: { remove() {} } } };
+  const engine = { theApp: { databaseObjectsManager: { getOriginalProjectByName: () => forms.project() }, contextManager: { remove() {} } } };
   const packages = new Proxy(empty, { get: (_, key) => {
     if (key === 'java') return { io: { File }, util: { HashMap: transport ? HashMap : empty, Base64: empty } };
     if (key === 'com') return { twinsoft: { convertigo: { engine: { Engine: engine, requesters: transport ? { InternalRequester, InternalHttpServletRequest: class {} } : empty, util: transport ? { XMLUtils: { XmlToJson: response => JSON.stringify(response) } } : empty, enums: empty } } } };
@@ -61,53 +68,6 @@ function visibleQuestion(field) {
 // The C8Oforms editor writes every question label rich, a paragraph (getObjToInsert: "<p>" + question + "</p>",
 // personalized true), and no longer offers the plain one. Description blocks and card titles keep their own rules.
 const QUESTION_TYPES = ['text', 'checkbox', 'checkbox_group', 'radio', 'radio_group', 'slider', 'select', 'datetime', 'time', 'img', 'grid', 'gallery', 'chart', 'map', 'barcode', 'file', 'signature', 'location'];
-test('labels are written as rich paragraphs for every question component', () => {
-  const types = [...QUESTION_TYPES, 'description', 'ion-card'];
-  const fields = types.map((type, index) => ({ type, name: 'label_test_' + index, label: 'Question ' + index }));
-  const r = api().compile({ name: 'Labels', pages: [{ name: 'Page', fields }] });
-  for (const [index, field] of r.form.formulaire.entries()) {
-    const question = QUESTION_TYPES.includes(field.type);
-    assert.equal(visibleQuestion(field), question ? '<p>Question ' + index + '</p>' : 'Question ' + index, field.type);
-    if (question) assert.equal(field.config.personalized, true, field.type);
-    assert.doesNotMatch(JSON.stringify(field.config), /Exemple de question/);
-  }
-});
-test('labels coexist with contextual defaults and disabled controls', () => {
-  const r = api().compile(contextExample({ source: 'user', property: 'email', fallback: '' }, { label: 'Adresse e-mail', disabled: true }));
-  const field = r.form.formulaire[0];
-  assert.equal(visibleQuestion(field), '<p>Adresse e-mail</p>');
-  assert.equal(field.config.personalized, true, 'the rich question remains visible for disabled inputs');
-  assert.equal(evaluateDefault(field, { api: { user: { authenticated: true, email: 'person@example.invalid' } } }), 'person@example.invalid');
-  assert.ok(!r.validation.warnings.some(w => w.code === 'prototype_question_label'));
-});
-test('explicit rich text takes precedence over shorthand labels, and a plain label given is written rich', () => {
-  const variants = [
-    { label: 'Plain', description: '<p>Rich question</p>' },
-    { label: 'Plain', description: '<p>Shorthand</p>', config: { html: '<strong>Explicit HTML</strong>' } },
-    { label: 'Shorthand', config: { label: 'Explicit label' } },
-    { label: 'Plain mode', config: { personalized: false } },
-    { config: { label: 'Native plain', personalized: false } },
-    { label: 'Do not restore', config: { html: '', personalized: true } },
-    { label: '' }
-  ];
-  const expected = ['<p>Rich question</p>', '<p><strong>Explicit HTML</strong></p>', '<p>Explicit label</p>', '<p>Plain mode</p>', '<p>Native plain</p>', '', ''];
-  for (const [index, extra] of variants.entries()) {
-    const r = api().compile({ name: 'Labels', pages: [{ name: 'Page', fields: [{ type: 'text', name: 'question', ...extra }] }] });
-    assert.equal(visibleQuestion(r.form.formulaire[0]), expected[index]);
-    assert.equal(r.form.formulaire[0].config.personalized, true, JSON.stringify(extra));
-    assert.ok(!r.validation.warnings.some(w => w.code === 'plain_question_label'));
-  }
-});
-test('literal labels are HTML-escaped but complete SmartSource payloads are preserved', () => {
-  const ref = '$$START1900000000101{"c8otype":"path","c8opath":"record.A&B.value","c8obuiltin":null}END1900000000101$$';
-  const label = 'A & B <img src=x> "quote" \'apostrophe\' ' + ref;
-  const r = api().compile({ name: 'Escaping', pages: [{ name: 'Page', fields: [
-    { type: 'text', name: 'record', id: 1900000000101, label: 'Record' },
-    { type: 'text', name: 'question', label }
-  ] }] });
-  assert.equal(r.form.formulaire[1].config.html, '<p>A &amp; B &lt;img src=x&gt; &quot;quote&quot; &#39;apostrophe&#39; ' + ref + '</p>');
-  assert.equal(r.form.formulaire[1].config.label, label);
-});
 test('semantic label edits repair persisted HTML and preserve unrelated rich content', () => {
   const h = creationHarness();
   const initial = h.client.create(contextExample({ source: 'literal', value: '' }, { label: 'Original' }), h.auth);
@@ -202,122 +162,12 @@ test('nocode-form-update writes rich labels, including the plain ones its patch 
   question.html = '<p>Saisissez votre question ici</p>';
   assertRichLabels(saved);
 });
-test('prototype question diagnostics stay advisory for existing drafts', () => {
-  const r = api().compile(contextExample({ source: 'literal', value: '' }));
-  assert.ok(r.validation.warnings.some(w => w.code === 'prototype_question_label'));
-  assert.equal(api().validate(r.form).validation.valid, true);
-});
-test('context defaults bind the runtime respondent, not the creator', () => {
-  const r = api().compile(contextExample({ source: 'user', property: 'email', fallback: '' }));
-  assert.equal(r.status, 'ok');
-  const field = r.form.formulaire[0];
-  assert.equal(field.config.contextValueMode, 'initial');
-  assert.equal(field.defaultFrom, undefined);
-  assert.equal(field.sources.self.vars.selfVar.type, 'ts');
-  assert.equal(evaluateDefault(field, { api: { user: { authenticated: true, email: 'respondent@example.invalid' } } }), 'respondent@example.invalid');
-  assert.equal(evaluateDefault(field, { api: { user: { authenticated: false, email: 'stale@example.invalid' } } }), '');
-  assert.equal(evaluateDefault(field), '');
-  assert.doesNotMatch(JSON.stringify(r.form), /creator@example/);
-});
-test('context fallback preserves false, zero and intentionally empty strings', () => {
-  for (const value of [false, 0, '', null]) {
-    const field = api().compile(contextExample({ source: 'literal', value, fallback: 'fallback' })).form.formulaire[0];
-    assert.equal(evaluateDefault(field), value === null ? 'fallback' : value);
-  }
-});
-test('clock defaults use local date for today and ISO instant for now', () => {
-  class Clock {
-    getFullYear() { return 2026; }
-    getMonth() { return 8; }
-    getDate() { return 15; }
-    toISOString() { return '2026-09-14T22:30:00.000Z'; }
-  }
-  for (const [property, expected] of [['today', '2026-09-15'], ['now', '2026-09-14T22:30:00.000Z']]) {
-    const r = api().compile(contextExample({ source: 'clock', property }, { type: 'datetime' }));
-    assert.equal(evaluateDefault(r.form.formulaire[0], { Date: Clock }), expected);
-  }
-});
-test('field defaults resolve forward/nested layout names and literal paths', () => {
-  const input = contextExample({ source: 'field', field: 'record', path: ['Reference', 'value'], fallback: '' });
-  input.pages[0].fields.push({ type: 'layout', name: 'group', fields: [{ type: 'text', name: 'record' }] });
-  const r = api().compile(input);
-  assert.equal(r.status, 'ok');
-  assert.equal(evaluateDefault(r.form.formulaire[0], { fields: { record: { Reference: { value: 'R-1' } } } }), 'R-1');
-  assert.equal(evaluateDefault(r.form.formulaire[0]), '');
-  assert.ok(r.validation.warnings.some(w => w.code === 'context_default_source_readiness'));
-});
-test('a grid column default reads the text of every cell shape of the selected row', () => {
-  const input = contextExample({ source: 'field', field: 'requests', column: 'Reference', mode: 'reactive', fallback: '' }, { disabled: true, label: 'Reference' });
-  input.pages[0].fields.push({ type: 'grid', name: 'requests', label: 'Requests', columns: [{ name: 'Reference', type: 'text' }], config: { sourceEnabled: false } });
-  const r = api().compile(input);
-  assert.equal(r.status, 'ok', JSON.stringify(r.validation));
-  const field = r.form.formulaire[0];
-  assert.deepEqual(clone(field.config.contextDefault), { source: 'field', field: 'requests', column: 'Reference', mode: 'reactive', fallback: '' });
-  const read = (Reference) => evaluateDefault(field, { fields: { requests: { Reference } } });
-  // raw Baserow row: text, number, date, boolean false and 0 as is
-  assert.equal(read('R-1'), 'R-1');
-  assert.equal(read(3000), 3000);
-  assert.equal(read(0), 0);
-  assert.equal(read(false), false);
-  assert.equal(read('2026-10-24'), '2026-10-24');
-  // single select, link and multiple select
-  assert.equal(read({ id: 3, value: 'Haute', color: 'red' }), 'Haute');
-  assert.equal(read([{ id: 1, value: 'Achats' }, { id: 2, value: 'IT' }]), 'Achats, IT');
-  assert.equal(read([]), '');
-  // lean cells: each cell in { value }
-  assert.equal(read({ value: 'R-1' }), 'R-1');
-  assert.equal(read({ value: { id: 3, value: 'Haute', color: 'red' } }), 'Haute');
-  assert.equal(read({ value: [{ id: 1, value: 'Achats' }] }), 'Achats');
-  // no row selected, an unknown column, an object without value: the fallback
-  assert.equal(evaluateDefault(field, { fields: { requests: {} } }), '');
-  assert.equal(evaluateDefault(field, { fields: { requests: null } }), '');
-  assert.equal(evaluateDefault(field, { fields: {} }), '');
-  assert.equal(read({ id: 3 }), '');
-  // a column name is a literal key, never code
-  const odd = contextExample({ source: 'field', field: 'requests', column: 'a"]); bad(); (["', mode: 'reactive' }, { disabled: true });
-  odd.pages[0].fields.push({ type: 'grid', name: 'requests', label: 'Requests', columns: [{ name: 'x', type: 'text' }], config: { sourceEnabled: false } });
-  const oddField = api().compile(odd).form.formulaire[0];
-  assert.equal(evaluateDefault(oddField, { fields: { requests: { 'a"]); bad(); (["': 'safe' } }, bad: () => { throw new Error('injected'); } }), 'safe');
-});
-test('a grid column default takes column or path, and a path through value is flagged', () => {
-  for (const spec of [{ source: 'field', field: 'requests', column: '' }, { source: 'field', field: 'requests', column: 3 }, { source: 'field', field: 'requests', column: 'A', path: ['A'] }]) {
-    assert.throws(() => api().compile(contextExample(spec)));
-  }
-  const input = contextExample({ source: 'field', field: 'requests', path: ['Reference', 'value'], mode: 'reactive', fallback: '' }, { disabled: true, label: 'Reference' });
-  input.pages[0].fields.push({ type: 'grid', name: 'requests', label: 'Requests', columns: [{ name: 'Reference', type: 'text' }], config: { sourceEnabled: false } });
-  const r = api().compile(input);
-  const warning = r.validation.warnings.find(w => w.code === 'grid_cell_path');
-  assert.ok(warning, JSON.stringify(r.validation.warnings));
-  assert.match(warning.message, /column: 'Reference'/);
-});
-test('the contract shows a column, not a path ending in value, to read the selected row', () => {
-  assert.doesNotMatch(source, /path: \["Reference", "value"\]/);
-  assert.doesNotMatch(source, /path \[column, 'value'\]/);
-  assert.match(source, /field: "selected_request", column: "Reference"/);
-});
-test('context reference failures and dependency cycles block compilation', () => {
-  for (const field of ['missing', 'context_input']) {
-    const r = api().compile(contextExample({ source: 'field', field }));
-    assert.equal(r.status, 'invalid');
-    assert.ok(r.validation.issues.some(i => ['unknown_context_field', 'cyclic_context_default'].includes(i.code)));
-  }
-  const input = contextExample({ source: 'field', field: 'second' });
-  input.pages[0].fields.push({ type: 'text', name: 'second', defaultFrom: { source: 'field', field: 'context_input' } });
-  assert.ok(api().compile(input).validation.issues.some(i => i.code === 'cyclic_context_default'));
-});
-test('query parameters are evaluated at runtime without expression injection', () => {
-  const parameter = 'ref\";bad()';
-  const r = api().compile(contextExample({ source: 'query', parameter, fallback: 'none' }));
-  const field = r.form.formulaire[0];
-  assert.equal(evaluateDefault(field), 'none');
-  assert.equal(evaluateDefault(field, { page: { local: { urlParams: new Map([[parameter, 'R-2']]) } } }), 'R-2');
-});
 test('an expression may reach browser globals such as localStorage, which the contract never presents as the default', () => {
   // An agent took the old "no guessed globals" advice for "no localStorage" and told a user two forms could not share a value that way.
-  assert.doesNotMatch(source, /not guessed globals/);
-  assert.match(source, /expressions: EXPRESSION_RUNTIME,/);
-  assert.match(source, /availability: "Existing Forms TS expression context: fields, actions, api\. Use verified sources and correct return types\. A defaultFrom expression only reads: no side effects\. " \+ EXPRESSION_RUNTIME/);
-  const runtime = /var EXPRESSION_RUNTIME = "(.*)" \+ GRID_VALUE;\n/.exec(source)[1];
+  assert.doesNotMatch(formsSource, /not guessed globals/);
+  assert.match(formsSource, /expressions: EXPRESSION_RUNTIME,/);
+  assert.match(formsSource, /availability: "Existing Forms TS expression context: fields, actions, api\. Use verified sources and correct return types\. A defaultFrom expression only reads: no side effects\. " \+ EXPRESSION_RUNTIME/);
+  const runtime = /var EXPRESSION_RUNTIME = "(.*)" \+ GRID_VALUE;\n/.exec(formsSource)[1];
   assert.match(runtime, /JavaScript run in the viewer page/);
   assert.match(runtime, /by default share through Baserow \(submit saveTo, then a grid or field source\) or a URL parameter/);
   assert.match(runtime, /Use localStorage only when the user asks for it, and say that it stays in one browser on one device/);
@@ -368,7 +218,7 @@ test('an expression whose marks do not pair up is refused with the position, mod
   assert.ok(logicIssue, JSON.stringify(logic.validation.issues));
   assert.match(logicIssue.message, /^double expression: position 1: the '\(' opened here is never closed/);
   assert.match(logicIssue.path, /^\/flows\/0\/elements\/0\/sources\/self\/vars\/selfVar\/str$/);
-  assert.match(source, /The browsers run modern JavaScript: arrow functions, template literals, \?\. and \?\? are accepted\. The tools check that parentheses, brackets, braces and quotes pair up/);
+  assert.match(formsSource, /The browsers run modern JavaScript: arrow functions, template literals, \?\. and \?\? are accepted\. The tools check that parentheses, brackets, braces and quotes pair up/);
   // an edit bringing such an expression is refused before the save
   const h = creationHarness();
   const start = h.client.create(example(), h.auth);
@@ -378,30 +228,6 @@ test('an expression whose marks do not pair up is refused with the position, mod
   assert.equal(edited.saved, false);
   assert.equal(h.state.saves, saves, 'nothing written');
   assert.ok(JSON.stringify(edited).includes("found where '}' should close the '{' opened at position 6"), JSON.stringify(edited).slice(0, 400));
-});
-test('explicit calculations retain reactive mode and warn about runtime validation', () => {
-  const r = api().compile(contextExample({ source: 'expression', expression: 'fields.quantity * fields.unit_price', mode: 'reactive' }, { config: { type: 'number' }, disabled: true }));
-  const field = r.form.formulaire[0];
-  assert.equal(field.config.contextValueMode, 'reactive');
-  assert.equal(evaluateDefault(field, { fields: { quantity: 3, unit_price: 4 } }), 12);
-  assert.ok(r.validation.warnings.some(w => w.code === 'context_expression_runtime_check'));
-  assert.ok(!r.validation.warnings.some(w => w.code === 'editable_reactive_value'));
-});
-test('unknown context vocabulary and conflicting native defaults are not silently dropped', () => {
-  for (const spec of [
-    { source: 'user', property: 'firstName' }, { source: 'user', property: 'sessionId' },
-    { source: 'clock', property: 'serverTime' }, { source: 'literal' },
-    { source: 'literal', value: 0, mode: 'once' }, { source: 'literal', value: 0, typo: true },
-    { source: 'field', field: 'x', path: ['__proto__'] }
-  ]) assert.throws(() => api().compile(contextExample(spec)));
-  for (const extra of [{ sources: {} }, { defaultValue: '' }, { config: { defaultvalue: 0 } }, { type: 'grid' }, { type: 'select' }]) {
-    assert.throws(() => api().compile(contextExample({ source: 'literal', value: 0 }, extra)));
-  }
-});
-test('known incompatible literal types are rejected', () => {
-  assert.equal(api().compile(contextExample({ source: 'literal', value: 'bad' }, { type: 'slider' })).status, 'invalid');
-  assert.equal(api().compile(contextExample({ source: 'literal', value: {} })).status, 'invalid');
-  assert.equal(api().compile(contextExample({ source: 'literal', value: 0 }, { type: 'slider' })).status, 'ok');
 });
 test('semantic edits persist contextual defaults and preserve unrelated sources', () => {
   const h = creationHarness();
@@ -417,7 +243,7 @@ test('semantic edits persist contextual defaults and preserve unrelated sources'
 test('the contract says what fields.<grid> holds for each returned_value and what a refresh does (6e89967b)', () => {
   // 27/10 (Skyjo): a duplicate check compared the link cells of an all_the_data grid as raw values and stayed at 0;
   // the agent could not see the shape of fields.<grid>. Shapes checked live on 29/10 (C8Oforms 2.2.0-beta457).
-  const grid = /var GRID_VALUE = "(.*)";\n/.exec(source)[1];
+  const grid = /var GRID_VALUE = "(.*)";\n/.exec(formsSource)[1];
   assert.match(grid, /row_selected \(the default\) gives the selected row as Baserow gives it, \{ id, order, <Column>: value \}/);
   assert.match(grid, /a link or a multiple select a list of \{ id, value \}\), and \{\} while no row is selected/);
   assert.match(grid, /all_the_data the list of the rows read \(1000 at most\), each cell wrapped as \{ value, displayValue \(its HTML\), type, displayName, technicalName \}/);
@@ -471,34 +297,6 @@ test('a defaultFrom field changes through defaultFrom: config.contextDefault is 
   assert.equal(field.config.contextDefault, undefined);
   assert.equal(run(field), 300);
 });
-test('a selfVar changed in No Code Studio is the expression that runs: context_default_stale, checks made on it (2ba0a64a)', () => {
-  // The editor saves selfVar with each reference as a SmartSource token, formatted again (line breaks, double quotes,
-  // semicolons); config.contextDefault stays.
-  const token = (name, id = 1900000000001) => '$$START' + id + '{"c8otype":"path","c8opath":"","c8oPrettyPath":null,"c8obuiltin":"false","id":' + id + ',"pathPrefix":"fields","nested":null,"name":"' + name + '"}END' + id + '$$';
-  const compiled = api().compile({ name: 'Stale', pages: [{ name: 'P', fields: [
-    { type: 'grid', name: 'score_last', label: 'Scores', source: { table: { id: 7002, path: 'W~>Skyjo~>Scores' }, columns: ['Partie'] } },
-    { type: 'text', name: 'n', label: 'N', disabled: true, defaultFrom: { source: 'expression', expression: "fields['a'] === 'x' ? 1 : 2", mode: 'reactive' } }
-  ] }] });
-  const form = clone(compiled.form);
-  const index = form.formulaire.findIndex(f => f.name === 'n');
-  const selfVar = form.formulaire[index].sources.self.vars.selfVar;
-  const warnings = () => api().validate(form).validation.warnings;
-  selfVar.str = '(\n  ' + token('a') + ' === "x"\n    ? 1\n    : 2;\n)';
-  assert.equal(warnings().some(w => w.code === 'context_default_stale'), false, 'the same expression in the encoding of the editor');
-  selfVar.str = '(' + token('a') + ' === "y" ? 1 : 2)';
-  const stale = warnings().find(w => w.code === 'context_default_stale');
-  assert.ok(stale, JSON.stringify(warnings()));
-  assert.equal(stale.path, '/formulaire/' + index + '/config/contextDefault');
-  assert.match(stale.message, /^n: the viewer runs sources\.self\.vars\.selfVar, which is no longer the compilation of config\.contextDefault/);
-  selfVar.str = '((' + token('a') + ' === "y" ? 1 : 2)';
-  const syntax = api().validate(form).validation.issues.find(i => i.code === 'expression_syntax');
-  assert.ok(syntax, 'the syntax of the code that runs');
-  assert.equal(syntax.path, '/formulaire/' + index + '/sources/self/vars/selfVar/str');
-  assert.match(syntax.message, /^n selfVar: position 1: the '\(' opened here is never closed/);
-  selfVar.str = '(' + token('score_last', form.formulaire.find(f => f.name === 'score_last').id) + '.length)';
-  const rows = warnings().filter(w => w.code === 'grid_rows_in_formula');
-  assert.deepEqual(clone(rows.map(w => w.path)), ['/formulaire/' + index + '/sources/self/vars/selfVar/str'], JSON.stringify(warnings()));
-});
 test('the form read back keeps config.contextDefault as saved: a fallback "" is not context_default_stale', () => {
   // 29/10: nocode-form-get answered the form without the empty values, the fallback "" of a defaultFrom included;
   // nocode-form-validate on that form then warned context_default_stale and asked to send defaultFrom again.
@@ -535,80 +333,6 @@ function example() {
     ]
   };
 }
-test('custom navigation resolves names and preserves native styles', () => {
-  const r = api().compile(example());
-  assert.equal(r.status, 'ok');
-  assert.ok(r.form.pages.every(p => !p.enabledTab && !p.enabledButtons));
-  assert.equal(r.form.flows.find(f => f.id === 'open').elements[0].config.targetPage, r.form.pages[1].pageTechName);
-  assert.deepEqual(clone(r.form.formulaire[0].config.boxStyle), example().pages[0].fields[0].boxStyle);
-});
-test('toast message reaches the source read by Forms, with no prototype value', () => {
-  const r = api().compile(example());
-  const toast = r.form.flows.find(f => f.id === 'example').elements[1];
-  assert.equal(toast.sources.self.vars.selfVar.str, 'Example added');
-  assert.equal(toast.config.duration, 5);
-  assert.equal(toast.message, undefined);
-  assert.doesNotMatch(JSON.stringify(toast), /toast_example/);
-});
-test('explicit SmartSource is preserved, including false and zero values', () => {
-  const input = example();
-  const sources = { self: { enabled: true, vars: { selfVar: { str: '0', type: 'ts', html: false } } } };
-  input.flows[2].elements[1] = { type: 'toast', message: 'ignored', sources, closeBtn: false };
-  const toast = api().compile(input).form.flows[4].elements[1];
-  assert.deepEqual(clone(toast.sources), sources);
-  assert.equal(toast.config.closeBtn, false);
-});
-test('local row shorthand resolves grid identity and preserves literal JSON', () => {
-  const r = api().compile(example());
-  const step = r.form.flows.find(f => f.id === 'example').elements[0];
-  assert.equal(step.config.targetGrid, r.form.formulaire.find(f => f.name === 'requests').id);
-  assert.deepEqual(clone(vm.runInNewContext(step.sources.self.vars.selfVar.str)), { Reference: 'DEMO-001', Status: 'Pending' });
-  assert.ok(r.validation.warnings.some(w => w.code === 'local_grid_not_persistent'));
-});
-test('unknown page and grid references are blocking', () => {
-  for (const [flow, key] of [[0, 'targetPage'], [2, 'targetGrid']]) {
-    const input = example(); input.flows[flow].elements[0][key] = 'missing';
-    assert.equal(api().compile(input).status, 'invalid');
-  }
-});
-test('empty submit and residual toast placeholders fail new generation', () => {
-  for (const step of [{ type: 'submit' }, { type: 'toast' }, { type: 'toast', message: 'toast_example' }]) {
-    const input = example(); input.flows[2].elements = [step];
-    const r = api().compile(input);
-    assert.equal(r.status, 'invalid');
-    assert.ok(r.validation.issues.length > 0);
-    assert.equal(api().validate(r.form).validation.valid, true, 'existing drafts remain editable');
-    assert.ok(api().validate(r.form).validation.warnings.length > 0);
-  }
-});
-test('empty buttons and unbound source grids fail new generation', () => {
-  const input = example(); input.flows[2].elements = [];
-  input.pages[1].fields[0].sourceEnabled = true;
-  const r = api().compile(input);
-  assert.ok(r.validation.issues.some(i => i.code === 'empty_button_flow'));
-  assert.ok(r.validation.issues.some(i => i.code === 'grid_without_source'));
-});
-test('unsupported seed properties cannot be silently dropped', () => {
-  const input = example(); input.pages[1].fields[0].sampleRows = [{ Reference: 'demo' }];
-  assert.throws(() => api().compile(input), /Unsupported grid seed property/);
-});
-test('CSS types are checked without imposing a theme on existing forms', () => {
-  const input = example(); input.pages[0].fields[0].boxStyle.padding = 20;
-  assert.ok(api().compile(input).validation.issues.some(i => i.code === 'invalid_style_value'));
-});
-test('explicit backend action vars are kept without inventing persistence', () => {
-  const input = example();
-  const actions = { 'lib_BaseRow.forms_AddRow': { enabled: true, vars: { forms_config: { str: '{"table_id_int":42,"table_id":"Test workspace~>Test database~>Requests"}', html: false }, forms_id: { str: '', html: false } } } };
-  input.flows[2].elements = [{ type: 'submit', actions }];
-  const r = api().compile(input);
-  assert.equal(r.status, 'ok');
-  const step = r.form.flows.find(f => f.id === 'example').elements[0];
-  const expected = clone(actions);
-  const config = JSON.parse(expected['lib_BaseRow.forms_AddRow'].vars.forms_config.str);
-  config.source_id = step.id;
-  expected['lib_BaseRow.forms_AddRow'].vars.forms_config.str = JSON.stringify(config);
-  assert.deepEqual(clone(step.actions), expected);
-});
 test('legacy tab default remains available; contract recommends an explicit choice', () => {
   const input = example(); delete input.navigationMode;
   assert.ok(api().compile(input).form.pages.every(p => p.enabledTab));
@@ -616,99 +340,10 @@ test('legacy tab default remains available; contract recommends an explicit choi
   assert.ok(contract.rootFields.navigationMode.enum.includes('custom'));
   assert.ok(contract.generationQuality.styles.scopes.boxStyle);
 });
-test('the legacy transient-grid regression fixture still compiles', () => {
-  const fixture = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/nocode-generation-quality.json'), 'utf8'));
-  const r = api().compile(fixture);
-  assert.equal(r.status, 'ok');
-  assert.deepEqual(clone(r.validation.issues), []);
-  assert.equal(r.form.formulaire.find(f => f.name === 'demandeur').id, 1900000000101);
-});
 
-test('flow names use explicit labels, button labels or humanized ids, including reserved flows', () => {
-  const input = example();
-  input.flows[1].name = 'Retour accueil';
-  input.flows.push({ id: 'formulas', name: 'Calculs', elements: [] });
-  input.flows.push({ id: 'submit', name: 'Soumission', elements: [] });
-  input.flows.push({ id: 'update_request_status', elements: [] });
-  const flows = api().compile(input).form.flows;
-  assert.equal(flows.find(f => f.id === 'open').name, 'Requests');
-  assert.equal(flows.find(f => f.id === 'back').name, 'Retour accueil');
-  assert.equal(flows.find(f => f.id === 'formulas').name, 'Calculs');
-  assert.equal(flows.find(f => f.id === 'submit').name, 'Soumission');
-  assert.equal(flows.find(f => f.id === 'update_request_status').name, 'Update request status');
-  assert.ok(flows.every(f => f.name.trim()));
-  const saved = api().compile(input).form;
-  delete saved.flows[2].name;
-  assert.ok(api().validate(saved).validation.warnings.some(w => w.code === 'missing_flow_name'));
-});
 
-test('adjacent page buttons and partial styling trigger review without rewriting the design', () => {
-  const r = api().compile({ ...example(), styleDefaults: false });
-  assert.ok(r.validation.warnings.some(w => w.code === 'ungrouped_adjacent_buttons'));
-  assert.ok(r.validation.warnings.some(w => w.code === 'partial_page_styling'));
-  assert.equal(r.form.formulaire.filter(f => f.type === 'layout').length, 0);
-});
 
-test('the contract tells that a card in a layout is spaced by its own margin, and its example compiles as written', () => {
-  const find = (node, key) => {
-    if (!node || typeof node !== 'object') return undefined;
-    if (Object.prototype.hasOwnProperty.call(node, key)) return node[key];
-    for (const value of Object.values(node)) { const found = find(value, key); if (found !== undefined) return found; }
-    return undefined;
-  };
-  const contract = clone(api().contract({ sections: ['all'] }).authoringContract);
-  const cards = find(contract, 'cardsInLayout');
-  assert.ok(cards, 'styleRendering.cardsInLayout');
-  assert.match(cards.rule, /padding of layoutChildrenStyle never separates cards/);
-  assert.match(cards.rule, /margin in each card's boxStyle/);
-  assert.match(cards.rule, /negated on the layout's boxStyle/);
-  assert.match(JSON.stringify(contract), /space cards with the card's margin/);
-  const row = clone(cards.example);
-  const card = row.children[0];
-  row.children = [0, 1, 2].map(i => ({ ...clone(card), name: 'kpi_' + i }));
-  const r = api().compile({ name: 'Cards', pages: [{ name: 'Home', fields: [row] }] });
-  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
-  const layout = r.form.formulaire.find(f => f.type === 'layout');
-  assert.equal(layout.config.boxStyle.margin, '0 -8px 16px -8px');
-  assert.deepEqual(clone(layout.config.layoutChildrenStyle), { default: { margin: '0', padding: '0' } });
-  for (const id of layout.childrenRefs) {
-    const child = r.form.formulaire.find(f => f.id === id);
-    assert.equal(child.config.boxStyle.margin, '8px');
-    assert.equal(child.config.boxStyle.backgroundColor, '#FFFFFF');
-  }
-});
-test('responsive action groups preserve child styles and explicit config takes precedence', () => {
-  const input = example();
-  const fields = input.pages[1].fields;
-  const row = clone(api().contract({ sections: ['all'] }).authoringContract.componentAuthoring.layout.actionGroupExample);
-  row.children = fields.splice(1);
-  row.children.forEach(f => { f.boxStyle = { margin: '0', padding: '8px', border: '0' }; });
-  row.layoutChildrenStyle = { default: { padding: '8px' }, first: { margin: '0' }, last: { margin: '0' } };
-  row.config = { tablet: [{ size: 12 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }] };
-  fields.push(row);
-  const r = api().compile(input);
-  assert.equal(r.status, 'ok');
-  assert.ok(!r.validation.warnings.some(w => w.code === 'ungrouped_adjacent_buttons'));
-  const layout = r.form.formulaire.find(f => f.type === 'layout');
-  assert.deepEqual(clone(layout.config.cols), row.cols);
-  assert.deepEqual(clone(layout.config.tablet), row.config.tablet);
-  assert.deepEqual(clone(layout.config.phoneP), row.phoneP);
-  assert.deepEqual(clone(layout.config.layoutChildrenStyle), row.layoutChildrenStyle);
-  for (const id of layout.childrenRefs) {
-    const child = r.form.formulaire.find(f => f.id === id);
-    assert.equal(child.parentRef, layout.id);
-    assert.deepEqual(clone(child.config.boxStyle), { margin: '0', padding: '8px', border: '0', backgroundColor: 'transparent' });
-  }
-});
 
-test('invalid layout child spacing and multi-value CSS lengths are rejected', () => {
-  const input = example();
-  input.pages[0].fields[0].layoutChildrenStyle = { default: { padding: 16 } };
-  input.pages[0].fields[0].boxStyle.margin = '0 16';
-  const issues = api().compile(input).validation.issues;
-  assert.ok(issues.some(i => i.code === 'invalid_style_value'));
-  assert.ok(issues.some(i => i.code === 'missing_style_unit'));
-});
 
 // Compiler-only Baserow identities: no network calls, records or delivered application.
 function connectedExample() {
@@ -723,57 +358,9 @@ function connectedExample() {
   return input;
 }
 
-test('Baserow save and read bindings preserve the same table and their own identities', () => {
-  const r = api().compile(connectedExample());
-  assert.equal(r.status, 'ok');
-  const grid = r.form.formulaire.find(f => f.type === 'grid');
-  const submit = r.form.flows.find(f => f.id === 'example').elements[0];
-  const read = JSON.parse(grid.sources['lib_BaseRow.formssource_GetTableData'].vars.forms_config.str);
-  const write = JSON.parse(submit.actions['lib_BaseRow.forms_AddRow'].vars.forms_config.str);
-  assert.equal(read.table_id_int, write.table_id_int);
-  assert.equal(read.source_id, grid.id);
-  assert.equal(write.source_id, submit.id);
-  assert.ok(r.validation.warnings.some(w => w.code === 'baserow_identity_pending_creation'));
-  assert.equal(read.form_id, undefined);
-  assert.equal(write.source_owner, undefined);
-  assert.equal(r.bindingFinalization.status, 'pending_creation');
-});
 
-test('unconfigured Baserow actions and sources fail generation without blocking existing drafts', () => {
-  for (const encoded of ['{}', 'invalid json', JSON.stringify({ table_id: 'Requests', table_id_int: -1 })]) {
-    const input = connectedExample();
-    input.flows[2].elements[0].actions['lib_BaseRow.forms_AddRow'].vars.forms_config.str = encoded;
-    input.pages[1].fields[0].sources['lib_BaseRow.formssource_GetTableData'].vars.forms_config.str = encoded;
-    const r = api().compile(input);
-    assert.equal(r.status, 'invalid');
-    assert.ok(r.validation.issues.some(i => /baserow/.test(i.code)));
-    assert.equal(api().validate(r.form).status, 'ok');
-  }
-});
 
-test('Baserow explicit saves require data and saved bindings must belong to their form', () => {
-  const input = connectedExample();
-  const step = input.flows[2].elements[0];
-  step.actions['lib_BaseRow.forms_AddRowFromData'] = step.actions['lib_BaseRow.forms_AddRow'];
-  delete step.actions['lib_BaseRow.forms_AddRow'];
-  assert.ok(api().compile(input).validation.issues.some(i => i.code === 'missing_baserow_values'));
-  step.actions['lib_BaseRow.forms_AddRowFromData'].vars.forms_freeVars = { str: '{"Reference":"value supplied by caller"}', html: false };
-  const compiled = api().compile(input);
-  assert.equal(compiled.status, 'ok');
-  compiled.form._id = 'different-form';
-  const source = compiled.form.formulaire.find(f => f.type === 'grid').sources['lib_BaseRow.formssource_GetTableData'].vars.forms_config;
-  source.str = JSON.stringify({ ...JSON.parse(source.str), form_id: 'another-form', source_owner: 'test@example.invalid' });
-  assert.ok(api().validate(compiled.form).validation.warnings.some(i => i.code === 'baserow_form_identity_mismatch'));
-});
 
-test('shared flows do not borrow one arbitrary button label and dynamic labels stay out of names', () => {
-  const input = example();
-  input.pages[0].fields.push({ type: 'button', name: 'second_open', label: 'Different label', flow: 'open' });
-  input.pages[1].fields[2].label = '$$START123dynamicEND123$$';
-  const flows = api().compile(input).form.flows;
-  assert.equal(flows.find(f => f.id === 'open').name, 'Open');
-  assert.equal(flows.find(f => f.id === 'back').name, 'Back');
-});
 
 test('native design recipes survive compilation across sections, fields, data and grouped actions', () => {
   const compiler = api();
@@ -817,28 +404,6 @@ test('transparent standalone button wrappers preserve the actual button fill', (
   assert.equal(saved.config.boxStyle.border, '0');
   assert.equal(saved.config.backgroundColor, '#2F6FED');
   assert.equal(saved.config.color, '#FFFFFF');
-});
-test('nested flow relationships and else branches survive compilation', () => {
-  const input = example();
-  input.flows[2].elements = [
-    { type: 'if_else', id: 1900000000201, condition: { field: 'requests', operator: 'is_filled' }, childrenRefs: [1900000000202], childrenRefsElse: [1900000000203] },
-    { type: 'toast', id: 1900000000202, parentRef: 1900000000201, message: 'Then' },
-    { type: 'toast', id: 1900000000203, parentRef: 1900000000201, message: 'Else' }
-  ];
-  const r = api().compile(input);
-  assert.equal(r.status, 'ok');
-  const elements = r.form.flows.find(f => f.id === 'example').elements;
-  assert.equal(elements[2].parentRef, elements[0].id);
-  assert.equal(elements[0].childrenRefsElse[0], elements[2].id);
-});
-test('flow ids are unique across flows and CSS nonzero lengths need units', () => {
-  const input = example();
-  input.flows[0].elements[0].id = 1900000000201;
-  input.flows[1].elements[0].id = 1900000000201;
-  input.pages[0].fields[0].boxStyle.padding = '20';
-  const issues = api().compile(input).validation.issues;
-  assert.ok(issues.some(i => i.code === 'invalid_flow_element_id'));
-  assert.ok(issues.some(i => i.code === 'missing_style_unit'));
 });
 test('save readback returns authoritative ids and does not retry a successful write', () => {
   const start = source.indexOf('  function attachSavedForm(');
@@ -1061,22 +626,6 @@ test('remove_flow is refused while a component the edit keeps still uses the flo
   assert.ok(!removed.form.flows.some(f => f.id === 'open'));
 });
 
-test('write guard preserves attachments and leaves legacy calls unchanged', () => {
-  const ctx = {};
-  vm.runInNewContext(fs.readFileSync(path.join(formsRoot, 'js/form_write_guard.js'), 'utf8'), ctx);
-  const prepare = ctx.c8oFormWriteGuard.prepare;
-  const current = {_id:'one', _rev:'3-live', _attachments:{thumbnail:{stub:true, digest:'md5-test'}}};
-  const meta = {_id:'one', _rev:'bad', _c8oExpectedRevision:'3-live'};
-  assert.equal(prepare(meta, () => current).enabled, true);
-  assert.equal(meta._rev, current._rev);
-  assert.deepEqual(clone(meta._attachments), current._attachments);
-  assert.equal(meta._c8oExpectedRevision, undefined);
-  assert.equal(prepare({_id:'one'}, () => { throw Error('Legacy path must not read'); }).enabled, false);
-  for (const revision of ['', null, '2-old']) {
-    assert.equal(prepare({_id:'one',_c8oExpectedRevision:revision}, () => current).error.error, 'conflict');
-  }
-  assert.equal(prepare({_id:'one',_c8oExpectedRevision:'3-live'}, () => null).error.error, 'conflict');
-});
 
 test('new Baserow binding in an existing form is ready in one edit write', () => {
   const h = creationHarness();
@@ -1138,24 +687,6 @@ test('add_page preserves custom navigation and honors explicit modes', () => {
   }
 });
 
-test('delete row ids and explicit value mappings reject malformed generation', () => {
-  for (const rowId of ['', '0','-1','not-an-id']) {
-    const input = connectedWithoutIdentities();
-    const step = input.flows[2].elements[0];
-    const entry = step.actions['lib_BaseRow.forms_AddRow'];
-    entry.vars.forms_id={str:rowId,html:false};
-    step.actions={'lib_BaseRow.forms_DeleteRow':entry};
-    assert.equal(api().compile(input).status,'invalid');
-  }
-  for (const mapping of ['{}','[]','nonsense','{" ":"value"}']) {
-    const input = connectedWithoutIdentities();
-    const step = input.flows[2].elements[0];
-    const entry = step.actions['lib_BaseRow.forms_AddRow'];
-    entry.vars.forms_freeVars={str:mapping,html:false};
-    step.actions={'lib_BaseRow.forms_AddRowFromData':entry};
-    assert.ok(api().compile(input).validation.issues.some(i=>i.code==='invalid_baserow_values'));
-  }
-});
 
 test('save checks discovered table columns and rejects unmapped inputs before creation', () => {
   for (const mode of ['unknown-column','unmapped-input','unavailable']) {
@@ -1210,12 +741,6 @@ test('invalid reduced JSON errors name the position, the surrounding text and th
   assert.ok(/not as a string/.test(contract.authoringContract.generationQuality.incrementalCreation.rule));
 });
 
-test('the contract states update capabilities and recipes next to the backend actions', () => {
-  const text = JSON.stringify(api().contract({ sections: ['all'] }));
-  assert.match(text, /UPDATE an existing row when forms_id holds its Baserow row id/);
-  assert.match(text, /updateRelatedTable/);
-  assert.match(text, /quote the sentence that establishes the limit/);
-});
 
 test('a reduced form without any component is invalid and never created', () => {
   const client = api();
@@ -1241,15 +766,6 @@ test('explicit mappings use real columns and allow false and zero values', () =>
   assert.ok(h.client.create(input,h.auth).validation.issues.some(i=>i.code==='unknown_baserow_column'));
 });
 
-test('explicit button surfaces survive while default white wrappers are removed', () => {
-  const input=example();
-  input.pages[0].fields[1].boxStyle={backgroundColor:'#ffffff',border:'1px solid red'};
-  const r=api().compile(input);
-  const button=r.form.formulaire.find(f=>f.name==='open');
-  assert.equal(button.config.boxStyle.backgroundColor,'#ffffff');
-  assert.equal(button.config.boxStyle.border,'1px solid red');
-  assert.ok(r.validation.warnings.some(w=>w.code==='action_wrapper_surface'));
-});
 
 test('Baserow relationships resolve actual row ids and never silently drop unresolved keys', () => {
   const library=fs.readFileSync(path.join(root,'js/nocode_baserow.js'),'utf8');
@@ -1267,16 +783,6 @@ test('Baserow relationships resolve actual row ids and never silently drop unres
   assert.deepEqual(clone(ctx.normalizeRowValue([],field,lookup)),[]);
 });
 
-test('spacing diagnostics cover color-only blocks and nested children without restyling them', () => {
-  const input = { ...example(), styleDefaults: false };
-  input.pages[0].fields=[{type:'layout',name:'group',boxStyle:{backgroundColor:'#ffffff'},children:[{type:'text',name:'inside',boxStyle:{backgroundColor:'#ffffff'}}]}];
-  const r = api().compile(input);
-  const field = r.form.formulaire.find(f=>f.name==='inside');
-  assert.ok(r.validation.warnings.some(w=>w.code==='missing_block_spacing' && w.path===('/formulaire/'+r.form.formulaire.indexOf(field)+'/config/boxStyle')));
-  assert.equal(field.config.boxStyle.padding,undefined);
-  const button = r.form.formulaire.find(f=>f.type==='button');
-  assert.equal(button.config.boxStyle.backgroundColor,'transparent');
-});
 
 function connectedWithoutIdentities() {
   const input = connectedExample();
@@ -1431,7 +937,9 @@ test('schema exposes the single-operation finalization recovery', () => {
   const end = schemaSource.indexOf('  function nocodeFormEditInputSchema()', start);
   const context = { nocodeThumbnailImageSchema: () => ({}) };
   vm.runInNewContext(schemaSource.slice(start, end), context);
-  assert.ok(context.nocodeFormEditOperationSchema().properties.action.enum.includes('finalize_baserow_bindings'));
+  // the operations are those of the C8Oforms of the server: the schema lists none, its description names the recovery
+  assert.equal(context.nocodeFormEditOperationSchema().properties.action.enum, undefined);
+  assert.match(context.nocodeFormEditOperationSchema().properties.action.description, /finalize_baserow_bindings resumes an already saved creation/);
   const h = creationHarness();
   const result = h.client.edit('never-created', [{ action: 'finalize_baserow_bindings' }, { action: 'set_root', name: 'bad' }], h.auth);
   assert.equal(result.saved, false);
@@ -1459,98 +967,6 @@ function toastFlow(...toasts) {
   input.flows[2].elements = toasts.map((toast, index) => ({ type: 'toast', message: 'Message ' + index, ...toast }));
   return input;
 }
-test('toast colors compile to hex values the viewer renders readably', () => {
-  const r = api().compile(toastFlow({ color: 'success' }, { color: 'danger' }, { color: 'warning' }, { color: 'info' }, {}, { color: '#0a0' }, { color: '1E293B' }));
-  assert.equal(r.status, 'ok');
-  const colors = clone(r.form.flows.find(f => f.id === 'example').elements.map(e => e.config.color));
-  assert.deepEqual(colors.slice(0, 5), ['#15803D', '#B91C1C', '#B45309', '#1E293B', '#15803D'], 'named colors and the default');
-  assert.equal(colors[5], '#00aa00');
-  assert.equal(colors[6], '#1E293B');
-  for (const color of colors.slice(0, 5)) {
-    const text = viewerToastTextColor(color);
-    assert.equal(text, '#FFFFFF', color);
-    assert.ok(wcagContrast(color, text) >= 4.5, color + ' contrast');
-  }
-});
-test('a toast color the viewer cannot read blocks creation and stays advisory on drafts', () => {
-  const r = api().compile(toastFlow({ color: 'var(--ion-color-success)' }, { color: 'success', duration: 3000 }));
-  assert.ok(r.validation.issues.some(i => i.code === 'unreadable_toast_color'));
-  assert.ok(r.validation.warnings.some(w => w.code === 'toast_duration_seconds'));
-  const draft = api().validate(r.form).validation;
-  assert.ok(draft.warnings.some(w => w.code === 'unreadable_toast_color'));
-  assert.ok(!draft.issues.some(i => i.code === 'unreadable_toast_color'));
-  const legacy = clone(api().compile(toastFlow({})).form);
-  legacy.flows.find(f => f.id === 'example').elements[0].config.color = 'success';
-  assert.ok(api().validate(legacy).validation.warnings.some(w => w.code === 'unreadable_toast_color'), 'existing named colors are reported');
-});
-test('button variants give a coherent hierarchy and explicit values win', () => {
-  const input = example();
-  input.pages[1].fields.push(
-    { type: 'button', name: 'save', label: 'Save', variant: 'primary', flow: 'back' },
-    { type: 'button', name: 'cancel', label: 'Cancel', variant: 'secondary', flow: 'back' },
-    { type: 'button', name: 'remove', label: 'Delete', variant: 'danger', flow: 'back' },
-    { type: 'button', name: 'more', label: 'More', variant: 'ghost', flow: 'back' },
-    { type: 'button', name: 'brand', label: 'Brand', variant: 'secondary', color: '#7C3AED', flow: 'back' },
-    { type: 'button', name: 'bare_outline', label: 'Outline', fill: 'outline', flow: 'back' }
-  );
-  const r = api().compile(input);
-  assert.equal(r.status, 'ok');
-  const config = name => r.form.formulaire.find(f => f.name === name).config;
-  assert.deepEqual([config('save').fill, config('save').backgroundColor, config('save').color], ['solid', '#2563EB', '#FFFFFF']);
-  assert.deepEqual([config('cancel').fill, config('cancel').backgroundColor, config('cancel').color], ['outline', 'transparent', '#2563EB']);
-  assert.equal(config('cancel').componentBoxStyle.border, '1px solid #2563EB');
-  assert.deepEqual([config('remove').fill, config('remove').backgroundColor], ['solid', '#B91C1C']);
-  assert.deepEqual([config('more').fill, config('more').backgroundColor, config('more').color], ['clear', 'transparent', '#2563EB']);
-  assert.equal(config('brand').color, '#7C3AED');
-  assert.deepEqual([config('bare_outline').backgroundColor, config('bare_outline').color], ['transparent', '#2563EB'], 'a bare outline drops the solid prototype colors');
-  assert.equal(config('cancel').variant, undefined);
-  assert.equal(config('cancel').boxStyle.backgroundColor, 'transparent', 'the wrapper stays transparent');
-  assert.ok(!r.validation.warnings.some(w => w.code === 'button_fill_overridden' || w.code === 'button_text_unreadable'));
-  assert.throws(() => api().compile({ name: 'Bad', pages: [{ name: 'P', fields: [{ type: 'button', name: 'b', label: 'B', variant: 'fancy' }] }] }), /Unknown button variant/);
-});
-test('outline and clear buttons painted solid or with white text are reported', () => {
-  const r = api().compile(example());
-  const doc = clone(r.form);
-  const buttons = doc.formulaire.filter(f => f.type === 'button');
-  Object.assign(buttons[0].config, { fill: 'outline', backgroundColor: '#3880ff', color: '#fff' });
-  Object.assign(buttons[1].config, { fill: 'clear', backgroundColor: 'transparent', color: '#fff' });
-  const warnings = api().validate(doc).validation.warnings;
-  assert.ok(warnings.some(w => w.code === 'button_fill_overridden'));
-  assert.ok(warnings.some(w => w.code === 'button_text_unreadable'));
-});
-test('custom navigation pages get their own header instead of the repeated form title', () => {
-  const input = example();
-  input.pages[0].isNameDisplayed = true;
-  input.pages[1].header = { title: 'Requests & <follow-up>', subtitle: 'Select a request' };
-  const r = api().compile(input);
-  assert.equal(r.status, 'ok');
-  assert.deepEqual(clone(r.form.pages.map(p => p.isNameDisplayed)), [true, false], 'explicit value kept, default off');
-  const first = r.form.formulaire.find(f => f.config.page === r.form.pages[1].pageTechName);
-  assert.equal(first.type, 'description');
-  assert.match(first.config.html, /<h2[^>]*>Requests &amp; &lt;follow-up&gt;<\/h2>/);
-  assert.match(first.config.html, /Select a request/);
-  assert.equal(first.config.boxStyle.backgroundColor, 'transparent');
-  const tabs = api().compile({ ...example(), navigationMode: 'tabs' });
-  assert.ok(tabs.form.pages.every(p => p.isNameDisplayed === false));
-  const doc = clone(r.form);
-  doc.pages.forEach(p => { p.isNameDisplayed = true; });
-  assert.ok(api().validate(doc).validation.warnings.some(w => w.code === 'repeated_form_title'));
-  assert.ok(!r.validation.warnings.some(w => w.code === 'repeated_form_title'));
-  assert.throws(() => api().compile({ ...example(), pages: [{ name: 'P', header: { subtitle: 'no title' }, fields: [] }] }), /header needs a title/);
-});
-test('prototype placeholders are never shown to end users', () => {
-  const r = api().compile({ name: 'Placeholders', pages: [{ name: 'P', fields: [
-    { type: 'text', name: 'a', label: 'A' },
-    { type: 'select', name: 'b', label: 'B', values: ['x'] },
-    { type: 'datetime', name: 'c', label: 'C' },
-    { type: 'text', name: 'd', label: 'D', placeholder: 'Ex. Dupont' }
-  ] }] });
-  assert.deepEqual(clone(r.form.formulaire.map(f => f.config.placeholder)), ['', '', '', 'Ex. Dupont']);
-  assert.ok(!r.validation.warnings.some(w => w.code === 'prototype_placeholder'));
-  const doc = clone(r.form);
-  doc.formulaire[0].config.placeholder = 'Exemple de placeholder';
-  assert.ok(api().validate(doc).validation.warnings.some(w => w.code === 'prototype_placeholder'));
-});
 function conditionExample(extraFields, flows) {
   return { name: 'Conditions', navigationMode: 'custom', pages: [{ name: 'Main', fields: [
     { type: 'grid', name: 'contacts', id: 1900000000400, sourceEnabled: false, columns: [{ name: 'Name', type: 'text' }] },
@@ -1559,130 +975,7 @@ function conditionExample(extraFields, flows) {
     ...extraFields
   ] }], flows: flows || [] };
 }
-test('reduced conditions compile to the native groups the viewer evaluates', () => {
-  const r = api().compile(conditionExample([
-    { type: 'description', name: 'detail', description: '<p>Detail</p>', visibleIf: { field: 'contacts', operator: 'not_empty' } },
-    { type: 'button', name: 'open', label: 'Open', flow: 'noop', disabledIf: { field: 'contacts', operator: 'is_empty' } },
-    { type: 'description', name: 'mixed', description: '<p>Mixed</p>', visibleIf: { all: [{ field: 'status', operator: '==', value: 'Open' }, { any: [{ field: 'tags', operator: 'in', value: ['High'] }, { field: 'status', operator: 'is_filled' }] }] } },
-    { type: 'layout', name: 'providers', visibleIf: { never: true }, children: [] }
-  ], [{ id: 'noop', elements: [{ type: 'push_page', targetPage: 'Main' }] }]));
-  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
-  const field = name => r.form.formulaire.find(f => f.name === name);
-  const shown = field('detail').conditions.visibleIf;
-  assert.deepEqual(clone(shown.conds[0]), { type: 'visibleIf', subject: 'field', val1: { name: 'contacts', displayName: 'contacts', str: '1900000000400', source: true, type: 'grid', arr: [] }, val2: { str: '', source: false, type: 'text', arr: [], html: false }, operator: 'is_filled' });
-  const disabled = field('open').conditions.buttonStateIf;
-  assert.equal(disabled.__uiMode, 'button_state_disabled_when_condition');
-  assert.equal(disabled.conds[0].operator, 'is_empty');
-  const mixed = field('mixed').conditions.visibleIf;
-  assert.equal(mixed.condVisible, 'and');
-  assert.deepEqual([mixed.conds[0].operator, mixed.conds[0].val1.type, mixed.conds[0].val2.str], ['equals', 'text', 'Open']);
-  assert.equal(mixed.groups[0].condVisible, 'or');
-  assert.deepEqual([mixed.groups[0].conds[0].operator, clone(mixed.groups[0].conds[0].val2.arr), mixed.groups[0].conds[0].val1.type], ['among_following', ['High'], 'checkbox']);
-  assert.equal(field('providers').conditions.visibleIf.conds[0].subject, 'never_visible');
-  assert.ok(!JSON.stringify(r.form).includes('__ref'));
-});
-test('condition operators and field names the viewer cannot evaluate are refused', () => {
-  assert.throws(() => api().compile(conditionExample([{ type: 'description', name: 'x', description: '<p>x</p>', visibleIf: { field: 'status', operator: 'not_equal', value: 'a' } }])), /Unknown condition operator/);
-  assert.throws(() => api().compile(conditionExample([{ type: 'description', name: 'x', description: '<p>x</p>', visibleIf: { field: 'status', operator: 'equals' } }])), /needs a value/);
-  const unknown = api().compile(conditionExample([{ type: 'description', name: 'x', description: '<p>x</p>', visibleIf: { field: 'missing', operator: 'is_filled' } }]));
-  assert.ok(unknown.validation.issues.some(i => i.code === 'unknown_condition_field'));
-  const native = api().compile(conditionExample([{ type: 'description', name: 'x', description: '<p>x</p>', conditions: { visibleIf: { type: 'visibleIf', condVisible: 'and', groups: [], conds: [{ type: 'visibleIf', subject: 'field', operator: '==', val1: { str: '1900000000401', source: true, type: 'text', arr: [] }, val2: { str: 'a', source: false, type: 'text', arr: [] } }] } } }]));
-  assert.ok(native.validation.issues.some(i => i.code === 'invalid_condition_operator'), 'native groups are kept but checked');
-  assert.ok(api().validate(native.form).validation.warnings.some(w => w.code === 'invalid_condition_operator'), 'advisory on drafts');
-});
-test('if_else branches compile to children after their parent and need a condition', () => {
-  const r = api().compile(conditionExample([], [{ id: 'decide', elements: [
-    { type: 'if_else', name: 'has_contact', condition: { field: 'contacts', operator: 'is_filled' },
-      then: [{ type: 'toast', message: 'Selected' }, { type: 'if_else', condition: { field: 'status', operator: 'equals', value: 'Open' }, then: [{ type: 'push_page', targetPage: 'Main' }] }],
-      else: [{ type: 'toast', message: 'Select a contact', color: 'info' }] },
-    { type: 'toast', message: 'Done' }
-  ] }]));
-  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
-  const elements = r.form.flows.find(f => f.id === 'decide').elements;
-  assert.deepEqual(clone(elements.map(e => e.type)), ['if_else', 'toast', 'if_else', 'push_page', 'toast', 'toast']);
-  const [root, thenToast, nested, push, elseToast, done] = elements;
-  assert.deepEqual(clone(root.childrenRefs), [thenToast.id, nested.id]);
-  assert.deepEqual(clone(root.childrenRefsElse), [elseToast.id]);
-  assert.deepEqual([thenToast.parentRef, nested.parentRef, elseToast.parentRef, push.parentRef], [root.id, root.id, root.id, nested.id]);
-  assert.equal(done.parentRef, undefined);
-  const selfVar = root.sources.self.vars.selfVar;
-  assert.equal(selfVar.type, 'condition');
-  assert.deepEqual([selfVar.cond[0].operator, selfVar.cond[0].val1.str, selfVar.cond[0].val1.type], ['is_filled', '1900000000400', 'grid']);
-  assert.equal(root.config.condition, undefined);
-  const empty = api().compile(conditionExample([], [{ id: 'decide', elements: [{ type: 'if_else', then: [{ type: 'toast', message: 'Always' }] }] }]));
-  assert.ok(empty.validation.issues.some(i => i.code === 'empty_if_else_condition'));
-  assert.throws(() => api().compile(conditionExample([], [{ id: 'bad', elements: [{ type: 'toast', message: 'x', then: [] }] }])), /belong to an if_else/);
-});
-test('reset_fields targets pages and components by name', () => {
-  const input = conditionExample([], [{ id: 'resets', elements: [
-    { type: 'reset_fields', targetPage: 'Main' },
-    { type: 'reset_fields', targetField: 'status' },
-    { type: 'reset_fields', scope: 'element', targetField: 'tags' },
-    { type: 'reset_fields' }
-  ] }]);
-  const r = api().compile(input);
-  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
-  const configs = r.form.flows.find(f => f.id === 'resets').elements.map(e => clone(e.config));
-  assert.deepEqual([configs[0].scope, configs[0].targetPage], ['page', r.form.pages[0].pageTechName]);
-  assert.deepEqual([configs[1].scope, configs[1].targetElement], ['component', 1900000000401]);
-  assert.deepEqual([configs[2].scope, configs[2].targetElement], ['component', 1900000000402]);
-  assert.equal(configs[3].scope, 'application');
-  const bad = api().compile(conditionExample([], [{ id: 'resets', elements: [{ type: 'reset_fields', targetPage: 'Nowhere' }, { type: 'reset_fields', targetField: 'nothing' }] }]));
-  assert.equal(bad.validation.issues.filter(i => i.code === 'unknown_reset_target').length, 2);
-});
 // Flows run by events (triggers), set_value, reset_fields except and how long a value is kept (C8Oforms 2.2).
-test('flow triggers name pages and fields, compiled to the events the viewer raises', () => {
-  const input = conditionExample([{ type: 'text', name: 'comment', id: 1900000000403, label: 'Comment' }], [
-    { id: 'on_main', name: 'On main', triggers: ['open', { on: 'page_enter', page: 'Main' }, { on: 'return', page: 'Main' }, { on: 'leave', page: 'Main' }, { on: 'change', field: 'contacts' }],
-      elements: [{ type: 'reset_fields', targetField: 'comment', except: ['status'] }, { type: 'set_value', targetField: 'comment', value: 'Ready' }] }
-  ]);
-  const r = api().compile(input);
-  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
-  const flow = r.form.flows.find(f => f.id === 'on_main');
-  const page = r.form.pages[0].pageTechName;
-  assert.deepEqual(clone(flow.triggers), [{ type: 'app_open' }, { type: 'page_enter', page }, { type: 'page_return', page }, { type: 'page_leave', page },
-    { type: 'value_change', element: 1900000000400 }]);
-  assert.deepEqual(clone(flow.elements[0].config.except), [1900000000401]);
-  const set = flow.elements[1];
-  assert.deepEqual([set.type, set.cat, set.config.targetElement], ['set_value', 'action', 1900000000403]);
-  assert.deepEqual(clone(set.sources.self.vars.selfVar), { str: 'Ready', type: 'text' });
-  assert.ok(!r.validation.warnings.some(w => w.code === 'flow_trigger_loop'));
-});
-test('wrong triggers, set_value targets and except lists are reported', () => {
-  const bad = api().compile(conditionExample([], [
-    { id: 'formulas', name: 'Formulas', triggers: ['open'], elements: [] },
-    { id: 'events', name: 'Events', triggers: [{ on: 'page_enter', page: 'Nowhere' }, { on: 'change', field: 'nothing' }, { on: 'click' }, { type: 'value_change', element: 1900000000401 }],
-      elements: [{ type: 'set_value', targetField: 'contacts', value: 'x' }, { type: 'set_value', targetField: 'nothing', expression: 'fields.status' }, { type: 'reset_fields', scope: 'page', targetPage: 'Main', except: ['ghost'] }] }
-  ]));
-  const codes = list => clone(list.map(i => i.code)).sort();
-  assert.deepEqual(codes(bad.validation.issues).filter(c => /trigger|set_value|except/.test(c)),
-    ['trigger_on_builtin_flow', 'unknown_reset_except', 'unknown_set_value_target', 'unknown_set_value_target', 'unknown_trigger_field', 'unknown_trigger_page', 'unsupported_flow_trigger']);
-  const expression = bad.form.flows.find(f => f.id === 'events').elements[1].sources.self.vars.selfVar;
-  assert.deepEqual(clone(expression), { str: 'fields.status', type: 'ts' });
-  // the flow resets the page of the status it listens to: that change does not run it again
-  const events = bad.form.flows.findIndex(f => f.id === 'events');
-  assert.ok(bad.validation.warnings.some(w => w.code === 'flow_trigger_loop' && w.path === '/flows/' + events + '/triggers'));
-});
-test('lifetime keeps a value for its page, the row chosen in a list or the session, and is validated', () => {
-  const r = api().compile(conditionExample([
-    { type: 'text', name: 'total', label: 'Total', lifetime: 'page' },
-    { type: 'text', name: 'search', label: 'Search', lifetime: 'session' },
-    { type: 'text', name: 'detail', label: 'Detail', lifetime: { selection: 'contacts' } },
-    { type: 'text', name: 'plain', label: 'Plain', lifetime: 'application' }
-  ]));
-  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
-  const lifetime = name => clone(r.form.formulaire.find(f => f.name === name).config.lifetime || null);
-  assert.deepEqual([lifetime('total'), lifetime('search'), lifetime('detail'), lifetime('plain')],
-    [{ type: 'page' }, { type: 'session' }, { type: 'selection', element: 1900000000400 }, null]);
-  const bad = api().compile(conditionExample([
-    { type: 'text', name: 'forever', label: 'Forever', lifetime: 'forever' },
-    { type: 'text', name: 'lost', label: 'Lost', lifetime: { selection: 'status' } },
-    { type: 'file', name: 'scan', label: 'Scan', lifetime: 'session' }
-  ]));
-  assert.ok(bad.validation.issues.some(i => i.code === 'invalid_lifetime'));
-  assert.ok(bad.validation.issues.some(i => i.code === 'unknown_lifetime_list'));
-  assert.ok(bad.validation.warnings.some(w => w.code === 'session_lifetime_ignored'));
-});
 test('edits set a lifetime and the triggers of a flow in their reduced shapes', () => {
   const h = creationHarness();
   const created = h.client.create(example(), h.auth);
@@ -1701,29 +994,6 @@ test('edits set a lifetime and the triggers of a flow in their reduced shapes', 
   const again = h.client.edit(id, [{ action: 'update_field', fieldName: 'note', patch: { lifetime: 'application' } }], h.auth);
   assert.equal(again.saved, true, JSON.stringify(again.validation || again.error));
   assert.equal(again.form.formulaire.find(f => f.name === 'note').config.lifetime, undefined);
-});
-test('the contract documents triggers, set_value, except and lifetime', () => {
-  const contract = api().contract({ sections: ['all'] }).authoringContract;
-  assert.equal(contract.contractVersion, '2026-11-12.forms-2.2-v25');
-  assert.ok(contract.flowAuthoring.elementTypes.includes('set_value'));
-  assert.ok(contract.flowAuthoring.triggers.shape && contract.flowAuthoring.triggers.loops && contract.flowAuthoring.setValue);
-  assert.match(contract.flowAuthoring.resetFields.shape, /except/);
-  assert.match(contract.flowAuthoring.valueLifetime, /session/);
-  // the core only points to them: it must stay small enough to be answered inline
-  assert.match(api().contract({}).quickReference.flows, /Triggers, set_value, lifetime: flowAuthoring/);
-  const r = api().compile(conditionExample([{ type: 'grid', name: 'interventions', sourceEnabled: false, columns: [{ name: 'Ref', type: 'text' }] },
-    { type: 'text', name: 'technicien', label: 'Technicien' }], [contract.flowAuthoring.triggers.example]));
-  assert.ok(!r.validation.issues.some(i => /trigger|except/.test(i.code)), JSON.stringify(r.validation.issues));
-});
-test('wide list grids are reported, hidden Baserow columns do not count', () => {
-  const input = connectedExample();
-  const grid = input.pages[1].fields[0];
-  const columns = ['Reference', 'Status', 'Owner', 'Date', 'Amount', 'Notes', 'Description'];
-  const vars = forms => ({ str: JSON.stringify({ table_id: 'Test workspace~>Test database~>Requests', table_id_int: 42, columns, hidden: forms }), html: false });
-  grid.sources['lib_BaseRow.formssource_GetTableData'].vars.forms_config = vars([]);
-  assert.ok(api().compile(input).validation.warnings.some(w => w.code === 'wide_list_grid'));
-  grid.sources['lib_BaseRow.formssource_GetTableData'].vars.forms_config = vars(['Notes', 'Description']);
-  assert.ok(!api().compile(input).validation.warnings.some(w => w.code === 'wide_list_grid'));
 });
 test('edits accept reduced conditions, button variants and page headers', () => {
   const h = creationHarness();
@@ -1750,22 +1020,6 @@ test('edits accept reduced conditions, button variants and page headers', () => 
   assert.deepEqual(clone(back.map(e => e.type)), ['if_else', 'toast', 'push_page']);
   assert.equal(back[1].parentRef, back[0].id);
   assert.equal(back[1].config.color, '#B45309');
-});
-test('compiled forms skip the editor page migration that brings the form title back', () => {
-  // No Code Studio runs it on a form older than 1.0.17 when it opens it: page desc becomes a block and every other
-  // page gets isNameDisplayed=true.
-  const input = example();
-  input.pages[1].description = '<p>All the requests</p>';
-  input.pages[1].header = { title: 'Requests' };
-  const r = api().compile(input);
-  assert.equal(r.status, 'ok');
-  assert.equal(r.form.technicalVersion, '1.0.17');
-  assert.ok(r.form.pages.every(p => !('desc' in p) && p.isNameDisplayed === false));
-  const blocks = r.form.formulaire.filter(f => f.config.page === r.form.pages[1].pageTechName && !f.parentRef);
-  assert.deepEqual(clone(blocks.slice(0, 2).map(f => [f.type, f.name])), [['description', 'header_requests'], ['description', 'description_requests']]);
-  assert.equal(blocks[1].config.html, '<p>All the requests</p>');
-  const questionnaire = api().compile({ name: 'Survey', navigationMode: 'buttons', pages: [{ name: 'One', description: '<p>Intro</p>', fields: [{ type: 'text', name: 'q1', label: 'Q1' }] }, { name: 'Two', fields: [{ type: 'text', name: 'q2', label: 'Q2' }] }] });
-  assert.deepEqual(Array.from(questionnaire.form.pages, p => p.isNameDisplayed), [false, undefined], 'as the migration: no title card on a described page');
 });
 test('add_flow compiles reduced elements and keeps elements read back from a saved flow', () => {
   const h = creationHarness();
@@ -1900,25 +1154,6 @@ test('includeAllTypes answers the AllTypes.json prototypes in pages of whole pro
   assert.deepEqual(clone(seen), clone(catalog), 'every prototype once, in order');
   assert.equal(client.contract({ includeAllTypes: true, page: first.pages + 1 }).status, 'invalid');
 });
-test('the quick reference agrees with the compiler', () => {
-  const client = api();
-  const core = client.contract({});
-  const quick = core.quickReference;
-  const whole = client.contract({ sections: ['all'] }).authoringContract;
-  const example = client.compile(clone(client.contract({ sections: ['example'] }).sections.example), { tableIndex: [{ id: 5271, name: 'Demandes', path: 'Team~>Achats~>Demandes' }] });
-  assert.equal(example.status, 'ok', JSON.stringify(example.validation && example.validation.issues));
-  assert.deepEqual(clone(example.validation.issues), []);
-  const conditionOperators = quick.conditions.split('Operators:')[1].match(/\b[a-z]+(?:_[a-z]+)*\b/g).filter(word => !['and', 'value', 'is', 'an', 'array', 'no', 'a', 'grid', 'empty', 'until', 'row', 'selected', 'hidden', 'component', 'not', 'checked', 'as', 'mandatory'].includes(word));
-  assert.deepEqual(conditionOperators.filter(op => !whole.conditionFields.reducedShape.operators.includes(op)), []);
-  const actions = [...quick.edit.matchAll(/\b([a-z]+(?:_[a-z]+)+) [{(]/g)].map(m => m[1]).concat(['finalize_baserow_bindings']);
-  assert.ok(actions.length >= 13);
-  assert.deepEqual(actions.filter(action => !source.includes('action === "' + action + '"')), []);
-  assert.equal(quick.example, undefined, 'the example is a section');
-  for (const type of client.contract({ sections: ['example'] }).sections.example.pages.flatMap(p => p.fields).map(f => f.type)) assert.ok(type === 'section' || core.types.includes(type), type);
-  assert.deepEqual(Object.keys(core.sectionIndex).filter(name => !/ \(\d+ KB(, parts( \.[A-Za-z]+)+)?\)$/.test(core.sectionIndex[name]) || core.sectionIndex[name].startsWith(name + ' (')), [], 'every section says what it holds');
-  assert.equal(core.authoringContract, undefined);
-  assert.equal(core.allTypesPath, undefined, 'no server path in the agent answer');
-});
 test('contract documents the readable UI patterns and its examples compile', () => {
   const contract = api().contract({ sections: ['all'] }).authoringContract;
   const quality = contract.generationQuality;
@@ -2007,75 +1242,6 @@ test('review regressions: toast color patches, reset drafts and placeholders of 
 function styled(fields, extra = {}) {
   return { name: 'Styles', navigationMode: 'custom', pages: [{ name: 'Main', fields }], ...extra };
 }
-test('application components get role spacing instead of a card each, explicit styles win', () => {
-  const r = api().compile(styled([
-    { type: 'description', name: 'intro', description: '<p>Intro</p>' },
-    { type: 'text', name: 'first_name', label: 'First name' },
-    { type: 'grid', name: 'list', sourceEnabled: false, columns: [{ name: 'Name', type: 'text' }] },
-    { type: 'button', name: 'alone', label: 'Alone', flow: 'noop' },
-    { type: 'layout', name: 'pair', cols: [{ size: 6 }, { size: 6 }], children: [{ type: 'text', name: 'a', label: 'A' }, { type: 'text', name: 'b', label: 'B' }] },
-    { type: 'layout', name: 'actions', children: [{ type: 'button', name: 'save', label: 'Save', variant: 'primary', flow: 'noop' }, { type: 'button', name: 'cancel', label: 'Cancel', variant: 'secondary', flow: 'noop' }] },
-    { type: 'text', name: 'custom', label: 'Custom', boxStyle: { margin: '0 0 40px 0' } }
-  ], { flows: [{ id: 'noop', elements: [{ type: 'push_page', targetPage: 'Main' }] }] }));
-  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
-  const field = name => r.form.formulaire.find(f => f.name === name).config;
-  assert.deepEqual([field('intro').boxStyle.margin, field('intro').boxStyle.padding, field('intro').boxStyle.backgroundColor], ['0 0 16px 0', '0', 'transparent']);
-  assert.deepEqual([field('first_name').boxStyle.padding, field('first_name').boxStyle.border], ['0', '0']);
-  assert.deepEqual([field('list').boxStyle.padding, field('list').boxStyle.borderRadius, field('list').boxStyle.backgroundColor], ['16px', '12px', '#FFFFFF']);
-  assert.deepEqual([field('alone').boxStyle.margin, field('alone').boxStyle.backgroundColor], ['8px 0 16px 0', 'transparent']);
-  assert.deepEqual(clone(field('pair').layoutChildrenStyle), { default: { margin: '0 0 12px 0', padding: '0 12px 0 0', border: '0', backgroundColor: 'transparent' }, last: { padding: '0' } });
-  assert.equal(field('a').boxStyle.margin, '', 'children are spaced by their layout');
-  assert.equal(field('actions').layoutChildrenStyle.default.padding, '4px');
-  assert.equal(field('actions').boxStyle.margin, '8px 0 24px 0');
-  assert.equal(field('custom').boxStyle.margin, '0 0 40px 0');
-  assert.ok(!field('custom').boxStyle.padding, 'an explicit style is not completed');
-  for (const code of ['missing_block_spacing', 'partial_page_styling', 'action_wrapper_surface']) {
-    assert.ok(!r.validation.warnings.some(w => w.code === code), code);
-  }
-});
-test('questionnaires and opted-out forms keep the viewer cards', () => {
-  const questionnaire = api().compile({ name: 'Survey', pages: [{ name: 'Q', fields: [{ type: 'text', name: 'q1', label: 'Q1' }] }] });
-  assert.equal(questionnaire.form.formulaire[0].config.boxStyle.padding, '');
-  const optedOut = api().compile(styled([{ type: 'text', name: 'q1', label: 'Q1' }], { styleDefaults: false }));
-  assert.equal(optedOut.form.formulaire[0].config.boxStyle.padding, '');
-});
-test('sections compile to a titled card with fields in columns', () => {
-  const r = api().compile(styled([
-    { type: 'section', name: 'identity', title: 'Identité & contact', subtitle: 'Qui est-ce ?', columns: 2, fields: [
-      { type: 'text', name: 'first', label: 'Prénom' },
-      { type: 'text', name: 'last', label: 'Nom' },
-      { type: 'text', name: 'email', label: 'Email' },
-      { type: 'text', name: 'notes', label: 'Notes', fullWidth: true },
-      { type: 'text', name: 'phone', label: 'Téléphone' }
-    ] },
-    { type: 'section', name: 'single', columns: 1, fields: [{ type: 'text', name: 'alone', label: 'Alone' }] }
-  ]));
-  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
-  const byName = name => r.form.formulaire.find(f => f.name === name);
-  const section = byName('identity');
-  assert.equal(section.type, 'layout');
-  assert.deepEqual([section.config.boxStyle.border, section.config.boxStyle.borderRadius, section.config.boxStyle.backgroundColor], ['1px solid #E2E8F0', '12px', '#FFFFFF']);
-  assert.deepEqual(clone(section.childrenRefs.map(id => r.form.formulaire.find(f => f.id === id).name)), ['identity_title', 'identity_row1', 'notes', 'identity_row2']);
-  assert.match(byName('identity_title').config.html, /<h3[^>]*>Identité &amp; contact<\/h3>/);
-  const row = byName('identity_row1');
-  assert.deepEqual(clone(row.childrenRefs.map(id => r.form.formulaire.find(f => f.id === id).name)), ['first', 'last', 'email']);
-  assert.deepEqual(clone(row.config.cols.map(c => c.size)), [6, 6, 0, 0, 0, 0]);
-  assert.deepEqual(clone(row.config.phoneP.map(c => c.size)), [12, 0, 0, 0, 0, 0]);
-  assert.equal(row.config.layoutChildrenStyle.default.padding, '0 12px 0 0');
-  assert.equal(byName('notes').parentRef, section.id);
-  assert.equal(byName('alone').parentRef, byName('single').id, 'one column: no row');
-  assert.ok(!r.validation.warnings.some(w => w.code === 'missing_block_spacing'));
-  const questionnaire = api().compile({ name: 'Survey', pages: [{ name: 'Q', fields: [{ type: 'section', name: 's', title: 'S', fields: [{ type: 'text', name: 'q', label: 'Q' }] }] }] });
-  assert.equal(questionnaire.form.formulaire[0].config.boxStyle.borderRadius, '12px', 'a section is styled in any form');
-  assert.throws(() => api().compile(styled([{ type: 'section', name: 's', columns: 5, fields: [] }])), /columns must be/);
-  assert.throws(() => api().compile(styled([{ type: 'section', fields: [] }])), /needs a technical name/);
-});
-test('new forms are denser on phones', () => {
-  const r = api().compile(styled([{ type: 'text', name: 'a', label: 'A' }]));
-  assert.deepEqual(['desktop', 'tablet', 'phoneL', 'phoneP'].map(device => r.form.config[device].padding.value), ['24', '20', '12', '12']);
-  const custom = api().compile(styled([{ type: 'text', name: 'a', label: 'A' }], { config: { desktop: { padding: { unit: 'px', value: '32' } } } }));
-  assert.equal(custom.form.config.desktop.padding.value, '32');
-});
 test('add_field gives role spacing on application pages and a section in edits', () => {
   const h = creationHarness();
   const created = h.client.create(example(), h.auth);
@@ -2095,25 +1261,6 @@ test('contract section and page examples compile with role spacing', () => {
   assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
   assert.ok(r.form.formulaire.some(f => f.name === 'contact_identity' && f.type === 'layout'));
   assert.ok(contract.generationQuality.styles.roleDefaults.values.section.boxStyle.borderRadius);
-});
-test('applications get narrow root margins, questionnaires the creation ones, partial configs are merged', () => {
-  const devices = ['desktop', 'tablet', 'phoneL', 'phoneP'];
-  const margins = form => devices.map(device => form.config[device].horizontalMargin.value);
-  const app = api().compile(styled([{ type: 'text', name: 'a', label: 'A' }]));
-  assert.deepEqual(margins(app.form), ['32', '16', '0', '0']);
-  assert.deepEqual(devices.map(device => app.form.config[device].padding.value), ['24', '20', '12', '12']);
-  assert.deepEqual(devices.map(device => app.form.config[device].width.unit + app.form.config[device].width.value), ['px1280', '%100', '%100', '%100']);
-  assert.equal(app.form.config.desktop['font-size'].value, '16');
-  assert.ok(!app.validation.warnings.some(w => w.code === 'wide_page_margin'));
-  const tabs = api().compile({ name: 'Tabs', navigationMode: 'tabs', pages: [{ name: 'A', fields: [] }, { name: 'B', fields: [] }] });
-  assert.deepEqual(margins(tabs.form), ['32', '16', '0', '0']);
-  const survey = api().compile({ name: 'Survey', pages: [{ name: 'Q', fields: [{ type: 'text', name: 'q', label: 'Q' }] }] });
-  assert.deepEqual(margins(survey.form), ['100', '60', '10', '10']);
-  assert.ok(!survey.validation.warnings.some(w => w.code === 'wide_page_margin'), 'a questionnaire keeps its frame');
-  const partial = api().compile(styled([], { config: { desktop: { horizontalMargin: { unit: 'px', value: 40 } } } }));
-  assert.equal(partial.form.config.desktop.horizontalMargin.value, '40', 'numbers are stored as strings');
-  assert.equal(partial.form.config.desktop.padding.value, '24', 'other keys keep their default');
-  assert.equal(partial.form.config.phoneP.horizontalMargin.value, '0', 'other devices keep their default');
 });
 test('wide_page_margin flags an application keeping wide margins and set_root narrows them', () => {
   const wide = api().compile(styled([{ type: 'text', name: 'a', label: 'A' }], { config: { desktop: { horizontalMargin: { unit: 'px', value: '100' } }, tablet: { horizontalMargin: { unit: 'px', value: '60' } }, phoneP: { horizontalMargin: { unit: 'px', value: '10' } } } }));
@@ -2143,60 +1290,6 @@ test('viewer title choice, grid second click and documented button and header li
   assert.match(quality.actionBar.width, /expand block or full makes it fill the width of its column in recent viewers/);
   assert.doesNotMatch(JSON.stringify(api().contract({ sections: ['all'] }).authoringContract), /not rendered as a full-width|does not stretch/);
   assert.match(quality.dataViews.headers, /user's language/);
-});
-test('box styles: only the keys the viewer renders, nested parts of layoutChildrenStyle', () => {
-  const codes = r => clone(r.validation.issues.concat(r.validation.warnings).map(i => i.code + ' ' + i.path));
-  const bad = api().compile(styled([{ type: 'text', name: 't', label: 'T', boxStyle: { marginTop: '8px', color: '#333', boxShadow: '0 1px 2px #0002', fontSize: '14px', margin: '0 0 8px 0' } }]));
-  assert.equal(bad.status, 'invalid', 'refused at creation');
-  const unsupported = bad.validation.issues.filter(i => i.code === 'unsupported_style_key');
-  assert.deepEqual(clone(unsupported.map(i => i.path.split('/').pop())).sort(), ['boxShadow', 'color', 'fontSize', 'marginTop']);
-  assert.match(unsupported.find(i => /color$/.test(i.path)).message, /Use textColor/);
-  assert.match(unsupported.find(i => /marginTop$/.test(i.path)).message, /shorthand/);
-  const draft = clone(api().compile(styled([{ type: 'text', name: 't', label: 'T' }])).form);
-  draft.formulaire.find(f => f.name === 't').config.boxStyle.marginTop = '8px';
-  const checked = api().validate(draft);
-  assert.equal(checked.validation.valid, true, 'an existing draft stays editable');
-  assert.ok(checked.validation.warnings.some(w => w.code === 'unsupported_style_key'));
-  const parts = api().compile(styled([{ type: 'layout', name: 'row', cols: [{ size: 6 }, { size: 6 }], layoutChildrenStyle: { default: { margin: '0', questionBoxStyle: { padding: '0 0 4px 0' }, componentBoxStyle: { borderRadius: '8px' } } }, children: [{ type: 'text', name: 'a', label: 'A' }, { type: 'text', name: 'b', label: 'B' }] }]));
-  assert.equal(parts.status, 'ok', JSON.stringify(parts.validation.issues));
-  assert.ok(!codes(parts).some(c => /unsupported_style_key|invalid_style_value/.test(c)));
-});
-test('containers: unrendered nesting refused, card children refused, layout columns derived', () => {
-  const nested = api().compile(styled([{ type: 'layout', name: 'l', children: [{ type: 'ion-card', name: 'c', label: 'C' }] }]));
-  assert.equal(nested.status, 'invalid');
-  assert.ok(nested.validation.issues.some(i => i.code === 'unrendered_nesting'));
-  assert.throws(() => api().compile(styled([{ type: 'ion-card', name: 'c', label: 'C', children: [{ type: 'text', name: 't', label: 'T' }] }])), /use a section/);
-  const sizes = (form, name) => { const c = form.formulaire.find(f => f.name === name).config; return ['cols', 'tablet', 'phoneL', 'phoneP'].map(k => c[k].map(x => x.size).filter(n => n > 0).join('/')); };
-  const r = api().compile(styled([
-    { type: 'layout', name: 'two', cols: [{ size: 6 }, { size: 6 }], children: [{ type: 'text', name: 'a', label: 'A' }, { type: 'text', name: 'b', label: 'B' }] },
-    { type: 'layout', name: 'three', children: [{ type: 'text', name: 'c', label: 'C' }, { type: 'text', name: 'd', label: 'D' }, { type: 'text', name: 'e', label: 'E' }] },
-    { type: 'layout', name: 'given', cols: [{ size: 3 }, { size: 9 }], tablet: [{ size: 12 }], children: [{ type: 'text', name: 'f', label: 'F' }] }
-  ]));
-  assert.deepEqual(sizes(r.form, 'two'), ['6/6', '6/6', '12', '12']);
-  assert.deepEqual(sizes(r.form, 'three'), ['4/4/4', '6/6', '12', '12']);
-  assert.deepEqual(sizes(r.form, 'given'), ['3/9', '12', '12', '12'], 'given arrays are kept');
-});
-test('component visuals: grid toolbar style, image and map sizes, container text color, global box style', () => {
-  const warned = (r, code) => r.validation.warnings.filter(w => w.code === code).map(w => w.path);
-  const r = api().compile(styled([
-    { type: 'grid', name: 'list', sourceEnabled: false, columns: [{ name: 'Nom', type: 'text' }], componentBoxStyle: { border: '1px solid #E2E8F0' } },
-    { type: 'img', name: 'logo', config: { width: '100%', height: '120' } },
-    { type: 'map', name: 'where', config: { minHeight: '50vh' } },
-    { type: 'section', name: 'dark', title: 'Dark', boxStyle: { backgroundColor: '#0F172A', textColor: '#FFFFFF' }, fields: [{ type: 'button', name: 'go', label: 'Go', variant: 'primary', flow: 'go' }] },
-    { type: 'description', name: 'band', description: '<p>Band</p>', boxStyle: { backgroundColor: '#0F172A', textColor: '#FFFFFF', margin: '0', padding: '16px' } }
-  ], { flows: [{ id: 'go', elements: [{ type: 'toast', message: 'Go' }] }] }));
-  assert.equal(warned(r, 'grid_component_style').length, 0, 'componentBoxStyle styles the table of a recent viewer');
-  assert.equal(clone(warned(r, 'image_size_unit')).length, 0, 'a percentage is a valid image size');
-  assert.equal(warned(r, 'map_height_unit').length, 1);
-  const textColor = clone(warned(r, 'container_text_color'));
-  assert.equal(textColor.length, 1, 'the dark section holding a button, not the text-only band: ' + textColor);
-  const form = clone(r.form);
-  form.config.boxStyle = { padding: '16px' };
-  assert.ok(api().validate(form).validation.warnings.some(w => w.code === 'global_box_style' && w.path === '/config/boxStyle'));
-  const contract = api().contract({ sections: ['all'] }).authoringContract;
-  assert.ok(contract.styleRendering.precedence && contract.styleRendering.textColor && contract.styleRendering.nesting);
-  assert.match(contract.componentAuthoring.grid.visual, /gridCellPadding/);
-  assert.ok(contract.styleObjectFields.borderWidth.legacy);
 });
 test('Baserow filter sub-groups: documented and kept by compile and edit', () => {
   const filter = api().contract({ sections: ['all'] }).authoringContract.baserowSources.filter;
@@ -2244,24 +1337,6 @@ test('aggregation labels: documented, kept by compile', () => {
   assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
   assert.equal(r.form.formulaire.find(f => f.type === 'grid').sources['lib_BaseRow.formssource_GetTableData'].vars.forms_tableAggregations.str, 'count=Nombre,sum:Reference=Montant');
 });
-test('refresh_grid targets a grid, a gallery or a chart; local rows a grid only', () => {
-  const flows = (target, type = 'refresh_grid') => ({ flows: [{ id: 'reload', elements: [{ type, targetGrid: target }] }] });
-  const fields = [
-    { type: 'grid', name: 'list', sourceEnabled: false, columns: [{ name: 'Nom', type: 'text' }] },
-    { type: 'gallery', name: 'cards' },
-    { type: 'chart', name: 'stats' },
-    { type: 'map', name: 'where' },
-    { type: 'button', name: 'go', label: 'Go', variant: 'primary', flow: 'reload' },
-  ];
-  const issues = (extra) => clone(api().compile(styled(fields, extra)).validation.issues).filter(i => i.code === 'unknown_grid_target');
-  for (const name of ['list', 'cards', 'stats']) { assert.equal(issues(flows(name)).length, 0, name); }
-  assert.equal(issues(flows('where')).length, 1, 'a map is not reloaded by refresh_grid');
-  assert.equal(issues(flows('cards', 'remove_row_from_local_grid')).length, 1, 'local rows belong to a grid');
-  const r = api().compile(styled(fields, flows('cards')));
-  const gallery = r.form.formulaire.find(f => f.name === 'cards');
-  assert.equal(String(r.form.flows.find(f => f.id === 'reload').elements[0].config.targetGrid), String(gallery.id), 'resolved to the id of the gallery');
-  assert.match(api().contract({ sections: ['all'] }).authoringContract.flowAuthoring.gridActions, /a grid, a gallery or a chart for refresh_grid/);
-});
 test('sticky: compiled into config, validated, and an edit puts reduced config keys in config', () => {
   const r = api().compile(styled([{ type: 'description', name: 'search', description: '<p>Search</p>', sticky: 'notOnPhone' }]));
   assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
@@ -2301,44 +1376,6 @@ test('agent answers: the saved form without empty values, transport details or t
   assert.equal(edited.rev, edited.form._rev);
   assert.doesNotMatch(JSON.stringify(edited), /_c8oMeta|"payload"/);
 });
-test('new questions: no preselected select or checkbox answer, no prototype icon or question, required fields checked on submit', () => {
-  const r = api().compile({ name: 'Defaults', navigationMode: 'custom', pages: [{ name: 'P', fields: [
-    { type: 'select', name: 's', label: 'S', values: ['A', 'B'] },
-    { type: 'checkbox', name: 'c', label: 'C', values: ['A', 'B'] },
-    { type: 'radio', name: 'r', label: 'R', values: ['A', 'B'] },
-    { type: 'grid', name: 'g', sourceEnabled: false, columns: [{ name: 'A', type: 'text' }] },
-    { type: 'button', name: 'save', label: 'Save', flow: 'save' },
-    { type: 'button', name: 'go', label: 'Go', flow: 'go', icon: 'arrow-forward' },
-    { type: 'button', name: 'free', label: 'Free', flow: 'save', checkMandatoryInCurrentPage: false }
-  ] }], flows: [
-    { id: 'save', name: 'Save', elements: [{ type: 'submit', actions: { 'lib_Actions_C8Oforms.forms_notify_response_simple_by_mail_simple': { enabled: true, fullsync: false, vars: {} } } }] },
-    { id: 'go', name: 'Go', elements: [{ type: 'push_page', targetPage: 'P' }] }
-  ] });
-  const field = name => r.form.formulaire.find(f => f.name === name);
-  assert.deepEqual(clone(field('s').children.map(o => o.selected)), [false, false]);
-  assert.deepEqual(clone(field('c').children.map(o => o.selected)), [false, false]);
-  assert.deepEqual(clone(field('r').children.map(o => o.selected)), [true, false], 'a radio list keeps the prototype default');
-  assert.equal(field('g').config.html, '');
-  assert.ok(!r.validation.warnings.some(w => w.code === 'prototype_question_label'));
-  assert.equal(field('save').config.icon, '');
-  assert.equal(field('go').config.icon, 'arrow-forward');
-  assert.equal(field('save').config.checkMandatoryInCurrentPage, true);
-  assert.equal(field('free').config.checkMandatoryInCurrentPage, false);
-  assert.equal(field('go').config.checkMandatoryInCurrentPage, false);
-  const saveIndex = r.form.formulaire.findIndex(f => f.name === 'save');
-  assert.ok(!r.validation.warnings.some(w => w.code === 'submit_without_required_check' && w.path.startsWith('/formulaire/' + saveIndex + '/')));
-  assert.ok(r.validation.warnings.some(w => w.code === 'submit_without_required_check'), 'an explicit false is still reported');
-});
-test('spacing warnings: none on a questionnaire\'s questions or on a section title, still on a bare application block', () => {
-  const questionnaire = api().compile({ name: 'Q', pages: [{ name: 'P', fields: [{ type: 'text', name: 'a', label: 'A' }, { type: 'text', name: 'b', label: 'B' }] }] });
-  assert.ok(!questionnaire.validation.warnings.some(w => w.code === 'missing_block_spacing'));
-  const app = api().compile({ name: 'App', navigationMode: 'custom', pages: [{ name: 'P', header: { title: 'P' }, fields: [
-    { type: 'section', name: 'sec', title: 'Section', fields: [{ type: 'text', name: 'a', label: 'A' }] },
-    { type: 'description', name: 'note', description: '<p style="margin:0">Note</p>', boxStyle: { margin: '', padding: '' }, config: { boxStyle: { margin: '', padding: '' } } }
-  ] }], styleDefaults: false });
-  assert.ok(!app.validation.warnings.some(w => w.code === 'html_spacing_without_container_style' && /formulaire\/2\//.test(w.path)), JSON.stringify(app.validation.warnings));
-  assert.ok(app.validation.warnings.some(w => w.code === 'missing_block_spacing'), 'a bare application block is still reported');
-});
 test('a create refused before its first save does not ask to finalize a saved id', () => {
   const h = creationHarness({ columns: [{ name: 'Other', type: 'text' }] });
   const r = h.client.create(connectedWithoutIdentities(), h.auth);
@@ -2346,29 +1383,6 @@ test('a create refused before its first save does not ask to finalize a saved id
   assert.ok(!r.validation.warnings.some(w => w.code === 'baserow_identity_incomplete'), JSON.stringify(r.validation.warnings));
   const empty = api().compile({ name: 'E', navigationMode: 'custom', pages: [{ name: 'P', fields: [{ type: 'button', name: 'b', label: 'B', flow: 'f' }] }], flows: [{ id: 'f', name: 'F', elements: [{ type: 'submit', actions: {} }] }] });
   assert.match(empty.validation.issues.find(i => i.code === 'unconfigured_submit').message, /automatic submit of its last page.*saveTo/);
-});
-test('a source or an action written with plain values gets the UI-authored encoding', () => {
-  const r = api().compile({ name: 'Plain', navigationMode: 'custom', pages: [{ name: 'P', fields: [
-    { type: 'text', name: 'Name', label: 'Name' },
-    { type: 'grid', name: 'deals', label: 'Deals', sources: { 'lib_BaseRow.formssource_GetTableData': { vars: {
-      forms_config: { table_id: 'Team~>Sales~>Deals', table_id_int: 30, columns: ['Name'], hidden: [], link_row_table_id: [] },
-      forms_tableSort: { conds: [{ name: 'Name', order: 'asc' }] },
-      forms_tableGroupBy: 'Name'
-    } } } },
-    { type: 'button', name: 'save', label: 'Save', flow: 'save' }
-  ] }], flows: [{ id: 'save', name: 'Save', elements: [{ type: 'submit', actions: { 'lib_BaseRow.forms_AddRow': { vars: {
-    forms_config: { table_id: 'Team~>Sales~>Deals', table_id_int: 30, link_row_table_id: [] }, forms_id: '', forms_createColumn: false
-  } } } }] }] });
-  const grid = r.form.formulaire.find(f => f.name === 'deals').sources['lib_BaseRow.formssource_GetTableData'];
-  assert.equal(grid.enabled, true, 'an entry given without enabled is meant to run');
-  assert.equal(JSON.parse(grid.vars.forms_config.str).table_id_int, 30);
-  assert.equal(grid.vars.forms_config.html, false);
-  assert.deepEqual(clone(grid.vars.forms_tableSort), { conds: [{ name: 'Name', order: 'asc' }], str: '', html: false, type: 'sort' });
-  assert.deepEqual(clone(grid.vars.forms_tableGroupBy), { str: 'Name', html: false });
-  const action = r.form.flows.find(f => f.id === 'save').elements[0].actions['lib_BaseRow.forms_AddRow'];
-  assert.deepEqual(clone(action.vars.forms_id), { str: '', html: false });
-  assert.deepEqual(clone(action.vars.forms_createColumn), { str: 'false', html: false });
-  assert.ok(!r.validation.issues.some(i => i.code === 'invalid_baserow_config'), JSON.stringify(r.validation.issues));
 });
 test('the skill and the quick reference say what a tool answers in code mode', () => {
   // 23/10 on test-nocode (S1): the agent read r.result, got nothing, and spent five reads finding the answer's shape,
@@ -2382,33 +1396,6 @@ test('the skill and the quick reference say what a tool answers in code mode', (
   const options = api().compile({ name: 'S', pages: [{ name: 'P', fields: [{ type: 'select', name: 'kind', label: 'Type', values: ['CP', 'RTT'] }] }] }).form.formulaire[0];
   assert.deepEqual(Array.from(options.children, o => o.value), ['CP', 'RTT'], 'options are the children of the saved component');
   assert.equal(options.config.children, undefined);
-});
-test('a button that announces a success and empties the inputs without saving them is refused', () => {
-  // 23/10 on test-nocode (S1): an "Envoyer" button with a toast and reset_fields next to the questionnaire's own
-  // Envoyer button, the only one that saves.
-  const questionnaire = (elements, extra = {}) => ({ name: 'Demande de congés', language: 'fr', navigationMode: 'buttons', ...extra, pages: [{ name: 'Demande', fields: [
-    { type: 'text', name: 'Demandeur', label: 'Demandeur' },
-    { type: 'button', name: 'send', label: 'Envoyer', flow: 'send' }
-  ] }], flows: [{ id: 'send', name: 'Envoyer', elements }] });
-  const codes = r => r.validation.issues.map(i => i.code);
-  const fake = api().compile(questionnaire([{ type: 'toast', message: 'Demande envoyée', color: 'success' }, { type: 'reset_fields', scope: 'page' }]));
-  assert.equal(fake.status, 'invalid');
-  assert.match(fake.validation.issues.find(i => i.code === 'success_without_save').message, /own Envoyer button on its last page/);
-  assert.ok(codes(api().compile(questionnaire([{ type: 'toast', message: 'Envoyée' }, { type: 'reset_fields' }]))).includes('success_without_save'), 'a toast without color is a success');
-  const saved = api().compile(questionnaire([{ type: 'submit', saveTo: { table: 5271, values: { Demandeur: 'Demandeur' } } }, { type: 'toast', message: 'Demande envoyée' }, { type: 'reset_fields', scope: 'page' }]), { tableIndex: [{ id: 5271, name: 'Demandes', path: 'Team~>Achats~>Demandes' }] });
-  assert.ok(!codes(saved).includes('success_without_save'), JSON.stringify(saved.validation.issues));
-  const cancel = api().compile(questionnaire([{ type: 'toast', message: 'Saisie effacée', color: 'info' }, { type: 'reset_fields', scope: 'page' }]));
-  assert.ok(!codes(cancel).includes('success_without_save'));
-  assert.ok(api().validate(clone(fake.form)).validation.warnings.some(w => w.code === 'success_without_save'), 'a saved form gets a warning');
-});
-test('a page header repeating the form name shown in the title card is reported', () => {
-  const form = (header, extra = {}, page = {}) => api().compile({ name: "Demandes d'achat", navigationMode: 'buttons', ...extra, pages: [{ name: 'P', header, ...page, fields: [{ type: 'text', name: 'q', label: 'Q' }] }] });
-  const warned = r => r.validation.warnings.some(w => w.code === 'repeated_title_in_header');
-  assert.ok(warned(form({ title: "Demandes d'achat" })), 'escaped apostrophe');
-  assert.ok(!warned(form({ title: 'Nouvelle demande' })));
-  assert.ok(!warned(form({ title: "Demandes d'achat" }, { titleDisplay: 'none' })));
-  assert.ok(!warned(form({ title: "Demandes d'achat" }, {}, { isNameDisplayed: false })));
-  assert.ok(!warned(form({ title: "Demandes d'achat" }, { navigationMode: 'custom' })), 'custom pages hide the title card by default');
 });
 test('the contract answers its core with an index of every section, the sections asked for, or all of it', () => {
   const client = api();
@@ -2459,60 +1446,6 @@ function ticketsApp() {
     { id: 'remove', name: 'Supprimer le ticket', elements: [{ type: 'submit', deleteFrom: { table: 5277, row: 'tickets' } }] }
   ] };
 }
-test('reduced Baserow sources compile to the UI-authored sources, tables found in the catalog', () => {
-  const r = api().compile(ticketsApp(), { tableIndex: reducedTables });
-  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
-  const item = name => r.form.formulaire.find(f => f.name === name);
-  const grid = item('tickets').sources['lib_BaseRow.formssource_GetTableData'];
-  assert.equal(grid.enabled, true);
-  assert.deepEqual(JSON.parse(grid.vars.forms_config.str).table_id, 'Team~>Support~>Tickets');
-  assert.equal(JSON.parse(grid.vars.forms_config.str).table_id_int, 5277);
-  assert.deepEqual(clone(grid.vars.forms_tableSort.conds), [{ name: 'Titre', order: 'asc' }, { name: 'Créé le', order: 'desc' }]);
-  const filter = clone(grid.vars.forms_tableFilter);
-  assert.equal(filter.condVisible, 'and');
-  assert.equal(filter.type, 'filter');
-  assert.deepEqual(filter.conds.map(c => [c.val1.name, c.operator, c.val2.str]), [['Statut', 'single_select_not_equal', 'Fermé']]);
-  assert.equal(filter.groups[0].condVisible, 'or');
-  assert.deepEqual(filter.groups[0].conds.map(c => c.val2.str), [smartRef(item('search'), 'search'), smartRef(item('search'), 'search')]);
-  assert.deepEqual(clone(item('tickets').config.columns).map(c => c.name), ['Titre', 'Priorité', 'Statut']);
-  const chart = item('by_priority').sources['lib_BaseRow.formssource_GetTableData'].vars;
-  assert.equal(JSON.parse(chart.forms_config.str).table_id_int, 5277, 'a path finds the id');
-  assert.equal(chart.forms_tableGroupBy.str, 'Priorité');
-  assert.equal(chart.forms_tableAggregations.str, 'count=Nombre');
-  const values = item('priority_filter').sources['lib_BaseRow.formssource_GetFieldValues'].vars;
-  const valuesConfig = JSON.parse(values.forms_config.str);
-  assert.deepEqual([valuesConfig.table_id, valuesConfig.columns], [5277, ['Priorité']]);
-  assert.deepEqual(clone(item('priority_filter').children), [], 'no prototype choices next to a source');
-  const rows = JSON.parse(item('agent').sources['lib_BaseRow.formssource_GetSelectData'].vars.forms_config.str);
-  assert.deepEqual([rows.table_id, rows.table_id_int, rows.displayValue, rows.value, rows.columns], ['Team~>Support~>Agents', 5278, 'Nom', 'Email', ['Nom', 'Email']]);
-  assert.doesNotMatch(JSON.stringify(r.form), /__reduced/);
-});
-test('reduced saves compile to forms_AddRow, forms_AddRowFromData and forms_DeleteRow with field and row references', () => {
-  const r = api().compile(ticketsApp(), { tableIndex: reducedTables });
-  const item = name => r.form.formulaire.find(f => f.name === name);
-  const action = (flow, key) => r.form.flows.find(f => f.id === flow).elements[0].actions[key];
-  const add = action('save', 'lib_BaseRow.forms_AddRow').vars;
-  assert.deepEqual(JSON.parse(add.forms_config.str).table_id, 'Team~>Support~>Tickets');
-  assert.deepEqual(clone(add.forms_id), { str: '', html: false });
-  const update = action('close', 'lib_BaseRow.forms_AddRowFromData').vars;
-  assert.equal(update.forms_id.str, smartRef(item('tickets'), 'tickets.id.value'));
-  assert.deepEqual(clone(update.forms_freeVars), [{ name: 'Statut', str: 'Fermé' }, { name: 'Titre', str: smartRef(item('Titre'), 'Titre') }, { name: 'Commentaire', str: smartRef(item('new_status'), 'new_status') }], 'the list of { name, str } the editor writes');
-  const remove = action('remove', 'lib_BaseRow.forms_DeleteRow').vars;
-  assert.equal(remove.forms_id.str, smartRef(item('tickets'), 'tickets.id.value'));
-  assert.ok(!r.validation.issues.some(i => /baserow/i.test(i.code)), JSON.stringify(r.validation.issues));
-});
-test('reduced Baserow shorthands refuse what they cannot resolve, with the way out', () => {
-  const unknownTable = ticketsApp(); unknownTable.pages[0].fields[2].source.table = 999;
-  assert.throws(() => api().compile(unknownTable, { tableIndex: reducedTables }), /table 999 is not in the Baserow catalog/);
-  const unknownField = ticketsApp(); unknownField.flows[1].elements[0].saveTo.values.Statut = 'Fermé';
-  assert.throws(() => api().compile(unknownField, { tableIndex: reducedTables }), /\{ value: "Fermé" \}.*no single component named "Fermé"/);
-  const typoField = ticketsApp(); typoField.flows[1].elements[0].saveTo.values.Titre = { field: 'titr' };
-  assert.throws(() => api().compile(typoField, { tableIndex: reducedTables }), /no single component named "titr" in the form\. Did you mean "Titre"\? Known components: /);
-  const noCatalog = ticketsApp();
-  assert.throws(() => api().compile(noCatalog), /with nocode-form-compile alone, give \{ id, path \}/);
-  assert.throws(() => api().compile({ name: 'X', pages: [{ name: 'P', fields: [{ type: 'text', name: 't', label: 'T', source: { table: { id: 1, path: 'a~>b~>c' } } }] }] }), /a text has no Baserow source/);
-  assert.throws(() => api().compile({ name: 'X', pages: [{ name: 'P', fields: [{ type: 'grid', name: 'g', label: 'G', source: { table: { id: 1, path: 'a~>b~>c' } } }] }] }), /columns lists the table columns/);
-});
 test('edits accept the reduced source and saves', () => {
   const h = creationHarness({ columns: ['Reference', 'Status', 'Titre', 'Statut', 'Nom'].map(name => ({ name, type: 'text' })) });
   const created = h.client.create(example(), h.auth);
@@ -2709,46 +1642,6 @@ function setHistoColumns(form, columns) {
   config.columns = columns;
   histoSource(form).vars.forms_config.str = JSON.stringify(config);
 }
-test('the reduced source puts the displayed and stored values among its columns', () => {
-  for (const [source, columns] of [[{}, ['Nom', 'id']], [{ columns: ['Nom'] }, ['Nom', 'id']], [{ value: 'Nom' }, ['Nom']],
-    [{ columns: ['Prénom'], value: 'Nom' }, ['Prénom', 'Nom']]]) {
-    const compiled = api().compile(historyApp(source), { tableIndex: linkTables });
-    assert.equal(compiled.status, 'ok', JSON.stringify(compiled.validation.issues));
-    assert.deepEqual(histoConfig(compiled.form).columns, columns, JSON.stringify(source));
-  }
-});
-test('nocode-form-validate refuses a select whose displayed or stored value is not among its columns', () => {
-  const form = api().compile(historyApp(), { tableIndex: linkTables }).form;
-  form._id = 'skyjo';
-  setHistoColumns(form, ['Nom']);
-  const path = '/formulaire/' + form.formulaire.indexOf(byName(form, 'joueur_histo')) + '/sources/lib_BaseRow.formssource_GetSelectData/vars/forms_config';
-  const result = api().validate(form, { baserowLinks: true }).validation;
-  assert.equal(result.valid, false);
-  const issue = result.issues.find(i => i.code === 'baserow_select_columns');
-  assert.ok(issue, JSON.stringify(result.issues));
-  assert.equal(issue.path, path);
-  assert.match(issue.message, /^joueur_histo shows "Nom" and stores "id", but "id" is not among its columns \["Nom"\]: C8Oforms refuses its rows to the respondents of the published form/);
-  assert.match(issue.message, /A form already published keeps the refused source until it is published again$/);
-  assert.ok(!result.warnings.some(w => w.code === 'baserow_select_columns'));
-  assert.deepEqual(histoConfig(form).columns, ['Nom'], 'validate does not change the form');
-  // The static validation of a saved form (a read, a save that leaves the select alone) reports it without refusing.
-  const draft = api().validate(form).validation;
-  assert.ok(draft.warnings.some(w => w.code === 'baserow_select_columns' && w.path === path));
-  assert.ok(!draft.issues.some(i => i.code === 'baserow_select_columns'));
-  // The display outside the columns, a missing value, and the editor's own shape.
-  setHistoColumns(form, ['id']);
-  assert.match(api().validate(form, { baserowLinks: true }).validation.issues.find(i => i.code === 'baserow_select_columns').message, /but "Nom" is not among its columns \["id"\]/);
-  const config = histoConfig(form);
-  delete config.value;
-  config.columns = ['Nom'];
-  histoSource(form).vars.forms_config.str = JSON.stringify(config);
-  assert.match(api().validate(form, { baserowLinks: true }).validation.issues.find(i => i.code === 'baserow_select_columns').message, /^joueur_histo has no value in its forms_config \(columns \["Nom"\]\): C8Oforms refuses its rows/);
-  setHistoColumns(form, ['Nom', 'id']);
-  const fixed = histoConfig(form);
-  fixed.value = 'id';
-  histoSource(form).vars.forms_config.str = JSON.stringify(fixed);
-  assert.ok(!api().validate(form, { baserowLinks: true }).validation.issues.some(i => i.code === 'baserow_select_columns'));
-});
 test('compile and create add the missing values to the columns of a native select source', () => {
   const native = () => ({ name: 'Historiques', navigationMode: 'custom', pages: [{ name: 'Historiques', fields: [
     { type: 'select', name: 'joueur_histo', label: 'Joueur', sources: { 'lib_BaseRow.formssource_GetSelectData': { enabled: true, vars: {
@@ -2808,26 +1701,6 @@ function skyjoLogic(grid = {}) {
     { type: 'toast', message: 'Nouvelle partie', color: 'success' }
   ] }] };
 }
-test('validate warns about state in browser storage, computations over the rows of a grid and debug fields', () => {
-  const r = api().compile(skyjoLogic(), { tableIndex: linkTables });
-  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
-  const validation = clone(api().validate(r.form).validation);
-  assert.equal(validation.valid, true, 'warnings only');
-  const of = code => validation.warnings.filter(w => w.code === code);
-  const index = name => r.form.formulaire.indexOf(byName(r.form, name));
-  const flow = r.form.flows.findIndex(f => f.id === 'nouvelle_partie');
-  assert.deepEqual(of('browser_storage_state').map(w => w.path), ['/formulaire/' + index('Partie') + '/config/contextDefault/expression', '/flows/' + flow + '/elements/0/sources/self/vars/selfVar/str']);
-  assert.match(of('browser_storage_state')[0].message, /Partie uses localStorage: that value stays in one browser on one device/);
-  assert.match(of('browser_storage_state')[1].message, /^The formula start_new_game uses sessionStorage/);
-  const rows = of('grid_rows_in_formula');
-  assert.deepEqual(rows.map(w => /the grid (\w+)/.exec(w.message)[1]), ['score_last', 'joueur_all'], 'fields.x and fields["x"]; not the column read of the selected row');
-  assert.match(rows[0].message, /^Partie computes over the rows of the grid score_last, which gives a formula its selection \(returned_value row_selected\) and loads one page of 10 rows on a computer, every row on a phone/);
-  assert.match(rows[0].message, /groupBy and aggregations of a Baserow source/);
-  assert.deepEqual(of('debug_component').map(w => w.path), ['/formulaire/' + index('debug_tour')]);
-  // A grid giving a formula every row (all_the_data) is what such a formula reads; it is not flagged.
-  const whole = api().compile(skyjoLogic({ returned_value: 'all_the_data' }), { tableIndex: linkTables });
-  assert.deepEqual(clone(api().validate(whole.form).validation.warnings).filter(w => w.code === 'grid_rows_in_formula').map(w => /the grid (\w+)/.exec(w.message)[1]), ['joueur_all']);
-});
 // A sticky component placed after a list: the viewer's position: sticky; top: 0 only sticks it once the page has
 // scrolled down to it, so behind a long list it is not in view while the list is read (usage tests, 29/10).
 function stickyPage(barFirst) {
@@ -2842,37 +1715,8 @@ function stickyPage(barFirst) {
     { name: 'Autre', fields: [{ type: 'description', name: 'other', description: '<p>Autre</p>' }] }
   ], flows: [{ id: 'open_other', name: 'Autre page', elements: [{ type: 'push_page', targetPage: 'Autre' }] }] };
 }
-test('validate warns about a sticky component placed after a list, which sticks only once the list is scrolled through', () => {
-  const after = api().compile(stickyPage(false), { tableIndex: linkTables });
-  assert.equal(after.status, 'ok', JSON.stringify(after.validation.issues));
-  const warnings = clone(api().validate(after.form).validation.warnings).filter(w => w.code === 'sticky_below_list');
-  const bar = after.form.formulaire.findIndex(item => item.name === 'item_actions');
-  assert.deepEqual(warnings.map(w => w.path), ['/formulaire/' + bar + '/config/sticky'], 'the bar after the layout holding the grid; not the search bar above it');
-  assert.match(warnings[0].message, /^item_actions is sticky but comes after the list item_list: .*move it above the list/);
-  const before = api().compile(stickyPage(true), { tableIndex: linkTables });
-  assert.deepEqual(clone(api().validate(before.form).validation.warnings).filter(w => w.code === 'sticky_below_list'), []);
-});
 // A token in a text on a grid cell without .value/.displayValue shows the cell's display HTML as text (usage tests,
 // 29/10: a total read from a grouped grid showed « <div style="display:flex; …">1500.00</div> »).
-test('validate warns about a text token on a grid cell that does not end with value or displayValue', () => {
-  const r = api().compile({ name: 'Cell token', pages: [{ name: 'Page', fields: [
-    { type: 'grid', name: 'totals', label: 'Totaux', source: { table: 7002, columns: ['Joueur', 'Points'] }, visibleIf: { never: true } },
-    { type: 'description', name: 'kpi_raw', description: '<p>Total</p>' },
-    { type: 'description', name: 'kpi_value', description: '<p>Total</p>' },
-    { type: 'description', name: 'kpi_display', description: '<p>Total</p>' },
-    { type: 'text', name: 'other', label: 'Autre' }
-  ] }] }, { tableIndex: linkTables });
-  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
-  const form = clone(r.form);
-  const grid = byName(form, 'totals'), other = byName(form, 'other');
-  const token = (target, path) => '$$START' + target.id + JSON.stringify({ c8otype: 'path', c8opath: path, c8oPrettyPath: '', c8obuiltin: 'false', fakeId: 'fakeId1', c8oName: null }) + 'END' + target.id + '$$';
-  byName(form, 'kpi_raw').config.html = '<p>Total ' + token(grid, 'totals.0.sum_Points') + '</p>';
-  byName(form, 'kpi_value').config.html = '<p>Total ' + token(grid, 'totals.0.sum_Points.value') + ' ' + token(other, '') + '</p>';
-  byName(form, 'kpi_display').config.html = '<p>Total ' + token(grid, 'totals.Joueur.displayValue') + '</p>';
-  const warnings = clone(api().validate(form).validation.warnings).filter(w => w.code === 'grid_cell_token_text');
-  assert.deepEqual(warnings.map(w => w.path), ['/formulaire/' + form.formulaire.indexOf(byName(form, 'kpi_raw')) + '/config/html']);
-  assert.match(warnings[0].message, /^The text of kpi_raw shows totals\.0\.sum_Points, a cell of the grid totals: .*End the path with \.value/);
-});
 // nocode-form-get find: a rename "everywhere" changed the labels and pages by hand and missed a toast message (usage
 // tests, 29/10). find lists every text a user sees that holds the word, case and accents ignored.
 test('nocode-form-get find lists every visible text holding a word, flow messages included', () => {
@@ -2915,52 +1759,6 @@ test('nocode-form-get find lists every visible text holding a word, flow message
 });
 // Skyjo (28/10, TigoAccess 5324f308): the slider Tour had min 1 and the prototype default 0. The editor no longer shows
 // config.defaultvalue, the viewer drew 1 and submitted 0.
-test('a slider compiled with bounds and no default starts at the bound nearest to the prototype default', () => {
-  const r = api().compile({ name: 'Bounds', pages: [{ name: 'Page', fields: [
-    { type: 'slider', name: 'tour', label: 'Tour', min: 1, max: 100 },
-    { type: 'slider', name: 'negative', label: 'Negative', min: -10, max: -1 },
-    { type: 'slider', name: 'inside', label: 'Inside', min: 0, max: 10 },
-    { type: 'slider', name: 'explicit', label: 'Explicit', min: 1, max: 5, config: { defaultvalue: 3 } }
-  ] }] });
-  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
-  const value = name => r.form.formulaire.find(item => item.name === name).config.defaultvalue;
-  assert.deepEqual(['tour', 'negative', 'inside', 'explicit'].map(value), [1, -1, 0, 3]);
-  assert.ok(!r.validation.warnings.some(w => w.code === 'slider_default_out_of_range'));
-});
-test('validate warns about a slider default outside its bounds, native or literal', () => {
-  // the two sliders of Skyjo rev 486, as saved
-  const skyjoSlider = (id, name, page) => ({ type: 'slider', id, name, config: { debounce: 0, defaultvalue: 0, max: 100, min: 1, pin: true, snaps: true, step: 1, mandatory: true, disabled: false, html: '<p><strong>Tour en cours</strong></p>', personalized: true, page }, sources: { self: { enabled: true, vars: { selfVar: { str: '', type: 'text', html: false } } } } });
-  const r = api().compile({ name: 'Bounds', pages: [{ name: 'Page', fields: [
-    { type: 'slider', name: 'given', label: 'Given', min: 1, max: 10, config: { defaultvalue: 0 } },
-    { type: 'slider', name: 'literal', label: 'Literal', min: 1, max: 100, defaultFrom: { source: 'literal', value: 250 } },
-    { type: 'slider', name: 'literal_inside', label: 'Literal inside', min: 1, max: 100, defaultFrom: { source: 'literal', value: 40 } }
-  ] }] });
-  assert.equal(r.status, 'ok', JSON.stringify(r.validation.issues));
-  const form = clone(r.form);
-  form.formulaire.push(skyjoSlider(11, 'Tour', form.pages[0].pageTechName), skyjoSlider(12, 'slider1', form.pages[0].pageTechName));
-  const validation = clone(api().validate(form).validation);
-  assert.equal(validation.valid, true, JSON.stringify(validation.issues));
-  const warnings = validation.warnings.filter(w => w.code === 'slider_default_out_of_range');
-  const index = name => form.formulaire.findIndex(item => item.name === name);
-  assert.deepEqual(warnings.map(w => w.path), [
-    '/formulaire/' + index('given') + '/config/defaultvalue',
-    '/formulaire/' + index('literal') + '/config/contextDefault/value',
-    '/formulaire/' + index('Tour') + '/config/defaultvalue',
-    '/formulaire/' + index('slider1') + '/config/defaultvalue'
-  ]);
-  assert.match(warnings[0].message, /^given has the default 0, outside its bounds \[1, 10\]: the slider shows 1\. Set a default between min and max/);
-  assert.match(warnings[1].message, /^literal has the literal defaultFrom 250, outside its bounds \[1, 100\]: the slider shows 100/);
-  // the native default the compiler brought into the bounds is not flagged for the literal sliders
-  assert.equal(byName(form, 'literal').config.defaultvalue, 1);
-});
-test('validate leaves a slider default alone when it is inside, empty, hidden or its bounds cannot be read', () => {
-  const slider = (name, config) => ({ type: 'slider', id: name.length, name, config: { defaultvalue: 0, min: 1, max: 100, page: 'Page_1', ...config } });
-  const form = { name: 'Bounds', pages: [{ name: 'Page', pageTechName: 'Page_1' }], flows: [], formulaire: [
-    slider('inside', { defaultvalue: 1 }), slider('empty', { defaultvalue: '' }), slider('hidden', { componentDisabled: true }),
-    slider('no_min', { min: '' }), slider('reversed', { min: 50, max: 10 }), slider('text_bounds', { max: 'abc' })
-  ] };
-  assert.ok(!clone(api().validate(form).validation.warnings).some(w => w.code === 'slider_default_out_of_range'));
-});
 // nocode-app-create: the application planned from a business spec and compiled, without writing anything. The stub
 // stands for the user's Baserow catalog and the columns of its tables; schemaApply only says what it would create.
 const TICKETS = { id: 5277, name: 'Tickets', columns: [
@@ -3259,33 +2057,6 @@ test('add_field, update and create write parentRef and childrenRefs with the typ
   assert.strictEqual(byName(digits.form, 'inside').parentRef, 1900000000301);
   assert.deepEqual(clone(byName(digits.form, 'row').childrenRefs), [1900000000302]);
 });
-test('validate reports a reference of another type than its id and a listed child that does not point back', () => {
-  const form = api().compile(nestedPagesForm()).form;
-  const record = byName(form, 'record');
-  const inner = byName(form, 'inner');
-  const text = clone(form);
-  byName(text, 'inner').parentRef = String(record.id);
-  const issues = api().validate(text).validation.issues;
-  const typed = issues.find(i => i.code === 'relation_ref_type');
-  assert.ok(typed, JSON.stringify(issues));
-  assert.equal(typed.path, '/formulaire/' + text.formulaire.indexOf(byName(text, 'inner')) + '/parentRef');
-  assert.match(typed.message, new RegExp('"' + record.id + '" \\(string\\) while the id it names is ' + record.id + ' \\(number\\)'));
-  const listedText = clone(form);
-  byName(listedText, 'record').childrenRefs = [String(inner.id)];
-  assert.ok(api().validate(listedText).validation.issues.some(i => i.code === 'relation_ref_type' && /childrenRefs\/0$/.test(i.path)));
-  const orphan = clone(form);
-  delete byName(orphan, 'inner').parentRef;
-  const mismatch = api().validate(orphan).validation.issues.find(i => i.code === 'child_parent_mismatch');
-  assert.ok(mismatch);
-  assert.match(mismatch.message, /record lists inner in its childrenRefs, but its parentRef is missing/);
-  // The same check in a flow: an if_else branch child named by text.
-  const flowForm = clone(form);
-  flowForm.flows.push({ id: 'check', name: 'Check', elements: [
-    { id: 1900000000401, name: 'branch', cat: 'action', type: 'if_else', childrenRefs: ['1900000000402'], sources: { self: { enabled: true, vars: { selfVar: { type: 'condition', condVisible: 'and', conds: [{ operator: 'is_filled', val1: { str: String(record.id) } }], groups: [] } } } }, config: {} },
-    { id: 1900000000402, name: 'then_toast', cat: 'action', type: 'toast', parentRef: 1900000000401, sources: { self: { enabled: true, vars: { selfVar: { str: 'ok', type: 'text' } } } }, config: { color: '#15803D' } }
-  ] });
-  assert.ok(api().validate(flowForm).validation.issues.some(i => i.code === 'relation_ref_type' && /childrenRefs\/0$/.test(i.path)));
-});
 test('move_field gives the moved component and its descendants the page of their new root container', () => {
   const h = creationHarness();
   const created = h.client.create(nestedPagesForm(), h.auth);
@@ -3365,14 +2136,4 @@ test('an edit with no operation and an update with an empty patch save nothing',
   assert.equal(h.state.saves, saves);
   assert.equal(h.state.forms[id]._rev, rev);
   assert.equal(h.client.edit(id, [{ action: 'move_field', fieldName: 'a1', pageName: 'Une', index: 1 }], h.auth).saved, true);
-});
-test('validation flags nested components whose page is not their root container page', () => {
-  const form = api().compile(nestedPagesForm()).form;
-  assert.ok(!api().validate(form).validation.warnings.some(w => w.code === 'nested_page_mismatch'));
-  const stale = clone(form);
-  ['inner', 'reference'].forEach(name => { byName(stale, name).config.page = stale.pages[0].pageTechName; });
-  const warning = api().validate(stale).validation.warnings.find(w => w.code === 'nested_page_mismatch');
-  assert.ok(warning);
-  assert.match(warning.message, new RegExp('^2 nested .*' + byName(stale, 'inner').id + ', ' + byName(stale, 'reference').id));
-  assert.equal(api().validate(stale).validation.valid, true);
 });

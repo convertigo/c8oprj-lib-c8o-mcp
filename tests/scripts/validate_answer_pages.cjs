@@ -10,6 +10,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { formsEngine, hasContract } = require('../helpers/c8oforms_contract.cjs');
 const { skillText } = require('../helpers/nocode_skill.cjs');
 
 const root = path.resolve(__dirname, '../..');
@@ -312,17 +313,25 @@ test('every output schema takes a first page, and answer-page declares its own',
 
 test('a contract answer of the core, a section or a part goes out whole; the whole contract comes in pages', () => {
   const formsRoot = process.env.C8OFORMS_PROJECT_ROOT || path.resolve(root, '../C8oForms');
-  if (!fs.existsSync(path.join(formsRoot, 'DisplayObjects/mobile/assets/components/AllTypes.json'))) return;
+  if (!hasContract(formsRoot)) return;
   const empty = new Proxy(function () {}, { get: (_, key) => key === Symbol.toPrimitive ? () => '' : empty });
   class File {
     constructor(parent, child) { this.path = child ? path.join(String(parent), child) : String(parent); }
     isFile() { return fs.existsSync(this.path) && fs.statSync(this.path).isFile(); }
     getAbsolutePath() { return this.path; }
   }
-  const engine = { theApp: { databaseObjectsManager: { getOriginalProjectByName: () => ({ getDirFile: () => formsRoot }) } } };
+  // NoCode_Contract and NoCode_Form: the No Code form contract of the C8Oforms checkout
+  const contract = formsEngine(formsRoot);
+  class HashMap { constructor() { this.values = {}; } put(key, value) { this.values[key] = value; } }
+  class InternalRequester {
+    constructor(params) { this.params = params.values; }
+    processRequest() { const response = contract.sequence(this.params.__sequence, this.params); return { getDocumentElement: () => response }; }
+    getContext() { return {}; }
+  }
+  const engine = { theApp: { databaseObjectsManager: { getOriginalProjectByName: () => contract.project() }, contextManager: { remove() {} } } };
   const packages = new Proxy(empty, { get: (_, key) => {
-    if (key === 'java') return { io: { File }, util: { HashMap: empty, Base64: empty } };
-    if (key === 'com') return { twinsoft: { convertigo: { engine: { Engine: engine, requesters: empty, util: empty, enums: empty } } } };
+    if (key === 'java') return { io: { File }, util: { HashMap, Base64: empty } };
+    if (key === 'com') return { twinsoft: { convertigo: { engine: { Engine: engine, requesters: { InternalRequester, InternalHttpServletRequest: class {} }, util: { XMLUtils: { XmlToJson: response => JSON.stringify(response) } }, enums: empty } } } };
     if (key === 'org') return { apache: { commons: { io: { FileUtils: { readFileToString: file => fs.readFileSync(file.path, 'utf8') } } } } };
     return empty;
   } });

@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { formsEngine } = require('../helpers/c8oforms_contract.cjs');
 const root = path.resolve(__dirname, '../..');
 const formsRoot = process.env.C8OFORMS_PROJECT_ROOT || path.resolve(root, '../C8oForms');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
@@ -17,6 +18,10 @@ const DRAFT = 'form-draft-1';
 const MCP_URL = 'https://forms.example.invalid/convertigo/api/mcp';
 
 function sandbox(transport, files) {
+  // NoCode_Contract and NoCode_Form: the No Code form contract of the C8Oforms checkout (formsRoot)
+  const forms = formsEngine(formsRoot);
+  const answer = transport;
+  transport = (sequence, params) => forms.handles(sequence) ? forms.sequence(sequence, params) : answer ? answer(sequence, params) : undefined;
   class File {
     constructor(parent, child) { this.path = child ? path.join(String(parent), child) : String(parent); }
     isFile() { return fs.statSync(this.path).isFile(); }
@@ -38,7 +43,7 @@ function sandbox(transport, files) {
     }
     getContext() { return {}; }
   }
-  const engine = { theApp: { databaseObjectsManager: { getOriginalProjectByName: () => ({ getDirFile: () => formsRoot }) }, contextManager: { remove() {} } } };
+  const engine = { theApp: { databaseObjectsManager: { getOriginalProjectByName: () => forms.project() }, contextManager: { remove() {} } } };
   const engineApi = {
     Engine: engine,
     requesters: { InternalRequester, InternalHttpServletRequest: class {} },
