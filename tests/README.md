@@ -433,3 +433,7 @@ fast path guides pass in their own database, and the YAML step is run on the err
 for a statement refused when prepared and for an error raised when it runs (TigoAccess 28/10: FORMATDATETIME,
 invalid interval and datetime formats on HSQLDB). A bound value HSQLDB cannot read as a date raises nothing: the
 engine binds NULL (`SqlConnector.prepareParameters`), which is why the guide's optional filter is never flagged.
+
+## Sub-agent process proxy
+
+Run `node --test tests/scripts/validate_subagent_proxy.cjs` after changing the runner launch environment. On engines exposing `ProcessUtils.configureProxyEnvironment(Map)`, the runner applies the engine relay after caller environment overrides, before starting the process. The engine owns PAC routing and authentication. Older engines retain manual proxy support; PAC requires the updated engine explicitly. No separate proxy relay is started by this library.

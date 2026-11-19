@@ -520,6 +520,55 @@ C8O.subagents = C8O.subagents || {};
     };
   };
 
+  // The engine owns the single process relay. Discover it without invoking it or using NativeJavaClass.class.
+  api.engineProcessProxyAvailable = function () {
+    try {
+      var methods = Packages.java.lang.Class.forName("com.twinsoft.convertigo.engine.util.ProcessUtils").getMethods();
+      for (var i = 0; i < methods.length; i++) {
+        var parameters = methods[i].getParameterTypes();
+        if (String(methods[i].getName()) === "configureProxyEnvironment" && parameters.length === 1 &&
+            String(parameters[0].getName()) === "java.util.Map") { return true; }
+      }
+    } catch (_olderEngineProxyApi) {}
+    return false;
+  };
+
+  api.configureProcessProxy = function (environment) {
+    var engine = Packages.com.twinsoft.convertigo.engine;
+    var manager = engine.Engine.theApp.proxyManager;
+    if (api.engineProcessProxyAvailable()) {
+      // Call last: caller overrides must not replace the engine's destination-aware relay.
+      engine.util.ProcessUtils.configureProxyEnvironment(environment);
+      if (manager && manager.isEnabled()) {
+        var relay = str(environment.get("HTTPS_PROXY") || environment.get("HTTP_PROXY"));
+        if (!relay.length) { throw new Error("The engine proxy relay did not provide a subprocess proxy URL."); }
+        ["npm_config_proxy", "npm_config_https_proxy", "NPM_CONFIG_PROXY", "NPM_CONFIG_HTTPS_PROXY", "PIP_PROXY"].forEach(function (key) { environment.put(key, relay); });
+      }
+      return;
+    }
+    // Compatibility with older engines: preserve the qualified manual path only, never sample a PAC destination.
+    if (!manager || !manager.isEnabled()) { return; }
+    var mode = str(manager.proxyMode).toLowerCase();
+    if (mode === "auto") { throw new Error("PAC proxy support for agents requires an updated Convertigo engine. Update the engine before starting the runtime."); }
+    if (mode !== "manual") { throw new Error("Unable to resolve the Convertigo engine proxy settings."); }
+    var relayUrl;
+    if (str(manager.proxyMethod).toLowerCase() === "ntlm") {
+      relayUrl = String(engine.proxy.ntlm.NtlmConnectProxyBridge.getLocalProxyUrl());
+    } else {
+      var credentials = "";
+      if (str(manager.proxyMethod).toLowerCase() === "basic" && str(manager.getProxyUser()).length) {
+        credentials = encodeURIComponent(String(manager.getProxyUser())) + ":" + encodeURIComponent(String(manager.getProxyPassword() || "")) + "@";
+      }
+      relayUrl = "http://" + credentials + String(manager.getProxyServer()) + ":" + Number(manager.getProxyPort());
+    }
+    ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "npm_config_proxy", "npm_config_https_proxy", "NPM_CONFIG_PROXY", "NPM_CONFIG_HTTPS_PROXY", "PIP_PROXY"].forEach(function (key) { environment.put(key, relayUrl); });
+    var bypass = [], domains = manager.getBypassDomains();
+    for (var d = 0; domains && d < domains.length; d++) { if (str(domains[d]).length) { bypass.push(str(domains[d])); } }
+    ["localhost", "127.0.0.1", "::1"].forEach(function (host) { if (bypass.indexOf(host) < 0) { bypass.push(host); } });
+    environment.put("NO_PROXY", bypass.join(","));
+    environment.put("no_proxy", bypass.join(","));
+  };
+
   // The Studio side of the host: run folders, process start and state, locks, settings and the gateway key.
   api.javaHost = function () {
     var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
@@ -637,6 +686,7 @@ C8O.subagents = C8O.subagents || {};
             environment.put(String(name), String(env[name]));
           }
         }
+        api.configureProcessProxy(environment);
         builder.directory(workspace);
         builder.redirectOutput(new File(outDir, "agent-output.json"));
         builder.redirectError(new File(outDir, "agent.log"));
