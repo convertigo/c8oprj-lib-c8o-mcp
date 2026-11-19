@@ -23,7 +23,9 @@ if (typeof C8O === "undefined") {
   api.BUDGET = 14000;
   api.PAGE_ROOM = 12500;
   api.KEEP_MS = 10 * 60000;
-  api.MAX_ANSWERS = 32;
+  // for every caller of the engine: 16 sessions of one bearer at once keep about 170 answers a second, and an answer
+  // must stay until its client reads its next page; MAX_STORE_CHARS is what bounds the memory
+  api.MAX_ANSWERS = 1000;
   // about 150 pages; a larger answer is not kept: its first page says to ask for less
   api.MAX_ANSWER_CHARS = 2000000;
   api.MAX_STORE_CHARS = 8000000;

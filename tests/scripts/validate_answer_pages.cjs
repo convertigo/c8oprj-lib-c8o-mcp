@@ -189,6 +189,9 @@ test('answer-page asks a valid bearer', () => {
 test('the store is bounded in answers and size, and an answer too large is not kept', () => {
   const { api, clock } = pagesApi();
   const store = server();
+  const bounds = { answers: api.MAX_ANSWERS, store: api.MAX_STORE_CHARS };
+  // in answers (a few here, to keep the test short)
+  api.MAX_ANSWERS = 12;
   const ids = [];
   for (let i = 0; i < api.MAX_ANSWERS + 5; i++) {
     clock.now += 1000;
@@ -198,6 +201,20 @@ test('the store is bounded in answers and size, and an answer too large is not k
   assert.equal(answers.size(), api.MAX_ANSWERS);
   assert.equal(answers.get(ids[0]), null, 'the oldest went first');
   assert.ok(answers.get(ids[ids.length - 1]));
+  api.MAX_ANSWERS = bounds.answers;
+  // in size: the oldest go first, whatever their number
+  api.MAX_STORE_CHARS = 400000;
+  const sized = [];
+  for (let i = 0; i < 20; i++) {
+    clock.now += 1000;
+    sized.push(api.bound(caller(store), { sequence: 'tools_nocode_form_get', value: { n: i, form: 'f'.repeat(40000) } }).structured.partialAnswer.answerId);
+  }
+  const total = sized.map(id => answers.get(id)).filter(value => value != null).reduce((sum, value) => sum + value.length, 0);
+  assert.ok(total <= api.MAX_STORE_CHARS, String(total));
+  assert.equal(answers.get(sized[0]), null, 'the oldest went first');
+  assert.ok(answers.get(sized[sized.length - 1]));
+  assert.ok(ids.every(id => answers.get(id) == null), 'the older answers went before');
+  api.MAX_STORE_CHARS = bounds.store;
   const limits = { chars: api.MAX_ANSWER_CHARS };
   api.MAX_ANSWER_CHARS = 30000;
   const huge = api.bound(caller(store), { sequence: 'tools_log_view', value: bigAnswer(20) });
@@ -312,6 +329,20 @@ test('the first answers of the engine at once share one map', () => {
   firsts[0] = api.bound(caller(store), { sequence: 'tools_nocode_form_compile', value: values[0] });
   store.get = get;
   assert.ok(injected);
+  assert.deepEqual(lostAnswers(api, store, firsts, values), []);
+});
+
+// 0.3.0-beta.45 kept 32 answers for every caller of the engine: with 16 sessions of one bearer at once (about 170 paged
+// answers a second), an answer went before its client asked its next page. The size of the store is the bound now.
+test('a burst of answers leaves the first ones readable', () => {
+  const { api, clock } = pagesApi();
+  const store = server();
+  const values = Array.from({ length: 200 }, (_, i) => ({ n: i, form: 'f'.repeat(16000) }));
+  const firsts = values.map(value => {
+    clock.now += 5;
+    return api.bound(caller(store), { sequence: 'tools_nocode_form_compile', value });
+  });
+  assert.equal(store.get(api.STORE_KEY).size(), values.length);
   assert.deepEqual(lostAnswers(api, store, firsts, values), []);
 });
 
