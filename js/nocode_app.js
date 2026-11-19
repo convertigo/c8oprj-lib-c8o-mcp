@@ -926,6 +926,7 @@ C8O.nocodeApp = C8O.nocodeApp || {};
       if (!apply) {
         var compiled = C8O.nocodeForms.compile(built.reduced, formOptions);
         result.validation = compactValidation(compiled && compiled.validation, placeholderId < -1);
+        if (compiled && compiled.repairs) { result.repairs = compiled.repairs; }
         result.status = result.validation.valid ? "ok" : "invalid";
         result.next = result.status === "ok" ? "Nothing was written. Call nocode-app-create again with mode apply to create the tables and the form." : "Fix the spec from the validation issues.";
         return result;
@@ -940,6 +941,7 @@ C8O.nocodeApp = C8O.nocodeApp || {};
       }
       if (saved && saved.bindingFinalization) { result.bindings = saved.bindingFinalization; }
       result.validation = compactValidation(saved && saved.validation);
+      if (saved && saved.repairs) { result.repairs = saved.repairs; }
       if (saved && saved.error) { result.error = saved.error; }
       if (result.saved && result.status === "ok") {
         result.next = "The application is saved, read back and validated (validation above): report this outline to the user without reading the form again. Change it with nocode-form-edit on id " + result.id + "; never call nocode-app-create again for this application.";

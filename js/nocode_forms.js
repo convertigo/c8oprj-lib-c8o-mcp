@@ -79,19 +79,282 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   }
 
 
+  // The first syntax error of a JSON text, { pos, reason }, or null when the text is exactly one JSON value: a strict
+  // reader of the whole grammar (keys in double quotes, commas, colons), where the Rhino parser accepts some broken text.
+  function jsonSyntaxError(text) {
+    var i = 0, n = text.length;
+    function fail(reason) { throw { jsonPos: i, reason: reason }; }
+    function ws() {
+      while (i < n) {
+        var code = text.charCodeAt(i);
+        if (code !== 32 && code !== 9 && code !== 10 && code !== 13) { return; }
+        i++;
+      }
+    }
+    function str() {
+      i++;
+      while (i < n) {
+        var ch = text.charAt(i);
+        if (ch === "\\") { i += 2; continue; }
+        if (ch === "\"") { i++; return; }
+        i++;
+      }
+      fail("unterminated string");
+    }
+    function num() {
+      var start = i;
+      if (text.charAt(i) === "-") { i++; }
+      while (i < n && /[0-9.eE+\-]/.test(text.charAt(i))) { i++; }
+      if (!/^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+\-]?[0-9]+)?$/.test(text.substring(start, i))) { i = start; fail("invalid number"); }
+    }
+    function value() {
+      ws();
+      var ch = text.charAt(i);
+      if (ch === "{") { obj(); }
+      else if (ch === "[") { arr(); }
+      else if (ch === "\"") { str(); }
+      else if (ch === "-" || (ch >= "0" && ch <= "9")) { num(); }
+      else if (text.substr(i, 4) === "true" || text.substr(i, 4) === "null") { i += 4; }
+      else if (text.substr(i, 5) === "false") { i += 5; }
+      else { fail(i >= n ? "the text ends where a value was expected" : "a value was expected"); }
+    }
+    function obj() {
+      i++;
+      ws();
+      if (text.charAt(i) === "}") { i++; return; }
+      for (;;) {
+        ws();
+        if (text.charAt(i) !== "\"") { fail("a property name in double quotes was expected"); }
+        str();
+        ws();
+        if (text.charAt(i) !== ":") { fail("':' was expected after a property name"); }
+        i++;
+        value();
+        ws();
+        var ch = text.charAt(i);
+        if (ch === ",") { i++; continue; }
+        if (ch === "}") { i++; return; }
+        fail(i >= n ? "the text ends inside an object" : "',' or '}' was expected");
+      }
+    }
+    function arr() {
+      i++;
+      ws();
+      if (text.charAt(i) === "]") { i++; return; }
+      for (;;) {
+        value();
+        ws();
+        var ch = text.charAt(i);
+        if (ch === ",") { i++; continue; }
+        if (ch === "]") { i++; return; }
+        fail(i >= n ? "the text ends inside an array" : "',' or ']' was expected");
+      }
+    }
+    try {
+      value();
+      ws();
+      if (i < n) { fail("unexpected content after the end of the JSON value"); }
+      return null;
+    } catch (e) {
+      if (e && typeof e.jsonPos === "number") { return { pos: e.jsonPos, reason: e.reason }; }
+      throw e;
+    }
+  }
+
+  // The text a model wrote with the slips of long JSON repaired: a code fence around it, comments, a comma before a
+  // closing bracket, and one or two closing braces or brackets too many, missing or misplaced (the counts of opening and
+  // closing brackets say which). Each reading the edits give near the place where the text breaks is weighed by the
+  // closing brackets next to the edit: a model loses count in a run such as }}]}}, so the reading that edits the longest
+  // run wins, and a tie between two readings is refused. A string is never changed. Measured on 19/11 on 12 malformed
+  // answers: the 6 brace slips were all read as the model meant (5 in a run of 2 to 5 closing brackets), the 3 others
+  // were comments; the 3 refused ones were not JSON slips. { text, repairs: [text] } or null.
+  function repairJsonText(text) {
+    var repairs = [];
+    var current = text;
+    var fence = /^```[a-zA-Z]*\s*\n([\s\S]*?)\n?```\s*$/.exec(current);
+    if (fence) { current = fence[1]; repairs.push("the ``` code fence around the JSON removed"); }
+    // outside strings: comments removed, a comma before a closing bracket removed, brackets counted
+    function scan(source) {
+      var out = [], inString = false, comments = 0, commas = 0, counts = { "{": 0, "}": 0, "[": 0, "]": 0 };
+      for (var i = 0; i < source.length; i++) {
+        var ch = source.charAt(i);
+        if (inString) {
+          out.push(ch);
+          if (ch === "\\" && i + 1 < source.length) { out.push(source.charAt(++i)); }
+          else if (ch === "\"") { inString = false; }
+          continue;
+        }
+        if (ch === "/" && source.charAt(i + 1) === "/") {
+          while (i < source.length && source.charAt(i) !== "\n") { i++; }
+          comments++;
+          out.push("\n");
+          continue;
+        }
+        if (ch === "/" && source.charAt(i + 1) === "*") {
+          var end = source.indexOf("*/", i + 2);
+          if (end < 0) { return null; }
+          i = end + 1;
+          comments++;
+          continue;
+        }
+        if (ch === ",") {
+          var j = i + 1;
+          while (j < source.length && /\s/.test(source.charAt(j))) { j++; }
+          if (source.charAt(j) === "}" || source.charAt(j) === "]") { commas++; continue; }
+        }
+        if (ch === "\"") { inString = true; }
+        if (hasOwn(counts, ch)) { counts[ch]++; }
+        out.push(ch);
+      }
+      return { text: out.join(""), comments: comments, commas: commas, counts: counts };
+    }
+    var scanned = scan(current);
+    if (!scanned) { return null; }
+    if (scanned.comments) { repairs.push(scanned.comments + " comment(s) removed"); }
+    if (scanned.commas) { repairs.push(scanned.commas + " comma(s) before a closing bracket removed"); }
+    current = scanned.text;
+    var broken = jsonSyntaxError(current);
+    if (!broken) { return repairs.length ? { text: current, repairs: repairs } : null; }
+    var need = { "}": scanned.counts["{"] - scanned.counts["}"], "]": scanned.counts["["] - scanned.counts["]"] };
+    var units = Math.abs(need["}"]) + Math.abs(need["]"]);
+    if (units > 2) { return null; }
+    var WINDOW = 400, budget = 2500, exhausted = false;
+    function reads(source) {
+      if (--budget < 0) { exhausted = true; return { pos: -1 }; }
+      return jsonSyntaxError(source);
+    }
+    // the closing brackets next to a place, whitespace between them ignored
+    function closersAround(source, at) {
+      var n = 0, k;
+      for (k = at - 1; k >= 0 && /[\s}\]]/.test(source.charAt(k)); k--) { if (source.charAt(k) !== " " && !/\s/.test(source.charAt(k))) { n++; } }
+      for (k = at; k < source.length && /[\s}\]]/.test(source.charAt(k)); k++) { if (!/\s/.test(source.charAt(k))) { n++; } }
+      return n;
+    }
+    // In the window before pos, outside strings, the edits a need asks for: a closing bracket of a kind in excess removed,
+    // or one missing added where a value ends (after a string or a closing bracket, before a comma, at pos).
+    function editsOf(source, pos, wanted) {
+      var edits = [], seen = {}, inString = false, start = pos - WINDOW;
+      function add(at, close, removed) {
+        var key = at + close + removed;
+        if (seen[key]) { return; }
+        seen[key] = true;
+        edits.push({ at: at, close: close, removed: removed, score: closersAround(source, at),
+          text: removed ? source.substring(0, at) + source.substring(at + 1) : source.substring(0, at) + close + source.substring(at) });
+      }
+      for (var k = 0; k <= Math.min(pos, source.length - 1); k++) {
+        var c = source.charAt(k);
+        if (inString) {
+          if (c === "\\") { k++; }
+          else if (c === "\"") {
+            inString = false;
+            if (k + 1 >= start) { ["}", "]"].forEach(function (close) { if (wanted[close] > 0) { add(k + 1, close, false); } }); }
+          }
+          continue;
+        }
+        if (c === "\"") { inString = true; continue; }
+        if (k < start) { continue; }
+        ["}", "]"].forEach(function (close) {
+          if (wanted[close] < 0 && c === close) { add(k, close, true); }
+          if (wanted[close] > 0 && (c === "}" || c === "]")) { add(k + 1, close, false); }
+          if (wanted[close] > 0 && c === ",") { add(k, close, false); }
+        });
+      }
+      ["}", "]"].forEach(function (close) { if (wanted[close] > 0) { add(pos, close, false); } });
+      return edits;
+    }
+    function minus(wanted, edit) {
+      var out = { "}": wanted["}"], "]": wanted["]"] };
+      out[edit.close] += edit.removed ? 1 : -1;
+      return out;
+    }
+    // the distinct readings: the best weight of each (a lone edit always before two), then the latest edit
+    var readings = {};
+    function consider(source, score, steps) {
+      var value;
+      try { value = JSON.stringify(JSON.parse(source)); } catch (_notRead) { return; }
+      var last = Math.max.apply(null, steps.map(function (step) { return step.at; }));
+      var known = readings[value];
+      if (!known || score > known.score || (score === known.score && last > known.last)) { readings[value] = { score: score, last: last, steps: steps, text: source }; }
+    }
+    // brackets that balance but break the text: one closing bracket misplaced, added where the text breaks and removed
+    // where it then breaks
+    var firstNeeds = units === 0 ? [{ "}": 1, "]": 0 }, { "}": 0, "]": 1 }] : [need];
+    firstNeeds.forEach(function (wanted) {
+      editsOf(current, broken.pos, wanted).forEach(function (first) {
+        var after = reads(first.text);
+        if (!after) { if (units === 1) { consider(first.text, first.score, [first]); } return; }
+        if (units === 1 || after.pos <= broken.pos + 1) { return; }
+        var rest = units === 0 ? { "}": first.close === "}" ? -1 : 0, "]": first.close === "]" ? -1 : 0 } : minus(wanted, first);
+        editsOf(first.text, after.pos, rest).forEach(function (second) {
+          if (!reads(second.text)) { consider(second.text, first.score + second.score - 100, [first, second]); }
+        });
+      });
+    });
+    if (exhausted) { return null; }
+    var ranked = Object.keys(readings).map(function (key) { return readings[key]; }).sort(function (a, b) { return b.score - a.score || b.last - a.last; });
+    if (!ranked.length || (ranked.length > 1 && ranked[1].score === ranked[0].score)) { return null; }
+    var chosen = ranked[0];
+    var base = current;
+    chosen.steps.forEach(function (step, index) {
+      var source = index === 0 ? base : chosen.steps[0].text;
+      var from = Math.max(0, step.at - 30);
+      var what = units === 0 ? (step.removed ? "the misplaced '" + step.close + "' removed" : "a '" + step.close + "' added where it was missing") :
+        (step.removed ? "a '" + step.close + "' too many removed" : "a missing '" + step.close + "' added");
+      repairs.push(what + " at position " + step.at + (!step.removed && step.at >= source.length ? ", at the end: check that nothing is missing" : "") +
+        " (..." + source.substring(from, Math.min(source.length, step.at + 30)).replace(/\s+/g, " ") + "...)");
+    });
+    return { text: chosen.text, repairs: repairs };
+  }
+
+  // The repairs of a JSON text, kept on the value it reads as (not enumerable: never sent nor saved) for the answer.
+  function keepTextRepairs(value, label, repairs) {
+    if (!value || typeof value !== "object" || !repairs || !repairs.length) { return value; }
+    var list = repairs.map(function (text) {
+      return { code: "json_text_repaired", at: label || "value", message: text + ". The JSON text was read after this repair: send valid JSON next time." };
+    });
+    try { Object.defineProperty(value, "__textRepairs", { value: list, enumerable: false, configurable: true, writable: true }); } catch (_frozen) {}
+    return value;
+  }
+
+  // answer.repairs: the repairs of the JSON text of input (the argument the answer was made from) first, then those of
+  // the C8Oforms answer it was made from (from), then its own.
+  function withRepairs(answer, input, from) {
+    if (!answer || typeof answer !== "object") { return answer; }
+    var list = [].concat(input && Array.isArray(input.__textRepairs) ? input.__textRepairs : [], from && from !== answer && Array.isArray(from.repairs) ? from.repairs : []);
+    if (Array.isArray(answer.repairs)) { list = list.concat(answer.repairs.filter(function (item) { return list.indexOf(item) < 0; })); }
+    if (list.length) { answer.repairs = list; }
+    return answer;
+  }
+
+  // A JSON object or array text read strictly; with a slip repairJsonText repairs, read after the repair (listed on the
+  // value); otherwise refused with the position of the first error.
+  function readJsonText(text, label, isWanted) {
+    var error = jsonSyntaxError(text);
+    if (!error) {
+      try { return JSON.parse(text); } catch (e) { throw new Error((label || "value") + " is not valid JSON: " + (e && e.message ? e.message : e)); }
+    }
+    var repaired = repairJsonText(text);
+    if (repaired) {
+      var value = JSON.parse(repaired.text);
+      if (isWanted(value)) { return keepTextRepairs(value, label, repaired.repairs); }
+    }
+    assertStrictJsonText(text, label);
+    var from = Math.max(0, error.pos - 40), to = Math.min(text.length, error.pos + 40);
+    throw new Error((label || "value") + " is not valid JSON (" + text.length + " characters were received in full, this is not a transport truncation): " + error.reason + " at position " + error.pos + ": ..." + text.substring(from, to) + "...");
+  }
+
+  function isPlainObject(value) { return !!value && typeof value === "object" && !Array.isArray(value); }
+
   function parseObject(value, label, fallback) {
     if (value == null || trimmed(value).length === 0) {
       return fallback;
     }
     var text = trimmed(value);
-    if (text.charAt(0) === "{") {
-      assertStrictJsonText(text, label);
-      try {
-        var parsedText = JSON.parse(text);
-        if (parsedText && typeof parsedText === "object" && !Array.isArray(parsedText)) {
-          return parsedText;
-        }
-      } catch (_ignoreTextParse) {}
+    if (text.charAt(0) === "{" || text.indexOf("```") === 0) {
+      var parsedText = readJsonText(text, label, isPlainObject);
+      if (isPlainObject(parsedText)) {
+        return parsedText;
+      }
     }
     if (typeof value === "object" && !Array.isArray(value)) {
       return value;
@@ -111,13 +374,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     var text = trimmed(value);
     if (text.charAt(0) === "[") {
-      assertStrictJsonText(text, label);
-      try {
-        var parsedText = JSON.parse(text);
-        if (Array.isArray(parsedText)) {
-          return parsedText;
-        }
-      } catch (_ignoreTextParse) {}
+      var parsedText = readJsonText(text, label, Array.isArray);
+      if (Array.isArray(parsedText)) {
+        return parsedText;
+      }
     }
     if (Array.isArray(value)) {
       return value;
@@ -140,9 +400,14 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     var text = trimmed(value);
     if (text.charAt(0) === "{" || text.charAt(0) === "[") {
+      var read = null;
       try {
-        return parseOperations(JSON.parse(text), label, fallback);
+        read = readJsonText(text, label || "operations", function (item) { return item != null && typeof item === "object"; });
       } catch (_ignoreOperationTextParse) {}
+      if (read != null) {
+        var operations = parseOperations(read, label, fallback);
+        return read.__textRepairs ? keepTextRepairs(operations, label || "operations", read.__textRepairs.map(function (item) { return item.message.replace(/\. The JSON text was read after this repair: send valid JSON next time\.$/, ""); })) : operations;
+      }
     }
     if (typeof value === "object") {
       if (value.operations != null) {
@@ -1084,13 +1349,16 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // the catalog of the user's no-code database.
   function compileReduced(reduced, options) {
     var opts = options || {};
-    return formsRun("compile", { reduced: reduced, options: formsOptions(opts) }, opts);
+    return withRepairs(formsRun("compile", { reduced: reduced, options: formsOptions(opts) }, opts), reduced);
   }
   C8O.nocodeForms.compile = compileReduced;
   // nocode-form-validate (baserowLinks): the static checks, then, with the authenticated No Code account, the selects
   // written into a link_row column (read only: the fields of the written tables). A select the respondents of the
   // published form cannot read is an issue there, whoever wrote it; a save only reports one it leaves alone.
   C8O.nocodeForms.validate = function (form, options) {
+    return withRepairs(validateWithLinks(form, options), form);
+  };
+  function validateWithLinks(form, options) {
     var opts = options || {};
     if (opts.baserowLinks !== true || !form || typeof form !== "object") { return validateForm(form, opts); }
     var authentication = null;
@@ -1098,7 +1366,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var user = authentication && authentication.authenticated === true ? trimmed(authentication.user) : "";
     return formsRun("validate", { form: form, options: formsOptions(opts, { baserowLinks: true, user: user }) }, opts,
       user ? { fieldsOf: tableFieldsReader(authentication) } : null);
-  };
+  }
   C8O.nocodeForms.save = saveForm;
   C8O.nocodeForms.get = getForm;
   // the No Code user of the call: {authenticated, user} (nocode-form-preview-capture names the user of its request)
@@ -1254,6 +1522,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     var saved = saveForm(compiled.form, createOptions);
     if (compiled.referencesResolved) { saved.referencesResolved = compiled.referencesResolved; }
+    withRepairs(saved, null, compiled);
     attachSavedForm(saved, compiled.form, createOptions);
     // The columns the compilation added to a native select source.
     if (saved.validation) { keepSaveTimeWarnings(saved.validation, saveTimeWarnings(compiled.validation)); }
@@ -1279,7 +1548,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var referencesResolved = merged.referencesResolved;
     var saved = saveEditedForm(currentForm, patched, options);
     if (referencesResolved.length) { saved.referencesResolved = referencesResolved; }
-    return saved;
+    return withRepairs(saved, patch, merged);
   };
   C8O.nocodeForms.edit = function (id, operations, options) {
     try {
@@ -1297,6 +1566,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var currentForm = current && current.res ? current.res : current;
       var applied = formsRun("edit", { form: currentForm, operations: operations, options: formsOptions(options) }, options);
       var saved = saveEditedForm(currentForm, applied.form, options);
+      withRepairs(saved, operations, applied);
       saved.operations = applied.operations;
       if (applied.referencesResolved.length) { saved.referencesResolved = applied.referencesResolved; }
       saved.allTypesPath = applied.allTypesPath;

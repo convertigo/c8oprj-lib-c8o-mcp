@@ -2137,3 +2137,33 @@ test('an edit with no operation and an update with an empty patch save nothing',
   assert.equal(h.state.forms[id]._rev, rev);
   assert.equal(h.client.edit(id, [{ action: 'move_field', fieldName: 'a1', pageName: 'Une', index: 1 }], h.auth).saved, true);
 });
+
+// 19/11: the answers of create and edit list what was read with its only meaning (repairs): the JSON text of the
+// argument (a brace too many), then what the C8Oforms contract compiled another way (a number type, a page named in
+// another case). The saved form is the repaired one, the call is not refused.
+test('nocode-form-create and nocode-form-edit answer the repairs of the JSON text and of the contract', () => {
+  const h = creationHarness();
+  const text = '{"name":"Repairs","navigationMode":"custom","pages":[{"name":"Accueil","fields":[{"type":"button","name":"go","label":"Go","flow":"go"}]},' +
+    '{"name":"Détails","fields":[{"type":"number","name":"amount","label":"Amount"}}]}],"flows":[{"id":"go","name":"Go","elements":[{"type":"push_page","targetPage":"details"}]}]}';
+  // one brace too many after the last field
+  const reduced = h.client.parseObject(text, 'reduced', {});
+  const created = h.client.create(reduced, h.auth);
+  assert.equal(created.saved, true, JSON.stringify(created.error || created.validation));
+  assert.deepEqual(clone(created.repairs.map(repair => repair.code)), ['json_text_repaired', 'component_type_alias', 'page_name_matched']);
+  assert.equal(created.repairs[1].from, 'number');
+  assert.equal(created.repairs[2].to, 'Détails');
+  const saved = h.state.forms[created.form._id];
+  assert.equal(saved.formulaire.find(item => item.name === 'amount').config.type, 'number');
+  assert.equal(saved.flows.find(flow => flow.id === 'go').elements[0].config.targetPage, saved.pages.find(page => page.name === 'Détails').pageTechName);
+  const operations = h.client.parseOperations('[{"action":"add_field","pageName":"Détails","fieldObject":{"type":"textarea","name":"notes","label":"Notes"},},]', 'operations', []);
+  const edited = h.client.edit(created.form._id, operations, h.auth);
+  assert.equal(edited.saved, true, JSON.stringify(edited.error || edited.validation));
+  assert.deepEqual(clone(edited.repairs.map(repair => [repair.code, repair.from || ''])), [['json_text_repaired', ''], ['component_type_alias', 'textarea']]);
+  assert.equal(h.state.forms[created.form._id].formulaire.find(item => item.name === 'notes').config.short, false);
+});
+
+test('nocode-form-compile of a reduced form without slip answers no repairs', () => {
+  const r = api().compile({ name: 'Plain', pages: [{ name: 'A', fields: [{ type: 'text', name: 'a', label: 'A' }] }] });
+  assert.equal(r.status, 'ok');
+  assert.equal(r.repairs, undefined);
+});
