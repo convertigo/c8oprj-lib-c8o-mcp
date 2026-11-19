@@ -48,6 +48,8 @@ function pagesApi({ now = 1_000_000, auth = { authenticated: true, kind: 'nocode
     randomId: () => crypto.randomBytes(16).toString('hex'),
     digest: value => crypto.createHash('sha256').update(value).digest('hex'),
     newMap: () => new FakeMap(),
+    // one thread here: the task runs at once
+    locked: (lock, task) => task(),
     warn: message => logs.push('warn ' + message),
     info: message => logs.push('info ' + message)
   };
@@ -209,6 +211,108 @@ test('the store is bounded in answers and size, and an answer too large is not k
   // without the server store, the first page only
   const alone = api.bound({ server: null, httpServletRequest: null }, { sequence: 'tools_log_view', value: bigAnswer(5) });
   assert.equal(alone.structured.partialAnswer.kept, false);
+});
+
+// Each client of the calls below reads every page of its own answer; the answers it could not read back.
+function lostAnswers(api, store, firsts, values) {
+  const lost = [];
+  values.forEach((value, i) => {
+    try {
+      assert.ok(firsts[i] && firsts[i].kept, 'paged and kept');
+      assert.deepEqual(readAll(api, caller(store), firsts[i].structured).value, value);
+    } catch (error) {
+      lost.push(i + ': ' + String(error.message).split('\n')[0]);
+    }
+  });
+  return lost;
+}
+
+// 0.3.0-beta.45, 8 MCP sessions of one bearer at once (No Code release bench, 1,857 nocode-form-compile): 7 to 22 % of the
+// paged answers were gone when their client asked page 2 ("No answer … to read"). A call read the clock, cut its answer
+// (long for 15,000 characters), then swept the store of every answer not stamped between that clock and 10 minutes
+// before: the answers that calls started after it had written in the meantime were stamped later, and went.
+test('calls of one bearer at once keep each other\'s answers', () => {
+  const { api, clock } = pagesApi();
+  const store = server();
+  const values = Array.from({ length: 8 }, (_, i) => ({ call: i, ...bigAnswer(3 + i) }));
+  const firsts = [];
+  const written = [];
+  // a call cuts its answer while the next one starts, cuts and writes its own: the last to start writes first
+  const prepare = api.prepare;
+  let started = 0;
+  const call = i => {
+    firsts[i] = api.bound(caller(store), { sequence: 'tools_nocode_form_compile', value: values[i] });
+    written[i] = clock.now;
+  };
+  api.prepare = input => {
+    clock.now += 40;
+    if (started < values.length) {
+      call(started++);
+      clock.now += 5;
+    }
+    return prepare(input);
+  };
+  call(started++);
+  api.prepare = prepare;
+  assert.deepEqual(lostAnswers(api, store, firsts, values), []);
+  assert.equal(store.get(api.STORE_KEY).size(), values.length);
+  // an answer is stamped when it is kept, so that its 10 minutes start when its client can read it
+  const stamps = firsts.map(first => Number(String(store.get(api.STORE_KEY).get(first.structured.partialAnswer.answerId)).split('\n')[0]));
+  assert.deepEqual(stamps, written);
+  // and the other way round: the first to start writes first, and the others still find it
+  const others = [];
+  const more = Array.from({ length: 4 }, (_, i) => ({ again: i, ...bigAnswer(4) }));
+  more.forEach((value, i) => {
+    clock.now += 30;
+    others[i] = api.bound(caller(store), { sequence: 'tools_nocode_form_compile', value });
+  });
+  assert.deepEqual(lostAnswers(api, store, others, more), []);
+});
+
+test('a write keeps an answer stamped after its own clock, and a read takes it', () => {
+  const { api } = pagesApi();
+  const store = server();
+  const record = at => api.prepare({ id: api.host.randomId(), owner: 'o', tool: 'nocode-form-compile', at, text: JSON.stringify(bigAnswer(2)), kept: true });
+  const ahead = record(5_000);
+  assert.ok(api.write(store, ahead, 5_000));
+  // a writer whose clock is behind (it read it earlier, or the system clock stepped back)
+  const behind = record(1_000);
+  assert.ok(api.write(store, behind, 1_000));
+  assert.ok(api.read(store, ahead.id, 'o', 1_000), 'a record stamped after the clock is not expired');
+  assert.ok(api.read(store, behind.id, 'o', 1_000));
+  // an answer goes KEEP_MS after its stamp, whoever writes or reads
+  assert.ok(api.write(store, record(5_000 + api.KEEP_MS), 5_000 + api.KEEP_MS));
+  assert.equal(store.get(api.STORE_KEY).get(behind.id), null);
+  assert.equal(api.read(store, ahead.id, 'o', 5_000 + api.KEEP_MS), null);
+  assert.equal(store.get(api.STORE_KEY).get(ahead.id), null);
+  // a record without a readable stamp goes
+  store.get(api.STORE_KEY).put('f'.repeat(32), 'not a stamp\no\nt\n0,1\n\nx');
+  assert.ok(api.write(store, record(6_000 + api.KEEP_MS), 6_000 + api.KEEP_MS));
+  assert.equal(store.get(api.STORE_KEY).get('f'.repeat(32)), null);
+});
+
+// context.server has no putIfAbsent: two first answers of the engine at once each made the map of the store, and the
+// second set dropped the first map with the answer in it.
+test('the first answers of the engine at once share one map', () => {
+  const { api } = pagesApi();
+  const store = server();
+  const get = store.get;
+  const values = [{ first: 0, ...bigAnswer(5) }, { first: 1, ...bigAnswer(4) }];
+  const firsts = [];
+  let injected = false;
+  store.get = key => {
+    const value = get(key);
+    if (key === api.STORE_KEY && value == null && !injected) {
+      // another call keeps its first answer between this look and the map this call makes
+      injected = true;
+      firsts[1] = api.bound(caller(store), { sequence: 'tools_nocode_form_compile', value: values[1] });
+    }
+    return value;
+  };
+  firsts[0] = api.bound(caller(store), { sequence: 'tools_nocode_form_compile', value: values[0] });
+  store.get = get;
+  assert.ok(injected);
+  assert.deepEqual(lostAnswers(api, store, firsts, values), []);
 });
 
 test('answer-page is never paged again, and the guard never fails a call', () => {

@@ -66,6 +66,10 @@ if (typeof C8O === "undefined") {
     newMap: function () {
       return new java.util.concurrent.ConcurrentHashMap();
     },
+    // task run under the monitor of lock (a Java object: Synchronizer unwraps it), one thread at a time
+    locked: function (lock, task) {
+      return new Packages.org.mozilla.javascript.Synchronizer(task, lock)();
+    },
     warn: function (message) {
       try {
         Packages.com.twinsoft.convertigo.engine.Engine.logEngine.warn("[lib_ConvertigoMCP] " + message);
@@ -382,6 +386,27 @@ if (typeof C8O === "undefined") {
     return cut > 0 ? Number(value.substring(0, cut)) : NaN;
   }
 
+  // A record goes KEEP_MS after its stamp, or at once without a readable stamp. One stamped after now stays: calls of
+  // the same bearer run at once, and the answer another call kept while this one read its clock is fresh, not stale.
+  function expired(at, now) {
+    return isNaN(at) || !(now - at < api.KEEP_MS);
+  }
+
+  // The map of the records in store, made once: context.server has no putIfAbsent, and of two first writes at once
+  // each making its map, the second set would drop the first map with its record.
+  function answersOf(store) {
+    var answers = store.get(api.STORE_KEY);
+    if (answers == null) {
+      answers = api.host.locked(store, function () {
+        if (store.get(api.STORE_KEY) == null) {
+          store.set(api.STORE_KEY, api.host.newMap());
+        }
+        return store.get(api.STORE_KEY);
+      });
+    }
+    return answers;
+  }
+
   // store: {get(key), set(key, value)} (context.server); its map holds the serialized records by answer id.
   api.write = function (store, record, now) {
     if (!store) {
@@ -391,11 +416,7 @@ if (typeof C8O === "undefined") {
     if (serialized.length > api.MAX_ANSWER_CHARS + 4096) {
       return false;
     }
-    // context.server has no putIfAbsent: of two first writes at once, one map is kept
-    if (store.get(api.STORE_KEY) == null) {
-      store.set(api.STORE_KEY, api.host.newMap());
-    }
-    var answers = store.get(api.STORE_KEY);
+    var answers = answersOf(store);
     var kept = [];
     var total = 0;
     var entries = answers.entrySet().iterator();
@@ -403,7 +424,7 @@ if (typeof C8O === "undefined") {
       var entry = entries.next();
       var value = String(entry.getValue());
       var at = keptAt(value);
-      if (!(now - at >= 0 && now - at < api.KEEP_MS)) {
+      if (expired(at, now)) {
         entries.remove();
       } else {
         kept.push({ key: String(entry.getKey()), at: at, size: value.length });
@@ -431,8 +452,7 @@ if (typeof C8O === "undefined") {
       return null;
     }
     value = String(value);
-    var at = keptAt(value);
-    if (!(now - at >= 0 && now - at < api.KEEP_MS)) {
+    if (expired(keptAt(value), now)) {
       answers.remove(id);
       return null;
     }
@@ -482,20 +502,20 @@ if (typeof C8O === "undefined") {
       } catch (_noStore) {
         store = null;
       }
-      var now = api.host.now();
       var kept = store != null && full.length <= api.MAX_ANSWER_CHARS;
       var record = api.prepare({
         id: kept ? api.host.randomId() : "",
         owner: kept ? api.ownerOf(contextObject) : "",
         tool: api.toolName(sequence),
-        at: now,
         text: full,
         notes: anyNote ? notes : null,
         kept: kept,
         guidanceWarning: input.guidanceWarning,
         jsonOnly: jsonOnly
       });
-      if (kept && !api.write(store, record, now)) {
+      // stamped when kept, after the cut (long for a large answer): its time starts when its client can read it
+      record.at = api.host.now();
+      if (kept && !api.write(store, record, record.at)) {
         record.kept = false;
         record.id = "";
         record.cuts = record.cuts.slice(0, 2);
