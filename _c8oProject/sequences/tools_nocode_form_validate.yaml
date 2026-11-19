@@ -1,7 +1,7 @@
 accessibility: Private
 comment: |
   Validate a No Code form document
-  Checks a full C8Oforms form document against the component catalog and semantic graph invariants before saving, and with the No Code authentication the selects written into Baserow link_row columns.
+  Checks a whole C8Oforms form document you hold (form: the object, never an id) against the component catalog and semantic graph invariants before saving it, and with the No Code authentication the selects written into Baserow link_row columns. A saved form needs no call: nocode-form-create, nocode-form-edit and nocode-form-update answer the validation of what they saved.
 ↓Run [steps.SimpleStep-1780100000201]: 
   expression: |
     'include("js/nocode_forms.js");

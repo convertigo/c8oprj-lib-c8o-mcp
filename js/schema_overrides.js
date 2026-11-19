@@ -1285,7 +1285,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         sections: {
           type: "array",
           items: { type: "string" },
-          description: "Without it the contract answers quickReference, a compact reference of the reduced JSON (Baserow sources and saves included), and sectionIndex, what each section holds. Give the sections the task needs: [\"generationQuality\"] before generating an application, [\"example\"] for a small complete one, [\"styles\"] for style recipes, [\"componentAuthoring\"] or [\"editTool\"] for details, [\"dynamicReferences\"] for SmartSource references. A large section comes in parts (section.part, listed in sectionIndex). One answer stays under 12,500 characters: what does not fit comes back in remaining, ask it in the next call."
+          description: "Without it the contract answers quickReference, a compact reference of the reduced JSON (Baserow sources and saves included), and sectionIndex, what each section holds. With it, only the sections named, so name quickReference too, in one call: [\"quickReference\"] for a form or a questionnaire, [\"quickReference\",\"generationQuality\"] for an application, [\"quickReference\",\"editTool\"] for a change; add [\"styles\"], [\"componentAuthoring\"], [\"flowAuthoring\"] or [\"dynamicReferences\"] only for what the core does not show. A large section comes in parts (section.part, listed in sectionIndex). One answer stays under 12,500 characters: what does not fit comes back in remaining, ask all of it in the next call."
         }
       },
       additionalProperties: false
@@ -1309,7 +1309,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         project: nocodeFormsProjectProperty(),
-        form: jsonObjectOrStringSchema("Full C8Oforms document JSON to validate before persistence.")
+        form: jsonObjectOrStringSchema("The whole C8Oforms document (an object) to validate before saving it, never a form id: a saved form was validated by the create, edit or update that saved it.")
       },
       required: ["form"],
       additionalProperties: false

@@ -10,6 +10,7 @@ Read it before reading or changing an existing form, or listing or changing Base
    - To change a word or a text everywhere (a rename, a wording), call `nocode-form-get` with `find`: it lists every text a user sees that holds it, flow messages included; change each one, then call it again to check that none is left.
    - `auth_required` indicates a token/authentication failure. `form_unavailable` means missing or inaccessible: the API does not distinguish those cases, so do not claim a proven permission denial. Do not fall back to `requestable-execute` or any Studio tool.
    - Prefer `nocode-form-edit` for semantic edits when the document id is known and the integrated No Code Studio authentication context is available.
+   - From a script, call the tools and read their answers as `workflow-new.md` step 1 says (`whole()`, exact arguments, no tool search). An edit answers the saved form with its `validation`: do not read it again after the edit.
    - Use `nocode-form-edit` for operations such as adding, moving, or removing no-code components, adding page navigation buttons, or updating fields without replacing whole arrays like `formulaire`, `pages`, or `flows`.
    - Use `nocode-form-update` with a JSON merge patch only for small document-level patches or when `nocode-form-edit` cannot express the requested semantic operation.
    - Keep edits minimal and no-code-semantic; do not patch internal generated details that the no-code contract or semantic edit tool does not expose.

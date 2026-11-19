@@ -27,7 +27,10 @@ const DRAWER_BUDGET = 12000;
 // Then the Long answers section (partialAnswer, answer-page, remaining).
 // Then the Maps section of sources.md and its line on hand-written references (17/11).
 // Then the line of errors.md on answers with repairs (19/11).
-const SKILL_TEXT_SHA256 = '530888a79ca560e1115f1f9cc2a4c4ab647939a2d3ff96905e05a0729453fa6a';
+// Then fewer agent steps (19/11): the tool order (a questionnaire is no data application, no read after a create or an
+// edit), the long answers joined in the script (whole() in workflow-new.md), the contract in one call, the exact tool
+// arguments, the preview of applications only, and the No Code database that cannot be reached.
+const SKILL_TEXT_SHA256 = '7c3744d31b032fe4f73143966c7d48c65e9858841779dc54d49fb39003dd46fd';
 
 test('SKILL.md names each drawer once, and each drawer file of its folder is named', () => {
   const named = pointers.map(p => p.file);

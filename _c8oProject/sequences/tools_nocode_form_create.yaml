@@ -2,6 +2,7 @@ accessibility: Private
 comment: |
   Create a No Code form through C8Oforms APIs
   Compiles reduced creative JSON, validates it, then persists only through C8Oforms.APIV2_updateFormulaireDocument.
+  Answers status, saved, id, rev, validation (issues and warnings of the saved form) and the saved form: no nocode-form-get or nocode-form-validate is needed after it. From a script, return only these fields and the outline you check: the whole answer passes 14,000 characters for a form of a few pages.
 ↓Run [steps.SimpleStep-1780100000301]: 
   expression: |
     'include("js/nocode_forms.js");
