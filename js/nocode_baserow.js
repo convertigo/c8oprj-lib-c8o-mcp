@@ -49,7 +49,7 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     projectArray[0] = project;
     params.put("__project", projectArray);
     params.put("__sequence", sequence);
-    params.put("__context", "syncContext_" + java.lang.System.currentTimeMillis());
+    params.put("__context", "syncContext_" + java.util.UUID.randomUUID());
     var keys = Object.keys(variables || {});
     for (var i = 0; i < keys.length; i++) {
       if (variables[keys[i]] != null) {
@@ -78,7 +78,7 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     params.put("__project", projectArray);
     params.put("__connector", connector);
     params.put("__transaction", transaction);
-    params.put("__context", "syncContext_" + java.lang.System.currentTimeMillis());
+    params.put("__context", "syncContext_" + java.util.UUID.randomUUID());
     var keys = Object.keys(variables || {});
     for (var i = 0; i < keys.length; i++) {
       if (variables[keys[i]] != null) {
@@ -109,7 +109,7 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     projectArray[0] = project;
     params.put("__project", projectArray);
     params.put("__sequence", sequence);
-    params.put("__context", "syncContext_" + java.lang.System.currentTimeMillis());
+    params.put("__context", "syncContext_" + java.util.UUID.randomUUID());
     params.put("__nativeCall", "true");
     var keys = Object.keys(variables || {});
     for (var i = 0; i < keys.length; i++) {

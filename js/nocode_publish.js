@@ -39,7 +39,7 @@ C8O.nocodePublish = C8O.nocodePublish || {};
     projectArray[0] = project;
     params.put("__project", projectArray);
     params.put("__sequence", sequence);
-    params.put("__context", "syncContext_" + java.lang.System.currentTimeMillis());
+    params.put("__context", "syncContext_" + java.util.UUID.randomUUID());
     var keys = Object.keys(variables || {});
     for (var i = 0; i < keys.length; i++) {
       if (variables[keys[i]] != null) {
