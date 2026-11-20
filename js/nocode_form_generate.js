@@ -418,6 +418,7 @@ C8O.nocodeFormGenerate = C8O.nocodeFormGenerate || {};
     var out = { status: app.saved === true ? "created" : (spec.mode === "plan" && app.status === "ok" ? "draft" : "error"), saved: app.saved === true, route: "app",
       appMs: host.now() - t0, validation: { ok: app.saved === true && app.status === "ok" || !!(app.validation && (app.validation.valid === true || app.validation.ok === true)) },
       tables: tables.map(function (t) { return { id: t.id, name: t.name, created: t.created }; }),
+      base: app.baserow && app.baserow.base ? { id: app.baserow.base.id, name: str(app.baserow.base.name) } : null,
       pages: (Array.isArray(app.pages) ? app.pages : []).map(function (p) { return p && p.name; }) };
     if (app.id) { out.id = app.id; }
     if (app.error) { out.error = app.error; }

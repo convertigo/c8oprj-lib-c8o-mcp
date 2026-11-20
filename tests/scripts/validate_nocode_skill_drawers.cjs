@@ -30,7 +30,9 @@ const DRAWER_BUDGET = 12000;
 // Then fewer agent steps (19/11): the tool order (a questionnaire is no data application, no read after a create or an
 // edit), the long answers joined in the script (whole() in workflow-new.md), the contract in one call, the exact tool
 // arguments, the preview of applications only, and the No Code database that cannot be reached.
-const SKILL_TEXT_SHA256 = '7c3744d31b032fe4f73143966c7d48c65e9858841779dc54d49fb39003dd46fd';
+// Then the turn after a new data application (20/11): the tables the turn context names are used by id with no catalog
+// search, the catalog filtered by name, and the rows an apply answers as the proof of the write (sources.md).
+const SKILL_TEXT_SHA256 = '96c0d94041ab65896798de3d1d06419232b9888836d5c2596f9e1a3e98b22d0b';
 
 test('SKILL.md names each drawer once, and each drawer file of its folder is named', () => {
   const named = pointers.map(p => p.file);

@@ -437,11 +437,28 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     return raw;
   }
 
+  // A name filter matches whatever the case and the accents ("Suivi des actions" finds "suivi des Actions").
+  function catalogNameKey(value) {
+    var text = trimmed(value).toLowerCase();
+    try {
+      text = String(java.text.Normalizer.normalize(new java.lang.String(text), java.text.Normalizer.Form.NFD)).replace(/[\u0300-\u036f]/g, "");
+    } catch (_noNormalizer) {}
+    return text;
+  }
+
+  function catalogFiltered(filters) {
+    filters = filters || {};
+    return numberOrNull(filters.workspaceId) != null || numberOrNull(filters.databaseId) != null || numberOrNull(filters.tableId) != null ||
+      trimmed(filters.databaseName).length > 0 || trimmed(filters.tableName).length > 0;
+  }
+
   function filterCatalog(catalog, filters) {
     var workspaceId = numberOrNull(filters.workspaceId);
     var databaseId = numberOrNull(filters.databaseId);
     var tableId = numberOrNull(filters.tableId);
-    if (workspaceId == null && databaseId == null && tableId == null) {
+    var databaseName = catalogNameKey(filters.databaseName);
+    var tableName = catalogNameKey(filters.tableName);
+    if (!catalogFiltered(filters)) {
       return catalog;
     }
 
@@ -476,6 +493,12 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         continue;
       }
       if (tableId != null && table.id !== tableId) {
+        continue;
+      }
+      if (databaseName.length && catalogNameKey(table.baseName) !== databaseName) {
+        continue;
+      }
+      if (tableName.length && catalogNameKey(table.name) !== tableName) {
         continue;
       }
 
@@ -1858,6 +1881,47 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     }
     action.created = createdRows;
     action.updated = updatedRows;
+    // The rows as Baserow saved them (id and values): the proof of the write, nothing to read again.
+    var written = writtenRowsView(createdItems);
+    action.rows = written.rows;
+    if (written.more) {
+      action.moreRows = written.more;
+    }
+    plan.rows.push({ table: tableSpec.name, tableId: table.id, created: createdRows, updated: updatedRows, rows: written.rows, moreRows: written.more || 0 });
+  }
+
+  var WRITTEN_ROWS_MAX = 50;
+  var WRITTEN_VALUE_MAX = 200;
+
+  // {rows: [{id, values}], more}: a value of a link, a select or a file is reduced to what a user reads.
+  function writtenRowsView(items) {
+    var rows = [];
+    var list = ensureArray(items);
+    for (var i = 0; i < list.length && rows.length < WRITTEN_ROWS_MAX; i++) {
+      var item = list[i] || {};
+      var values = {};
+      for (var key in item) {
+        // attr: the attributes the engine's XML to JSON conversion adds (connector, context), not a column
+        if (!Object.prototype.hasOwnProperty.call(item, key) || key === "id" || key === "order" || key === "attr") {
+          continue;
+        }
+        var value = item[key];
+        if (value === null || typeof value === "undefined" || value === "" || (Array.isArray(value) && !value.length)) {
+          continue;
+        }
+        if (Array.isArray(value)) {
+          value = value.map(function (entry) { return entry && typeof entry === "object" ? (entry.value != null ? entry.value : (entry.name != null ? entry.name : entry.id)) : entry; });
+        } else if (typeof value === "object") {
+          value = value.value != null ? value.value : (value.name != null ? value.name : JSON.stringify(value));
+        }
+        if (typeof value === "string" && value.length > WRITTEN_VALUE_MAX) {
+          value = value.substring(0, WRITTEN_VALUE_MAX) + "…";
+        }
+        values[key] = value;
+      }
+      rows.push({ id: numberOrNull(item.id), values: values });
+    }
+    return { rows: rows, more: Math.max(0, list.length - rows.length) };
   }
 
   function createViews(plan, tableSpec, table, create, apply) {
@@ -1967,6 +2031,7 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         rows: 0,
         views: []
       },
+      rows: [],
       readBack: null
     };
     try {
@@ -1997,22 +2062,26 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
           });
         }
       }
+      // The catalog is read again only after a creation: rows written into existing tables read it once.
+      var createdBefore = plan.created.workspaces.length;
       var workspace = ensureWorkspace(plan, schema, create, apply, bearer, catalog);
-      if (apply) {
+      if (apply && plan.created.workspaces.length > createdBefore) {
         catalog = normalizeCatalog(readApplications());
       }
+      createdBefore = plan.created.bases.length;
       var base = ensureBase(plan, schema, create, apply, bearer, catalog, workspace);
-      if (apply) {
+      if (apply && plan.created.bases.length > createdBefore) {
         catalog = normalizeCatalog(readApplications());
       }
 
       var tableByName = buildTableMapForSchema(schema, catalog, base);
       for (var t = 0; t < schema.tables.length; t++) {
+        var tablesBefore = plan.created.tables.length;
         var ensuredTable = ensureTable(plan, schema.tables[t], create, apply, bearer, base, catalog);
         if (ensuredTable) {
           tableByName[schema.tables[t].name.toLowerCase()] = ensuredTable;
         }
-        if (apply) {
+        if (apply && plan.created.tables.length > tablesBefore) {
           catalog = normalizeCatalog(readApplications());
           tableByName = buildTableMapForSchema(schema, catalog, base);
           var refreshedTable = findTableInBase(catalog, schema.tables[t], base);
@@ -2055,7 +2124,13 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         createViews(plan, schema.tables[cv], tableByName[schema.tables[cv].name.toLowerCase()], create, apply);
       }
 
-      if (booleanDefault(opts.readBack, true)) {
+      var onlyRows = apply && plan.created.rows + plan.rows.reduce(function (sum, item) { return sum + (item.updated || 0); }, 0) > 0 &&
+        !plan.created.workspaces.length && !plan.created.bases.length && !plan.created.tables.length && !plan.created.fields.length && !plan.created.views.length;
+      if (onlyRows) {
+        // nothing of the schema changed: the rows written above are the read back
+        plan.readBack = null;
+        plan.readBackSkipped = "Only rows were written: rows lists them as Baserow saved them (id and values). Do not list them again to check them.";
+      } else if (booleanDefault(opts.readBack, true)) {
         var finalCatalog = normalizeCatalog(readApplications());
         var readFilter = {};
         if (base && numberOrNull(base.id) != null) {
@@ -2105,8 +2180,8 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
       if (includeColumns) {
         // Without a filter the columns of every table would be read: the tree is answered without them, with the ids to
         // ask for (an empty refusal read as "no workspace", 27/10).
-        if (numberOrNull(opts.workspaceId) == null && numberOrNull(opts.databaseId) == null && numberOrNull(opts.tableId) == null) {
-          notes.push("Columns are not listed (columns_filter_required): includeColumns=true reads the columns of the tables of one workspaceId, databaseId or tableId, not of all " + allCatalog.tables.length + " tables. Call again with the id of the table, base or workspace you need, from the tree below.");
+        if (!catalogFiltered(opts)) {
+          notes.push("Columns are not listed (columns_filter_required): includeColumns=true reads the columns of the tables of one workspaceId, databaseId, tableId, databaseName or tableName, not of all " + allCatalog.tables.length + " tables. Call again with the id or the name of the table, base or workspace you need, from the tree below.");
         } else {
           columns = hydrateColumns(catalog, authentication, editorBaserowBearer());
         }

@@ -65,7 +65,7 @@ function forms(sandbox, saves) {
     create(spec, options) {
       calls.app.push({ spec: JSON.parse(JSON.stringify(spec)), options });
       const next = sandbox.appAnswers && sandbox.appAnswers.shift();
-      return next || { status: 'ok', saved: true, id: 'app-1', pages: [{ name: 'Liste' }, { name: 'Fiche' }], baserow: { base: { name: 'CRM' }, tables: [{ id: 7, name: 'Contacts', created: true }] } };
+      return next || { status: 'ok', saved: true, id: 'app-1', pages: [{ name: 'Liste' }, { name: 'Fiche' }], baserow: { base: { id: 2180, name: 'CRM' }, tables: [{ id: 7, name: 'Contacts', created: true }] } };
     }
   };
   return calls;
@@ -241,6 +241,8 @@ test('a data application goes to nocode-app-create with the slips of its spec fi
   assert.equal(sent.entities[0].fields[3].options, undefined);
   assert.deepEqual(out.summary, { name: 'CRM', pages: 2, fields: 4, tables: 1, base: 'CRM', language: 'fr', navigationMode: 'custom', route: 'app' });
   assert.ok(out.specFixes.length >= 3);
+  assert.deepEqual(plain(out.base), { id: 2180, name: 'CRM' }, 'the base of the new tables, for the next turn of the agent');
+  assert.deepEqual(plain(out.tables), [{ id: 7, name: 'Contacts', created: true }]);
   assert.equal(calls.create.length, 0);
 });
 

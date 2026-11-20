@@ -73,6 +73,13 @@ function fakeBaserow(options = {}) {
         state.lastTableBody = body;
         return { document: { object: { id: table.id, name: table.name } } };
       }
+      case 'TableCreateRow': {
+        const values = JSON.parse(params.data);
+        const row = { id: state.nextId++, order: '1.00000000000000000000', attr: { connector: '', context: 'syncContext_x', transaction: 'TableCreateRow' }, ...values };
+        if (values.Stage) row.Stage = { id: 1, value: values.Stage, color: 'blue' };
+        state.rows = (state.rows || []).concat([{ table: Number(params.table_id), row }]);
+        return { document: row };
+      }
       case 'TableCreateView': {
         if (options.refuseViews) return { document: {} };
         const body = JSON.parse(params.data);
@@ -168,7 +175,7 @@ test('includeColumns without a workspace, base or table keeps the tree and says 
   assert.equal(answer.status, 'ok');
   assert.deepEqual(answer.workspaces, [{ id: 10, name: 'Team', bases: [{ id: 20, name: 'Sales', tables: [{ id: 30, name: 'Deals' }] }] }]);
   assert.equal(answer.counts.columns, 0);
-  assert.match(answer.notes[0], /^Columns are not listed \(columns_filter_required\): .*workspaceId, databaseId or tableId.*1 tables/);
+  assert.match(answer.notes[0], /^Columns are not listed \(columns_filter_required\): .*workspaceId, databaseId, tableId, databaseName or tableName.*1 tables/);
   assert.ok(!fake.state.calls.some(c => c.name === 'formscommon_FieldsList' || c.name === '_api_database_fields_table__table_id___GET'), 'no column is read');
   const full = runSequenceStep('tools_nocode_baserow_catalog_list.yaml', { includeColumns: 'true', view: 'full' }, fakeBaserow().transport);
   assert.deepEqual([full.status, full.tables.map(t => t.id), full.columns, full.notes.length], ['ok', [30], [], 1]);
@@ -464,4 +471,50 @@ test('nocode-app-create saves no form when Baserow refuses the schema, and says 
   assert.equal(r.saved, false);
   assert.ok(!h.writes.includes('APIV2_updateFormulaireDocument'), 'no form');
   assert.match(r.next || r.error.message, /same spec|reused|not found/);
+});
+
+test('the catalog is filtered by the name of a base or a table, case and spaces ignored', () => {
+  const fake = fakeBaserow();
+  fake.state.bases.push({ id: 21, name: 'Support', workspaceId: 10 });
+  fake.state.tables.push({ id: 32, name: 'Tickets', baseId: 21 });
+  const C8O = load(fake.transport).C8O;
+  const byBase = C8O.nocodeBaserow.catalogList({ token: 't', databaseName: ' sales ', view: 'compact' });
+  assert.deepEqual(plain(byBase.workspaces[0].bases.map(b => b.name)), ['Sales']);
+  const byTable = C8O.nocodeBaserow.catalogList({ token: 't', tableName: 'TICKETS', includeColumns: true, view: 'compact' });
+  assert.deepEqual(plain(byTable.workspaces[0].bases[0].tables.map(t => t.name)), ['Tickets']);
+  assert.equal(byTable.notes, undefined, 'a name filter is enough to list the columns');
+  const none = C8O.nocodeBaserow.catalogList({ token: 't', databaseName: 'Nothing', view: 'compact' });
+  assert.equal(none.counts.tables, 0);
+});
+
+test('rows written into an existing table: one catalog read, the rows answered as the proof, no read back', () => {
+  const fake = fakeBaserow();
+  const C8O = load(fake.transport).C8O;
+  const r = C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', view: 'compact', schema: { baseId: 20, tables: [{ id: 30, name: 'Deals',
+    sampleRows: [{ Name: 'Acme renewal', Stage: 'Open' }, { Name: 'Globex deal', Stage: 'Won' }] }] } });
+  assert.equal(r.status, 'ok', JSON.stringify(r.error));
+  assert.equal(r.created.rows, 2);
+  assert.equal(fake.state.calls.filter(c => c.name === 'formscommon_ApplicationsList').length, 1, 'the catalog is read once: nothing was created');
+  assert.equal(fake.state.calls.filter(c => c.name === 'formscommon_FieldsList').length, 0, 'no read back of the columns');
+  assert.equal(r.readBack, null);
+  assert.match(r.readBackSkipped, /Only rows were written/);
+  const written = plain(r.rows);
+  assert.equal(written.length, 1);
+  assert.equal(written[0].tableId, 30);
+  assert.equal(written[0].created, 2);
+  assert.deepEqual(written[0].rows.map(row => row.values), [{ Name: 'Acme renewal', Stage: 'Open' }, { Name: 'Globex deal', Stage: 'Won' }]);
+  assert.ok(written[0].rows.every(row => Number.isInteger(row.id)), 'each row with its id');
+  const action = plain(r.actions).find(a => a.type === 'create_rows' || a.action === 'create_rows' || /rows/.test(JSON.stringify(a)));
+  assert.ok(action, 'the create_rows action is still reported');
+});
+
+test('a schema change keeps its read back, with the rows written beside it', () => {
+  const fake = fakeBaserow();
+  const C8O = load(fake.transport).C8O;
+  const r = C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', view: 'compact', schema: { baseId: 20, tables: [{ id: 30, name: 'Deals',
+    fields: [{ name: 'Amount', type: 'number' }], sampleRows: [{ Name: 'Initech', Amount: 12 }] }] } });
+  assert.equal(r.status, 'ok', JSON.stringify(r.error));
+  assert.ok(r.readBack, 'a field was created: the columns are read back');
+  assert.equal(r.readBackSkipped, undefined);
+  assert.deepEqual(plain(r.rows[0].rows[0].values), { Name: 'Initech', Amount: 12 });
 });

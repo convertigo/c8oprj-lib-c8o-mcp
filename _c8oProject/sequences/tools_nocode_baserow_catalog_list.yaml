@@ -12,6 +12,8 @@ responseTimeout: 300
       workspaceId: typeof workspaceId === "undefined" ? null : workspaceId,
       databaseId: typeof databaseId === "undefined" ? null : databaseId,
       tableId: typeof tableId === "undefined" ? null : tableId,
+      databaseName: typeof databaseName === "undefined" ? "" : databaseName,
+      tableName: typeof tableName === "undefined" ? "" : tableName,
       view: typeof view === "undefined" ? "" : view
     });'
 ↓result [steps.JsonToXmlStep-1780200000002]: 
@@ -42,6 +44,12 @@ responseTimeout: 300
 ↓tableId [variables.RequestableVariable-1780124961595]: 
   comment: Optional Baserow table id filter.
   description: Optional Baserow table id filter.
+↓databaseName [variables.RequestableVariable-1795500000001]: 
+  comment: Optional Baserow database name filter (case and accents ignored), when its id is not known.
+  description: Optional Baserow database name filter (case and accents ignored), when its id is not known.
+↓tableName [variables.RequestableVariable-1795500000003]: 
+  comment: Optional Baserow table name filter (case and accents ignored), when its id is not known.
+  description: Optional Baserow table name filter (case and accents ignored), when its id is not known.
 ↓view [variables.RequestableVariable-1792690000001]: 
   comment: compact (default of MCP calls) gives the agent view; empty or full keeps every raw Baserow property (the Assistant's table picker).
   description: compact (default of MCP calls) gives the agent view; empty or full keeps every raw Baserow property (the Assistant's table picker).

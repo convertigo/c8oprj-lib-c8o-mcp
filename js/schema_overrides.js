@@ -948,6 +948,14 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "integer",
           description: "Optional Baserow table id filter. With includeColumns=true, fields are listed only for this table."
         },
+        databaseName: {
+          type: "string",
+          description: "Optional Baserow database name filter (case and accents ignored), when its id is not known: the base of the tables the turn context names, for example."
+        },
+        tableName: {
+          type: "string",
+          description: "Optional Baserow table name filter (case and accents ignored), when its id is not known."
+        },
         view: nocodeBaserowViewProperty()
       },
       required: [],
