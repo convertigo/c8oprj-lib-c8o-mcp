@@ -67,7 +67,7 @@ function sandbox(transport, files) {
   const context = {
     Packages: packages,
     java: {
-      lang: { System: { currentTimeMillis: () => 1800000000000 }, String, reflect: { Array: { newInstance: () => [] } } },
+      util: { UUID: { randomUUID: () => require('node:crypto').randomUUID() } }, lang: { System: { currentTimeMillis: () => 1800000000000 }, String, reflect: { Array: { newInstance: () => [] } } },
       io: { File },
       awt: { image: { BufferedImage }, Color: class { constructor(rgb) { this.rgb = rgb; } } }
     },

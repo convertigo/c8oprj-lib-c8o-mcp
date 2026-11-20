@@ -43,7 +43,7 @@ function api(transport, extraFiles) {
     if (key === 'org') return { apache: { commons: { io: { FileUtils: { readFileToString: file => fs.readFileSync(file.path, 'utf8') } } } } };
     return empty;
   } });
-  const sandbox = { Packages: packages, java: { lang: { System: { currentTimeMillis: () => 1800000000000 }, String, reflect: { Array: { newInstance: () => [] } } } } };
+  const sandbox = { Packages: packages, java: { util: { UUID: { randomUUID: () => require('node:crypto').randomUUID() } }, lang: { System: { currentTimeMillis: () => 1800000000000 }, String, reflect: { Array: { newInstance: () => [] } } } } };
   vm.createContext(sandbox);
   vm.runInContext(source, sandbox, { filename: 'nocode_forms.js' });
   if (extraFiles) {
