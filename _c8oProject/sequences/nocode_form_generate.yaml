@@ -1,0 +1,59 @@
+accessibility: Private
+comment: |
+  Generate a No Code form or data application from a request (Flash mode of the Tigo panel)
+  Called by lib_ConvertigoAssistant (AgentFlashForm), never listed to an agent. mistral-large-4 on the Convertigo LLM gateway, with the contract of the installed C8Oforms and the 3 closest validated examples of resources/nocode-form-generator, writes either the reduced form JSON (compiled and validated as nocode-form-compile and nocode-form-validate do, repaired up to twice from the exact errors, then saved as nocode-form-create does) or the business spec of nocode-app-create (base, tables and application in one call), or declines what Flash cannot do (kind clarify, app, tables or edit). Answers status created, draft, invalid, declined, error or running: past about 38 s it answers running with a jobId, and a call with that jobId alone (same token and userId) resumes the job. The gateway key is the user's (gatewayKeyHandle) when the server gives one per user, else the key of Tigo's built-in agent; it is never returned. The answer carries summary, attempts, durationMs and usage (tokens and gateway cost).
+responseTimeout: 300
+↓Run [steps.SimpleStep-1795101000101]: 
+  expression: |
+    'include("js/nocode_forms.js");
+    include("js/nocode_baserow.js");
+    include("js/nocode_app.js");
+    include("js/nocode_form_generate.js");
+    function textOf(value) { return (typeof value === "undefined" || value === null) ? "" : String(value); }
+    result = C8O.nocodeFormGenerate.run({ jobId: textOf(jobId), request: textOf(request), tables: textOf(tables), language: textOf(language), mode: textOf(mode),
+      reasoning: textOf(reasoning), project: textOf(project), token: textOf(token), userId: textOf(userId), gatewayKeyHandle: textOf(gatewayKeyHandle) });'
+↓result [steps.JsonToXmlStep-1795101000102]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓request [variables.RequestableVariable-1795101000103]: 
+  comment: The user's request in their words.
+  description: The user's request in their words.
+↓tables [variables.RequestableVariable-1795101000105]: 
+  comment: Optional JSON array of the No Code database tables to use - each {id, path, columns [{name, type, options}]} as nocode-baserow-catalog-list gives them.
+  description: Optional JSON array of the No Code database tables to use - each {id, path, columns [{name, type, options}]} as nocode-baserow-catalog-list gives them.
+↓language [variables.RequestableVariable-1795101000107]: 
+  comment: Optional fr or en; guessed from the request when empty.
+  description: Optional fr or en; guessed from the request when empty.
+↓mode [variables.RequestableVariable-1795101000106]: 
+  comment: create (default) saves the form or builds the application; draft only writes it (the reduced JSON or the spec), nothing is saved.
+  description: create (default) saves the form or builds the application; draft only writes it (the reduced JSON or the spec), nothing is saved.
+  value: create
+↓reasoning [variables.RequestableVariable-1795101000113]: 
+  comment: Reasoning effort of the generation and its repairs - low, medium or high, the level of the Tigo panel; empty keeps the gateway default.
+  description: Reasoning effort of the generation and its repairs - low, medium or high, the level of the Tigo panel; empty keeps the gateway default.
+↓project [variables.RequestableVariable-1795101000108]: 
+  comment: C8Oforms project name. Defaults to C8Oforms.
+  description: C8Oforms project name. Defaults to C8Oforms.
+  value: C8Oforms
+↓token [variables.RequestableVariable-1795101000109]: 
+  comment: No Code Studio bearer token of the user, used to authenticate the C8Oforms API calls.
+  description: No Code Studio bearer token of the user, used to authenticate the C8Oforms API calls.
+↓userId [variables.RequestableVariable-1795101000114]: 
+  comment: The user the Assistant resolved for the token; ties the gateway key handle and the jobs to that user.
+  description: The user the Assistant resolved for the token; ties the gateway key handle and the jobs to that user.
+↓gatewayKeyHandle [variables.RequestableVariable-1795101000115]: 
+  comment: Handle of the user's gateway key kept by lib_ConvertigoAssistant in server memory (servers with one key per user); empty uses the key of Tigo's built-in agent where the server has no per-user keys.
+  description: Handle of the user's gateway key kept by lib_ConvertigoAssistant in server memory (servers with one key per user); empty uses the key of Tigo's built-in agent where the server has no per-user keys.
+↓jobId [variables.RequestableVariable-1795101000111]: 
+  comment: The jobId of a generation that answered status running, alone, to wait for its result.
+  description: The jobId of a generation that answered status running, alone, to wait for its result.
