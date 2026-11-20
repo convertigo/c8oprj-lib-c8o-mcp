@@ -5,6 +5,7 @@
 
 include("js/util.js");
 include("js/xmlizable.js");
+include("js/rhino_loop_bindings.js");
 
 if (typeof C8O === "undefined") {
   var C8O = {};
@@ -1683,6 +1684,10 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
       }
 
       var preparedValue = C8O.dbo._preparePropertyValue(pd, C8O.dbo._isMobileSmartSourceTypeClass(propertyType) ? C8O.dbo._expandSmartSourceShorthand(rawSpec, dbo) : rawSpec);
+      var loopBindings = C8O.rhinoLoopBindings.prepareProperty(dbo, name, preparedValue);
+      if (loopBindings && loopBindings.changes.length && String(propertyType.getName()) === "java.lang.String") {
+        preparedValue = loopBindings.text;
+      }
       var compiledValue = dbo.compileProperty(propertyType, name, preparedValue);
       if (compiledValue instanceof NativeJavaObject) {
         compiledValue = compiledValue.unwrap();
@@ -1708,11 +1713,18 @@ C8O.dbo.applyPropertyUpdates = function (dbo, updates) {
         } catch (_ignoreClear) {}
       }
 
-      applied.push({
+      var appliedProperty = {
         name: name,
         previousValue: C8O.util.previewValue(previousValue),
-        newValue: C8O.util.previewValue(rawSpec)
-      });
+        newValue: C8O.util.previewValue(loopBindings && loopBindings.changes.length ? preparedValue : rawSpec)
+      };
+      if (loopBindings && loopBindings.changes.length) {
+        appliedProperty.warnings = [{
+          code: "JS-LOOP-CONST", message: C8O.rhinoLoopBindings.message,
+          lines: loopBindings.changes.map(function (change) { return change.line; })
+        }];
+      }
+      applied.push(appliedProperty);
     } catch (applyError) {
       errors.push({ name: name, message: String(applyError) });
     }

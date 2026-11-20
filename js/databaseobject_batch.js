@@ -1615,6 +1615,10 @@ include("js/sql_dialect.js");
     for (var a = 0; a < applied.length; a++) {
       if (applied[a] && applied[a].name) {
         changedNames.push(String(applied[a].name));
+        var propertyWarnings = applied[a].warnings || [];
+        for (var pw = 0; pw < propertyWarnings.length; pw++) {
+          report.warnings.push(scopeName + ": " + applied[a].name + ": " + propertyWarnings[pw].code + ": " + propertyWarnings[pw].message);
+        }
       }
     }
 

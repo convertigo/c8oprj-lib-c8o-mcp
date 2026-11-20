@@ -382,6 +382,7 @@ function propertyWorld() {
         _describeAllowedValues: (pd, dbo) => ((dbo.tags || {})[pd.getName()] || null) && dbo.tags[pd.getName()].map((label, value) => ({ value, label })) }
     }
   };
+  vm.runInNewContext(read('js/rhino_loop_bindings.js'), ctx);
   vm.runInNewContext(['_NUMBER_PROPERTY_TYPES', '_checkScalarPropertyValue', '_matchConstant', 'applyPropertyUpdates', '_preparePropertyValue']
     .map(fnOf).join(''), ctx);
   const check = (name, type, value, dbo) => ctx.C8O.dbo._checkScalarPropertyValue({ getName: () => name, getPropertyType: () => type }, value, dbo || {});
@@ -493,6 +494,28 @@ test('tree-apply properties: a value the engine cannot take is an error and is n
   assert.equal(good.errors.length, 0);
   assert.deepEqual(set, [['responseTimeout', '60'], ['accessibility', 'Private'], ['autoStart', true]]);
   assert.deepEqual([...good.applied].map(a => a.newValue), ['60', 'Private', 'true']);
+});
+
+test('a corrected step expression is compiled, stored and reported with its compatibility notice', () => {
+  const { ctx } = propertyWorld();
+  const original = 'for(var i=0;i<2;i++){const x=i;}';
+  const corrected = original.replace('const', 'let');
+  const stored = [];
+  ctx.C8O.dbo._getDescriptorMap = () => ({ expression: {
+    getPropertyType: () => javaType('java.lang.String'), getReadMethod: () => null, getValue: () => null,
+    getName: () => 'expression', getWriteMethod: () => ({ invoke: (_, args) => stored.push(args[0]) })
+  } });
+  const dbo = { compileProperty: (_, name, value) => { assert.equal(value, corrected); return value; } };
+  // The AST/parser behavior is exercised separately by RhinoLoopBindingsTest with the real engine jar.
+  ctx.C8O.rhinoLoopBindings.prepareProperty = (object, name, value) => {
+    assert.equal(object, dbo); assert.equal(name, 'expression'); assert.equal(value, original);
+    return {text: corrected, changes: [{offset: 22, line: 1}]};
+  };
+  const result = ctx.C8O.dbo.applyPropertyUpdates(dbo, {expression: original});
+  assert.equal(result.errors.length, 0);
+  assert.deepEqual(stored, [corrected]);
+  assert.equal(result.applied[0].newValue, corrected);
+  assert.equal(result.applied[0].warnings[0].code, 'JS-LOOP-CONST');
 });
 
 // --- concurrent calls -------------------------------------------------------------------------------
