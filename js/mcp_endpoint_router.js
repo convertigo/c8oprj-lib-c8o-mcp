@@ -577,6 +577,8 @@ var ARGUMENT_ALIASES = {
   tools_databaseobject_move: { at: "position" },
   tools_databaseobject_copy: { position: "at" },
   tools_nocode_baserow_rows_list: { tableId: "table", table_id: "table", table_id_int: "table", columns: "fields", where: "filter", order: "sort", orderBy: "sort", order_by: "sort", pageSize: "size", limit: "size" },
+  // the names of catalog-list (tableId, databaseId) and of schema-apply (baseId, databaseName) for what to read
+  tools_nocode_baserow_schema_get: { table: "tables", tableId: "tables", tableIds: "tables", table_id: "tables", tableName: "tables", tableNames: "tables", baseId: "base", base_id: "base", databaseId: "base", database_id: "base", database: "base", baseName: "base", databaseName: "base", includeLinked: "linked", linkedTables: "linked", withRows: "rows", includeRows: "rows", data: "rows" },
   tools_nocode_form_list: { query: "name", q: "name", search: "name", filter: "name", text: "name", size: "limit", pageSize: "limit", page_size: "limit", nextCursor: "cursor", pageToken: "cursor", page_token: "cursor", next: "cursor" },
   // a path the agent saw keeps only its file name (js/attachment_read.js)
   tools_nocode_attachment_read: { file: "name", fileName: "name", filename: "name", file_name: "name", attachment: "name", attachmentName: "name", path: "name", sheetName: "sheet", sheet_name: "sheet", tab: "sheet", nextOffset: "offset", next_offset: "offset", start: "offset", cursor: "offset", rows: "limit", size: "limit", pageSize: "limit", page_size: "limit", maxRows: "limit" },

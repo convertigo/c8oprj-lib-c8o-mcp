@@ -162,6 +162,20 @@ const tools = sequences();
 test('the project lists its tools', () => {
   assert.ok(tools.length > 40, String(tools.length));
   assert.ok(tools.includes('tools_nocode_attachment_read'));
+  // the read and the write of a no-code database schema
+  assert.ok(tools.includes('tools_nocode_baserow_schema_get'));
+  assert.ok(tools.includes('tools_nocode_baserow_schema_apply'));
+});
+
+test('nocode-baserow-schema-get takes tables as ids, names or references, and its read id alone', () => {
+  const input = JSON.parse(JSON.stringify(overrides.applyInput('tools_nocode_baserow_schema_get', derivedInput('tools_nocode_baserow_schema_get'), null)));
+  assert.deepEqual(Object.keys(input.properties).sort(), ['base', 'describeId', 'linked', 'rows', 'tables', 'token']);
+  assert.deepEqual(input.properties.tables.items.anyOf.map(s => s.type), ['integer', 'string', 'object']);
+  assert.deepEqual(input.properties.base.anyOf.map(s => s.type), ['integer', 'string']);
+  assert.equal(input.required, undefined);
+  const problems = [];
+  check(input, 'tools_nocode_baserow_schema_get input', problems);
+  assert.deepEqual(problems, []);
 });
 
 test('every tool answers an object input schema and an object output schema a strict client reads', () => {

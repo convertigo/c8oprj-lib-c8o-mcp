@@ -94,6 +94,8 @@ C8O.studioWriteConfirm = C8O.studioWriteConfirm || {};
     tools_nocode_attachment_read: true,
     tools_nocode_baserow_catalog_list: true,
     tools_nocode_baserow_rows_list: true,
+    // reads the structure of tables (and their rows on demand) with the user's own account
+    tools_nocode_baserow_schema_get: true,
     tools_nocode_form_compile: true,
     tools_nocode_form_contract_get: true,
     tools_nocode_form_get: true,

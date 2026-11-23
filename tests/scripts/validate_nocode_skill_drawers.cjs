@@ -33,7 +33,9 @@ const DRAWER_BUDGET = 12000;
 // Then the turn after a new data application (20/11): the tables the turn context names are used by id with no catalog
 // search, the catalog filtered by name, and the rows an apply answers as the proof of the write (sources.md).
 // Then the line of errors.md on a No Code write that answers running with its id (23/11).
-const SKILL_TEXT_SHA256 = '60429a422008b3ee5ff07e4ef72d10241b8b17195541efd0e37e674ae1b10562';
+// Then nocode-baserow-schema-get (23/11): allowed in SKILL.md, the schema of existing tables read before an apply changes
+// them (workflow-existing.md step 6, sources.md), its running read and its refusals (errors.md).
+const SKILL_TEXT_SHA256 = 'd2f1d197079a0315e813d9b0bb6aed3b940087f1f04b8ed2d3bbcffd6c5fcb80';
 
 test('SKILL.md names each drawer once, and each drawer file of its folder is named', () => {
   const named = pointers.map(p => p.file);

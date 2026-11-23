@@ -1,0 +1,63 @@
+accessibility: Private
+comment: |
+  Read the schema of No Code Baserow tables
+  Reads the structure of tables of the authenticated No Code user's catalog with the user's own Baserow account (lib_BaseRow.formscommon_SchemaApply mode describe): one c8oforms.baserow-template schema per base (fields with type, select values, links and their related field, lookups, rollups, counts, formulas, Baserow options), the tables the asked ones link (linked, default true) and, on demand, every row keyed by _key, the row id (rows). Takes tables (ids, names or paths Workspace~>Base~>Table) and/or a base (all its tables, or the tables named in it). Lists beside each schema the ids of its tables and select options, and what was left out (skipped, omitted, files). Limits: 100 tables, 2,000 rows per table, 1.8 MB; above, refused with the table and the limit. A long read answers running with its describeId. Never writes. Read existing tables with it before changing them with nocode-baserow-schema-apply, and keep their names.
+responseTimeout: 300
+↓Run [steps.SimpleStep-1817000000001]: 
+  expression: |
+    'include("js/nocode_baserow.js");
+    include("js/nocode_form_write_job.js");
+    var writeJob = C8O.nocodeFormWriteJob;
+    var askedDescribeId = writeJob.jobIdOf(typeof describeId !== "undefined" ? describeId : null);
+    var getToken = C8O.nocodeBaserow.callerToken({ token: typeof token === "undefined" ? null : token });
+    var getOwner = writeJob.owner(getToken);
+    var getRequest = askedDescribeId.length ? null : C8O.nocodeBaserow.schemaGetInput({
+      tables: typeof tables === "undefined" ? null : tables,
+      base: typeof base === "undefined" ? null : base,
+      linked: typeof linked === "undefined" ? null : linked,
+      rows: typeof rows === "undefined" ? null : rows
+    });
+    if (!getOwner.length) {
+      // no bearer: auth_required, nothing is read
+      result = C8O.nocodeBaserow.schemaGet({ token: getToken });
+    } else if (getRequest && getRequest.status) {
+      // arguments that name nothing to read are answered at once, nothing runs in a thread
+      result = getRequest;
+    } else {
+      // the read runs in a thread of its own: past the time an agent waits, it answers running with its describeId, and the
+      // same call (or the describeId alone) waits for that same read
+      var getHost = writeJob.javaHost(context);
+      C8O.detachedRequest = getHost.detachedRequest;
+      result = writeJob.run({ kind: "describe", input: getRequest, jobId: askedDescribeId, owner: getOwner, options: { token: getToken } }, getHost);
+    }'
+↓result [steps.JsonToXmlStep-1817000000002]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓token [variables.RequestableVariable-1817000000003]: 
+  comment: 'No Code Studio bearer token. Leave empty in the integrated assistant: the MCP bearer authentication supplies it.'
+  description: 'No Code Studio bearer token. Leave empty in the integrated assistant: the MCP bearer authentication supplies it.'
+↓tables [variables.RequestableVariable-1817000000004]: 
+  comment: Tables to read, as a JSON list of their ids, names or paths Workspace~>Base~>Table from nocode-baserow-catalog-list (a form source gives forms_config.table_id_int and table_id). With base, the names are looked for in that base.
+  description: Tables to read, as a JSON list of their ids, names or paths Workspace~>Base~>Table from nocode-baserow-catalog-list (a form source gives forms_config.table_id_int and table_id). With base, the names are looked for in that base.
+↓base [variables.RequestableVariable-1817000000005]: 
+  comment: A base, by its id from nocode-baserow-catalog-list, its name or Workspace~>Base. Alone, all its tables are read; with tables, the tables named are looked for in it.
+  description: A base, by its id from nocode-baserow-catalog-list, its name or Workspace~>Base. Alone, all its tables are read; with tables, the tables named are looked for in it.
+↓linked [variables.RequestableVariable-1817000000006]: 
+  comment: true (default) also reads the tables the asked ones link, so that links, lookups and rollups stay whole; false reads the tables asked only, and a link to another table is left out and listed in omitted.
+  description: true (default) also reads the tables the asked ones link, so that links, lookups and rollups stay whole; false reads the tables asked only, and a link to another table is left out and listed in omitted.
+↓rows [variables.RequestableVariable-1817000000007]: 
+  comment: true also reads every row of each table (2,000 at most per table), keyed by _key, the Baserow row id; false (default) reads the structure only.
+  description: true also reads every row of each table (2,000 at most per table), keyed by _key, the Baserow row id; false (default) reads the structure only.
+↓describeId [variables.RequestableVariable-1817000000008]: 
+  comment: Id of a read that answered status running. Given alone, the call waits for that same read and answers its result.
+  description: Id of a read that answered status running. Given alone, the call waits for that same read and answers its result.

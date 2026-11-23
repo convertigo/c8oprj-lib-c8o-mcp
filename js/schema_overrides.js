@@ -1012,6 +1012,52 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  // nocode-baserow-schema-get (js/nocode_baserow.js schemaGet): tables and a base named as nocode-baserow-catalog-list
+  // gives them, the tables they link and their rows on demand.
+  function nocodeBaserowSchemaGetInputSchema() {
+    var tableRef = {
+      anyOf: [
+        { type: "integer", description: "Table id." },
+        { type: "string", description: "Table name, or its path Workspace~>Base~>Table." },
+        {
+          type: "object",
+          properties: { id: { type: "integer" }, path: { type: "string" }, name: { type: "string" } },
+          additionalProperties: true
+        }
+      ]
+    };
+    return {
+      type: "object",
+      properties: {
+        tables: {
+          type: "array",
+          items: tableRef,
+          description: "Tables to read: their ids from nocode-baserow-catalog-list (or forms_config.table_id_int of a source), names, or paths Workspace~>Base~>Table (forms_config.table_id). With base, the names are looked for in that base."
+        },
+        base: {
+          anyOf: [{ type: "integer" }, { type: "string" }],
+          description: "A base: its id from nocode-baserow-catalog-list, its name or Workspace~>Base. Alone, every table of the base is read; with tables, the tables named are looked for in it."
+        },
+        linked: {
+          type: "boolean",
+          default: true,
+          description: "true (default) also reads the tables the asked ones link (in their base), so that links, lookups and rollups stay whole; they are marked linked: true in tables. false reads the tables asked only: a link to another table is left out and listed in omitted."
+        },
+        rows: {
+          type: "boolean",
+          default: false,
+          description: "true also reads every row of each table (2,000 at most per table, or the read is refused), keyed by _key, the Baserow row id: for a copy of the data. To read or check data, use nocode-baserow-rows-list. Default false: the structure only."
+        },
+        describeId: {
+          type: "string",
+          description: "describeId of a read that answered status running (many tables or rows): given alone, the call waits for that same read and answers its result."
+        },
+        token: nocodeFormsTokenProperty()
+      },
+      additionalProperties: false
+    };
+  }
+
   // nocode-attachment-read and attachment-read (js/attachment_read.js): an attachment chosen by its file name, never a path.
   function attachmentReadInputSchema(nocode) {
     var properties = {
@@ -3221,6 +3267,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_nocode_baserow_schema_apply") {
       return nocodeBaserowSchemaApplyInputSchema();
+    }
+    if (seq === "tools_nocode_baserow_schema_get") {
+      return nocodeBaserowSchemaGetInputSchema();
     }
     if (seq === "tools_nocode_form_get") {
       return {

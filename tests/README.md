@@ -166,6 +166,11 @@ server-assigned component ids, trusted creator identity, readback failures, seco
 idempotency, intervening edits, the token, the answers and the paging of the contract. Baserow cases use in-memory
 test identities; they neither write records nor prove backend persistence.
 
+`validate_nocode_baserow_schema_get.cjs` answers `lib_BaseRow.formscommon_SchemaApply` mode `describe` with a fake;
+its last test runs the real engine of lib_BaseRow (`js/baserow_schema.js` on its in-memory Baserow) when
+`LIB_BASEROW_ROOT` names a lib_BaseRow checkout of 1.2.0-beta24 or later (default: the sibling `c8oprj-lib-baserow`),
+and is skipped otherwise.
+
 The earlier 2026-09-11 browser pass only verified transient component behavior,
 including a 390px viewport. It did not verify application delivery or persistence.
 The operational acceptance test must use an authorized Baserow destination:

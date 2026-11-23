@@ -1,6 +1,8 @@
 /*
  * The No Code writes within the time an agent waits for a tool call: nocode-form-edit, nocode-form-update,
- * nocode-form-create, nocode-app-create, nocode-baserow-schema-apply (mode apply) and nocode-form-publish (confirm). On the
+ * nocode-form-create, nocode-app-create, nocode-baserow-schema-apply (mode apply) and nocode-form-publish (confirm), and the
+ * read of nocode-baserow-schema-get, which reads every table asked and, on demand, its rows (KINDS[kind].read: nothing
+ * is written, a read that cannot be found is made again, and its answer leaves the store once given). On the
  * 5.6 MB application of the Pilotage KPI import (test-nocode, 23/11) an edit timed out on the client side while it went on
  * and saved revision 5: an agent that retried would have applied its operations twice. A creation retried after a timeout
  * made a second form (« Candidature emploi », 19/11). Agent hosts stop a tool call after about a minute (Vibe's
@@ -49,7 +51,11 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
       // its input schema asks for rev and confirm: the call that waits gives them back, with the publishId it never publishes
       waitArgs: function (input) { return { rev: input && input.rev != null ? String(input.rev) : "", confirm: true }; },
       waitNote: ": with the publishId it waits and never publishes again",
-      maybe: "The form may have been published", check: "read the form with nocode-form-get", once: "it was not published again." }
+      maybe: "The form may have been published", check: "read the form with nocode-form-get", once: "it was not published again." },
+    // a read: its retry joins it instead of reading every table again, and a read that cannot be found is simply made again
+    describe: { tool: "nocode-baserow-schema-get", idName: "describeId", form: false, read: true, noun: "read of the schema", input: "tables",
+      again: "a call with the same arguments waits for it too", failCode: "baserow_schema_get_failed",
+      check: "call nocode-baserow-schema-get again with the same arguments", once: "the tables were not read again." }
   };
 
   api.STORE_KEY = STORE_KEY;
@@ -118,9 +124,13 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
     return found;
   }
 
-  // An exception may come after the save (the read back): whether the write was saved is not known.
+  // An exception may come after the save (the read back): whether the write was saved is not known. A read wrote nothing.
   function unknownOutcome(kind, answer) {
     var spec = KINDS[kind];
+    if (spec.read) {
+      answer.next = "Nothing was written: " + spec.check + ".";
+      return answer;
+    }
     delete answer.saved;
     answer.next = spec.maybe + " before this error: " + spec.check + " before any retry.";
     return answer;
@@ -191,10 +201,10 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
     }
     out[spec.idName] = entry.jobId;
     out.elapsedMs = Math.max(0, host.now() - entry.startedAt);
-    out.message = "The " + spec.noun + " goes on on the server (it takes longer than one tool call) and is made once: " + again(spec) + ".";
+    out.message = "The " + spec.noun + " goes on on the server (it takes longer than one tool call)" + (spec.read ? ": " : " and is made once: ") + again(spec) + ".";
     out.next = "Call " + waitCall(kind, entry) + " to wait for its answer" + (spec.waitNote || ", with no " + spec.input) + ".";
     if (joined) {
-      out.joined = "The same " + spec.noun + " was already running (" + spec.idName + " " + entry.jobId + "): this call waits for it instead of writing again.";
+      out.joined = "The same " + spec.noun + " was already running (" + spec.idName + " " + entry.jobId + "): this call waits for it instead of " + (spec.read ? "reading" : "writing") + " again.";
     }
     return out;
   }
@@ -227,7 +237,10 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
           refused.id = formId;
         }
         refused[spec.idName] = askedId;
-        refused.error = {
+        refused.error = spec.read ? {
+          code: "unknown_read",
+          message: "No " + spec.idName + " " + askedId + " for this caller (a read is kept " + Math.round(KEEP_MS / 60000) + " minutes, until its answer is given). Nothing was written: " + spec.check + "."
+        } : {
           code: "unknown_write",
           message: "No " + spec.idName + " " + askedId + (formId.length ? " of form " + formId : "") + " for this caller (a write is kept " + Math.round(KEEP_MS / 60000) + " minutes). " +
             spec.maybe + ": " + spec.check + "; " + again(spec) + " before checking."
@@ -251,7 +264,12 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
       return running(kind, entry, host, joined);
     }
     entry.delivered = true;
-    write(writes, entry);
+    if (spec.read) {
+      // a read answered is done with: a later call reads again, and a large answer does not stay in the store
+      writes.remove(entry.jobId);
+    } else {
+      write(writes, entry);
+    }
     var answer = entry.answer && typeof entry.answer === "object" ? entry.answer : unknownOutcome(kind, { status: "error", error: { code: spec.failCode, message: "The write gave no answer." } });
     if (askedId.length || joined || host.now() - entry.startedAt >= CALL_BUDGET_MS) {
       answer[spec.idName] = entry.jobId;
@@ -318,6 +336,7 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
           case "app": return C8O.nocodeApp.create(input, options);
           case "schema": return C8O.nocodeBaserow.schemaApply(merged());
           case "publish": return C8O.nocodePublish.publish(id, merged());
+          case "describe": return C8O.nocodeBaserow.schemaGet(merged());
           default: return C8O.nocodeForms.edit(id, input, options);
         }
       }

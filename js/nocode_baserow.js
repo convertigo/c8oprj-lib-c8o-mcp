@@ -2761,4 +2761,323 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
       return answer("error", "baserow_rows_failed", String(e && e.message ? e.message : e), table);
     }
   };
+
+  // nocode-baserow-schema-get: the read counterpart of nocode-baserow-schema-apply. The structure of tables of the
+  // user's catalog, as lib_BaseRow.formscommon_SchemaApply mode describe (lib_BaseRow 1.2.0-beta24) reads it with the
+  // Baserow account of the authenticated No Code user, never the admin account: one schema of the
+  // c8oforms.baserow-template format per base (the format of the template packs and of the export of an application
+  // with its no-code database, C8Oforms #1836), with the tables the asked ones link (linked) and their rows on demand
+  // (rows, keyed by _key, the Baserow id of the row). Beside each schema, the ids of the tables and select options read;
+  // beside the bases, what was left out: tables out of reach (skipped), fields the format cannot carry (omitted), file
+  // fields whose files are not carried (files). The limits are those of the lib (100 tables, 2,000 rows and 1 MB of
+  // rows per table), with 1.8 MB in all, so that the answer pages keep it (js/mcp_answer_pages.js, 2,000,000 characters):
+  // above, a refusal naming the table and the limit. Nothing is written.
+  var SCHEMA_GET_MAX_TABLES = 100;
+  var SCHEMA_GET_MAX_BYTES = 1800000;
+  var SCHEMA_GET_LIB = "lib_BaseRow 1.2.0-beta24 (C8Oforms 2.3.0-beta9)";
+  var SCHEMA_GET_LIMITS = {
+    tables_too_many: "Ask the tables you need by id or name (" + SCHEMA_GET_MAX_TABLES + " at most, with the tables they link), or set linked: false.",
+    rows_too_many: "Read the schema without rows (rows: false), and the rows of that table page by page with nocode-baserow-rows-list.",
+    rows_too_large: "Read the schema without rows (rows: false), and the rows of that table page by page with nocode-baserow-rows-list.",
+    export_too_large: "Ask fewer tables, set linked: false, or read without rows (rows: false)."
+  };
+
+  function schemaGetAnswer(status, code, message, extra) {
+    var out = { status: status, error: { code: code, message: message } };
+    Object.keys(extra || {}).forEach(function (key) {
+      out[key] = extra[key];
+    });
+    return out;
+  }
+
+  // A table or a base as an argument names it: {id}, {path} (Workspace~>Base~>Table, or Workspace~>Base for a base) or
+  // {name}; a number or a text of digits is an id, a text holding ~> a path, another text a name.
+  function schemaRef(item) {
+    if (item == null) {
+      return null;
+    }
+    if (typeof item === "object" && !Array.isArray(item)) {
+      var id = numberOrNull(item.id != null ? item.id : (item.tableId != null ? item.tableId : (item.baseId != null ? item.baseId : item.databaseId)));
+      if (id != null) {
+        return { id: id };
+      }
+      if (trimmed(item.path).length) {
+        return { path: trimmed(item.path) };
+      }
+      return trimmed(item.name).length ? schemaRef(trimmed(item.name)) : null;
+    }
+    var text = trimmed(item);
+    if (!text.length) {
+      return null;
+    }
+    if (/^\d+$/.test(text)) {
+      return { id: Number(text) };
+    }
+    return text.indexOf("~>") >= 0 ? { path: text } : { name: text };
+  }
+
+  // A list of tables: a JSON list, a reference, or ids separated by commas ("30,31"); a name may hold a comma.
+  function schemaRefList(value) {
+    var parsed = jsonOrText(value);
+    if (parsed == null) {
+      return [];
+    }
+    var items;
+    if (Array.isArray(parsed)) {
+      items = parsed;
+    } else if (typeof parsed === "object") {
+      items = [parsed];
+    } else {
+      var parts = String(parsed).split(",");
+      items = parts.length > 1 && parts.every(function (part) { return /^\s*\d+\s*$/.test(part); }) ? parts : [parsed];
+    }
+    var seen = {};
+    return items.map(schemaRef).filter(function (ref) {
+      var key = ref ? JSON.stringify(ref) : "";
+      if (!ref || seen[key]) {
+        return false;
+      }
+      seen[key] = true;
+      return true;
+    });
+  }
+
+  function refText(ref) {
+    return ref.id != null ? String(ref.id) : (ref.path || ref.name || "");
+  }
+
+  // The arguments of the tool as one request: {tables, base, linked, rows}, or an invalid_request answer. The same
+  // arguments give the same request (a retry of a long read joins it, js/nocode_form_write_job.js).
+  C8O.nocodeBaserow.schemaGetInput = function (raw) {
+    var opts = raw || {};
+    var tables = schemaRefList(opts.tables);
+    var bases = schemaRefList(opts.base);
+    if (bases.length > 1) {
+      return schemaGetAnswer("invalid_request", "base_single", "base names one base (its id, its name or Workspace~>Base). To read tables of several bases, give them in tables.");
+    }
+    if (!tables.length && !bases.length) {
+      return schemaGetAnswer("invalid_request", "tables_required", "Name what to read: tables (ids, names or paths Workspace~>Base~>Table of nocode-baserow-catalog-list), or a base (its id or name) for all its tables.");
+    }
+    if (tables.length > SCHEMA_GET_MAX_TABLES) {
+      return schemaGetAnswer("invalid_request", "tables_too_many", tables.length + " tables asked, " + SCHEMA_GET_MAX_TABLES + " at most. " + SCHEMA_GET_LIMITS.tables_too_many);
+    }
+    var linked = jsonOrText(opts.linked);
+    var rows = jsonOrText(opts.rows);
+    return {
+      tables: tables,
+      base: bases.length ? bases[0] : null,
+      linked: booleanDefault(linked, true),
+      rows: booleanDefault(rows, false)
+    };
+  };
+
+  // The tables a request names, found in the user's catalog: {tables: [{id, path}], skipped} or {answer} (a refusal).
+  // A base alone gives all its tables; with tables, the tables named are looked for in that base.
+  function schemaGetTables(catalog, request) {
+    var entries = catalog.tables.map(function (table) {
+      return {
+        id: table.id,
+        name: table.name,
+        baseId: table.baseId,
+        path: [table.workspaceName, table.baseName, table.name].join("~>")
+      };
+    });
+    var base = null;
+    if (request.base) {
+      var wanted = request.base;
+      var found = catalog.bases.filter(function (item) {
+        if (wanted.id != null) {
+          return numberOrNull(item.id) === wanted.id;
+        }
+        if (wanted.path) {
+          return catalogNameKey([item.workspaceName, item.name].join("~>")) === catalogNameKey(wanted.path);
+        }
+        return catalogNameKey(item.name) === catalogNameKey(wanted.name);
+      });
+      if (found.length !== 1) {
+        return {
+          answer: found.length ?
+            schemaGetAnswer("invalid_request", "base_ambiguous", "Several bases are named " + refText(wanted) + ": give the id of the base.", {
+              bases: found.map(function (item) { return { id: item.id, name: item.name, workspace: item.workspaceName }; })
+            }) :
+            schemaGetAnswer("invalid_request", "base_not_in_catalog", "Base " + refText(wanted) + " is not among the bases of the authenticated No Code user: give the id or the name of a base of nocode-baserow-catalog-list.")
+        };
+      }
+      base = found[0];
+      entries = entries.filter(function (entry) { return entry.baseId === numberOrNull(base.id); });
+    }
+    var tables = [];
+    var skipped = [];
+    var take = function (entry) {
+      if (!tables.some(function (table) { return table.id === entry.id; })) {
+        tables.push({ id: entry.id, path: entry.path });
+      }
+    };
+    if (!request.tables.length) {
+      entries.forEach(take);
+    }
+    for (var i = 0; i < request.tables.length; i++) {
+      var ref = request.tables[i];
+      var matches = entries.filter(function (entry) {
+        if (ref.id != null) {
+          return entry.id === ref.id;
+        }
+        if (ref.path) {
+          return catalogNameKey(entry.path) === catalogNameKey(ref.path);
+        }
+        return catalogNameKey(entry.name) === catalogNameKey(ref.name);
+      });
+      if (matches.length > 1) {
+        return {
+          answer: schemaGetAnswer("invalid_request", "table_ambiguous", "Several tables are named " + refText(ref) + (base ? " in base " + base.name : "") + ": " +
+            matches.map(function (entry) { return entry.path + " (" + entry.id + ")"; }).join(", ") + ". Give the table id, or the base.")
+        };
+      }
+      if (matches.length) {
+        take(matches[0]);
+      } else {
+        skipped.push({ table: refText(ref), reason: "not_in_catalog" });
+      }
+    }
+    if (!tables.length && request.tables.length) {
+      return {
+        answer: schemaGetAnswer("invalid_request", "table_not_in_catalog", "No table asked is in the Baserow catalog of the authenticated No Code user" + (base ? " in base " + base.name : "") +
+          " (" + skipped.map(function (item) { return item.table; }).join(", ") + "): give ids, names or paths of nocode-baserow-catalog-list.")
+      };
+    }
+    if (tables.length > SCHEMA_GET_MAX_TABLES) {
+      return {
+        answer: schemaGetAnswer("error", "tables_too_many", (base ? "Base " + base.name + " holds " : "") + tables.length + " tables, " + SCHEMA_GET_MAX_TABLES + " at most.", {
+          refused: true, next: SCHEMA_GET_LIMITS.tables_too_many
+        })
+      };
+    }
+    return { tables: tables, skipped: skipped, base: base };
+  }
+
+  // The answer of mode describe, read back from its JSON text (its XML round trip would turn a list of one into an
+  // object), or null.
+  function describeAnswer(response) {
+    var doc = response && (response.document || (response.doc && response.doc.document));
+    if (!doc || doc.json == null) {
+      return null;
+    }
+    try {
+      return JSON.parse(String(doc.json));
+    } catch (_notJson) {
+      return null;
+    }
+  }
+
+  function describeFailure(described, response) {
+    var error = (described && described.error) || {};
+    var code = trimmed(error.code);
+    if (code === "mode_invalid") {
+      return schemaGetAnswer("error", "describe_unavailable", "The lib_BaseRow of this server cannot read a schema (mode describe): it needs " + SCHEMA_GET_LIB + ". Read the tables with nocode-baserow-catalog-list (includeColumns) instead.");
+    }
+    if (code === "baserow_account_unavailable") {
+      return schemaGetAnswer("unauthorized", "baserow_account_unavailable", "The Baserow account of the authenticated No Code user could not be opened, so nothing was read. Ask the user to open the No Code Studio data tab once, then retry.");
+    }
+    if (described && described.refused === true && SCHEMA_GET_LIMITS[code]) {
+      var limit = { refused: true, next: SCHEMA_GET_LIMITS[code] };
+      var out = schemaGetAnswer("error", code, trimmed(error.message), limit);
+      ["table", "count", "bytes", "max"].forEach(function (key) {
+        if (error[key] != null) {
+          out.error[key] = error[key];
+        }
+      });
+      return out;
+    }
+    if (!described) {
+      var engineError = apiError(response);
+      return schemaGetAnswer("error", "baserow_schema_get_failed", engineError ? errorMessage(engineError) : "lib_BaseRow.formscommon_SchemaApply gave no answer: this server may need " + SCHEMA_GET_LIB + ".", { retryable: true });
+    }
+    var failed = schemaGetAnswer("error", code === "baserow_unreachable" ? code : "baserow_schema_get_failed", trimmed(error.message) || errorText(error) || "The schema could not be read.");
+    if (described.retryable === true) {
+      failed.retryable = true;
+    }
+    return failed;
+  }
+
+  C8O.nocodeBaserow.schemaGet = function (options) {
+    var opts = options || {};
+    var authentication = validateToken(opts.token);
+    if (!authentication || authentication.authenticated !== true) {
+      return { status: "auth_required", authentication: authentication || { authenticated: false }, bases: [] };
+    }
+    try {
+      var request = C8O.nocodeBaserow.schemaGetInput(opts);
+      if (request.status) {
+        return request;
+      }
+      var bearer = editorBaserowBearer();
+      if (!bearer.length) {
+        return describeFailure({ error: { code: "baserow_account_unavailable" } });
+      }
+      var catalog = normalizeCatalog(readApplications());
+      var resolved = schemaGetTables(catalog, request);
+      if (resolved.answer) {
+        return resolved.answer;
+      }
+      if (!resolved.tables.length) {
+        return { status: "ok", bases: [], skipped: resolved.skipped, omitted: [], files: [], counts: { bases: 0, tables: 0, rows: 0 },
+          notes: ["Base " + resolved.base.name + " holds no table."] };
+      }
+      var response = withoutLogs(function () {
+        return callC8oSequence("lib_BaseRow", "formscommon_SchemaApply", {
+          mode: "describe",
+          options: JSON.stringify({ tables: resolved.tables, linked: request.linked, rows: request.rows, maxBytes: SCHEMA_GET_MAX_BYTES }),
+          authorization: bearer
+        });
+      });
+      var described = describeAnswer(response);
+      if (!described || described.status !== "ok") {
+        return describeFailure(described, response);
+      }
+      var asked = {};
+      resolved.tables.forEach(function (table) { asked[table.id] = true; });
+      var baseOfTable = {};
+      catalog.tables.forEach(function (table) { baseOfTable[table.id] = table.baseId; });
+      var anyLinked = false;
+      var bases = ensureArray(described.bases).map(function (item) {
+        var tables = ensureArray(item.tables).map(function (table) {
+          var out = { id: numberOrNull(table.id), key: trimmed(table.key), path: trimmed(table.path) };
+          if (!asked[out.id]) {
+            out.linked = true;
+            anyLinked = true;
+          }
+          return out;
+        });
+        var base = {
+          baseId: tables.length && baseOfTable[tables[0].id] != null ? baseOfTable[tables[0].id] : null,
+          base: trimmed(item.base),
+          workspace: trimmed(item.workspace),
+          schema: item.schema,
+          tables: tables
+        };
+        if (ensureArray(item.options).length) {
+          base.options = ensureArray(item.options);
+        }
+        return base;
+      });
+      var result = {
+        status: "ok",
+        bases: bases,
+        skipped: resolved.skipped.concat(ensureArray(described.skipped)),
+        omitted: ensureArray(described.omitted),
+        files: ensureArray(described.files),
+        counts: described.counts || {}
+      };
+      var notes = [];
+      if (!request.linked && anyLinked) {
+        notes.push("linked: false is not taken by the lib_BaseRow of this server (it needs the version after 1.2.0-beta24): the tables the asked ones link are read too, marked linked: true in tables.");
+      }
+      if (notes.length) {
+        result.notes = notes;
+      }
+      return result;
+    } catch (e) {
+      return schemaGetAnswer("error", "baserow_schema_get_failed", String(e && e.message ? e.message : e));
+    }
+  };
 })();
