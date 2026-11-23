@@ -3,13 +3,28 @@ comment: |
   Create a No Code form through C8Oforms APIs
   Compiles reduced creative JSON, validates it, then persists only through C8Oforms.APIV2_updateFormulaireDocument.
   Answers status, saved, id, rev, validation (issues and warnings of the saved form) and the saved form: no nocode-form-get or nocode-form-validate is needed after it. From a script, return only these fields and the outline you check: the whole answer passes 14,000 characters for a form of a few pages.
+responseTimeout: 300
 ↓Run [steps.SimpleStep-1780100000301]: 
   expression: |
     'include("js/nocode_forms.js");
+    include("js/nocode_baserow.js");
+    include("js/nocode_form_write_job.js");
     include("js/ui_reveal.js");
-    var reducedObject = C8O.nocodeForms.parseObject(reduced, "reduced", {});
-    result = C8O.nocodeForms.create(reducedObject, { project: project, token: token });
-    if (result && C8O.uiReveal && C8O.uiReveal.enabled((typeof reveal !== "undefined") ? reveal : false, false) === true) {
+    var writeJob = C8O.nocodeFormWriteJob;
+    var askedCreateId = writeJob.jobIdOf(typeof createId !== "undefined" ? createId : null);
+    var reducedObject = askedCreateId.length && writeJob.empty(reduced) ? {} : C8O.nocodeForms.parseObject(reduced, "reduced", {});
+    var writeOptions = { project: project, token: C8O.nocodeForms.callerToken({ token: token }) };
+    var writeOwner = writeJob.owner(writeOptions.token);
+    if (!writeOwner.length) {
+      // no bearer: auth_required at once
+      result = C8O.nocodeForms.create(reducedObject, writeOptions);
+    } else {
+      // the creation runs in a thread of its own: past the time an agent waits, it answers running with its createId
+      var writeHost = writeJob.javaHost(context);
+      C8O.detachedRequest = writeHost.detachedRequest;
+      result = writeJob.run({ kind: "create", input: reducedObject, jobId: askedCreateId, owner: writeOwner, options: writeOptions }, writeHost);
+    }
+    if (result && result.status !== "running" && C8O.uiReveal && C8O.uiReveal.enabled((typeof reveal !== "undefined") ? reveal : false, false) === true) {
       result.reveal = C8O.uiReveal.nocodeForm("nocode-form-create-reveal", result, { project: project });
     }'
 ↓result [steps.JsonToXmlStep-1780100000302]: 
@@ -36,6 +51,9 @@ comment: |
 ↓token [variables.RequestableVariable-1779908983911]: 
   comment: No Code Studio bearer token used to authenticate the C8Oforms API call.
   description: No Code Studio bearer token used to authenticate the C8Oforms API call.
+↓createId [variables.RequestableVariable-1795430000301]: 
+  comment: Id of a creation that answered status running. Given alone (no reduced), the call waits for that same creation and answers its result, with the id of the form.
+  description: Id of a creation that answered status running. Given alone (no reduced), the call waits for that same creation and answers its result, with the id of the form.
 ↓reveal [variables.RequestableVariable-1782955200301]: 
   comment: Set true to request visible No Code Studio reveal after the form is created.
   description: Set true to request visible No Code Studio reveal after the form is created.

@@ -32,8 +32,8 @@ const DRAWER_BUDGET = 12000;
 // arguments, the preview of applications only, and the No Code database that cannot be reached.
 // Then the turn after a new data application (20/11): the tables the turn context names are used by id with no catalog
 // search, the catalog filtered by name, and the rows an apply answers as the proof of the write (sources.md).
-// Then the line of errors.md on an edit that answers running with its editId (23/11).
-const SKILL_TEXT_SHA256 = '7aac134c208ab562408d056ecca909903b756f4519fa8f91426036f38a29a94f';
+// Then the line of errors.md on a creation, an edit or an update that answers running with its id (23/11).
+const SKILL_TEXT_SHA256 = '8c25bf254b2182aea1f2e3217ca582a608d8f30dd11753eda9d42c629d4760de';
 
 test('SKILL.md names each drawer once, and each drawer file of its folder is named', () => {
   const named = pointers.map(p => p.file);

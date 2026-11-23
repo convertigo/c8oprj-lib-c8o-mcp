@@ -1329,7 +1329,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         project: nocodeFormsProjectProperty(),
-        reduced: jsonObjectOrStringSchema("Reduced creative form JSON. For Baserow, supply table configuration and mappings but omit form_id/source_id/source_owner: creation finalizes them automatically and verifies readback. If saved=true with status=partial, resume the returned same-id recovery; do not recreate. Thumbnail upload: reduced.thumbnailImage={contentType:'image/png',base64:'...'} is persisted as the thumbnail attachment through APIV2_updateFormulaireDocument."),
+        reduced: jsonObjectOrStringSchema("Reduced creative form JSON (required, except with createId). For Baserow, supply table configuration and mappings but omit form_id/source_id/source_owner: creation finalizes them automatically and verifies readback. If saved=true with status=partial, resume the returned same-id recovery; do not recreate. Thumbnail upload: reduced.thumbnailImage={contentType:'image/png',base64:'...'} is persisted as the thumbnail attachment through APIV2_updateFormulaireDocument."),
+        createId: {
+          type: "string",
+          description: "createId of a creation that answered status running (a large form): given alone, no reduced, the call waits for that same creation and answers its result with the id of the form. Never send the reduced form of a running creation again."
+        },
         token: nocodeFormsTokenProperty(),
         reveal: {
           type: "boolean",
@@ -1337,7 +1341,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           description: "Set true when the host UI reveal mode is enabled, so No Code Studio can switch to the created form editor."
         }
       },
-      required: ["reduced"],
+      required: [],
       additionalProperties: false
     };
   }
@@ -1355,7 +1359,11 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "string",
           description: "Optional expected document revision. When provided, it is sent back with the patched document."
         },
-        patch: jsonObjectOrStringSchema("JSON Merge Patch object applied to the fetched form, then validated and persisted only through C8Oforms APIs. To upload a generated thumbnail image, include patch.thumbnailImage={contentType:'image/png',base64:'...'}; it is consumed by the tool and not stored in the form JSON."),
+        patch: jsonObjectOrStringSchema("JSON Merge Patch object (required, except with updateId) applied to the fetched form, then validated and persisted only through C8Oforms APIs. To upload a generated thumbnail image, include patch.thumbnailImage={contentType:'image/png',base64:'...'}; it is consumed by the tool and not stored in the form JSON."),
+        updateId: {
+          type: "string",
+          description: "updateId of an update that answered status running (a large form): given alone with id, no patch, the call waits for that same update and answers its result. Never send the patch of a running update again."
+        },
         token: nocodeFormsTokenProperty(),
         reveal: {
           type: "boolean",
@@ -1363,7 +1371,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           description: "Set true when the host UI reveal mode is enabled, so No Code Studio can switch to the edited form and show the changes."
         }
       },
-      required: ["id", "patch"],
+      required: ["id"],
       additionalProperties: false
     };
   }

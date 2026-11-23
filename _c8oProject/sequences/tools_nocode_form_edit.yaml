@@ -17,7 +17,7 @@ responseTimeout: 300
   expression: |
     'include("js/nocode_forms.js");
     include("js/nocode_baserow.js");
-    include("js/nocode_form_edit_job.js");
+    include("js/nocode_form_write_job.js");
     include("js/ui_reveal.js");
     try {
       var rawOperations = typeof operations !== "undefined" ? operations : null;
@@ -27,22 +27,19 @@ responseTimeout: 300
       else if (String(rawOperations).trim() === "[]" && typeof operation !== "undefined" && operation != null && String(operation).trim() !== "") {
         rawOperations = operation;
       }
-      var askedEditId = typeof editId !== "undefined" && editId != null ? String(editId).trim() : "";
-      if (askedEditId === "null" || askedEditId === "undefined") {
-        askedEditId = "";
-      }
-      var noOperations = rawOperations == null || String(rawOperations).trim() === "" || String(rawOperations).trim() === "[]" || String(rawOperations).trim() === "null";
-      var operationsArray = askedEditId.length && noOperations ? [] : C8O.nocodeForms.parseOperations(rawOperations, "operations", []);
-      var editOptions = { project: project, rev: rev, token: C8O.nocodeForms.callerToken({ token: token }) };
-      var editOwner = C8O.nocodeFormEditJob.owner(editOptions.token);
-      if (!editOwner.length || (!askedEditId.length && !operationsArray.length)) {
+      var writeJob = C8O.nocodeFormWriteJob;
+      var askedEditId = writeJob.jobIdOf(typeof editId !== "undefined" ? editId : null);
+      var operationsArray = askedEditId.length && writeJob.empty(rawOperations) ? [] : C8O.nocodeForms.parseOperations(rawOperations, "operations", []);
+      var writeOptions = { project: project, rev: rev, token: C8O.nocodeForms.callerToken({ token: token }) };
+      var writeOwner = writeJob.owner(writeOptions.token);
+      if (!writeOwner.length || (!askedEditId.length && !operationsArray.length)) {
         // nothing to run in a thread: no bearer (auth_required) or no operation (no_operations)
-        result = C8O.nocodeForms.edit(id, operationsArray, editOptions);
+        result = C8O.nocodeForms.edit(id, operationsArray, writeOptions);
       } else {
         // the edit runs in a thread of its own: past the time an agent waits, it answers running with its editId
-        var editHost = C8O.nocodeFormEditJob.javaHost(context);
-        C8O.detachedRequest = editHost.detachedRequest;
-        result = C8O.nocodeFormEditJob.run({ id: id, operations: operationsArray, editId: askedEditId, owner: editOwner, options: editOptions }, editHost);
+        var writeHost = writeJob.javaHost(context);
+        C8O.detachedRequest = writeHost.detachedRequest;
+        result = writeJob.run({ kind: "edit", id: id, input: operationsArray, jobId: askedEditId, owner: writeOwner, options: writeOptions }, writeHost);
       }
       if (result && result.status !== "running" && C8O.uiReveal && C8O.uiReveal.enabled((typeof reveal !== "undefined") ? reveal : false, false) === true) {
         result.reveal = C8O.uiReveal.nocodeForm("nocode-form-edit-reveal", result, { project: project });

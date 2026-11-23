@@ -110,18 +110,28 @@ C8O.nocodeWriteConfirm = C8O.nocodeWriteConfirm || {};
     if (sequence === "tools_nocode_form_publish") {
       return truthy(args.confirm);
     }
+    // Waiting for a running write (js/nocode_form_write_job.js) writes nothing itself: the write was confirmed when sent.
     var none = function (value) {
       if (value == null) {
         return true;
       }
       if (typeof value === "object") {
-        return Array.isArray(value) && !value.length;
+        return Array.isArray(value) ? !value.length : !Object.keys(value).length;
       }
       var text = trimmed(value);
-      return text === "" || text === "null" || text === "[]";
+      return text === "" || text === "null" || text === "[]" || text === "{}";
     };
-    if (sequence === "tools_nocode_form_edit" && trimmed(args.editId).length && trimmed(args.editId) !== "null" && none(args.operations) && none(args.operation)) {
-      // waits for an edit already confirmed (js/nocode_form_edit_job.js): it writes nothing itself
+    var waitsFor = function (jobId) {
+      var text = trimmed(jobId);
+      return text.length > 0 && text !== "null" && text !== "undefined";
+    };
+    if (sequence === "tools_nocode_form_edit" && waitsFor(args.editId) && none(args.operations) && none(args.operation)) {
+      return false;
+    }
+    if (sequence === "tools_nocode_form_update" && waitsFor(args.updateId) && none(args.patch)) {
+      return false;
+    }
+    if (sequence === "tools_nocode_form_create" && waitsFor(args.createId) && none(args.reduced)) {
       return false;
     }
     return true;

@@ -475,7 +475,10 @@ if (typeof C8O === "undefined") {
   // No Code: a form or an application of C8Oforms, by its id; never a value of the form.
   function form(change, detail) {
     return function (r, args) {
-      if (text(args.mode).toLowerCase() === "plan" || text(r.mode).toLowerCase() === "plan" || truthy(r.dryRun) || r.saved === false) {
+      // running: a large form written in a thread of its own (js/nocode_form_write_job.js); the answer of the call that
+      // waits for it is recorded, once
+      if (text(args.mode).toLowerCase() === "plan" || text(r.mode).toLowerCase() === "plan" || truthy(r.dryRun) || r.saved === false ||
+        text(r.status).toLowerCase() === "running") {
         return null;
       }
       var response = isObject(r.response) ? r.response : {};

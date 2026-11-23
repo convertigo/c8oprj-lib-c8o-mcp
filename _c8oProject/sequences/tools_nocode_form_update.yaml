@@ -2,13 +2,28 @@ accessibility: Private
 comment: |
   Update a No Code form through C8Oforms APIs
   Fetches the form through C8Oforms.APIV2_getDocument, applies a JSON merge patch, validates it, then persists only through C8Oforms.APIV2_updateFormulaireDocument.
+responseTimeout: 300
 ↓Run [steps.SimpleStep-1780100000401]: 
   expression: |
     'include("js/nocode_forms.js");
+    include("js/nocode_baserow.js");
+    include("js/nocode_form_write_job.js");
     include("js/ui_reveal.js");
-    var patchObject = C8O.nocodeForms.parseObject(patch, "patch", {});
-    result = C8O.nocodeForms.update(id, patchObject, { project: project, rev: rev, token: token });
-    if (result && C8O.uiReveal && C8O.uiReveal.enabled((typeof reveal !== "undefined") ? reveal : false, false) === true) {
+    var writeJob = C8O.nocodeFormWriteJob;
+    var askedUpdateId = writeJob.jobIdOf(typeof updateId !== "undefined" ? updateId : null);
+    var patchObject = askedUpdateId.length && writeJob.empty(patch) ? {} : C8O.nocodeForms.parseObject(patch, "patch", {});
+    var writeOptions = { project: project, rev: rev, token: C8O.nocodeForms.callerToken({ token: token }) };
+    var writeOwner = writeJob.owner(writeOptions.token);
+    if (!writeOwner.length || (!askedUpdateId.length && !Object.keys(patchObject).length)) {
+      // nothing to run in a thread: no bearer (auth_required) or an empty patch (empty_patch)
+      result = C8O.nocodeForms.update(id, patchObject, writeOptions);
+    } else {
+      // the update runs in a thread of its own: past the time an agent waits, it answers running with its updateId
+      var writeHost = writeJob.javaHost(context);
+      C8O.detachedRequest = writeHost.detachedRequest;
+      result = writeJob.run({ kind: "update", id: id, input: patchObject, jobId: askedUpdateId, owner: writeOwner, options: writeOptions }, writeHost);
+    }
+    if (result && result.status !== "running" && C8O.uiReveal && C8O.uiReveal.enabled((typeof reveal !== "undefined") ? reveal : false, false) === true) {
       result.reveal = C8O.uiReveal.nocodeForm("nocode-form-update-reveal", result, { project: project });
     }'
 ↓result [steps.JsonToXmlStep-1780100000402]: 
@@ -41,6 +56,9 @@ comment: |
 ↓token [variables.RequestableVariable-1779908983938]: 
   comment: No Code Studio bearer token used to authenticate the C8Oforms API calls.
   description: No Code Studio bearer token used to authenticate the C8Oforms API calls.
+↓updateId [variables.RequestableVariable-1795430000401]: 
+  comment: Id of an update that answered status running. Given alone with id (no patch), the call waits for that same update and answers its result.
+  description: Id of an update that answered status running. Given alone with id (no patch), the call waits for that same update and answers its result.
 ↓reveal [variables.RequestableVariable-1782955200401]: 
   comment: Set true to request visible No Code Studio reveal after the form is updated.
   description: Set true to request visible No Code Studio reveal after the form is updated.
