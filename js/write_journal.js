@@ -496,7 +496,8 @@ if (typeof C8O === "undefined") {
   }
 
   function baserowSchema(r, args) {
-    if (text(args.mode).toLowerCase() === "plan" || text(r.mode).toLowerCase() === "plan" || truthy(r.dryRun)) {
+    // running: recorded from the answer of the call that waits for the apply (js/nocode_form_write_job.js)
+    if (text(args.mode).toLowerCase() === "plan" || text(r.mode).toLowerCase() === "plan" || truthy(r.dryRun) || text(r.status).toLowerCase() === "running") {
       return null;
     }
     return { objects: [{ q: "Baserow schema", c: "changed", k: "other", pr: "C8Oforms" }] };

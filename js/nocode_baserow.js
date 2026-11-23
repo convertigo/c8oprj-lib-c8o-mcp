@@ -2008,6 +2008,11 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     return out;
   }
 
+  // The bearer of the call: the token given, else the Authorization header of the request.
+  C8O.nocodeBaserow.callerToken = function (options) {
+    return trimmed(options && options.token) || requestBearerToken();
+  };
+
   C8O.nocodeBaserow.schemaApply = function (options) {
     var opts = options || {};
     var mode = trimmed(opts.mode || "plan").toLowerCase();

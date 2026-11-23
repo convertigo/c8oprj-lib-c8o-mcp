@@ -1,19 +1,20 @@
 /*
- * nocode-form-edit, nocode-form-update and nocode-form-create within the time an agent waits for a tool call. On the
+ * The No Code writes within the time an agent waits for a tool call: nocode-form-edit, nocode-form-update,
+ * nocode-form-create, nocode-app-create, nocode-baserow-schema-apply (mode apply) and nocode-form-publish (confirm). On the
  * 5.6 MB application of the Pilotage KPI import (test-nocode, 23/11) an edit timed out on the client side while it went on
  * and saved revision 5: an agent that retried would have applied its operations twice. A creation retried after a timeout
  * made a second form (« Candidature emploi », 19/11). Agent hosts stop a tool call after about a minute (Vibe's
- * run_typescript, Codex), and the sequences of the tools answered at their 60 s response timeout.
+ * run_typescript, Codex), and the sequences of the tools answered at their response timeout.
  *
  * The write runs in a thread of its own; the call waits for it CALL_BUDGET_MS at most. Past it, it answers status running
- * with the id of the write (editId, updateId or createId), and the same tool called with that id alone waits for the same
- * write again: its answer, once done, is the one the write would have given. The same write sent again (same operations
- * or patch on the same form, same reduced form for a creation) while it runs, or after it ended without its answer
- * reaching the caller, joins it instead of writing again. The thread calls C8Oforms through an internal request of its
- * own, whose session it authenticates with the bearer of the call: the engine invalidates the session of an MCP request
- * when the call answers ("Session request-... is invalidated", measured on a headless 8.5 engine, 23/11), so a copy of
- * the request of the call failed after it. A write is kept KEEP_MS for its caller only: the digest of the bearer of the
- * call binds it.
+ * with the id of the write (KINDS[kind].idName), and the same tool called with that id alone waits for the same write
+ * again: its answer, once done, is the one the write would have given. The same write sent again (same input on the same
+ * form, or the same input for a creation or a schema) while it runs, or after it ended without its answer reaching the
+ * caller, joins it instead of writing again. The thread calls C8Oforms and the no-code database through an internal
+ * request of its own, whose session it authenticates with the bearer of the call: the engine invalidates the session of an
+ * MCP request when the call answers ("Session request-... is invalidated", measured on a headless 8.5 engine, 23/11), so a
+ * copy of the request of the call failed after it. A write is kept KEEP_MS for its caller only: the digest of the bearer
+ * of the call binds it.
  * C8O.nocodeFormWriteJob.run(params, host) holds the logic; javaHost(context) gives it the engine, a test gives its own.
  */
 if (typeof C8O === "undefined") { var C8O = {}; }
@@ -26,11 +27,29 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
   var KEEP_MS = 30 * 60000;
   var MAX_WRITES = 200;
 
-  // What each tool writes, the name of the id of a write, and what the agent must not send again.
+  var GET_CHECK = "read the form with nocode-form-get (its rev, find a word of the change)";
+  var LIST_CHECK = "list your forms with nocode-form-list";
+  var APP_CHECK = "list your forms with nocode-form-list and the bases with nocode-baserow-catalog-list";
+  var BASE_CHECK = "read the base with nocode-baserow-catalog-list, and its rows with nocode-baserow-rows-list";
+  // Per tool: the id of a write (idName), whether it writes an existing form (form), what it writes (noun), what the
+  // agent must not send again (input), the code of an exception in the thread (failCode), what a write that failed or
+  // cannot be found may have done (maybe) and how to check it (check), what a retry did not do (once).
   var KINDS = {
-    edit: { tool: "nocode-form-edit", idName: "editId", what: "operations", of: "The edit of this form" },
-    update: { tool: "nocode-form-update", idName: "updateId", what: "patch", of: "The update of this form" },
-    create: { tool: "nocode-form-create", idName: "createId", what: "reduced form", of: "The creation of this form" }
+    edit: { tool: "nocode-form-edit", idName: "editId", form: true, noun: "edit", input: "operations", failCode: "edit_failed",
+      maybe: "The change may have been saved", check: GET_CHECK, once: "it was not applied again." },
+    update: { tool: "nocode-form-update", idName: "updateId", form: true, noun: "update", input: "patch", failCode: "update_failed",
+      maybe: "The change may have been saved", check: GET_CHECK, once: "it was not applied again." },
+    create: { tool: "nocode-form-create", idName: "createId", form: false, noun: "creation", input: "reduced form", failCode: "create_failed",
+      maybe: "The form may have been created", check: LIST_CHECK, once: "no second form was created." },
+    app: { tool: "nocode-app-create", idName: "createId", form: false, noun: "creation of the application", input: "spec", failCode: "app_create_failed",
+      maybe: "The application or its tables may have been created", check: APP_CHECK, once: "no second application was created." },
+    schema: { tool: "nocode-baserow-schema-apply", idName: "applyId", form: false, noun: "apply of the schema", input: "schema", failCode: "baserow_schema_apply_failed",
+      maybe: "Part of the schema or of its rows may have been written", check: BASE_CHECK, once: "it was not applied again." },
+    publish: { tool: "nocode-form-publish", idName: "publishId", form: true, noun: "publication", input: "confirm", again: "do not publish it again", failCode: "publish_failed",
+      // its input schema asks for rev and confirm: the call that waits gives them back, with the publishId it never publishes
+      waitArgs: function (input) { return { rev: input && input.rev != null ? String(input.rev) : "", confirm: true }; },
+      waitNote: ": with the publishId it waits and never publishes again",
+      maybe: "The form may have been published", check: "read the form with nocode-form-get", once: "it was not published again." }
   };
 
   api.STORE_KEY = STORE_KEY;
@@ -101,10 +120,9 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
 
   // An exception may come after the save (the read back): whether the write was saved is not known.
   function unknownOutcome(kind, answer) {
+    var spec = KINDS[kind];
     delete answer.saved;
-    answer.next = kind === "create"
-      ? "The form may have been created before this error: list your forms with nocode-form-list before creating it again."
-      : "The change may have been saved before this error: read the form with nocode-form-get (its rev, find a word of the change) before any retry.";
+    answer.next = spec.maybe + " before this error: " + spec.check + " before any retry.";
     return answer;
   }
 
@@ -122,16 +140,19 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
       delivered: false,
       answer: null
     };
+    if (KINDS[kind].waitArgs) {
+      entry.waitArgs = KINDS[kind].waitArgs(input);
+    }
     write(writes, entry);
-    host.startThread("lib_ConvertigoMCP-nocode-form-" + kind + (formId ? "-" + formId : ""), function () {
+    host.startThread("lib_ConvertigoMCP-nocode-" + kind + (formId ? "-" + formId : ""), function () {
       var answer;
       try {
         answer = host.write(kind, formId, input, options);
       } catch (writeError) {
-        answer = unknownOutcome(kind, { status: "error", error: { code: kind + "_failed", message: String(writeError && writeError.message ? writeError.message : writeError) } });
+        answer = unknownOutcome(kind, { status: "error", error: { code: KINDS[kind].failCode, message: String(writeError && writeError.message ? writeError.message : writeError) } });
       }
       // nocode-form-edit turns its own exceptions into edit_failed
-      if (answer && answer.status === "error" && answer.error && answer.error.code === kind + "_failed" && answer.next == null) {
+      if (kind === "edit" && answer && answer.status === "error" && answer.error && answer.error.code === "edit_failed" && answer.next == null) {
         unknownOutcome(kind, answer);
       }
       var ended = read(writes, entry.jobId) || entry;
@@ -143,10 +164,23 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
     return entry;
   }
 
+  // What the agent must not do while the write runs or before checking a write it cannot find.
+  function again(spec) {
+    return spec.again || "do not send the " + spec.input + " again";
+  }
+
   function waitCall(kind, entry) {
     var spec = KINDS[kind];
-    var args = (entry.formId ? "id:\"" + entry.formId + "\", " : "") + spec.idName + ":\"" + entry.jobId + "\"";
-    return spec.tool + "({" + args + "})";
+    var parts = [];
+    if (entry.formId) {
+      parts.push("id:" + JSON.stringify(entry.formId));
+    }
+    var extra = entry.waitArgs || {};
+    Object.keys(extra).forEach(function (key) {
+      parts.push(key + ":" + JSON.stringify(extra[key]));
+    });
+    parts.push(spec.idName + ":" + JSON.stringify(entry.jobId));
+    return spec.tool + "({" + parts.join(", ") + "})";
   }
 
   function running(kind, entry, host, joined) {
@@ -157,18 +191,19 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
     }
     out[spec.idName] = entry.jobId;
     out.elapsedMs = Math.max(0, host.now() - entry.startedAt);
-    out.message = spec.of + " goes on on the server (a large form takes longer than one tool call). It is written once: do not send the " + spec.what + " again.";
-    out.next = "Call " + waitCall(kind, entry) + " to wait for its answer, with no " + spec.what + ".";
+    out.message = "The " + spec.noun + " goes on on the server (it takes longer than one tool call) and is made once: " + again(spec) + ".";
+    out.next = "Call " + waitCall(kind, entry) + " to wait for its answer" + (spec.waitNote || ", with no " + spec.input) + ".";
     if (joined) {
-      out.joined = "The same " + spec.what + " " + (spec.what === "operations" ? "were" : "was") + " already being written (" + spec.idName + " " + entry.jobId + "): this call waits for that write instead of writing again.";
+      out.joined = "The same " + spec.noun + " was already running (" + spec.idName + " " + entry.jobId + "): this call waits for it instead of writing again.";
     }
     return out;
   }
 
-  // params: {kind (edit, update or create), id (the form; none for a creation), input (the operations, the patch or the
-  // reduced form), jobId (the id of a running write, to wait for it), owner (the digest of the caller's bearer), options}.
+  // params: {kind (a key of KINDS), id (the form of an edit, an update or a publication), input (what the write applies:
+  // it identifies a retry; never the bearer), jobId (the id of a running write, to wait for it), owner (the digest of the
+  // caller's bearer), options (passed to the write, the bearer included)}.
   // host: store() -> {get(key), put(key, text), remove(key), keys() -> [keys]}, now(), sleep(ms), uuid(),
-  // startThread(name, fn), write(kind, id, input, options) -> the answer of C8O.nocodeForms.edit, update or create.
+  // startThread(name, fn), write(kind, id, input, options) -> the answer of the tool.
   api.run = function (params, host) {
     params = params || {};
     var kind = str(params.kind);
@@ -176,7 +211,7 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
     if (!spec) {
       throw new Error("Unknown form write: " + kind);
     }
-    var formId = kind === "create" ? "" : str(params.id);
+    var formId = spec.form ? str(params.id) : "";
     var owner = str(params.owner);
     var askedId = str(params.jobId);
     var writes = host.store();
@@ -187,9 +222,6 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
     if (askedId.length) {
       entry = read(writes, askedId);
       if (!entry || entry.kind !== kind || entry.owner !== owner || (formId.length && entry.formId !== formId)) {
-        var check = kind === "create"
-          ? "List your forms with nocode-form-list: a form of that name may exist; do not create it again before checking."
-          : "Read the form with nocode-form-get: its rev says whether the change was saved; do not send the " + spec.what + " again before checking.";
         var refused = { status: "error" };
         if (formId.length) {
           refused.id = formId;
@@ -197,7 +229,8 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
         refused[spec.idName] = askedId;
         refused.error = {
           code: "unknown_write",
-          message: "No " + spec.idName + " " + askedId + (formId.length ? " of form " + formId : "") + " for this caller (a write is kept " + Math.round(KEEP_MS / 60000) + " minutes). " + check
+          message: "No " + spec.idName + " " + askedId + (formId.length ? " of form " + formId : "") + " for this caller (a write is kept " + Math.round(KEEP_MS / 60000) + " minutes). " +
+            spec.maybe + ": " + spec.check + "; " + again(spec) + " before checking."
         };
         return refused;
       }
@@ -219,12 +252,12 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
     }
     entry.delivered = true;
     write(writes, entry);
-    var answer = entry.answer && typeof entry.answer === "object" ? entry.answer : unknownOutcome(kind, { status: "error", error: { code: kind + "_failed", message: "The write gave no answer." } });
+    var answer = entry.answer && typeof entry.answer === "object" ? entry.answer : unknownOutcome(kind, { status: "error", error: { code: spec.failCode, message: "The write gave no answer." } });
     if (askedId.length || joined || host.now() - entry.startedAt >= CALL_BUDGET_MS) {
       answer[spec.idName] = entry.jobId;
     }
     if (joined) {
-      answer.joined = "The same " + spec.what + " had already been written by a call whose answer did not reach you (" + spec.idName + " " + entry.jobId + "): " + (kind === "create" ? "no second form was created." : "it was not applied again.");
+      answer.joined = "The same " + spec.noun + " had already been made by a call whose answer did not reach you (" + spec.idName + " " + entry.jobId + "): " + spec.once;
     }
     return answer;
   };
@@ -274,10 +307,19 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
         thread.start();
       },
       write: function (kind, id, input, options) {
-        if (kind === "create") {
-          return C8O.nocodeForms.create(input, options);
+        var merged = function () {
+          var out = {};
+          [input, options].forEach(function (part) { Object.keys(part || {}).forEach(function (key) { out[key] = part[key]; }); });
+          return out;
+        };
+        switch (kind) {
+          case "create": return C8O.nocodeForms.create(input, options);
+          case "update": return C8O.nocodeForms.update(id, input, options);
+          case "app": return C8O.nocodeApp.create(input, options);
+          case "schema": return C8O.nocodeBaserow.schemaApply(merged());
+          case "publish": return C8O.nocodePublish.publish(id, merged());
+          default: return C8O.nocodeForms.edit(id, input, options);
         }
-        return kind === "update" ? C8O.nocodeForms.update(id, input, options) : C8O.nocodeForms.edit(id, input, options);
       }
     };
   };

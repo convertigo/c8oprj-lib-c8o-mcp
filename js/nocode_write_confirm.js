@@ -94,12 +94,51 @@ C8O.nocodeWriteConfirm = C8O.nocodeWriteConfirm || {};
     return parts.length > 2 && last.indexOf("@") > 0 ? last : text;
   };
 
-  // Whether the call writes: schema-apply in plan mode, an app in plan mode and a publication without confirm do not.
+  // Waiting for a running write (js/nocode_form_write_job.js) writes nothing itself: the write was confirmed when sent.
+  // An argument absent, empty, "null", [] or {} asks for nothing; the id of the write is the one the tool takes.
+  var WAIT_IDS = {
+    tools_nocode_form_edit: { id: "editId", inputs: ["operations", "operation"] },
+    tools_nocode_form_update: { id: "updateId", inputs: ["patch"] },
+    tools_nocode_form_create: { id: "createId", inputs: ["reduced"] },
+    tools_nocode_app_create: { id: "createId", inputs: ["spec"] },
+    tools_nocode_baserow_schema_apply: { id: "applyId", inputs: ["schema"] },
+    // a publishId only waits: the tool starts no publication with it
+    tools_nocode_form_publish: { id: "publishId", inputs: [] }
+  };
+
+  function asksNothing(value) {
+    if (value == null) {
+      return true;
+    }
+    if (typeof value === "object") {
+      return Array.isArray(value) ? !value.length : !Object.keys(value).length;
+    }
+    var text = trimmed(value);
+    return text === "" || text === "null" || text === "[]" || text === "{}";
+  }
+
+  function waitsForWrite(sequence, args) {
+    var wait = WAIT_IDS[String(sequence)];
+    if (!wait) {
+      return false;
+    }
+    var jobId = trimmed(args[wait.id]);
+    if (!jobId.length || jobId === "null" || jobId === "undefined") {
+      return false;
+    }
+    return wait.inputs.every(function (name) { return asksNothing(args[name]); });
+  }
+
+  // Whether the call writes: schema-apply in plan mode, an app in plan mode, a publication without confirm and a call that
+  // waits for a running write do not.
   api.holds = function (sequence, args) {
     if (!hasOwn(api.WRITE_TOOLS, String(sequence))) {
       return false;
     }
     args = args || {};
+    if (waitsForWrite(sequence, args)) {
+      return false;
+    }
     if (sequence === "tools_nocode_baserow_schema_apply") {
       return trimmed(args.mode).toLowerCase() === "apply";
     }
@@ -109,30 +148,6 @@ C8O.nocodeWriteConfirm = C8O.nocodeWriteConfirm || {};
     }
     if (sequence === "tools_nocode_form_publish") {
       return truthy(args.confirm);
-    }
-    // Waiting for a running write (js/nocode_form_write_job.js) writes nothing itself: the write was confirmed when sent.
-    var none = function (value) {
-      if (value == null) {
-        return true;
-      }
-      if (typeof value === "object") {
-        return Array.isArray(value) ? !value.length : !Object.keys(value).length;
-      }
-      var text = trimmed(value);
-      return text === "" || text === "null" || text === "[]" || text === "{}";
-    };
-    var waitsFor = function (jobId) {
-      var text = trimmed(jobId);
-      return text.length > 0 && text !== "null" && text !== "undefined";
-    };
-    if (sequence === "tools_nocode_form_edit" && waitsFor(args.editId) && none(args.operations) && none(args.operation)) {
-      return false;
-    }
-    if (sequence === "tools_nocode_form_update" && waitsFor(args.updateId) && none(args.patch)) {
-      return false;
-    }
-    if (sequence === "tools_nocode_form_create" && waitsFor(args.createId) && none(args.reduced)) {
-      return false;
     }
     return true;
   };

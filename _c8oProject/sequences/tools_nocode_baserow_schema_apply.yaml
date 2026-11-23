@@ -6,14 +6,47 @@ responseTimeout: 300
 ↓Run [steps.SimpleStep-1780481728024]: 
   expression: |
     'include("js/nocode_baserow.js");
-    result = C8O.nocodeBaserow.schemaApply({
-      token: token,
+    include("js/nocode_form_write_job.js");
+    var writeJob = C8O.nocodeFormWriteJob;
+    var askedApplyId = writeJob.jobIdOf(typeof applyId !== "undefined" ? applyId : null);
+    var applyInput = {
       mode: typeof mode === "undefined" ? "plan" : mode,
       schema: typeof schema === "undefined" ? "{}" : schema,
       create: typeof create === "undefined" ? "{}" : create,
       readBack: typeof readBack === "undefined" ? true : readBack,
       view: typeof view === "undefined" ? "" : view
-    });'
+    };
+    var applyToken = C8O.nocodeBaserow.callerToken({ token: token });
+    var writeOwner = writeJob.owner(applyToken);
+    // the schema and create as values of this scope (a Java string is no JSON value), or null when they are no JSON:
+    // that apply fails at once in the call, as it did, and nothing runs in a thread
+    var applyValues = askedApplyId.length ? {} : null;
+    if (!askedApplyId.length) {
+      try {
+        applyValues = {};
+        ["schema", "create"].forEach(function (key) {
+          var raw = applyInput[key];
+          applyValues[key] = raw != null && typeof raw === "object" && typeof raw.getClass !== "function" ? raw : JSON.parse(String(raw == null || String(raw).trim() === "" ? "{}" : raw));
+        });
+      } catch (_notJson) {
+        applyValues = null;
+      }
+    }
+    if (!writeOwner.length || !applyValues || (!askedApplyId.length && String(applyInput.mode == null ? "" : applyInput.mode).trim().toLowerCase() !== "apply")) {
+      // nothing to run in a thread: no bearer (auth_required), a schema that is no JSON, or a plan, which writes nothing
+      applyInput.token = applyToken;
+      result = C8O.nocodeBaserow.schemaApply(applyInput);
+    } else {
+      // the apply runs in a thread of its own: past the time an agent waits, it answers running with its applyId
+      applyInput.schema = applyValues.schema;
+      applyInput.create = applyValues.create;
+      applyInput.mode = String(applyInput.mode);
+      applyInput.readBack = String(applyInput.readBack);
+      applyInput.view = String(applyInput.view);
+      var writeHost = writeJob.javaHost(context);
+      C8O.detachedRequest = writeHost.detachedRequest;
+      result = writeJob.run({ kind: "schema", input: applyInput, jobId: askedApplyId, owner: writeOwner, options: { token: applyToken } }, writeHost);
+    }'
 ↓result [steps.JsonToXmlStep-1780481728026]: 
   jsonObject: 
     - xmlizable: 
@@ -37,7 +70,6 @@ responseTimeout: 300
 ↓schema [variables.RequestableVariable-1780481728034]: 
   comment: Canonical Baserow schema JSON object/string.
   description: Canonical Baserow schema JSON object/string.
-  required: true
 ↓create [variables.RequestableVariable-1780481728036]: 
   comment: Creation permissions JSON, for example {"workspace":false,"base":true,"tables":true,"fields":true,"views":true,"sampleRows":true}.
   description: Creation permissions JSON.
@@ -48,3 +80,6 @@ responseTimeout: 300
 ↓view [variables.RequestableVariable-1792690000002]: 
   comment: compact (default of MCP calls) gives the agent view; empty or full keeps every raw Baserow property (the Assistant's table picker).
   description: compact (default of MCP calls) gives the agent view; empty or full keeps every raw Baserow property (the Assistant's table picker).
+↓applyId [variables.RequestableVariable-1795430000901]: 
+  comment: Id of an apply that answered status running. Given alone (no schema), the call waits for that same apply and answers its result.
+  description: Id of an apply that answered status running. Given alone (no schema), the call waits for that same apply and answers its result.

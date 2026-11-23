@@ -385,6 +385,48 @@ C8O.reporting.writeReport = function (input) {
 
 // With Tigo's consent, the report is a raw agent friction for the Assistant's feedback outbox: it masks it, counts it
 // with the same ones, and shows it to the user before it is sent (or sends it after the turn in automatic mode).
+C8O.reporting.RECENT_REPORT_MS = 30 * 60000;
+
+// The map of the frictions queued lately (digest -> {at, reportId, createdAt, relativePath} as JSON), pruned of the older
+// ones, in the store the server shares; null outside an engine request.
+C8O.reporting._recentReports = function () {
+  try {
+    var store = typeof context !== "undefined" && context ? context.server : null;
+    if (!store) {
+      return null;
+    }
+    var key = "lib_ConvertigoMCP.recentTigoReports.v1";
+    // the store has no putIfAbsent: the first report of the engine creates the map
+    if (store.get(key) == null) {
+      store.set(key, new java.util.concurrent.ConcurrentHashMap());
+    }
+    var map = store.get(key);
+    var now = Date.now();
+    var it = map.entrySet().iterator();
+    while (it.hasNext()) {
+      var at = 0;
+      try {
+        at = Number(JSON.parse(String(it.next().getValue())).at);
+      } catch (_unreadable) {}
+      if (!(now - at < C8O.reporting.RECENT_REPORT_MS)) {
+        it.remove();
+      }
+    }
+    return map;
+  } catch (_noStore) {
+    return null;
+  }
+};
+
+C8O.reporting._digest = function (text) {
+  var bytes = java.security.MessageDigest.getInstance("SHA-256").digest(new java.lang.String(String(text)).getBytes("UTF-8"));
+  var hex = "";
+  for (var i = 0; i < bytes.length; i++) {
+    hex += ("0" + ((bytes[i] + 256) % 256).toString(16)).slice(-2);
+  }
+  return hex;
+};
+
 C8O.reporting.writeTigoReport = function (input) {
   // On a server, the No Code Studio user of this request, read once: their consent and their incoming/ folder.
   var userKey = C8O.reporting.localStudio() ? undefined : C8O.reporting.requestFeedbackUserKey();
@@ -401,6 +443,31 @@ C8O.reporting.writeTigoReport = function (input) {
   var severity = checked.finding.severity;
   var subjectId = checked.finding.subjectId;
   var summary = checked.finding.summary;
+  // The same friction queued again for the same folder within RECENT_REPORT_MS (a call retried after its answer was lost)
+  // answers the first one instead of queuing it twice, as the No Code writes join a write already made
+  // (js/nocode_form_write_job.js). A digest of the friction is kept in the store the server shares, never its text.
+  var recent = C8O.reporting._recentReports();
+  var recentKey = C8O.reporting._digest(JSON.stringify([directory, area, subjectId, severity, summary, C8O.util.toTrimmedString(input && input.suggestion)]));
+  var previous = null;
+  if (recent) {
+    try {
+      previous = recent.get(recentKey) == null ? null : JSON.parse(String(recent.get(recentKey)));
+    } catch (_unreadablePrevious) {
+      previous = null;
+    }
+  }
+  if (previous && Date.now() - Number(previous.at) < C8O.reporting.RECENT_REPORT_MS) {
+    return {
+      status: "written",
+      message: "This friction was already queued (reportId " + previous.reportId + "): it was not queued twice.",
+      reportId: previous.reportId,
+      mode: "tigo",
+      path: "",
+      relativePath: previous.relativePath,
+      createdAt: previous.createdAt,
+      joined: "The same friction had already been queued by a call whose answer did not reach you: it was not queued again."
+    };
+  }
   var Engine = Packages.com.twinsoft.convertigo.engine.Engine;
   var createdAt = new Date().toISOString();
   var reportId = String(Packages.java.util.UUID.randomUUID().toString());
@@ -431,6 +498,9 @@ C8O.reporting.writeTigoReport = function (input) {
     java.nio.file.StandardOpenOption.CREATE_NEW,
     java.nio.file.StandardOpenOption.WRITE
   );
+  if (recent) {
+    recent.put(recentKey, JSON.stringify({ at: Date.now(), reportId: reportId, createdAt: createdAt, relativePath: directory + "/incoming/" + reportId + ".json" }));
+  }
   return {
     status: "written",
     message: mode === "auto"

@@ -2,12 +2,29 @@ accessibility: Private
 comment: |
   Publish a No Code form through C8Oforms APIs
   Publishes a draft form to its respondents through C8Oforms.APIV2_Publish, as the Publish button of No Code Studio does. Call it only when the user explicitly asked to publish this form, never on your own initiative or as a next step of a create or an edit. Pass the revision the user checked (nocode-form-get or the last edit): a newer revision is refused as a conflict, and a form with blocking validation issues is not published. C8Oforms publishes only for the owner or an editor of the form. The first publication creates the form application, for signed-in users unless the user asked for anonymous access; a republication keeps its access. Answers the publication version, the access and the link to give to the user.
+responseTimeout: 300
 ↓Run [steps.SimpleStep-1792830000001]: 
   expression: |
     'include("js/nocode_forms.js");
     include("js/nocode_publish.js");
+    include("js/nocode_baserow.js");
+    include("js/nocode_form_write_job.js");
     try {
-      result = C8O.nocodePublish.publish(id, { project: project, rev: rev, confirm: confirm, access: access, token: token });
+      var writeJob = C8O.nocodeFormWriteJob;
+      var askedPublishId = writeJob.jobIdOf(typeof publishId !== "undefined" ? publishId : null);
+      var publishInput = { rev: rev == null ? "" : String(rev), confirm: confirm == null ? "" : String(confirm), access: access == null ? "" : String(access) };
+      // the link is built from the request of the call, which a publication running in its own thread outlives
+      var writeOptions = { project: project, token: C8O.nocodeForms.callerToken({ token: token }), linkRoot: C8O.nocodePublish.linkRoot() };
+      var writeOwner = writeJob.owner(writeOptions.token);
+      if (!writeOwner.length || (!askedPublishId.length && String(publishInput.confirm).trim().toLowerCase() !== "true")) {
+        // nothing to run in a thread: no bearer, or no confirm, which publishes nothing
+        result = C8O.nocodePublish.publish(id, { project: project, rev: rev, confirm: confirm, access: access, token: writeOptions.token, linkRoot: writeOptions.linkRoot });
+      } else {
+        // the publication runs in a thread of its own: past the time an agent waits, it answers running with its publishId
+        var writeHost = writeJob.javaHost(context);
+        C8O.detachedRequest = writeHost.detachedRequest;
+        result = writeJob.run({ kind: "publish", id: id, input: publishInput, jobId: askedPublishId, owner: writeOwner, options: writeOptions }, writeHost);
+      }
     } catch (e) {
       result = { status: "error", published: false, error: { code: "publish_failed", message: "Unable to publish the form through the No Code API: " + (e && e.message ? e.message : e) } };
     }'
@@ -46,3 +63,6 @@ comment: |
 ↓token [variables.RequestableVariable-1792830000008]: 
   comment: No Code Studio bearer token used to authenticate the C8Oforms API calls.
   description: No Code Studio bearer token used to authenticate the C8Oforms API calls.
+↓publishId [variables.RequestableVariable-1795430000701]: 
+  comment: Id of a publication that answered status running. Given with id, rev and confirm as its next says, the call waits for that same publication and answers its result; with a publishId the tool never publishes again.
+  description: Id of a publication that answered status running. Given with id, rev and confirm as its next says, the call waits for that same publication and answers its result; with a publishId the tool never publishes again.

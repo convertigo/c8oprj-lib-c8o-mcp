@@ -8,9 +8,22 @@ responseTimeout: 300
     'include("js/nocode_forms.js");
     include("js/nocode_baserow.js");
     include("js/nocode_app.js");
+    include("js/nocode_form_write_job.js");
     try {
-      var specObject = C8O.nocodeForms.parseObject(spec, "spec", {});
-      result = C8O.nocodeApp.create(specObject, { project: project, token: token });
+      var writeJob = C8O.nocodeFormWriteJob;
+      var askedCreateId = writeJob.jobIdOf(typeof createId !== "undefined" ? createId : null);
+      var specObject = askedCreateId.length && writeJob.empty(spec) ? {} : C8O.nocodeForms.parseObject(spec, "spec", {});
+      var writeOptions = { project: project, token: C8O.nocodeForms.callerToken({ token: token }) };
+      var writeOwner = writeJob.owner(writeOptions.token);
+      if (!writeOwner.length || (!askedCreateId.length && String(specObject.mode || "").trim().toLowerCase() === "plan")) {
+        // nothing to run in a thread: no bearer (auth_required) or a plan, which writes nothing
+        result = C8O.nocodeApp.create(specObject, writeOptions);
+      } else {
+        // the creation runs in a thread of its own: past the time an agent waits, it answers running with its createId
+        var writeHost = writeJob.javaHost(context);
+        C8O.detachedRequest = writeHost.detachedRequest;
+        result = writeJob.run({ kind: "app", input: specObject, jobId: askedCreateId, owner: writeOwner, options: writeOptions }, writeHost);
+      }
     } catch (e) {
       result = { status: "error", saved: false, error: { code: "app_create_failed", message: String(e && e.message ? e.message : e) } };
     }'
@@ -34,7 +47,9 @@ responseTimeout: 300
 ↓spec [variables.RequestableVariable-1792840000004]: 
   comment: Business spec of the application, a JSON object { name, language, baserow, entities, home, mode }.
   description: Business spec of the application, a JSON object { name, language, baserow, entities, home, mode }.
-  required: true
 ↓token [variables.RequestableVariable-1792840000005]: 
   comment: No Code Studio bearer token used to authenticate the Baserow and C8Oforms calls.
   description: No Code Studio bearer token used to authenticate the Baserow and C8Oforms calls.
+↓createId [variables.RequestableVariable-1795430000801]: 
+  comment: Id of a creation that answered status running. Given alone (no spec), the call waits for that same creation and answers its result.
+  description: Id of a creation that answered status running. Given alone (no spec), the call waits for that same creation and answers its result.

@@ -177,3 +177,82 @@ test('report-create declares the finding it needs and refuses a call once, with 
   // Without consent nothing changes: the call is still refused as disabled.
   assert.throws(() => reporting().writeTigoReport({ summary: 'x' }), /Reporting is disabled/);
 });
+
+test('the same friction sent again within 30 minutes answers the first one, and is queued once', () => {
+  // A call retried after its answer was lost (agent hosts stop a tool call after about a minute) queued the friction
+  // twice; the No Code writes join a write already made (js/nocode_form_write_job.js), the friction report does the same.
+  const written = [];
+  let now = 1800000000000;
+  const javaMap = () => {
+    const m = new Map();
+    return {
+      get: k => (m.has(k) ? m.get(k) : null),
+      put: (k, v) => m.set(k, v),
+      size: () => m.size,
+      entrySet: () => ({ iterator: () => {
+        const entries = Array.from(m.entries());
+        let i = 0;
+        return { hasNext: () => i < entries.length, next: () => { const e = entries[i++]; return { getValue: () => e[1], key: e[0] }; }, remove: () => m.delete(entries[i - 1][0]) };
+      } })
+    };
+  };
+  const shared = new Map();
+  const pathOf = p => ({ p, toAbsolutePath() { return this; }, normalize() { return this; }, resolve: r => pathOf(p + '/' + r), equals: o => !!o && o.p === p, getParent: () => (p.lastIndexOf('/') > 0 ? pathOf(p.substring(0, p.lastIndexOf('/'))) : null), toString: () => p });
+  class FixedDate extends Date {
+    constructor(...args) { if (args.length) super(...args); else super(now); }
+    static now() { return now; }
+  }
+  const sandbox = {
+    C8O: { util: { toTrimmedString: v => v == null ? '' : String(v).trim() } },
+    Date: FixedDate,
+    include: () => {},
+    Packages: {
+      com: { twinsoft: { convertigo: { engine: { Engine: { isStudioMode: () => false, USER_WORKSPACE_PATH: '/ws', theApp: { databaseObjectsManager: { symbolsGetValue: () => null, getCompiledValue: () => 'off' } } } } } } },
+      java: { util: { UUID: { randomUUID: () => ({ toString: () => 'r' + (written.length + 1) }) } } }
+    },
+    java: {
+      lang: { String: class { constructor(v) { this.v = String(v); } getBytes() { return Buffer.from(this.v, 'utf8'); } } },
+      io: { File: class { constructor(base, rel) { this.p = base + '/' + rel; } toPath() { return pathOf(this.p); } } },
+      nio: {
+        file: { Files: { isSymbolicLink: () => false, createDirectories: () => {}, write: (target, bytes) => { written.push({ path: target.p, text: Buffer.from(bytes).toString('utf8') }); } }, StandardOpenOption: { CREATE_NEW: 'n', WRITE: 'w' } },
+        charset: { StandardCharsets: { UTF_8: 'utf8' } }
+      },
+      security: { MessageDigest: { getInstance: () => ({ digest: bytes => Array.from(crypto.createHash('sha256').update(Buffer.from(bytes)).digest(), b => b > 127 ? b - 256 : b) }) } },
+      util: { concurrent: { ConcurrentHashMap: function () { return javaMap(); } } }
+    },
+    context: { httpServletRequest: {}, server: { get: k => (shared.has(k) ? shared.get(k) : null), set: (k, v) => shared.set(k, v) } }
+  };
+  vm.runInNewContext(read('js/reporting.js'), sandbox);
+  const R = sandbox.C8O.reporting;
+  R.localStudio = () => false;
+  R.requestFeedbackUserKey = () => 'person--0123';
+  R._feedbackDirectory = key => 'agents/feedback/users/' + key;
+  R.tigoMode = () => 'review';
+  const friction = { area: 'tool', subjectId: 'nocode-form-edit', severity: 'medium', summary: 'The edit of a large form timed out.', suggestion: 'Answer running.' };
+  const first = JSON.parse(JSON.stringify(R.writeTigoReport(friction)));
+  assert.equal(first.status, 'written');
+  assert.equal(written.length, 1);
+  assert.equal(first.joined, undefined);
+  // the agent's host lost the answer and the agent sends the same friction again
+  now += 60000;
+  const again = JSON.parse(JSON.stringify(R.writeTigoReport({ ...friction, summary: ' The edit of a large form timed out. ' })));
+  assert.deepEqual([again.status, again.reportId, again.createdAt, again.relativePath], ['written', first.reportId, first.createdAt, first.relativePath]);
+  assert.match(again.message, /already queued/);
+  assert.match(again.joined, /not queued again/);
+  assert.equal(written.length, 1, 'queued once');
+  // another friction, or the same one later, is queued
+  R.writeTigoReport({ ...friction, summary: 'Another friction.' });
+  assert.equal(written.length, 2);
+  now += R.RECENT_REPORT_MS + 1;
+  R.writeTigoReport(friction);
+  assert.equal(written.length, 3, 'past 30 minutes the same friction is queued again');
+  // only a digest of the friction is kept in the shared store, never its text
+  const recent = shared.get('lib_ConvertigoMCP.recentTigoReports.v1');
+  const entries = [];
+  for (const it = recent.entrySet().iterator(); it.hasNext();) { const e = it.next(); entries.push([e.key, e.getValue()]); }
+  assert.ok(entries.length >= 1);
+  assert.ok(entries.every(([key]) => /^[0-9a-f]{64}$/.test(key)), 'keys are digests');
+  assert.doesNotMatch(JSON.stringify(entries), /large form|Another friction/);
+  // the tool answers joined
+  assert.match(read('_c8oProject/sequences/tools_nocode_report_create.yaml'), /if \(reportResult\.joined\) \{\n\s+result\.joined = reportResult\.joined;/);
+});

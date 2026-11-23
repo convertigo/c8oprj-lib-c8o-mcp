@@ -1250,6 +1250,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           description: "Read the resulting catalog and fields back through lib_BaseRow after planning/applying."
         },
         view: nocodeBaserowViewProperty(),
+        applyId: {
+          type: "string",
+          description: "applyId of an apply that answered status running (a large schema or many rows): given alone, no schema, the call waits for that same apply and answers its result. Never send the schema of a running apply again."
+        },
         schema: {
           description: "Canonical Baserow schema. Agents may translate Markdown, YAML, PDFs, or ER diagrams to this strict JSON before calling the tool.",
           oneOf: [
@@ -1274,7 +1278,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           ]
         }
       },
-      required: ["schema"],
+      required: [],
       additionalProperties: false
     };
   }
@@ -1450,9 +1454,13 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           required: ["name", "entities"],
           additionalProperties: false
         },
+        createId: {
+          type: "string",
+          description: "createId of a creation that answered status running: given alone, no spec, the call waits for that same creation and answers its result. Never send the spec of a running creation again."
+        },
         token: nocodeFormsTokenProperty()
       },
-      required: ["spec"],
+      required: [],
       additionalProperties: false
     };
   }
@@ -1558,6 +1566,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "string",
           enum: ["authenticated", "anonymous"],
           description: "First publication only. authenticated (default): only signed-in users the form is shared with may answer. anonymous: anyone with the link may answer without signing in; use it only when the user asked for such a link. Omit it on a republication, which keeps the current access."
+        },
+        publishId: {
+          type: "string",
+          description: "publishId of a publication that answered status running: given with id, rev and confirm as its next says, the call waits for that same publication and answers its result; with a publishId the tool never publishes again."
         },
         token: nocodeFormsTokenProperty()
       },

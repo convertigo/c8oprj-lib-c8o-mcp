@@ -40,7 +40,9 @@ function fakeHost(options = {}) {
     write: (kind, id, input, opts) => {
       state.writes.push({ kind, id, input: plain(input), opts: plain(opts) });
       if (options.throws) throw new Error(options.throws);
-      if (kind === 'create') return { id: 'form-' + (++state.forms), rev: '1-x', status: 'ok', saved: true };
+      if (kind === 'create' || kind === 'app') return { id: 'form-' + (++state.forms), rev: '1-x', status: 'ok', saved: true };
+      if (kind === 'schema') return { status: 'ok', created: { rows: 3 } };
+      if (kind === 'publish') return { status: 'ok', published: true, id, version: '2', link: opts && opts.linkRoot ? opts.linkRoot + '/projects/C8Oforms/DisplayObjects/pwas/x/index.html' : null };
       return { id, rev: (state.writes.length + 4) + '-x', status: 'ok', saved: true };
     }
   };
@@ -61,7 +63,7 @@ test('a write that ends within the budget answers its result at once, as before'
   assert.deepEqual(plain(f.state.writes), [{ kind: 'edit', id: '1795432618769', input: ops, opts: { project: 'C8Oforms', token: 't' } }]);
   const created = plain(api.run({ kind: 'create', input: reduced, owner: 'owner-a' }, f.host));
   assert.deepEqual([created.status, created.id, created.createId], ['ok', 'form-1', undefined]);
-  assert.throws(() => api.run({ kind: 'publish', id: 'f1', input: {}, owner: 'owner-a' }, f.host), /Unknown form write/);
+  assert.throws(() => api.run({ kind: 'delete', id: 'f1', input: {}, owner: 'owner-a' }, f.host), /Unknown form write/);
 });
 
 test('a long edit answers running with its editId within the budget, then the same edit answers its result, applied once', () => {
@@ -96,7 +98,7 @@ test('a long update answers running with its updateId, and the patch sent again 
   assert.equal(first.next, 'Call nocode-form-update({id:"f1", updateId:"' + first.updateId + '"}) to wait for its answer, with no patch.');
   const retry = plain(api.run({ kind: 'update', id: 'f1', input: { pages: [{ name: 'Accueil' }], name: 'Pilotage KPI' }, owner: 'owner-a' }, f.host));
   assert.deepEqual([retry.status, retry.updateId], ['running', first.updateId]);
-  assert.match(retry.joined, /^The same patch was already being written \(updateId/);
+  assert.match(retry.joined, /^The same update was already running \(updateId/);
   f.finishAll();
   const done = plain(api.run({ kind: 'update', id: 'f1', jobId: first.updateId, owner: 'owner-a' }, f.host));
   assert.deepEqual([done.status, done.saved, done.updateId], ['ok', true, first.updateId]);
@@ -113,7 +115,7 @@ test('a long creation answers running with its createId, a blind retry makes no 
   assert.equal(first.status, 'running');
   assert.equal(first.id, undefined, 'no form id before the creation ends');
   assert.match(first.createId, /^create-\d+-[0-9a-f]{8}$/);
-  assert.match(first.message, /^The creation of this form goes on on the server/);
+  assert.match(first.message, /^The creation goes on on the server/);
   assert.match(first.message, /do not send the reduced form again/);
   assert.equal(first.next, 'Call nocode-form-create({createId:"' + first.createId + '"}) to wait for its answer, with no reduced form.');
   // the agent's host timed out and the agent sends the same creation again: it joins
@@ -279,7 +281,15 @@ test('waiting for a running write writes nothing: "Confirmer avant de modifier" 
     ['tools_nocode_form_create', { createId: 'create-1-abcdef12', reduced: '{}' }, false],
     ['tools_nocode_form_create', { createId: 'create-1-abcdef12', reduced: { name: 'x' } }, true],
     ['tools_nocode_form_create', { reduced: { name: 'x' } }, true],
-    ['tools_nocode_form_create', { editId: 'edit-1-abcdef12' }, true]
+    ['tools_nocode_form_create', { editId: 'edit-1-abcdef12' }, true],
+    ['tools_nocode_app_create', { createId: 'app-1-abcdef12' }, false],
+    ['tools_nocode_app_create', { createId: 'app-1-abcdef12', spec: { name: 'x' } }, true],
+    ['tools_nocode_app_create', { spec: { name: 'x' } }, true],
+    ['tools_nocode_baserow_schema_apply', { applyId: 'schema-1-abcdef12', mode: 'apply' }, false],
+    ['tools_nocode_baserow_schema_apply', { applyId: 'schema-1-abcdef12', mode: 'apply', schema: { tables: [] } }, true],
+    ['tools_nocode_baserow_schema_apply', { mode: 'apply', schema: { tables: [] } }, true],
+    ['tools_nocode_form_publish', { id: 'f1', rev: '7-x', confirm: true, publishId: 'publish-1-abcdef12' }, false],
+    ['tools_nocode_form_publish', { id: 'f1', rev: '7-x', confirm: true }, true]
   ];
   for (const [sequence, args, held] of cases) {
     assert.equal(nocode.holds(sequence, args), held, sequence + ' ' + JSON.stringify(args));
@@ -294,22 +304,88 @@ test('project-changes records a write once: not its running answer, the answer o
   assert.deepEqual(done.objects.map(o => [o.q, o.c]), [['form f9', 'created']]);
 });
 
-test('the three tool sequences write through the job, wait up to 300 s and take the id of a running write', () => {
-  const overrides = load(['js/schema_overrides.js']).C8O.schemaOverrides;
-  for (const [kind, idName, required] of [['edit', 'editId', ['id']], ['update', 'updateId', ['id']], ['create', 'createId', []]]) {
-    const yaml = read('_c8oProject/sequences/tools_nocode_form_' + kind + '.yaml');
-    assert.match(yaml, /^responseTimeout: 300$/m, kind);
-    assert.match(yaml, /include\("js\/nocode_form_write_job\.js"\)/, kind);
-    assert.match(yaml, /include\("js\/nocode_baserow\.js"\)/, kind + ': loaded in the call, not from the thread');
-    assert.match(yaml, /C8O\.detachedRequest = writeHost\.detachedRequest/, kind);
-    assert.match(yaml, new RegExp('writeJob\\.run\\(\\{ kind: "' + kind + '"'), kind);
-    assert.match(yaml, /result\.status !== "running" && C8O\.uiReveal/, kind + ': no reveal before the write ends');
-    assert.match(yaml, new RegExp('^↓' + idName + ' \\[variables\\.RequestableVariable-\\d+\\]: $', 'm'), kind);
-    assert.doesNotMatch(yaml, /^$/m, kind + ': no empty line in the YAML of a Convertigo object');
-    const input = plain(overrides.applyInput('tools_nocode_form_' + kind, { type: 'object', properties: {} }));
-    assert.equal(input.properties[idName].type, 'string', kind);
-    assert.deepEqual(input.required, required, kind + ': the id of a running write is enough');
+test('an application, a schema apply and a publication answer running with their own id, and a retry joins them', () => {
+  const api = job();
+  const f = fakeHost({ durationMs: 200000 });
+  const spec = { name: 'Suivi des visites', entities: [{ name: 'visite', fields: [{ name: 'Date', type: 'date' }] }] };
+  const app = plain(api.run({ kind: 'app', input: spec, owner: 'owner-a', options: { project: 'C8Oforms', token: 't' } }, f.host));
+  assert.deepEqual([app.status, app.id], ['running', undefined]);
+  assert.match(app.createId, /^app-\d+-[0-9a-f]{8}$/);
+  assert.equal(app.next, 'Call nocode-app-create({createId:"' + app.createId + '"}) to wait for its answer, with no spec.');
+  const appRetry = plain(api.run({ kind: 'app', input: JSON.parse(JSON.stringify(spec)), owner: 'owner-a' }, f.host));
+  assert.equal(appRetry.createId, app.createId);
+  assert.match(appRetry.joined, /^The same creation of the application was already running/);
+  // a createId of an application is not one of a form, and the reverse
+  assert.equal(plain(api.run({ kind: 'create', jobId: app.createId, owner: 'owner-a' }, f.host)).error.code, 'unknown_write');
+  const input = { mode: 'apply', schema: { baseId: 20, tables: [{ id: 30, name: 'Deals', sampleRows: [{ Name: 'a' }] }] }, create: {}, readBack: 'true', view: 'compact' };
+  const schema = plain(api.run({ kind: 'schema', input, owner: 'owner-a', options: { token: 't' } }, f.host));
+  assert.match(schema.applyId, /^schema-\d+-[0-9a-f]{8}$/);
+  assert.equal(schema.next, 'Call nocode-baserow-schema-apply({applyId:"' + schema.applyId + '"}) to wait for its answer, with no schema.');
+  const publish = plain(api.run({ kind: 'publish', id: 'f1', input: { rev: '7-x', confirm: 'true', access: '' }, owner: 'owner-a', options: { project: 'C8Oforms', token: 't', linkRoot: 'https://test.example.invalid/convertigo' } }, f.host));
+  assert.deepEqual([publish.status, publish.id], ['running', 'f1']);
+  assert.match(publish.message, /do not publish it again/);
+  assert.equal(publish.next, 'Call nocode-form-publish({id:"f1", rev:"7-x", confirm:true, publishId:"' + publish.publishId + '"}) to wait for its answer: with the publishId it waits and never publishes again.');
+  f.finishAll();
+  assert.deepEqual(f.state.writes.map(w => w.kind), ['app', 'schema', 'publish'], 'each written once');
+  assert.deepEqual(f.state.writes[1].opts, { token: 't' });
+  assert.deepEqual(f.state.writes[1].input, input, 'the apply gets the schema as given');
+  const published = plain(api.run({ kind: 'publish', id: 'f1', jobId: publish.publishId, owner: 'owner-a' }, f.host));
+  assert.deepEqual([published.status, published.published, published.publishId], ['ok', true, publish.publishId]);
+  assert.equal(published.link, 'https://test.example.invalid/convertigo/projects/C8Oforms/DisplayObjects/pwas/x/index.html', 'the link root of the call reaches the thread');
+  const applied = plain(api.run({ kind: 'schema', jobId: schema.applyId, owner: 'owner-a' }, f.host));
+  assert.deepEqual([applied.status, applied.applyId], ['ok', schema.applyId]);
+  // an exception in the thread keeps the code each tool answered
+  for (const [kind, code, check] of [['app', 'app_create_failed', /nocode-baserow-catalog-list/], ['schema', 'baserow_schema_apply_failed', /nocode-baserow-catalog-list/], ['publish', 'publish_failed', /nocode-form-get/]]) {
+    const g = fakeHost({ durationMs: 50000, throws: 'boom' });
+    const a2 = job();
+    const started = plain(a2.run({ kind, id: 'f1', input: { x: 1 }, owner: 'owner-a' }, g.host));
+    const done = plain(a2.run({ kind, id: 'f1', jobId: started[a2.KINDS[kind].idName], owner: 'owner-a' }, g.host));
+    assert.deepEqual([done.status, done.error.code, done.saved], ['error', code, undefined], kind);
+    assert.match(done.next, check, kind);
   }
+});
+
+test('the tool sequences write through the job, wait up to 300 s and take the id of a running write', () => {
+  const overrides = load(['js/schema_overrides.js']).C8O.schemaOverrides;
+  for (const [sequence, kind, idName, required] of [
+    ['tools_nocode_form_edit', 'edit', 'editId', ['id']],
+    ['tools_nocode_form_update', 'update', 'updateId', ['id']],
+    ['tools_nocode_form_create', 'create', 'createId', []],
+    ['tools_nocode_app_create', 'app', 'createId', []],
+    ['tools_nocode_baserow_schema_apply', 'schema', 'applyId', []],
+    ['tools_nocode_form_publish', 'publish', 'publishId', ['id', 'rev', 'confirm']]
+  ]) {
+    const yaml = read('_c8oProject/sequences/' + sequence + '.yaml');
+    assert.match(yaml, /^responseTimeout: 300$/m, sequence);
+    assert.match(yaml, /include\("js\/nocode_form_write_job\.js"\)/, sequence);
+    assert.match(yaml, /include\("js\/nocode_baserow\.js"\)/, sequence + ': loaded in the call, not from the thread');
+    assert.match(yaml, /C8O\.detachedRequest = writeHost\.detachedRequest/, sequence);
+    assert.match(yaml, new RegExp('writeJob\\.run\\(\\{ kind: "' + kind + '"'), sequence);
+    assert.match(yaml, new RegExp('^\u2193' + idName + ' \\[variables\\.RequestableVariable-\\d+\\]: $', 'm'), sequence);
+    assert.doesNotMatch(yaml.replace(/\n$/, ''), /^$/m, sequence + ': no empty line in the YAML of a Convertigo object');
+    const input = plain(overrides.applyInput(sequence, { type: 'object', properties: {} }));
+    assert.equal(input.properties[idName].type, 'string', sequence);
+    assert.deepEqual(input.required, required, sequence);
+  }
+  for (const sequence of ['tools_nocode_form_edit', 'tools_nocode_form_update', 'tools_nocode_form_create']) {
+    assert.match(read('_c8oProject/sequences/' + sequence + '.yaml'), /result\.status !== "running" && C8O\.uiReveal/, sequence + ': no reveal before the write ends');
+  }
+  // the engine itself refused a call with the id alone while the variable of the input was required (headless 8.5, 23/11:
+  // "Variable named \"schema\" is required for sequence \"tools_nocode_baserow_schema_apply\"")
+  for (const [sequence, variable] of [['tools_nocode_baserow_schema_apply', 'schema'], ['tools_nocode_app_create', 'spec'], ['tools_nocode_form_create', 'reduced'], ['tools_nocode_form_update', 'patch'], ['tools_nocode_form_edit', 'operations']]) {
+    const yaml = read('_c8oProject/sequences/' + sequence + '.yaml');
+    const block = yaml.slice(yaml.indexOf('\u2193' + variable + ' [variables.'), yaml.indexOf('\u2193', yaml.indexOf('\u2193' + variable + ' [variables.') + 1) >>> 0);
+    assert.ok(block.length > 10, sequence + ' ' + variable);
+    assert.doesNotMatch(block, /^  required: true$/m, sequence + ': ' + variable + ' is not required by the engine');
+  }
+  // what writes nothing stays in the call: a plan, a schema that is no JSON, a publication without confirm
+  assert.match(read('_c8oProject/sequences/tools_nocode_app_create.yaml'), /specObject\.mode \|\| ""\)\.trim\(\)\.toLowerCase\(\) === "plan"/);
+  assert.match(read('_c8oProject/sequences/tools_nocode_baserow_schema_apply.yaml'), /!applyValues \|\| \(!askedApplyId\.length && String\(applyInput\.mode/);
+  assert.match(read('_c8oProject/sequences/tools_nocode_form_publish.yaml'), /String\(publishInput\.confirm\)\.trim\(\)\.toLowerCase\(\) !== "true"/);
+  assert.match(read('_c8oProject/sequences/tools_nocode_form_publish.yaml'), /linkRoot: C8O\.nocodePublish\.linkRoot\(\)/);
   const guide = read('resources/convertigo-nocode/errors.md');
-  assert.match(guide, /answering `status: running` with a `createId`, `editId` or `updateId`/);
+  assert.match(guide, /^- A write answering `status: running`/m);
+  for (const call of ['nocode-app-create({createId})', 'nocode-baserow-schema-apply({applyId})', 'nocode-form-publish({id, rev, confirm, publishId})']) {
+    assert.ok(guide.includes(call), call);
+  }
 });

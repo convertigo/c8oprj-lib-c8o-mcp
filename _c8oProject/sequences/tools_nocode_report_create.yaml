@@ -16,7 +16,11 @@ comment: |
       suggestion: suggestion
     });
     // An invalid call answers its error whole: every missing or invalid field at once, nothing written.
-    result = reportResult.error ? reportResult : { status: reportResult.status, message: reportResult.message, reportId: reportResult.reportId, createdAt: reportResult.createdAt };'
+    result = reportResult.error ? reportResult : { status: reportResult.status, message: reportResult.message, reportId: reportResult.reportId, createdAt: reportResult.createdAt };
+    // the same friction sent again answers the first one: say so
+    if (reportResult.joined) {
+      result.joined = reportResult.joined;
+    }'
 ↓result [steps.JsonToXmlStep-1792730000005]: 
   jsonObject: 
     - xmlizable: 

@@ -46,8 +46,11 @@ C8O.nocodePublish = C8O.nocodePublish || {};
         params.put(keys[i], variables[keys[i]]);
       }
     }
-    var hasContext = typeof context !== "undefined" && context;
-    var request = hasContext && context.httpServletRequest ? context.httpServletRequest : new InternalHttpServletRequest();
+    // read once: the engine removes context from the scope when the sequence of the call ends, which a publication
+    // running in a thread of its own (js/nocode_form_write_job.js) outlives
+    var hasContext = typeof context !== "undefined" && context ? context : null;
+    // the internal request of a publication running in its own thread, else the request of the call
+    var request = C8O.detachedRequest || (hasContext && hasContext.httpServletRequest) || new InternalHttpServletRequest();
     var requester = new InternalRequester(params, request);
     var response = requester.processRequest();
     var json = JSON.parse(XMLUtils.XmlToJson(response.getDocumentElement(), true, true, JsonOutput.JsonRoot.docNode).toString());
@@ -55,8 +58,8 @@ C8O.nocodePublish = C8O.nocodePublish || {};
       var ctx2 = requester.getContext();
       Engine.theApp.contextManager.remove(ctx2);
     } catch (_ignoreCtx) {}
-    if (hasContext && context.logParameters) {
-      org.apache.log4j.MDC.put("ContextualParameters", context.logParameters);
+    if (hasContext && hasContext.logParameters) {
+      org.apache.log4j.MDC.put("ContextualParameters", hasContext.logParameters);
     }
     return json;
   }
@@ -163,9 +166,9 @@ C8O.nocodePublish = C8O.nocodePublish || {};
     return { pwa: pwa, iconColor: iconColor };
   }
 
-  // The link No Code Studio opens: <server>/convertigo/projects/C8Oforms/DisplayObjects/<pwa_subPath>.
-  function publishedLink(project, publishedDoc, publishedId) {
-    var subPath = publishedDoc && trimmed(publishedDoc.pwa_subPath) ? trimmed(publishedDoc.pwa_subPath) : "pwas/" + publishedId + "/index.html";
+  // The root of the server as the caller reaches it (<server>/convertigo), from the request of the call: a publication
+  // running in a thread of its own takes it in the call, before the request of the call is gone. null when unknown.
+  function linkRoot() {
     try {
       if (typeof context === "undefined" || !context || !context.httpServletRequest) {
         return null;
@@ -174,10 +177,18 @@ C8O.nocodePublish = C8O.nocodePublish || {};
       var url = String(Packages.com.twinsoft.convertigo.engine.util.HttpUtils.originalRequestURL(request));
       var base = /^(.*?)\/(?:api|admin|projects\/[^\/]+)\/.*$/.exec(url);
       var root = base ? base[1] : (/^(https?:\/\/[^\/]+)/.exec(url) || [null, ""])[1] + String(request.getContextPath() || "");
-      return /^https?:\/\//.test(root) ? root + "/projects/" + project + "/DisplayObjects/" + subPath : null;
+      return /^https?:\/\//.test(root) ? root : null;
     } catch (_ignoreLink) {
       return null;
     }
+  }
+  C8O.nocodePublish.linkRoot = linkRoot;
+
+  // The link No Code Studio opens: <server>/convertigo/projects/C8Oforms/DisplayObjects/<pwa_subPath>.
+  function publishedLink(project, publishedDoc, publishedId, root) {
+    var subPath = publishedDoc && trimmed(publishedDoc.pwa_subPath) ? trimmed(publishedDoc.pwa_subPath) : "pwas/" + publishedId + "/index.html";
+    var base = trimmed(root) || linkRoot();
+    return base ? base + "/projects/" + project + "/DisplayObjects/" + subPath : null;
   }
 
   function refused(status, code, message, extra) {
@@ -305,7 +316,7 @@ C8O.nocodePublish = C8O.nocodePublish || {};
       version: published && published.version != null ? String(published.version) : null,
       firstPublication: firstPublication,
       access: accessOf(pwa, published),
-      link: publishedLink(project, published, publishedId)
+      link: publishedLink(project, published, publishedId, opts.linkRoot)
     };
     // A save between the revision check and the publication: C8Oforms published that newer revision.
     if (published && trimmed(published.parentRev).length && trimmed(published.parentRev) !== rev) {
