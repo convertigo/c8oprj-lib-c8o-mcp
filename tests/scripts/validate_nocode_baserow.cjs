@@ -80,6 +80,15 @@ function fakeBaserow(options = {}) {
         state.rows = (state.rows || []).concat([{ table: Number(params.table_id), row }]);
         return { document: row };
       }
+      case '_api_database_rows_table__table_id___GET': {
+        const results = (state.rows || []).filter(r => r.table === Number(params.table_id)).map(r => r.row);
+        return { document: { object: { count: results.length, next: null, results } } };
+      }
+      case 'TableUpdateRow': {
+        const kept = (state.rows || []).find(r => r.table === Number(params.table_id) && r.row.id === Number(params.row_id));
+        Object.assign(kept.row, JSON.parse(params.data));
+        return { document: kept.row };
+      }
       case 'TableCreateView': {
         if (options.refuseViews) return { document: {} };
         const body = JSON.parse(params.data);
@@ -517,4 +526,32 @@ test('a schema change keeps its read back, with the rows written beside it', () 
   assert.ok(r.readBack, 'a field was created: the columns are read back');
   assert.equal(r.readBackSkipped, undefined);
   assert.deepEqual(plain(r.rows[0].rows[0].values), { Name: 'Initech', Amount: 12 });
+});
+
+test('sample rows go to the columns they name: a column Nom keeps its value, the primary field Email keeps its own', () => {
+  // test-nocode 23/11, Habilitations_KPI_Test of the Pilotage KPI import: primary field Email, a column Nom; rows given
+  // alone with upsertKey Email wrote the Nom into Email (Email = "Grimont", Nom empty).
+  const fake = fakeBaserow();
+  fake.state.tables.push({ id: 40, name: 'Habilitations', baseId: 20 });
+  fake.state.fields[40] = [
+    { id: 401, name: 'Email', type: 'text', primary: true, table_id: 40 },
+    { id: 402, name: 'Nom', type: 'text', table_id: 40 },
+    { id: 403, name: 'Prénom', type: 'text', table_id: 40 }
+  ];
+  const C8O = load(fake.transport).C8O;
+  const apply = rows => C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', view: 'compact', schema: { baseId: 20, tables: [{ id: 40, name: 'Habilitations', upsertKey: 'Email', sampleRows: rows }] } });
+  const first = apply([{ Email: 'admin@example.invalid', Nom: 'Grimont', 'Prénom': 'Charles' }]);
+  assert.equal(first.status, 'ok', JSON.stringify(first.error));
+  const created = fake.state.calls.filter(c => c.name === 'TableCreateRow').map(c => JSON.parse(c.params.data));
+  assert.deepEqual(created, [{ Email: 'admin@example.invalid', Nom: 'Grimont', 'Prénom': 'Charles' }]);
+  // the upsert finds the row by its Email and updates it in place, Nom included
+  const second = apply([{ Email: 'admin@example.invalid', Nom: 'Martin' }]);
+  assert.equal(second.status, 'ok', JSON.stringify(second.error));
+  assert.equal(fake.state.calls.filter(c => c.name === 'TableCreateRow').length, 1, 'no second row');
+  const rows = fake.state.rows.filter(r => r.table === 40).map(r => ({ Email: r.row.Email, Nom: r.row.Nom }));
+  assert.deepEqual(rows, [{ Email: 'admin@example.invalid', Nom: 'Martin' }]);
+  // without a column of that name, "nom" still stands for the primary field
+  const deals = C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', view: 'compact', schema: { baseId: 20, tables: [{ id: 30, name: 'Deals', sampleRows: [{ nom: 'Umbrella' }] }] } });
+  assert.equal(deals.status, 'ok', JSON.stringify(deals.error));
+  assert.deepEqual(JSON.parse(fake.state.calls.filter(c => c.name === 'TableCreateRow').pop().params.data), { Name: 'Umbrella' });
 });

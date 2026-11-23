@@ -878,28 +878,17 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
 
     if (primaryField) {
       var primaryName = trimmed(primaryField.name);
-      if (tableSpec.primaryField.length) {
-        byInputKey[fieldNameKey(tableSpec.primaryField)] = {
-          spec: null,
-          name: primaryName,
-          field: primaryField
-        };
-      }
-      byInputKey[fieldNameKey(primaryName)] = {
-        spec: null,
-        name: primaryName,
-        field: primaryField
-      };
-      byInputKey.name = byInputKey.name || {
-        spec: null,
-        name: primaryName,
-        field: primaryField
-      };
-      byInputKey.nom = byInputKey.nom || {
-        spec: null,
-        name: primaryName,
-        field: primaryField
-      };
+      var primaryEntry = { spec: null, name: primaryName, field: primaryField };
+      byInputKey[fieldNameKey(primaryName)] = primaryEntry;
+      // The schema's primaryField, "name" and "nom" stand for the primary field only when no column has that name: on
+      // Habilitations_KPI_Test (primary Email, a column Nom), rows given alone with { Email, Nom } wrote the Nom into
+      // Email (test-nocode, 23/11).
+      [tableSpec.primaryField, "name", "nom"].forEach(function (alias) {
+        var key = fieldNameKey(alias);
+        if (key.length && !byInputKey[key] && !existingByName[key]) {
+          byInputKey[key] = primaryEntry;
+        }
+      });
     }
 
     return {
