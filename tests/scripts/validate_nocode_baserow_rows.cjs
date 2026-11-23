@@ -59,8 +59,23 @@ function fakeBaserow(options = {}) {
       default: throw new Error('fake filter ' + op);
     }
   }
+  // Baserow filters and sorts only on the fields its include keeps (ERROR_FILTER_FIELD_NOT_FOUND names the field id,
+  // ERROR_ORDER_BY_FIELD_NOT_FOUND the name with its sign), as test-nocode answered on 23/11.
+  function outsideInclude(params) {
+    if (!params.include_fields) return null;
+    const names = params.include_fields.match(/"(?:[^"\\]|\\.)*"|[^,]+/g).map(n => n.startsWith('"') ? JSON.parse(n) : n);
+    const walk = node => node.filters.flatMap(item => item.filters ? walk(item) : [item.field]);
+    const filtered = params.filterExpression ? walk(JSON.parse(params.filterExpression)) : [];
+    const missingFilter = filtered.find(name => !names.includes(name));
+    if (missingFilter) return { error: 'ERROR_FILTER_FIELD_NOT_FOUND', detail: 'The field ' + FIELDS.find(f => f.name === missingFilter).id + ' was not found in the table.' };
+    const missingSort = params.order_by ? JSON.parse(params.order_by).sorts.find(sort => !names.includes(sort.name)) : null;
+    if (missingSort) return { error: 'ERROR_ORDER_BY_FIELD_NOT_FOUND', detail: 'The field ' + (missingSort.order === 'desc' ? '-' : '') + missingSort.name + ' was not found in the table.' };
+    return null;
+  }
   function tableGetDataNative(params) {
     if (options.nativeAnswer) return options.nativeAnswer;
+    const refused = outsideInclude(params);
+    if (refused) return { raw: JSON.stringify(refused) };
     let rows = state.rows.slice();
     if (params.filterExpression) rows = rows.filter(row => matches(row, JSON.parse(params.filterExpression)));
     if (params.order_by) {
@@ -267,6 +282,23 @@ test('the reduced filter of the contract becomes the filter expression of TableG
   assert.deepEqual(fromJava.result.rows, [{ id: 2, Name: 'Deal 2' }, { id: 4, Name: 'Deal 4' }]);
 });
 
+test('a filter or a sort on a field outside fields reads that field too, and answers only the fields asked', () => {
+  // test-nocode 23/11, Courbes_KPI_Test of the Pilotage KPI import: a filter on KPI_ID with fields that did not name it
+  // was refused (ERROR_FILTER_FIELD_NOT_FOUND: The field 49420 was not found in the table), so was a sort.
+  const filtered = rowsList({ table: 30, fields: ['Amount'], filter: { column: 'Stage', operator: 'single_select_equal', value: 'Won' }, sort: '-Name', size: 2 });
+  assert.equal(filtered.result.status, 'ok', JSON.stringify(filtered.result.error));
+  assert.equal(filtered.native.params.include_fields, 'Amount,Stage,Name');
+  assert.deepEqual(filtered.result.fields.map(f => f.name), ['Amount']);
+  assert.deepEqual(filtered.result.rows, [{ id: 8, Amount: '800.00' }, { id: 6, Amount: '600.00' }]);
+  assert.equal(filtered.result.total, 27);
+  const grouped = rowsList({ table: 30, fields: ['Name'], filter: { any: [{ column: 'Amount', operator: 'higher_than', value: 5400 }, { all: [{ column: 'Notes', operator: 'contains', value: 'note 2' }] }] } });
+  assert.equal(grouped.result.status, 'ok', JSON.stringify(grouped.result.error));
+  assert.equal(grouped.native.params.include_fields, 'Name,Amount,Notes', 'each field of a group, once');
+  assert.deepEqual(grouped.result.rows.map(r => Object.keys(r)), grouped.result.rows.map(() => ['id', 'Name']));
+  const everything = rowsList({ table: 30, filter: { column: 'Stage', operator: 'single_select_equal', value: 'Won' }, size: 1 });
+  assert.equal(everything.native.params.include_fields, undefined, 'without fields every field is read already');
+});
+
 test('a filter, a field or a sort the table cannot take is refused before any row is read', () => {
   const cases = [
     [{ filter: { column: 'Stage', operator: 'equal', value: { field: 'stage_input' } } }, 'invalid_filter', /literal values/],
@@ -333,7 +365,8 @@ test('the sequence reads its variables as the engine gives them: String objects,
   const native = everything.calls.find(c => c.name === 'TableGetDataNative').params;
   assert.deepEqual(JSON.parse(native.filterExpression), { mode: 'AND', filters: [{ field: 'Stage', op: 'single_select_equal', value: 'Won' }] });
   assert.deepEqual(JSON.parse(native.order_by), { sorts: [{ name: 'Amount', order: 'desc' }] });
-  assert.deepEqual([native.include_fields, native.page, native.size], ['Name,Amount', '2', '3']);
+  assert.deepEqual([native.include_fields, native.page, native.size], ['Name,Amount,Stage', '2', '3'], 'the filtered field is read too');
+  assert.deepEqual(everything.result.fields.map(f => f.name), ['Name', 'Amount'], 'and not answered');
   assert.deepEqual(everything.result.rows.map(r => r.id), [48, 46, 44]);
   assert.equal(step({ table: '{"id":30}', size: '1' }).result.table.id, 30, 'a reference written as JSON is still read');
   const missing = step({});

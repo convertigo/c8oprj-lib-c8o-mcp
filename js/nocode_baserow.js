@@ -2490,6 +2490,21 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     return root.filters.length ? root : null;
   }
 
+  // The field names a filter expression of rowsFilterExpression compares, its groups included.
+  function rowsFilterFields(expression) {
+    var names = [];
+    (function walk(node) {
+      ensureArray(node && node.filters).forEach(function (item) {
+        if (item && Array.isArray(item.filters)) {
+          walk(item);
+        } else if (item && trimmed(item.field).length) {
+          names.push(item.field);
+        }
+      });
+    })(expression);
+    return names;
+  }
+
   // The order of TableGetDataNative ({ sorts: [{ name, order }] }, which it gives Baserow quoted, a text formula
   // formatting a number or a date sorted by that field) from "Name,-Date" or a list of names and { column, order }.
   function rowsSorts(value, resolveField) {
@@ -2642,13 +2657,19 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
       });
       var filter = rowsFilterExpression(jsonOrText(opts.filter), resolveField);
       var sorts = rowsSorts(opts.sort, resolveField);
+      // Baserow filters and sorts only on the fields its include keeps: a filter on a field the agent did not ask to see
+      // was refused with ERROR_FILTER_FIELD_NOT_FOUND, a sort with ERROR_ORDER_BY_FIELD_NOT_FOUND (test-nocode 23/11,
+      // Pilotage KPI import). They are read too, and only the fields asked are answered.
+      var included = wanted.length ? wanted.concat(rowsFilterFields(filter), sorts.map(function (sort) { return sort.name; })).filter(function (name, index, all) {
+        return all.indexOf(name) === index;
+      }) : [];
 
       var read = withoutLogs(function () {
         return callC8oSequenceNative("lib_BaseRow", "TableGetDataNative", {
           table_id: baserowId(table.id),
           page: String(page),
           size: String(size),
-          include_fields: wanted.length ? baserowFieldList(wanted) : null,
+          include_fields: included.length ? baserowFieldList(included) : null,
           order_by: sorts.length ? JSON.stringify({ sorts: sorts }) : null,
           filterExpression: filter ? JSON.stringify(filter) : null,
           raw_json: "true",
