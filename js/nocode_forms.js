@@ -19,10 +19,20 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return value == null ? "" : String(value).trim();
   }
 
+  // The HTTP request the calls go through: the internal request of an edit running in a thread of its own
+  // (js/nocode_form_edit_job.js), which outlives the call, else the request of the call.
+  function callRequest() {
+    if (C8O.detachedRequest) {
+      return C8O.detachedRequest;
+    }
+    return typeof context !== "undefined" && context && context.httpServletRequest ? context.httpServletRequest : null;
+  }
+
   function requestBearerToken() {
     try {
-      if (typeof context !== "undefined" && context && context.httpServletRequest) {
-        var authorization = context.httpServletRequest.getHeader("Authorization");
+      var bearerRequest = callRequest();
+      if (bearerRequest) {
+        var authorization = bearerRequest.getHeader("Authorization");
         var match = /^Bearer\s+(.+)$/i.exec(String(authorization || ""));
         if (match && match[1] != null) {
           return trimmed(match[1]);
@@ -718,8 +728,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         params.put(keys[i], variables[keys[i]]);
       }
     }
-    var hasContext = typeof context !== "undefined" && context;
-    var request = hasContext && context.httpServletRequest ? context.httpServletRequest : new InternalHttpServletRequest();
+    // read once: the engine removes context from the scope when the sequence of the call ends, which an edit running
+    // in a thread of its own (js/nocode_form_edit_job.js) outlives
+    var hasContext = typeof context !== "undefined" && context ? context : null;
+    var request = callRequest() || new InternalHttpServletRequest();
     var requester = new InternalRequester(params, request);
     var response = requester.processRequest();
     var json = JSON.parse(XMLUtils.XmlToJson(response.getDocumentElement(), true, true, JsonOutput.JsonRoot.docNode).toString());
@@ -727,8 +739,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var ctx2 = requester.getContext();
       Engine.theApp.contextManager.remove(ctx2);
     } catch (_ignoreCtx) {}
-    if (hasContext && context.logParameters) {
-      org.apache.log4j.MDC.put("ContextualParameters", context.logParameters);
+    if (hasContext && hasContext.logParameters) {
+      org.apache.log4j.MDC.put("ContextualParameters", hasContext.logParameters);
     }
     return json;
   }
@@ -1619,6 +1631,24 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     });
     return out;
   }
+  // A saved form whose view is larger than this is not answered whole: the 5.6 MB application of the Pilotage KPI import
+  // (test-nocode, 23/11) answered nearly 3 million characters to each edit, cut to its first 14,000 for the agent and too
+  // large to keep in pages, at the cost of converting it twice more on the server.
+  var AGENT_FORM_MAX_CHARS = 200000;
+  function formOutline(view, chars) {
+    var components = Array.isArray(view.formulaire) ? view.formulaire.length : 0;
+    var pages = (Array.isArray(view.pages) ? view.pages : []).map(function (page) { return page && (page.name || page.pageTechName); }).filter(function (name) { return name != null && String(name).length; });
+    return {
+      form: { _id: view._id, _rev: view._rev, name: view.name },
+      formOmitted: {
+        chars: chars,
+        components: components,
+        pages: pages.slice(0, 40),
+        reason: "The saved form is " + chars + " characters: only its id, revision and name are answered.",
+        read: "Read what you need to check with nocode-form-get find (a word of a label, a page or a flow), never the whole form."
+      }
+    };
+  }
   function agentResult(result) {
     if (!result || typeof result !== "object" || Array.isArray(result)) {
       return result;
@@ -1630,7 +1660,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (savedId != null) { out.id = String(savedId); }
     if (savedRev != null) { out.rev = String(savedRev); }
     Object.keys(result).forEach(function (key) { if (!hasOwn(out, key)) { out[key] = result[key]; } });
-    if (out.form && typeof out.form === "object") { out.form = agentView(out.form); }
+    if (out.form && typeof out.form === "object") {
+      out.form = agentView(out.form);
+      var formChars = JSON.stringify(out.form).length;
+      if (formChars > AGENT_FORM_MAX_CHARS) {
+        var outline = formOutline(out.form, formChars);
+        out.form = outline.form;
+        out.formOmitted = outline.formOmitted;
+      }
+    }
     if (out.response && typeof out.response === "object") { out.response = agentView(out.response); }
     if (out.authentication && typeof out.authentication === "object") {
       var auth = { status: out.authentication.status, authenticated: out.authentication.authenticated === true, user: out.authentication.user };
@@ -1651,6 +1689,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   }
   C8O.nocodeForms.findText = findText;
   C8O.nocodeForms.agentView = agentView;
+  C8O.nocodeForms.AGENT_FORM_MAX_CHARS = AGENT_FORM_MAX_CHARS;
+  // The bearer of the call: the token given, else the Authorization header of the request.
+  C8O.nocodeForms.callerToken = function (options) {
+    return trimmed(options && options.token) || requestBearerToken();
+  };
   C8O.nocodeForms.parseObject = parseObject;
   C8O.nocodeForms.assertStrictJsonText = assertStrictJsonText;
   C8O.nocodeForms.parseArray = parseArray;

@@ -21,12 +21,22 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     return value == null ? "" : String(value).trim();
   }
 
+  // The HTTP request the calls go through: the internal request of an edit running in a thread of its own
+  // (js/nocode_form_edit_job.js), which outlives the call, else the request of the call.
+  function callRequest() {
+    if (C8O.detachedRequest) {
+      return C8O.detachedRequest;
+    }
+    return typeof context !== "undefined" && context && context.httpServletRequest ? context.httpServletRequest : null;
+  }
+
   function requestBearerToken() {
     try {
-      if (typeof context === "undefined" || !context || !context.httpServletRequest) {
+      var bearerRequest = callRequest();
+      if (!bearerRequest) {
         return "";
       }
-      var authorization = context.httpServletRequest.getHeader("Authorization");
+      var authorization = bearerRequest.getHeader("Authorization");
       var value = trimmed(authorization);
       var prefix = "Bearer ";
       if (value.substring(0, prefix.length).toLowerCase() === prefix.toLowerCase()) {
@@ -56,8 +66,10 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         params.put(keys[i], variables[keys[i]]);
       }
     }
-    var hasContext = typeof context !== "undefined" && context;
-    var request = hasContext && context.httpServletRequest ? context.httpServletRequest : new InternalHttpServletRequest();
+    // read once: the engine removes context from the scope when the sequence of the call ends, which an edit running
+    // in a thread of its own (js/nocode_form_edit_job.js) outlives
+    var hasContext = typeof context !== "undefined" && context ? context : null;
+    var request = callRequest() || new InternalHttpServletRequest();
     var requester = new InternalRequester(params, request);
     var response = requester.processRequest();
     var json = JSON.parse(XMLUtils.XmlToJson(response.getDocumentElement(), true, true, JsonOutput.JsonRoot.docNode).toString());
@@ -65,8 +77,8 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
       var ctx2 = requester.getContext();
       Engine.theApp.contextManager.remove(ctx2);
     } catch (_ignoreCtx) {}
-    if (hasContext && context.logParameters) {
-      org.apache.log4j.MDC.put("ContextualParameters", context.logParameters);
+    if (hasContext && hasContext.logParameters) {
+      org.apache.log4j.MDC.put("ContextualParameters", hasContext.logParameters);
     }
     return json;
   }
@@ -85,8 +97,10 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         params.put(keys[i], variables[keys[i]]);
       }
     }
-    var hasContext = typeof context !== "undefined" && context;
-    var request = hasContext && context.httpServletRequest ? context.httpServletRequest : new InternalHttpServletRequest();
+    // read once: the engine removes context from the scope when the sequence of the call ends, which an edit running
+    // in a thread of its own (js/nocode_form_edit_job.js) outlives
+    var hasContext = typeof context !== "undefined" && context ? context : null;
+    var request = callRequest() || new InternalHttpServletRequest();
     var requester = new InternalRequester(params, request);
     var response = requester.processRequest();
     var json = JSON.parse(XMLUtils.XmlToJson(response.getDocumentElement(), true, true, JsonOutput.JsonRoot.docNode).toString());
@@ -94,8 +108,8 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
       var ctx2 = requester.getContext();
       Engine.theApp.contextManager.remove(ctx2);
     } catch (_ignoreCtx) {}
-    if (hasContext && context.logParameters) {
-      org.apache.log4j.MDC.put("ContextualParameters", context.logParameters);
+    if (hasContext && hasContext.logParameters) {
+      org.apache.log4j.MDC.put("ContextualParameters", hasContext.logParameters);
     }
     return json;
   }
@@ -117,8 +131,10 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         params.put(keys[i], variables[keys[i]]);
       }
     }
-    var hasContext = typeof context !== "undefined" && context;
-    var request = hasContext && context.httpServletRequest ? context.httpServletRequest : new InternalHttpServletRequest();
+    // read once: the engine removes context from the scope when the sequence of the call ends, which an edit running
+    // in a thread of its own (js/nocode_form_edit_job.js) outlives
+    var hasContext = typeof context !== "undefined" && context ? context : null;
+    var request = callRequest() || new InternalHttpServletRequest();
     var requester = new InternalRequester(params, request);
     var response = requester.processRequest();
     var out = {};
@@ -139,8 +155,8 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
       var ctx2 = requester.getContext();
       Engine.theApp.contextManager.remove(ctx2);
     } catch (_ignoreCtx) {}
-    if (hasContext && context.logParameters) {
-      org.apache.log4j.MDC.put("ContextualParameters", context.logParameters);
+    if (hasContext && hasContext.logParameters) {
+      org.apache.log4j.MDC.put("ContextualParameters", hasContext.logParameters);
     }
     return out;
   }

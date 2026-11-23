@@ -1649,6 +1649,10 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         operation: Object.assign(nocodeFormEditOperationSchema(), {
           description: "Alias for operations when sending a single operation object, for example {action:'add_page', name:'Details'}."
         }),
+        editId: {
+          type: "string",
+          description: "editId of an edit that answered status running (a large form): given alone with id, no operations, the call waits for that same edit and answers its result. Never send the operations of a running edit again."
+        },
         token: nocodeFormsTokenProperty(),
         reveal: {
           type: "boolean",

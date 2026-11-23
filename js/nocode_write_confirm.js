@@ -110,6 +110,20 @@ C8O.nocodeWriteConfirm = C8O.nocodeWriteConfirm || {};
     if (sequence === "tools_nocode_form_publish") {
       return truthy(args.confirm);
     }
+    var none = function (value) {
+      if (value == null) {
+        return true;
+      }
+      if (typeof value === "object") {
+        return Array.isArray(value) && !value.length;
+      }
+      var text = trimmed(value);
+      return text === "" || text === "null" || text === "[]";
+    };
+    if (sequence === "tools_nocode_form_edit" && trimmed(args.editId).length && trimmed(args.editId) !== "null" && none(args.operations) && none(args.operation)) {
+      // waits for an edit already confirmed (js/nocode_form_edit_job.js): it writes nothing itself
+      return false;
+    }
     return true;
   };
 

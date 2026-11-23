@@ -2167,3 +2167,28 @@ test('nocode-form-compile of a reduced form without slip answers no repairs', ()
   assert.equal(r.status, 'ok');
   assert.equal(r.repairs, undefined);
 });
+
+test('a form too large to answer whole: an edit answers its id, revision, name and an outline, and still saves', () => {
+  // test-nocode 23/11, the 5.6 MB application of the Pilotage KPI import: each edit answered nearly 3 million characters,
+  // cut to its first 14,000 for the agent and too large to keep in pages.
+  const h = creationHarness();
+  const created = h.client.create({ name: 'Pilotage', pages: [{ name: 'Accueil', fields: [{ type: 'text', name: 'kpi', label: 'KPI' }] }, { name: 'Saisie', fields: [{ type: 'text', name: 'valeur', label: 'Valeur' }] }] }, h.auth);
+  assert.equal(created.saved, true);
+  assert.ok(Array.isArray(created.form.formulaire), 'a small form is answered whole');
+  assert.equal(created.formOmitted, undefined);
+  const id = created.form._id;
+  const big = h.state.forms[id].formulaire.find(f => f.name === 'kpi');
+  big.config.placeholder = 'x'.repeat(api().AGENT_FORM_MAX_CHARS + 1000);
+  const edited = h.client.edit(id, [{ action: 'update_field', fieldName: 'valeur', patch: { label: 'Valeur relevée' } }], h.auth);
+  assert.equal(edited.saved, true, JSON.stringify(edited.error || edited.validation));
+  assert.deepEqual(Object.keys(edited.form).sort(), ['_id', '_rev', 'name']);
+  assert.deepEqual([edited.id, edited.form._id, edited.form._rev, edited.form.name], [id, id, edited.rev, 'Pilotage']);
+  assert.ok(edited.formOmitted.chars > api().AGENT_FORM_MAX_CHARS);
+  assert.equal(edited.formOmitted.components, h.state.forms[id].formulaire.length);
+  assert.deepEqual(clone(edited.formOmitted.pages), clone(h.state.forms[id].pages.map(p => p.name)));
+  assert.deepEqual(clone(edited.formOmitted.pages), ['Accueil', 'Saisie']);
+  assert.match(edited.formOmitted.read, /nocode-form-get find/);
+  assert.ok(JSON.stringify(edited).length < 5000, 'the answer stays small');
+  const saved = h.state.forms[id].formulaire.find(f => f.name === 'valeur');
+  assert.match(JSON.stringify(saved.config), /Valeur relevée/);
+});
