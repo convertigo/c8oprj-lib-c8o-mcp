@@ -34,7 +34,15 @@ responseTimeout: 300
       // A tool script error arrives wrapped in the generic engine message; lift the message of the script.
       var scriptError = /A Javascript error has occured: (?:Error: )?([\s\S]*?)(?: \([^()]*#\d+\))?\s*$/.exec(String(err.details || ""));
       var message = scriptError && scriptError[1] ? scriptError[1].trim() : (err.message || "Tool call failed");
-      return { code: err.code || "", message: message, details: err.details || "", context: err.context || "", exception: err.exception || "", attr: err.attr || {} };
+      var lifted = { code: err.code || "", message: message, details: err.details || "", context: err.context || "", exception: err.exception || "", attr: err.attr || {} };
+      // A QName not found with a single candidate of the kind asked: the QName to use (js/mcp_repeated_failures.js).
+      try {
+        var useQName = C8O.mcpRepeat && C8O.mcpRepeat.useOf ? C8O.mcpRepeat.useOf(message) : "";
+        if (useQName) {
+          lifted.use = useQName;
+        }
+      } catch (_ignoreUse) {}
+      return lifted;
     }
     function formatToolErrorText(err, repeatNote) {
       return JSON.stringify(formatToolErrorObject(err, repeatNote));
@@ -733,8 +741,8 @@ responseTimeout: 300
           comment: In reveal mode, shows in the Studio (Eclipse tree or web Studio) what a building tool created or changed; then records the writes and the runs of the call in the journal project-changes answers (js/write_journal.js).
           expression: revealAfterToolCall(callSequence, result, callVariables); journalAfterToolCall(callSequence, result, callVariables);
         ↓NoteRepeatedFailure [steps.SimpleStep-1793350000005]: 
-          comment: Says when an identical call of the same MCP session already failed with this error; a call that worked forgets its failures.
-          expression: mcpRepeatNote = C8O.mcpRepeat.afterCall(context, mcpCallKey, C8O.mcpRepeat.failureOf(result));
+          comment: Says when an identical call of the same MCP session already failed with this error, or when the lookup tools found nothing several times in a row; a call that worked forgets its failures. A not-found inside the answer gets the QName to use.
+          expression: mcpRepeatNote = C8O.mcpRepeat.afterCall(context, mcpCallKey, C8O.mcpRepeat.failureOf(result), result);
         ↓BoundAnswer [steps.SimpleStep-1796200000001]: 
           comment: An answer over the budget a client shows at once is kept for answer-page and the call answers its first page (js/mcp_answer_pages.js).
           expression: 'if (typeof C8O.mcpAnswerPages === "undefined") { include("js/mcp_answer_pages.js"); } mcpPartialAnswer = C8O.mcpAnswerPages.bound(context, {sequence: callSequence, value: result, guidanceWarning: mcpGuidanceWarning, argumentWarning: mcpArgumentWarning, operatorNote: mcpOperatorNote, repeatedFailure: mcpRepeatNote, jsonOnly: notEmpty(jsonOnly) && String(jsonOnly).toLowerCase() === "true"});'

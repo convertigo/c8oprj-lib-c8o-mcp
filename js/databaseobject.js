@@ -349,6 +349,7 @@ C8O.dbo._buildResolveError = function (qname, opts, rootError) {
   }
   // Suggest the exact QName of objects named like the last segment asked for: after a context
   // compaction agents rebuild QNames from memory (Project.sequences.x, x/step, x#y).
+  var use = "";
   if (projectName) {
     try {
       var wanted = String(qname).split(/[.:\/#]/).pop();
@@ -357,7 +358,7 @@ C8O.dbo._buildResolveError = function (qname, opts, rootError) {
         var found = [];
         var stack = [project];
         var visited = 0;
-        while (stack.length && visited < 20000 && found.length < 3) {
+        while (stack.length && visited < 20000 && found.length < 6) {
           var node = stack.pop();
           visited++;
           if (String(node.getName()) === wanted) {
@@ -369,7 +370,13 @@ C8O.dbo._buildResolveError = function (qname, opts, rootError) {
           }
         }
         if (found.length) {
-          hints.push("Objects named \"" + wanted + "\": " + found.join(", ") + ".");
+          // An agent got this answer 18 times in 5 minutes with the candidates in it, and guessed again: one object of the
+          // kind asked (or one object of that name) is named as the QName to use.
+          use = C8O.dbo.notFoundUse(qname, found, !stack.length && found.length < 6);
+          if (use) {
+            hints.push("Call again with target " + use + ".");
+          }
+          hints.push("Objects named \"" + wanted + "\": " + found.slice(0, 3).join(", ") + (found.length > 3 ? " and more" : "") + ".");
         }
       }
     } catch (_ignoreNameSuggestion) {}
@@ -411,10 +418,37 @@ C8O.dbo._buildResolveError = function (qname, opts, rootError) {
   }
   var message = baseMessage + ". " + hints.join(" ");
   var error = new Error(message);
+  if (use) {
+    error.use = use;
+  }
   if (rootError && rootError.stack) {
     error.stack = rootError.stack;
   }
   return error;
+};
+
+// The QName to use for a QName not found, among the objects of the same name (found, complete when the whole project
+// was walked): the only one of the kind asked (the type prefix of its last segment, sq: tr: pg: st:...), else the only
+// one. "" when there is no single answer.
+C8O.dbo.notFoundUse = function (asked, found, complete) {
+  var list = (found || []).map(function (q) { return String(q); });
+  // a walk cut short (a big project, or the first 6 found) gives no certain single answer
+  if (complete === false || !list.length) {
+    return "";
+  }
+  if (list.length === 1) {
+    return list[0];
+  }
+  var kindOf = function (q) {
+    var m = /^([A-Za-z]{1,4}):/.exec(String(q).split(".").pop());
+    return m ? m[1] : "";
+  };
+  var kind = kindOf(asked);
+  if (!kind) {
+    return "";
+  }
+  var same = list.filter(function (q) { return kindOf(q) === kind; });
+  return same.length === 1 ? same[0] : "";
 };
 
 // A nested step has no st: prefix (<seq>.st:ifAllowed.call_x), but agents write <seq>.st:ifAllowed.st:call_x:

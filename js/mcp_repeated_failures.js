@@ -42,7 +42,135 @@ if (!C8O.guidance || !C8O.guidance.fingerprintOf) {
   }
 
   api.callKey = function (toolName, args) {
+    // the call of this request, for the not-found streak of the lookup tools (afterCall)
+    api.current = api.callInfo(toolName, args);
     return digest(trim(toolName).toLowerCase() + "\n" + canonical(args || {}));
+  };
+
+  // ---- Lookups that find nothing, whatever the target ----------------------------------------------------------
+  // databaseobject-tree-get answered "Database object not found ... Objects named ...: a, b, c" 18 times in 5 minutes,
+  // then 9 more, the candidates in each answer (feedback reports 25/11). The guard above did not stop it: it counts an
+  // identical call (same tool, same arguments) failing with the same message, and each try asked another QName, so each
+  // was a new call with a new message; and it only adds a note. The lookup tools now count their "not found" answers in a
+  // row per session, whatever the target: from LOOKUP_STREAK on, the answer says to stop guessing and to copy a QName
+  // from project-brief (or databaseobject-search); any lookup that finds its object starts the count again.
+  api.LOOKUP_TOOLS = {
+    "databaseobject-tree-get": true,
+    "databaseobject-delete": true,
+    "databaseobject-search": true,
+    "databaseobject-tree-apply": true,
+    "databaseobject-move": true,
+    "databaseobject-rename": true,
+    "databaseobject-copy": true
+  };
+  api.LOOKUP_STREAK = 3;
+  api.NOT_FOUND = /Database object not found/i;
+  var STREAK_STORE_KEY = "lib_ConvertigoMCP.lookupStreaks";
+
+  function toolOf(name) {
+    return trim(name).toLowerCase().replace(/^.*?(databaseobject)/, "$1").replace(/[._]/g, "-");
+  }
+
+  api.callInfo = function (toolName, args) {
+    var a = args && typeof args === "object" ? args : {};
+    var asked = trim(a.target || a.qname || a.project || "");
+    return { tool: toolOf(toolName), project: asked.split(/[.:\/]/)[0] || "" };
+  };
+
+  // "Call again with target <QName>." of a not-found message: the QName to use, else "".
+  api.useOf = function (message) {
+    var m = /Call again with target (\S+?)\.(?:\s|$)/.exec(trim(message));
+    return m ? m[1] : "";
+  };
+
+  // The first not-found message inside an answer (a tree-apply that stopped on its target answers it in its operations).
+  api.notFoundIn = function (value) {
+    var seen = 0;
+    var found = "";
+    var walk = function (v, depth) {
+      if (found || depth > 6 || seen > 400) {
+        return;
+      }
+      seen++;
+      if (typeof v === "string") {
+        if (api.NOT_FOUND.test(v)) {
+          found = v;
+        }
+      } else if (Array.isArray(v)) {
+        v.forEach(function (x) { walk(x, depth + 1); });
+      } else if (v && typeof v === "object") {
+        Object.keys(v).forEach(function (k) { walk(v[k], depth + 1); });
+      }
+    };
+    walk(value, 0);
+    return found;
+  };
+
+  // A failed answer with a not-found inside whose QName to use is known gets use and the sentence, at its top.
+  api.annotateNotFound = function (value) {
+    try {
+      if (!value || typeof value !== "object" || Array.isArray(value) || value.use) {
+        return value;
+      }
+      var status = trim(value.status).toLowerCase();
+      if (status !== "error" && status !== "failed") {
+        return value;
+      }
+      var use = api.useOf(api.notFoundIn(value));
+      if (use) {
+        value.use = use;
+        if (value.message === undefined || typeof value.message === "string") {
+          value.message = (value.message ? value.message + " " : "") + "Call again with target " + use + ".";
+        }
+      }
+    } catch (_ignoreAnnotate) {}
+    return value;
+  };
+
+  // store: as record. info: api.current. signature: "" for a call that worked. The note to add, or "".
+  api.lookupStreak = function (store, newMap, sessionKey, info, signature, now) {
+    if (!store || !sessionKey || !info || api.LOOKUP_TOOLS[info.tool] !== true) {
+      return "";
+    }
+    if (store.get(STREAK_STORE_KEY) == null) {
+      store.set(STREAK_STORE_KEY, newMap());
+    }
+    var streaks = store.get(STREAK_STORE_KEY);
+    if (!signature) {
+      streaks.remove(sessionKey);
+      return "";
+    }
+    if (!api.NOT_FOUND.test(signature)) {
+      // another error neither counts nor ends the streak
+      return "";
+    }
+    var kept = streaks.entrySet().iterator();
+    while (kept.hasNext()) {
+      var entry = null;
+      try {
+        entry = JSON.parse(String(kept.next().getValue()));
+      } catch (_unreadableStreak) {}
+      if (!entry || !(now - Number(entry.at) < REPEAT_KEEP_MS)) {
+        kept.remove();
+      }
+    }
+    if (streaks.size() >= REPEAT_MAX_ENTRIES) {
+      streaks.clear();
+    }
+    var previous = null;
+    try {
+      previous = streaks.get(sessionKey) == null ? null : JSON.parse(String(streaks.get(sessionKey)));
+    } catch (_unreadablePrevious) {}
+    var count = (previous ? Number(previous.count) || 0 : 0) + 1;
+    var project = info.project || (previous && previous.project) || "";
+    streaks.put(sessionKey, JSON.stringify({ at: now, count: count, project: project }));
+    if (count < api.LOOKUP_STREAK) {
+      return "";
+    }
+    var briefArgs = project ? "{project: \"" + project + "\"}" : "{project}";
+    return count + " lookups in a row found nothing in this session: stop guessing QNames. Call project-brief " + briefArgs +
+      " once (or databaseobject-search with the name you look for) and copy a QName from its answer, or use the QName " +
+      "this answer gives in use.";
   };
 
   api.sessionKey = function (contextObject) {
@@ -121,14 +249,36 @@ if (!C8O.guidance || !C8O.guidance.fingerprintOf) {
       " in this session with this error: change the call or the approach instead of sending it again.";
   };
 
-  // signature: "" for a call that worked, which forgets the failures of the same call.
-  api.afterCall = function (contextObject, callKey, signature) {
+  // signature: "" for a call that worked, which forgets the failures of the same call. value: the answer of a call that
+  // did not throw (a not-found inside it is read, and its QName to use added).
+  api.afterCall = function (contextObject, callKey, signature, value) {
+    var notes = [];
+    var newMap = function () {
+      return new java.util.concurrent.ConcurrentHashMap();
+    };
+    var store = contextObject ? contextObject.server : null;
+    var now = Number(java.lang.System.currentTimeMillis());
     try {
-      return api.record(contextObject ? contextObject.server : null, function () {
-        return new java.util.concurrent.ConcurrentHashMap();
-      }, api.sessionKey(contextObject), callKey, signature, Number(java.lang.System.currentTimeMillis()));
-    } catch (_ignoreRepeat) {
-      return "";
-    }
+      if (value !== undefined) {
+        api.annotateNotFound(value);
+        var inside = signature ? api.notFoundIn(value) : "";
+        if (inside && !api.NOT_FOUND.test(signature)) {
+          signature = (signature + "|" + inside).substring(0, 400);
+        }
+      }
+    } catch (_ignoreValue) {}
+    try {
+      var repeated = api.record(store, newMap, api.sessionKey(contextObject), callKey, signature, now);
+      if (repeated) {
+        notes.push(repeated);
+      }
+    } catch (_ignoreRepeat) {}
+    try {
+      var streak = api.lookupStreak(store, newMap, api.sessionKey(contextObject), api.current, signature, now);
+      if (streak) {
+        notes.push(streak);
+      }
+    } catch (_ignoreStreak) {}
+    return notes.join(" ");
   };
 })();
