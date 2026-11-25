@@ -186,6 +186,14 @@ test('deleted objects and objects created then deleted need no proof; a rename c
   assert.equal(j.stateOf().writes, 5);
 });
 
+test('project notes and other documentation files need no proof', () => {
+  const j = load();
+  j.call('tools_project_notes_write', { status: 'created', project: 'Shop', path: '_private/docs/PROGRESS.md' }, { project: 'Shop' });
+  j.call('tools_project_notes_write', { status: 'changed', project: 'Shop', path: 'docs/generated/PROGRESS.md' }, { project: 'Shop' });
+  j.call('tools_project_js_set', { status: 'ok', relativePath: 'app.js', created: false }, { project: 'Shop', filename: 'js/app.js' });
+  assert.deepEqual(j.unproven(), ['Shop/js/app.js'], 'a note is no code of the application');
+});
+
 test('the store: the exact JSON of the contract, per raw conversation id, never a value, and only with a conversation', () => {
   const j = load();
   j.call(...change('Shop.sq:list_orders'));

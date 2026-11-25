@@ -1072,6 +1072,11 @@ if (typeof C8O === "undefined") {
     if (o.k === "file") {
       var fileProject = text(o.pr) || q.split("/")[0];
       var path = q.substring(fileProject.length + 1);
+      // The project notes (project-notes-write: _private/docs/PROGRESS.md, docs/generated/...) and other documentation
+      // are no code of the application: nothing to prove (a run ended with "PROGRESS.md not verified" under the answer).
+      if (/\.(md|markdown|txt)$/i.test(path)) {
+        return null;
+      }
       if (/(^|\/)(_private\/ionic|DisplayObjects)\//.test(path) || /(^|\/)i18n\//.test(path) || /\.(scss|css|html)$/i.test(path)) {
         return { kind: "ui", project: fileProject };
       }

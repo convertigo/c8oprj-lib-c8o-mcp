@@ -49,7 +49,8 @@ components rely on. The writer is `C8O.writeJournal.writeProofState`; the same c
 | `ui` | the mobile application and everything under it (pages, shared components and actions, styles), a theme, the files of the Ionic app, i18n files | a verifier report in its project: `passed` proves every UI object of the project; `partial` proves only the pages whose name is a word of the path names of its passed checks; `failed` or `not_checked` proves nothing |
 | `file` | other project files written with `project-js-set` and the like | any `requestable-execute` of a requestable of its project that answered ok, or `crud-proof`/`seed-proof` ok |
 
-Deleted objects, and objects created then deleted, need no proof. A rename or a move carries the change to the new
+Deleted objects, objects created then deleted, and documentation files (`.md`, `.markdown`, `.txt`: the project notes of
+`project-notes-write` among them) need no proof. A rename or a move carries the change to the new
 QName. A verifier report whose project is unknown (a dev viewer URL that names none) speaks for the only project with
 UI changes, else for none.
 
