@@ -1793,7 +1793,7 @@
         "when": "Viewer readiness and error diagnosis",
         "sha256": "14037c3ebfdf39f1dd33ba6236218bd34b8b5a6b24acec13d20c98c0fc1dc2d9",
         "bodyOffset": 222,
-        "servedSha256": "c3d29f1a23445046c7f2a3e9ece83a2db030ce0236c9af4a4f2670497a12470f",
+        "servedSha256": "dc9ac6f2c4e4d1578594c1f3c8877d72d6b1587b790c30f2e0e9b57e5734df0e",
         "trailingSourceNewlines": 1
       },
       {
@@ -1819,7 +1819,7 @@
         "when": "Act on verifier reports and close the task",
         "sha256": "69d6fe6dfe75c6dba617a233c960dad6d2334260760bddc28a2eaffee055fa88",
         "bodyOffset": 233,
-        "servedSha256": "73294977720ee307a22f5a7e59e67ac6890ee84a182db89e60a2d4743df9448e",
+        "servedSha256": "f3eb0aa5bc0a8b84c6c842b9306a76a72693ce8a6026948252622389b31f6fe9",
         "trailingSourceNewlines": 1
       },
       {

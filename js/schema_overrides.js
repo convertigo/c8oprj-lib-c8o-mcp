@@ -2870,6 +2870,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       browserControlReady: { type: "boolean", description: "Eclipse Studio: true only when the JxBrowser CDP target is on the live viewer URL and its application DOM is hydrated for Playwright/browser-control. Electron Studio: true when its agent browser answers; the agent then navigates its one page to viewerHomeUrl itself." },
       browserControlTargetUrl: { type: "string", description: "Current URL of the Studio browser's page: often about:blank while the Eclipse loader is still building, and in the Electron agent browser until the agent navigates it." },
       browserControlHint: { type: "string", description: "Short browser-control guidance for the returned Studio browser (Eclipse JxBrowser viewer or Electron agent browser), including the requirement to use configured MCP tools rather than ad hoc scripts." },
+      browserControlError: { type: "string", description: "Only when the Studio browser the agent drives does not answer (its CDP endpoint refuses connections or times out) while the builder runs: the cause, for example \"the Studio browser does not answer on 127.0.0.1:39084: connection refused\". Browser proof is then impossible in this turn: one retry after about 10 s at most, then prove the backend with requestable-execute and report every page and visual check as NOT verified." },
       nextAction: nullableSchema(closedObjectSchema({
         tool: { type: "string" },
         arguments: {

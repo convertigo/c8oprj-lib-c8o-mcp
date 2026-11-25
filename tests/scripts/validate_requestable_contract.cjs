@@ -103,7 +103,8 @@ test('the structure a copy answers stays whole lines under its budget', () => {
 
 test('a viewer ready and compiled points to browser-verify for the proof of a page', () => {
   const open = read('js/tools_mobile_builder_open.js');
-  assert.match(open, /if \(ready && \(compileState === "success" \|\| compileState === "not_required"\)\) \{\s*message = message \+ " To prove what a page shows, call browser-verify \{url, paths\}/);
+  // not when the Studio browser does not answer (browserControlError): browser-verify would refuse at once
+  assert.match(open, /if \(ready && \(compileState === "success" \|\| compileState === "not_required"\) && !browserControlError\.length\) \{\s*message = message \+ " To prove what a page shows, call browser-verify \{url, paths\}/);
 });
 
 // A change inside a requestable that existed before the conversation is refused before it is made, until changeExisting

@@ -8,6 +8,7 @@ include("js/mobile_builder_common.js");
 include("js/ui_reveal.js");
 include("js/edit_profile.js");
 include("js/ionic_roundtrip.js");
+include("js/browser_reach.js");
 
 if (typeof C8O === "undefined") {
   var C8O = {};
@@ -73,6 +74,8 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
   var BUILD_CYCLE_SETTLE_MS = 1200;
   // stateOnly stops waiting once the builder has been idle this long with a viewer that does not show the app.
   var IDLE_VIEWER_STOP_MS = 8000;
+  // How often the wait probes a Studio browser that does not answer (a refused connection fails at once).
+  var BROWSER_PROBE_MS = 3000;
   var BUILDER_STARTUP_GRACE_MS = 120000;
   var BUILDER_LAUNCH_PREFIX = "convertigo.mcp.mobileBuilder.launch.";
 
@@ -1178,6 +1181,36 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     var buildSettleDeadline = waitValue === true
       ? Math.min(deadline, startedAt + BUILD_CYCLE_SETTLE_MS)
       : startedAt;
+    // The Studio browser the agent drives (js/browser_reach.js): its CDP endpoint is probed while it does not answer,
+    // every BROWSER_PROBE_MS at most; refused with the viewer open, the wait does not go on for it.
+    var probeAgentBrowserPort = studioMode ? 0 : studioAgentBrowserPort();
+    var browserReach = null;
+    var browserReachAt = 0;
+    var browserUnreachable = false;
+    function browserProbeEndpoint(currentEditorState) {
+      if (probeAgentBrowserPort > 0) {
+        return "http://127.0.0.1:" + probeAgentBrowserPort;
+      }
+      if (browserDebugPortValue > 0) {
+        return "http://127.0.0.1:" + browserDebugPortValue;
+      }
+      return currentEditorState && currentEditorState.browserDebugUrl ? trim(currentEditorState.browserDebugUrl) : "";
+    }
+    function checkBrowserReach(currentEditorState, force) {
+      var probeEndpoint = browserProbeEndpoint(currentEditorState);
+      var viewerOpen = probeAgentBrowserPort > 0 || (currentEditorState && currentEditorState.hasEditor === true);
+      if (!probeEndpoint.length || !viewerOpen || (browserReach && browserReach.ok === true)) {
+        browserUnreachable = false;
+        return;
+      }
+      var now = java.lang.System.currentTimeMillis();
+      if (force === true || browserReach === null || now - browserReachAt >= BROWSER_PROBE_MS) {
+        browserReach = C8O.browserReach.probe(probeEndpoint, 1500);
+        browserReach.endpoint = probeEndpoint;
+        browserReachAt = now;
+      }
+      browserUnreachable = browserReach.ok !== true;
+    }
 
     function syncGenerationState() {
       var current = C8O.mobileBuilderCycle.readState(projectName);
@@ -1270,6 +1303,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         );
       editorState = readEditorState(editorRef);
       browserState = readBrowserState(editorRef);
+      checkBrowserReach(editorState, false);
       buildJobState = studioMode
         ? readLiveBuildJob(buildJobNameValue)
         : { supported: false, jobName: buildJobNameValue, active: false, state: "none" };
@@ -1411,6 +1445,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       readinessDecision = classifyReadiness({
         viewerReady: currentViewerReady,
         browserControlReady: currentBrowserControlReady,
+        browserUnreachable: browserUnreachable,
         failed: snapshot.failed === true,
         compileSucceeded: snapshot.compiled === true,
         generationNoChange: generationNoChange === true,
@@ -1458,6 +1493,10 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         snapshot.failed !== true &&
         snapshot.building !== true;
       if (stateOnlyStopped) {
+        break;
+      }
+      // The browser does not answer and no build is running: nothing to wait for, the answer says so at once.
+      if (browserUnreachable && readinessDecision.compileBlocking !== true) {
         break;
       }
       if (snapshot.failed === true) {
@@ -1559,6 +1598,15 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
           : (launchRequested === true
             ? (waited ? "timeout" : "starting")
             : "stopped")));
+    // The CDP endpoint the agent drives does not answer while the builder runs: said at once, with its cause.
+    var browserControlError = "";
+    if (status !== "stopped") {
+      checkBrowserReach(editorState, !(browserReach && browserReach.ok === true));
+      if (browserUnreachable && browserReach) {
+        browserControlReady = false;
+        browserControlError = C8O.browserReach.errorText(browserReach.endpoint, browserReach.cause);
+      }
+    }
     var message = ready
       ? (compileState === "success"
         ? "Mobile builder compilation and viewer are ready."
@@ -1633,7 +1681,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       message = message + " Studio mode is disabled; this tool is intended for Studio usage.";
     }
     // The measured runs proved their pages with dozens of Playwright calls by hand (72 in one run), never browser-verify.
-    if (ready && (compileState === "success" || compileState === "not_required")) {
+    if (ready && (compileState === "success" || compileState === "not_required") && !browserControlError.length) {
       message = message + " To prove what a page shows, call browser-verify {url, paths}: one call, a verifier drives this " +
         "viewer and answers what it saw with screenshots, instead of many browser calls by hand.";
     }
@@ -1692,7 +1740,9 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       browserDebugPortMatched: browserDebugPortMatched,
       browserControlReady: browserControlReady,
       browserControlTargetUrl: browserControlUrl,
-      browserControlHint: status === "stopped"
+      browserControlHint: browserControlError.length
+        ? C8O.browserReach.INSTRUCTION
+        : status === "stopped"
         ? "No builder runtime is active. Call mobile-builder-open once with stateOnly=false and wait=false, continue other work, then poll readiness."
         : agentBrowser !== null
         ? (agentBrowser.live !== true
@@ -1755,6 +1805,10 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     // the MCP Python SDK) reject the whole call when it is null, so leave it out when there is none.
     if (builderState.browserDevToolsTarget == null) {
       delete builderState.browserDevToolsTarget;
+    }
+    if (browserControlError.length) {
+      builderState.browserControlError = browserControlError;
+      builderState.message = builderState.message + " Browser control: " + browserControlError + ".";
     }
     return builderState;
   };

@@ -228,7 +228,7 @@ test('no viewer, a dead viewer or no key: a clear error before any model call', 
   let started = 0;
   const start = () => { started++; };
   assert.throws(() => api.run({ paths: 'Log in' }, host({ start }).h), /mobile-builder-open first/);
-  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'Log in' }, host({ start, probe: () => false }).h), /does not answer on http:\/\/127\.0\.0\.1:45991/);
+  assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'Log in' }, host({ start, probe: () => false }).h), /^Error: browserControlReady false: the Studio browser does not answer on 127\.0\.0\.1:45991: no answer\. Browser proof is impossible in this turn/);
   assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'Log in' }, host({ start, readKey: () => '' }).h), /No Convertigo agent key/);
   assert.throws(() => api.run({ browserDebugPort: '45991', paths: '' }, host({ start }).h), /paths is required/);
   assert.throws(() => api.run({ browserDebugPort: '45991', paths: 'x', reasoning: 'max' }, host({ start }).h), /reasoning must be none or high/);

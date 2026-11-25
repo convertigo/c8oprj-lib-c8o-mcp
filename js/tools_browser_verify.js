@@ -240,6 +240,22 @@ C8O.browserVerify = C8O.browserVerify || {};
     return { round: kept.length, roundsLeft: Math.max(0, DESIGN_ROUNDS - kept.length) };
   };
 
+  // The answer of a verifier that cannot start because the Studio browser does not answer (js/browser_reach.js): the
+  // cause and that browser proof is impossible in this turn. The agent waited and retried 5 minutes on such a browser.
+  api.unreachable = function (endpoint, cause) {
+    if (typeof C8O.browserReach === "undefined" && typeof include === "function") {
+      try {
+        include("js/browser_reach.js");
+      } catch (_noReach) {}
+    }
+    if (typeof C8O.browserReach !== "undefined") {
+      return C8O.browserReach.refusal(endpoint, cause);
+    }
+    return "browserControlReady false: the Studio browser does not answer on " + String(endpoint).replace(/^[a-z]+:\/\//i, "") +
+      ": " + (str(cause) || "no answer") + ". Browser proof is impossible in this turn: retry at most once, after about 10 s; " +
+      "then prove the backend with requestable-execute and report every page and visual check as NOT verified.";
+  };
+
   // The runner of the verifier profile: the browser to drive, the Node agent and its configuration.
   api.runner = {
     prepare: function (params, profile, ctx, host) {
@@ -274,11 +290,11 @@ C8O.browserVerify = C8O.browserVerify || {};
         throw new Error("No Studio browser for this conversation: open the application with mobile-builder-open first " +
           "(it starts the viewer this sub-agent drives), then call again.");
       }
-      // The probe answers the loopback address where the viewer shows a page (true keeps the given one).
+      // The probe answers the loopback address where the viewer shows a page (true keeps the given one). A browser that
+      // does not answer is said at once, before a run, a lock or a model call: no time budget is spent on it.
       var live = host.probe(cdpEndpoint);
       if (!live) {
-        throw new Error("The Studio browser does not answer on " + cdpEndpoint + ": open the application with " +
-          "mobile-builder-open (it restarts the viewer with its debug port), then call again.");
+        throw new Error(api.unreachable(cdpEndpoint, host.lastProbeCause));
       }
       if (typeof live === "string") {
         cdpEndpoint = live;
@@ -458,6 +474,11 @@ C8O.browserVerify = C8O.browserVerify || {};
       if (!api.parseList(params.pages, "pages", MAX_DESIGN_PAGES).length || !str(params.url).length) {
         throw new Error("design needs url (the viewerHomeUrl of mobile-builder-open) and pages (their addresses relative to it, for example [\"dashboard\", \"items\"]).");
       }
+      // A browser that does not answer uses no round: the check of the runner, before the round is counted.
+      var designEndpoint = typeof host.cdpEndpoint === "function" ? str(host.cdpEndpoint(params)) : "";
+      if (designEndpoint.length && typeof host.probe === "function" && !host.probe(designEndpoint)) {
+        throw new Error(api.unreachable(designEndpoint, host.lastProbeCause));
+      }
       if (host.designLedger) {
         round = api.designRound(host.designLedger, api.designProject(params.url, params.project), params.userAsked === true || /^true$/i.test(str(params.userAsked)), host.now());
         if (round.skip) {
@@ -521,12 +542,14 @@ C8O.browserVerify = C8O.browserVerify || {};
         });
       }
       var answering = "";
+      host.lastProbeCause = "";
       for (var i = 0; i < candidates.length; i++) {
         try {
           var request = Http.HttpRequest.newBuilder(java.net.URI.create(candidates[i] + "/json/list"))
             .timeout(java.time.Duration.ofSeconds(5)).GET().build();
           var response = client.send(request, Http.HttpResponse.BodyHandlers.ofString());
           if (Number(response.statusCode()) !== 200) {
+            host.lastProbeCause = host.lastProbeCause || "HTTP " + Number(response.statusCode()) + " on /json/list";
             continue;
           }
           answering = answering || candidates[i];
@@ -534,7 +557,19 @@ C8O.browserVerify = C8O.browserVerify || {};
           if (targets.some(function (t) { return t && t.type === "page"; })) {
             return candidates[i];
           }
-        } catch (_noBrowser) {}
+        } catch (noBrowser) {
+          // the cause the first address gave (connection refused, no answer): the one the agent's Playwright uses
+          if (!host.lastProbeCause) {
+            try {
+              if (typeof C8O.browserReach === "undefined") {
+                include("js/browser_reach.js");
+              }
+              host.lastProbeCause = C8O.browserReach.causeOf(noBrowser, 5000);
+            } catch (_noCause) {
+              host.lastProbeCause = "no answer";
+            }
+          }
+        }
       }
       return answering;
     };

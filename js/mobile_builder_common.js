@@ -349,8 +349,11 @@ C8O.mobileBuilderCommon = C8O.mobileBuilderCommon || {};
       opts.waitingForPendingCycle === true ||
       opts.waitingForViewerReload === true ||
       opts.waitingForViewerHydration === true;
+    // Without compile evidence, a browser not yet on the application means a build still running; a browser that does
+    // not answer at all (its CDP port refuses connections) says nothing of the build: no wait on it.
     var inferredBuildWait = opts.reportedBuilding === true &&
       browserControlReady !== true &&
+      opts.browserUnreachable !== true &&
       compileSucceeded !== true &&
       generationNoChange !== true;
     var compileBlocking = explicitBuildWait || inferredBuildWait;
