@@ -298,6 +298,13 @@ tree-apply answer names the parent of what it created (its touched roots): the e
   the projects, under 12,500 characters (what is left out is counted), with `howToUse`; `project` and `since` narrow it.
 - Error answers, reads and calls that threw record nothing. A write tool without a handler of its own is read by the
   generic one (`created`, `updated`, `deleted`, `qname`). Tests: `tests/scripts/validate_project_changes.cjs`.
+- Proofs: the journal also records `crud-proof`, `seed-proof` and the verifier reports of `browser-verify` and
+  `subagent-run` (`api.PROOF_TOOLS`, read tools let through by `journalAfterToolCall`), ok or not, with their project.
+  `api.proofState` computes the objects changed and not proven since their last change (backend by a run of their
+  sequence or transaction, UI by a passed verifier report, files by any run of their project); `project-changes`
+  answers them in `unproven`, and after every append for a conversation the state goes to `context.server` under
+  `lib_ConvertigoMCP.proofState` for the Agent Bridge: the contract is `docs/proof-state-contract.md`. Tests:
+  `tests/scripts/validate_proof_ledger.cjs`.
 
 ## The No Code skill: SKILL.md and its drawers (contract with lib_ConvertigoAgentBridge)
 

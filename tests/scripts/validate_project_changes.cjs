@@ -424,10 +424,14 @@ test('every write tool of the Studio confirmation is journaled, by a handler of 
   const writes = j.sandbox.C8O.studioWriteConfirm.WRITE_TOOLS;
   const reads = j.sandbox.C8O.studioWriteConfirm.READ_TOOLS;
   for (const sequence of Object.keys(j.api.HANDLERS)) {
-    assert.ok(writes[sequence] !== undefined, sequence + ' has a journal handler but is not a write tool');
+    assert.ok(writes[sequence] !== undefined || j.api.PROOF_TOOLS[sequence] !== undefined,
+      sequence + ' has a journal handler but is neither a write tool nor a proof tool');
   }
   for (const sequence of Object.keys(reads)) {
-    assert.equal(j.api.entryOf(sequence, { status: 'ok', qname: 'DemoApp.sq:A', created: ['DemoApp.sq:A'] }, {}, {}), null, sequence);
+    // the proof tools (crud-proof, seed-proof, browser-verify) are recorded as proofs: validate_proof_ledger.cjs
+    if (j.api.PROOF_TOOLS[sequence] === undefined) {
+      assert.equal(j.api.entryOf(sequence, { status: 'ok', qname: 'DemoApp.sq:A', created: ['DemoApp.sq:A'] }, {}, {}), null, sequence);
+    }
   }
   // a write tool added later is journaled from what its answer names
   writes.tools_databaseobject_copy = 'databaseobject-copy';

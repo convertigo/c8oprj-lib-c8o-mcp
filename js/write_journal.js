@@ -35,7 +35,8 @@ if (typeof C8O === "undefined") {
   api.SEQUENCE = "tools_project_changes";
   api.HOW_TO_USE = "Build your final summary from this list: name every object, file and run it lists, say which objects " +
     "the user did not ask to change, and report the last status of each run; an empty list for a project means no object " +
-    "of it was changed through the MCP (changes made outside the MCP are not recorded).";
+    "of it was changed through the MCP (changes made outside the MCP are not recorded). Name every object of unproven as " +
+    "not verified: never call it fixed, working or OK; or prove it first.";
 
   var CONVERSATION_ID = /^[A-Za-z0-9._-]{1,128}$/;
   var SAFE_ID = /^[A-Za-z0-9_.:-]{1,80}$/;
@@ -178,6 +179,20 @@ if (typeof C8O === "undefined") {
       try {
         Packages.com.twinsoft.convertigo.engine.Engine.logEngine.warn("[lib_ConvertigoMCP] " + message);
       } catch (_ignoreLog) {}
+    },
+    // The project the Eclipse Studio's dev viewer serves at a local URL (its /env.json), "" when unknown.
+    urlProject: function (url) {
+      try {
+        if (!/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|[a-z0-9-]+\.localhost)(:\d+)?(\/|$)/i.test(String(url))) {
+          return "";
+        }
+        if ((typeof C8O.viewerSession === "undefined" || typeof C8O.viewerSession.devProject !== "function") && typeof include === "function") {
+          include("js/viewer_session.js");
+        }
+        return String(C8O.viewerSession.devProject(String(url)) || "");
+      } catch (_noDevProject) {
+        return "";
+      }
     }
   };
 
@@ -569,6 +584,109 @@ if (typeof C8O === "undefined") {
     return { run: { r: requestable, ok: !runFailed(res) } };
   }
 
+  // ---- Proofs ------------------------------------------------------------------------------------------------------
+  // What proves a change (the proof ledger, api.proofState): the runs of requestable-execute (above), crud-proof and
+  // seed-proof, and the verifier reports of browser-verify and subagent-run (profile verifier). Each is recorded ok or
+  // not, with its project, never a value. {proof: {k: crud|seed|verifier, p: project, r?: requestable, ok, v?: verdict,
+  // pages?: [path names of the passed checks of a partial report]}}
+
+  api.PROOF_TOOLS = {
+    tools_crud_proof: "crud-proof",
+    tools_seed_proof: "seed-proof",
+    tools_browser_verify: "browser-verify"
+  };
+
+  // <project>.<sequence> or <project>.<connector>.<transaction> (or their Studio QNames) as a QName.
+  api.requestableQName = function (value) {
+    var t = qnameOf(value);
+    var parts = t.split(".");
+    if (parts.length < 2) {
+      return "";
+    }
+    if (parts.length === 2) {
+      return parts[0] + ".sq:" + parts[1].replace(/^sq:/, "");
+    }
+    return parts[0] + ".cn:" + parts[1].replace(/^cn:/, "") + ".tr:" + parts.slice(2).join(".").replace(/^tr:/, "");
+  };
+
+  function crudProof(r, args) {
+    var project = qnameOf(r.project) || qnameOf(args.project);
+    if (!project.length || project.indexOf(".") >= 0) {
+      return null;
+    }
+    return { proof: { k: "crud", p: project, ok: text(r.status).toLowerCase() === "success" } };
+  }
+
+  function seedProof(r, args) {
+    var requestable = api.requestableQName(r.requestable || args.requestable);
+    if (!requestable.length) {
+      return null;
+    }
+    return { proof: { k: "seed", p: projectOf(requestable), r: requestable, ok: text(r.verdict).toLowerCase() === "replayable" } };
+  }
+
+  // The project a verifier report is about: given, the one of the viewer URL, else the dev viewer's (ctx.host.urlProject).
+  function verifierProject(args, report, ctx) {
+    var inputs = isObject(parsed(args.inputs)) ? parsed(args.inputs) : {};
+    var named = qnameOf(args.project) || qnameOf(inputs.project);
+    if (named.length && named.indexOf(".") < 0) {
+      return named;
+    }
+    var urls = [text(args.url), text(inputs.url), text(report.finalUrl)];
+    for (var i = 0; i < urls.length; i++) {
+      var m = /\/projects\/([A-Za-z_][A-Za-z0-9_]*)\//.exec(urls[i]);
+      if (m) {
+        return m[1];
+      }
+    }
+    for (var j = 0; j < urls.length; j++) {
+      var dev = urls[j].length && typeof ctx.host.urlProject === "function" ? text(ctx.host.urlProject(urls[j])) : "";
+      if (dev.length) {
+        return dev;
+      }
+    }
+    return "";
+  }
+
+  // A finished verifier report: passed is a proof; partial only for the pages its passed checks walked; failed or
+  // not_checked is no proof. The path names of the passed checks are kept (80 characters, 10 at most), never evidence.
+  function verifierOf(report, args, ctx, tool) {
+    var verdict = text(report.verdict).toLowerCase();
+    var proof = { k: "verifier", p: verifierProject(args, report, ctx), ok: verdict === "passed", v: verdict || "partial" };
+    if (verdict === "partial") {
+      var pages = [];
+      list(report.checks).forEach(function (c) {
+        if (isObject(c) && text(c.status).toLowerCase() === "passed" && pages.length < 10) {
+          var name = text(c.path || c.check).substring(0, 80);
+          if (name.length && pages.indexOf(name) < 0) {
+            pages.push(name);
+          }
+        }
+      });
+      if (pages.length) {
+        proof.pages = pages;
+      }
+    }
+    return { proof: proof, tool: tool };
+  }
+
+  function browserVerify(r, args, ctx) {
+    if (text(r.status).toLowerCase() !== "finished") {
+      return null;
+    }
+    return verifierOf(r, args, ctx, "browser-verify");
+  }
+
+  // subagent-run: a verifier report is a proof; the writes of a constructor go through this MCP under the conversation of
+  // the caller (recorded as they are made).
+  function subagentRun(r, args, ctx) {
+    var profile = text(r.profile || args.profile).toLowerCase();
+    if (profile !== "verifier" || text(r.status).toLowerCase() !== "finished" || !isObject(r.report)) {
+      return null;
+    }
+    return verifierOf(r.report, args, ctx, "subagent-run");
+  }
+
   api.HANDLERS = {
     tools_databaseobject_tree_apply: treeApply,
     tools_databaseobject_rename: rename,
@@ -600,8 +718,11 @@ if (typeof C8O === "undefined") {
     tools_project_save: nothing,
     tools_project_reload: nothing,
     tools_mobile_builder_build: nothing,
-    // the writes of a constructor go through this MCP under the conversation of the caller
-    tools_subagent_run: nothing
+    // a verifier report is a proof; the writes of a constructor go through this MCP under the conversation of the caller
+    tools_subagent_run: subagentRun,
+    tools_crud_proof: crudProof,
+    tools_seed_proof: seedProof,
+    tools_browser_verify: browserVerify
   };
 
   var RANK = { deleted: 0, moved: 1, renamed: 1, created: 2, changed: 3 };
@@ -644,25 +765,31 @@ if (typeof C8O === "undefined") {
   api.entryOf = function (sequence, answer, args, options) {
     var opts = options || {};
     var writes = api.writeTools();
-    if (!writes || writes[sequence] === undefined || !isObject(answer)) {
+    var proofTool = api.PROOF_TOOLS[sequence] !== undefined;
+    if (!writes || (writes[sequence] === undefined && !proofTool) || !isObject(answer)) {
       return null;
     }
-    if (sequence !== EXECUTE && (ERROR_STATUS.test(text(answer.status)) || filled(answer.error))) {
+    if (sequence !== EXECUTE && !proofTool && (ERROR_STATUS.test(text(answer.status)) || filled(answer.error))) {
       return null;
     }
-    var tool = api.toolName(sequence);
+    var tool = api.PROOF_TOOLS[sequence] || api.toolName(sequence);
     var handler = api.HANDLERS[sequence] || generic;
     var found = handler(answer, isObject(args) ? args : {}, { host: opts.host || api.host, tool: tool });
     if (!found) {
       return null;
     }
-    if (found.tool) {
+    if (found.tool && !found.proof) {
       // a write of this MCP run through requestable-execute
       return found;
     }
-    var entry = { tool: tool };
+    var entry = { tool: found.tool || tool };
     if (opts.via) {
       entry.via = String(opts.via);
+    }
+    if (found.proof) {
+      entry.proof = found.proof;
+      entry.status = found.proof.ok ? "ok" : "error";
+      return entry;
     }
     entry.status = text(answer.status).toLowerCase() === "partial" ? "partial" : "ok";
     if (found.run) {
@@ -895,12 +1022,338 @@ if (typeof C8O === "undefined") {
       if (!entry || store == null) {
         return null;
       }
-      api.append(store, api.keyOf(contextObject, opts.conversationId).key, entry, api.host.now());
+      var now = api.host.now();
+      var who = api.keyOf(contextObject, opts.conversationId);
+      api.append(store, who.key, entry, now);
+      // the proof state of the conversation, for the Agent Bridge (api.writeProofState); never fails the record
+      try {
+        var conversation = api.conversationIdOf(contextObject, opts.conversationId);
+        if (conversation.length) {
+          api.writeProofState(store, conversation, api.proofState(api.read(store, who.key, now).entries, now), now);
+        }
+      } catch (proofError) {
+        api.host.warn("proof state: " + proofError);
+      }
       return entry;
     } catch (journalError) {
       api.host.warn("write journal: " + journalError);
       return null;
     }
+  };
+
+  // ---- The proof ledger --------------------------------------------------------------------------------------------
+  // Agents said "fixed" or "build OK" while the problem was still there: the rules were text only, and nothing recorded
+  // whether a change had been proven after it was made. The journal now tells, per conversation, the objects changed and
+  // not proven since their last change:
+  // - backend objects (a QName with .sq: or .cn:; a step or a variable counts for its sequence, a transaction for itself,
+  //   a change of a connector for any transaction of it): a requestable-execute of that sequence or transaction that
+  //   answered ok after the change, or a crud-proof or seed-proof ok for its project, or a passed verifier report in its
+  //   project;
+  // - UI objects (the mobile application, its pages, shared components and actions, styles, i18n, the files of the
+  //   Ionic app): a passed verifier report in their project only (a partial one for the pages its passed checks walked);
+  // - project files (project-js-set and the like): any run of a requestable of their project that answered ok;
+  // - deleted objects, and objects created then deleted, need none.
+  // project-changes answers them in unproven; mcp_endpoint writes them for the Agent Bridge (api.writeProofState).
+
+  api.PROOF_STORE_KEY = "lib_ConvertigoMCP.proofState";
+  api.MAX_PROOF_CONVERSATIONS = 64;
+  api.MAX_UNPROVEN = 40;
+  api.UNPROVEN_NOTE = "Changed and not proven since: name every one of them in the final summary as not verified, and never " +
+    "call them fixed, working or OK (nor the build); or prove them first: requestable-execute of the sequence or the " +
+    "transaction, crud-proof or seed-proof, browser-verify for the pages.";
+
+  // What a recorded object needs as a proof: {kind: backend|ui|file, project, requestable?, connector?, any?, page?}, or
+  // null when it needs none (the project itself, a reference, a scheduler job, a No Code form...).
+  api.proofScopeOf = function (o, tool) {
+    var q = text(o && o.q);
+    if (!q.length) {
+      return null;
+    }
+    if (o.k === "file") {
+      var fileProject = text(o.pr) || q.split("/")[0];
+      var path = q.substring(fileProject.length + 1);
+      if (/(^|\/)(_private\/ionic|DisplayObjects)\//.test(path) || /(^|\/)i18n\//.test(path) || /\.(scss|css|html)$/i.test(path)) {
+        return { kind: "ui", project: fileProject };
+      }
+      return { kind: "file", project: fileProject };
+    }
+    if (o.k === "project") {
+      if (tool === "ngx-theme-apply" || tool === "ngx-page-create") {
+        return { kind: "ui", project: q };
+      }
+      if (tool === "upsert-crud") {
+        return { kind: "backend", project: q, any: true };
+      }
+      return null;
+    }
+    if (o.k) {
+      return null;
+    }
+    var parts = q.split(".");
+    if (parts.length < 2) {
+      return null;
+    }
+    var project = parts[0];
+    if (/^sq:/.test(parts[1])) {
+      return { kind: "backend", project: project, requestable: project + "." + parts[1] };
+    }
+    if (/^cn:/.test(parts[1])) {
+      if (parts.length >= 3 && /^tr:/.test(parts[2])) {
+        return { kind: "backend", project: project, requestable: parts.slice(0, 3).join(".") };
+      }
+      return { kind: "backend", project: project, connector: project + "." + parts[1] };
+    }
+    if (/^[A-Za-z]{1,4}:/.test(parts[1])) {
+      // a reference, a URL mapper...: nothing to prove
+      return null;
+    }
+    // the mobile application (its name has no prefix) and everything under it
+    var page = "";
+    for (var i = 2; i < parts.length && !page; i++) {
+      var m = /^pg:(.+)$/.exec(parts[i]);
+      if (m) {
+        page = m[1];
+      }
+    }
+    return { kind: "ui", project: project, page: page };
+  };
+
+  // The proof an entry brings: {tool, target, project, ok, k: run|crud|seed|verifier, requestable?, pages?}, or null.
+  function proofOf(entry) {
+    if (entry.run && entry.run.r) {
+      var rq = api.requestableQName(entry.run.r);
+      return rq.length ? { tool: entry.tool || "requestable-execute", target: rq, project: projectOf(rq), ok: entry.run.ok === true, k: "run", requestable: rq } : null;
+    }
+    var p = entry.proof;
+    if (!p || !p.k) {
+      return null;
+    }
+    return {
+      tool: entry.tool, target: text(p.r) || text(p.p), project: text(p.p), ok: p.ok === true, k: p.k,
+      requestable: text(p.r), pages: Array.isArray(p.pages) ? p.pages : []
+    };
+  }
+
+  function namesPage(pages, page) {
+    var wanted = text(page).toLowerCase();
+    if (!wanted.length) {
+      return false;
+    }
+    return pages.some(function (text_) {
+      var words = String(text_).toLowerCase().split(/[^a-z0-9_]+/);
+      return words.indexOf(wanted) >= 0;
+    });
+  }
+
+  function proves(proof, item, uiProjects) {
+    var s = item.scope;
+    if (proof.k === "run") {
+      if (s.kind === "backend") {
+        return (s.requestable && s.requestable === proof.requestable) ||
+          (s.connector && proof.requestable.indexOf(s.connector + ".tr:") === 0) ||
+          (s.any === true && s.project === proof.project);
+      }
+      return s.kind === "file" && s.project === proof.project;
+    }
+    if (proof.k === "crud" || proof.k === "seed") {
+      return (s.kind === "backend" || s.kind === "file") && s.project === proof.project;
+    }
+    if (proof.k === "verifier") {
+      // a report whose project is unknown speaks for the only project with UI changes
+      var project = proof.project || (uiProjects.length === 1 ? uiProjects[0] : "");
+      if (!project.length || s.project !== project) {
+        return false;
+      }
+      if (proof.ok) {
+        return s.kind === "ui" || s.kind === "backend";
+      }
+      return s.kind === "ui" && namesPage(proof.pages || [], s.page);
+    }
+    return false;
+  }
+
+  // The proof state of a conversation from its journal entries (oldest first): {v, at, writes, unproven, lastProof}.
+  // unproven: [{qname, project, kind, changedAt}], the most recent changes first, MAX_UNPROVEN at most; an object under
+  // another one of the list (a step of a sequence) is given by that one.
+  api.proofState = function (entries, now) {
+    var items = {};
+    var writes = 0;
+    var lastProof = null;
+    function keyOf(o) {
+      return (o.k === "file" ? "file\n" : o.k === "project" ? "project\n" : "") + o.q;
+    }
+    function carry(from, to, t) {
+      Object.keys(items).forEach(function (key) {
+        var it = items[key];
+        if (it.file || !(it.qname === from || under(it.qname, from))) {
+          return;
+        }
+        delete items[key];
+        var q = to + it.qname.substring(from.length);
+        var scope = api.proofScopeOf({ q: q }, "");
+        if (scope) {
+          items[q] = { qname: q, scope: scope, changedAt: t, proven: false };
+        }
+      });
+    }
+    (entries || []).forEach(function (entry) {
+      if (!entry || !(now - Number(entry.t) < api.KEEP_MS)) {
+        return;
+      }
+      var t = Number(entry.t);
+      var objects = Array.isArray(entry.objects) ? entry.objects : [];
+      if (objects.length) {
+        writes++;
+      }
+      objects.forEach(function (o) {
+        if (!o || !o.q) {
+          return;
+        }
+        if (o.c === "deleted") {
+          Object.keys(items).forEach(function (key) {
+            var it = items[key];
+            if (key === keyOf(o) || (!o.k && !it.file && !it.project && under(it.qname, o.q))) {
+              delete items[key];
+            }
+          });
+          return;
+        }
+        if (o.c === "renamed" && o.p && o.p !== o.q) {
+          carry(o.p, o.q, t);
+        } else if (o.c === "moved" && o.fp && parentOf(o.q) !== o.fp) {
+          carry(o.fp + "." + o.q.substring(o.q.lastIndexOf(".") + 1), o.q, t);
+        }
+        var scope = api.proofScopeOf(o, entry.tool);
+        if (!scope) {
+          return;
+        }
+        items[keyOf(o)] = { qname: o.q, scope: scope, changedAt: t, proven: false, file: o.k === "file", project: o.k === "project" };
+      });
+      var proof = proofOf(entry);
+      if (!proof) {
+        return;
+      }
+      lastProof = { tool: proof.tool, target: proof.target, at: t, ok: proof.ok };
+      var uiProjects = [];
+      Object.keys(items).forEach(function (key) {
+        var it = items[key];
+        if (!it.proven && it.scope.kind === "ui" && uiProjects.indexOf(it.scope.project) < 0) {
+          uiProjects.push(it.scope.project);
+        }
+      });
+      Object.keys(items).forEach(function (key) {
+        var it = items[key];
+        if (!it.proven && (proof.ok || proof.k === "verifier") && proves(proof, it, uiProjects)) {
+          it.proven = true;
+        }
+      });
+    });
+    var open = Object.keys(items).map(function (key) { return items[key]; }).filter(function (it) { return !it.proven; });
+    // an object under another unproven one that the same proof proves: the outer one stands for both, at the latest change
+    var byQName = {};
+    open.forEach(function (it) {
+      if (!it.file && !it.project) {
+        byQName[it.qname] = it;
+      }
+    });
+    // the same proof for both: the same requestable, connector or page
+    var sameProof = function (a, b) {
+      return a.kind === b.kind && (a.requestable || "") === (b.requestable || "") && (a.connector || "") === (b.connector || "") &&
+        (a.page || "") === (b.page || "") && (a.any === true) === (b.any === true);
+    };
+    var shown = open.filter(function (it) {
+      if (it.file || it.project) {
+        return true;
+      }
+      var parent = parentOf(it.qname);
+      while (parent.indexOf(".") > 0) {
+        var outer = byQName[parent];
+        if (outer && sameProof(outer.scope, it.scope)) {
+          outer.changedAt = Math.max(outer.changedAt, it.changedAt);
+          return false;
+        }
+        parent = parentOf(parent);
+      }
+      return true;
+    });
+    shown.sort(function (a, b) { return b.changedAt - a.changedAt || (a.qname < b.qname ? -1 : 1); });
+    return {
+      v: 1,
+      at: now,
+      writes: writes,
+      unproven: shown.slice(0, api.MAX_UNPROVEN).map(function (it) {
+        return { qname: it.qname, project: it.scope.project, kind: it.scope.kind, changedAt: it.changedAt };
+      }),
+      lastProof: lastProof
+    };
+  };
+
+  function hms(t) {
+    var d = new Date(t);
+    return pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes()) + ":" + pad(d.getUTCSeconds());
+  }
+
+  // "QName: changed at HH:MM:SS, no proof since" (UTC), for project-changes.
+  api.unprovenLines = function (state, project) {
+    var p = text(project);
+    return (state && state.unproven ? state.unproven : []).filter(function (u) {
+      return !p.length || u.project === p;
+    }).map(function (u) {
+      return line(u.qname + ": changed at " + hms(u.changedAt) + ", no proof since");
+    });
+  };
+
+  // CONTRACT with lib_ConvertigoAgentBridge (and through it lib_ConvertigoAssistant): after every journal append of a
+  // conversation that has an X-Convertigo-Conversation-Id, its proof state is written in the store the server shares
+  // between requests (context.server, as the journal), under the key "lib_ConvertigoMCP.proofState": a
+  // java.util.concurrent.ConcurrentHashMap from the RAW conversation id (the header value, checked with CONVERSATION_ID
+  // /^[A-Za-z0-9._-]{1,128}$/) to a JSON string:
+  //   {"v":1,"at":<ms>,"writes":<number of recorded writes in the conversation>,
+  //    "unproven":[{"qname":"<QName>","project":"<project>","kind":"backend"|"ui"|"file","changedAt":<ms>}],
+  //    "lastProof":{"tool":"<tool name>","target":"<QName or project>","at":<ms>,"ok":true|false}|null}
+  // Bounded: 64 conversations at most (the oldest "at" leaves first), 40 unproven items at most (the most recent changes
+  // first), nothing older than 24 h (entries past KEEP_MS are not counted, conversations not written for 24 h leave).
+  // Never a data value: QNames, project and tool names, times and booleans only. Readers parse the JSON string and
+  // ignore unknown fields; a missing key means no state (no write recorded through the MCP). docs/proof-state-contract.md.
+  api.writeProofState = function (store, conversationId, state, now) {
+    var id = text(conversationId);
+    if (!store || !CONVERSATION_ID.test(id) || !state) {
+      return false;
+    }
+    if (store.get(api.PROOF_STORE_KEY) == null) {
+      store.set(api.PROOF_STORE_KEY, api.host.newMap());
+    }
+    var map = store.get(api.PROOF_STORE_KEY);
+    map.put(id, JSON.stringify(state));
+    var ages = [];
+    keysOf(map).forEach(function (key) {
+      if (key === id) {
+        return;
+      }
+      var at = 0;
+      try {
+        at = Number(JSON.parse(String(map.get(key))).at) || 0;
+      } catch (_unreadableState) {}
+      if (!(now - at < api.KEEP_MS)) {
+        map.remove(key);
+      } else {
+        ages.push({ key: key, at: at });
+      }
+    });
+    ages.sort(function (a, b) { return a.at - b.at; });
+    while (ages.length + 1 > api.MAX_PROOF_CONVERSATIONS) {
+      map.remove(ages.shift().key);
+    }
+    return true;
+  };
+
+  // The raw conversation id of a call: the router's (already checked), else the header; "" without one.
+  api.conversationIdOf = function (contextObject, conversationId) {
+    var id = text(conversationId);
+    if (!CONVERSATION_ID.test(id)) {
+      id = header(contextObject, "X-Convertigo-Conversation-Id");
+    }
+    return CONVERSATION_ID.test(id) ? id : "";
   };
 
   // ---- project-changes -------------------------------------------------------------------------------------------
@@ -1244,6 +1697,13 @@ if (typeof C8O === "undefined") {
         "databaseobject-delete before the final report, unless the user asked for them (an SQL expression is tried with sql-select, " +
         "not with a transaction created for it).";
     }
+    // The objects changed and not proven since (the proof ledger), over the whole journal of the conversation.
+    var proofNow = Number(opts.now) || entries.reduce(function (m, e) { return Math.max(m, Number(e.t) || 0); }, 0);
+    var unproven = api.unprovenLines(api.proofState(entries, proofNow), project);
+    if (unproven.length) {
+      answer.unproven = unproven;
+      answer.unprovenNote = api.UNPROVEN_NOTE;
+    }
     answer.runs = runList.map(function (r) {
       return line(r.r + ": " + r.runs + (r.runs > 1 ? " runs, " + r.errors + (r.errors === 1 ? " error" : " errors") + ", the last " : " run, ") +
         (r.ok ? "ok" : "in error") + " at " + api.time(r.last));
@@ -1266,7 +1726,7 @@ if (typeof C8O === "undefined") {
       var c = perProject[p];
       return line(p + ": " + plural(c.objects, "object") + ", " + plural(c.files, "file") + ", " + plural(c.runs, "run"));
     });
-    if (!answer.objects.length && !answer.files.length && !answer.runs.length) {
+    if (!answer.objects.length && !answer.files.length && !answer.runs.length && !(answer.unproven || []).length) {
       answer.note = "No write and no run recorded through the MCP" + (project.length ? " for " + project : "") +
         (since ? " since " + answer.since : "") + " in this " + (answer.scope === "conversation" ? "conversation" : "token's calls") + ".";
     }
@@ -1293,8 +1753,11 @@ if (typeof C8O === "undefined") {
   // telling first), then the others; what is left out is counted.
   api.bound = function (answer) {
     var omitted = {};
-    var all = { objects: answer.objects, files: answer.files, runs: answer.runs, projects: answer.projects };
+    var all = { objects: answer.objects, files: answer.files, runs: answer.runs, projects: answer.projects, unproven: answer.unproven || [] };
     function keep(name, count) {
+      if (name === "unproven" && !all.unproven.length) {
+        return;
+      }
       answer[name] = all[name].slice(0, count);
       var left = all[name].length - answer[name].length;
       if (left > 0) {
@@ -1308,7 +1771,7 @@ if (typeof C8O === "undefined") {
       }
     }
     function fit(name) {
-      if (size(answer) <= api.BUDGET) {
+      if (size(answer) <= api.BUDGET || !answer[name]) {
         return;
       }
       var low = 0;
@@ -1330,7 +1793,9 @@ if (typeof C8O === "undefined") {
       keep("runs", Math.min(all.runs.length, 40));
       keep("files", Math.min(all.files.length, 30));
       keep("projects", Math.min(all.projects.length, 30));
-      ["objects", "runs", "files", "projects"].forEach(fit);
+      keep("unproven", Math.min(all.unproven.length, api.MAX_UNPROVEN));
+      // what was not proven is cut last: the final summary must name it
+      ["objects", "runs", "files", "projects", "unproven"].forEach(fit);
       if (!answer.omitted) {
         delete answer.more;
       }
@@ -1363,7 +1828,7 @@ if (typeof C8O === "undefined") {
     var who = api.keyOf(contextObject, "");
     var now = api.host.now();
     var journal = api.read(contextObject ? contextObject.server : null, who.key, now);
-    var summary = api.summarize(journal.entries, { scope: who.scope, project: project, since: since, full: journal.full });
+    var summary = api.summarize(journal.entries, { scope: who.scope, project: project, since: since, full: journal.full, now: now });
     // The pages copied from a model in this conversation that differ from it now (js/model_zones.js).
     try {
       if (typeof C8O.modelZones === "undefined" || typeof C8O.modelZones.summary !== "function") {

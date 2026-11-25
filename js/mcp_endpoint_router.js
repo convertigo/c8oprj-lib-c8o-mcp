@@ -304,10 +304,13 @@ function zoneWarningsAfterToolCall(sequenceName, toolResult, callArguments, jour
 }
 
 // After a tool answered (RevealAfterCall of mcp_endpoint): what a write tool created, changed, renamed, moved or deleted,
-// and the runs of requestable-execute, go to the journal of the conversation that project-changes answers
-// (js/write_journal.js). Reads and error answers record nothing; the journal never fails the tool call.
+// the runs of requestable-execute and the proofs (crud-proof, seed-proof, browser-verify and the verifier of
+// subagent-run) go to the journal of the conversation that project-changes answers (js/write_journal.js), which then
+// writes the proof state of the conversation for the Agent Bridge. Other reads and error answers record nothing; the
+// journal never fails the tool call.
 function journalAfterToolCall(sequenceName, toolResult, callArguments) {
   try {
+    var proofTools = { tools_crud_proof: true, tools_seed_proof: true, tools_browser_verify: true };
     if (String(sequenceName || "").indexOf("tools_") !== 0 || !toolResult || typeof toolResult !== "object") {
       return null;
     }
@@ -319,7 +322,7 @@ function journalAfterToolCall(sequenceName, toolResult, callArguments) {
     if (typeof C8O.studioWriteConfirm === "undefined" || !C8O.studioWriteConfirm.WRITE_TOOLS) {
       include("js/studio_write_confirm.js");
     }
-    if (C8O.studioWriteConfirm.WRITE_TOOLS[sequenceName] === undefined) {
+    if (C8O.studioWriteConfirm.WRITE_TOOLS[sequenceName] === undefined && proofTools[sequenceName] !== true) {
       return null;
     }
     if (typeof C8O.writeJournal === "undefined" || typeof C8O.writeJournal.recordCall !== "function") {
