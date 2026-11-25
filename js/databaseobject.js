@@ -614,8 +614,12 @@ C8O.dbo.stepErrorHints = function (projectName, sequenceName) {
     }
   };
   visit(sequence);
-  hints.push("The engine does not name the failing step. To find it, disable steps from the end with databaseobject-tree-apply " +
-    "{properties:{isEnabled:false}} and run again, or add a SimpleStep log.info(\"here\") between steps (log-view).");
+  // Last resort only: requestable-execute calls this when neither the error document nor the project named the step or the
+  // cause (js/requestable_failure.js). Disabling steps one by one cost a customer's agent hours on existing sequences.
+  hints.push("The engine named neither the failing step nor its cause. First run alone, with requestable-execute, each sequence " +
+    "or transaction this sequence calls (a call that answers an error does not stop the sequence), and read project-brief for " +
+    "its steps. Last resort only, as it changes the project: disable steps from the end with databaseobject-tree-apply " +
+    "{properties:{isEnabled:false}} and run again, then enable them back.");
   return hints;
 };
 

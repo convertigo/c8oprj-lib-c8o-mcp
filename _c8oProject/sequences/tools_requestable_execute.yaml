@@ -213,19 +213,35 @@ comment: |
             "sequence sets, for example \"demo\"), or with before: [{requestable: \"<project>.<login sequence>\", variables: {...}}] " +
             "when it also needs what the login stores in the session (a role). A login run by an earlier call keeps no session.";
         }
-        // A script error of the called sequence came as the generic "An exception occured while executing step", its
-        // own message and the step only in details (preflight checks): lift both into the message.
+        // The generic "An exception occured while executing step" names neither the step nor the cause (a customer agent
+        // looked for them for hours by disabling steps): js/requestable_failure.js reads the error document (details and
+        // the stack trace of the internal call), the steps of the sequence (the failing one by its name or its class, and
+        // the sequences or transactions it called before, whose error does not stop it) and the engine log lines of the
+        // call when there are some, and lifts the step and the root cause into the message. Never values: QNames, step
+        // names, exception classes and messages, cut.
+        var failureExplained = null;
         try {
-          var scriptDetails = String(source.error.details || "");
-          var scriptError = /A Javascript error has occured: (?:Error: |JavaException: )?([\s\S]*?)(?: \([^()]*#\d+\))?\s*$/.exec(scriptDetails);
-          var scriptStep = /Step: "([^"]+?)(?: \(priority:\d+\))?"/.exec(scriptDetails);
-          if (scriptError && scriptError[1] && scriptError[1].trim().length) {
-            out.error.message = scriptError[1].trim() + (scriptStep ? " (step " + scriptStep[1] + ")" : "");
+          if (/executing step/i.test(String(source.error.message || ""))) {
+            include("js/requestable_failure.js");
+            failureExplained = C8O.requestableFailure.explain(source.error, C8O.requestableFailure.collect(executionPlan, source.error),
+              executionLogsPayload && executionLogsPayload.lines ? executionLogsPayload.lines : null);
+            if (failureExplained) {
+              out.error.engineMessage = String(source.error.message || "");
+              out.error.message = failureExplained.message;
+              out.error.failure = failureExplained.failure;
+            }
           }
-        } catch (_ignoreScriptError) {}
-        // "An exception occured while executing step" with no detail names no step: hint at the likely causes.
+        } catch (_ignoreFailure) {}
+        // The stack trace of the engine keeps the exception headers and the first frame of each: the cause is above.
         try {
-          if (executionPlan && executionPlan.isSequence && /executing step/i.test(String(source.error.message || "")) &&
+          if (out.error.stacktrace) {
+            include("js/requestable_failure.js");
+            out.error.stacktrace = C8O.requestableFailure.shortTrace(out.error.stacktrace);
+          }
+        } catch (_ignoreTrace) {}
+        // Nothing named the step nor the cause: the last fallback hints at the likely causes in the sequence.
+        try {
+          if (!failureExplained && executionPlan && executionPlan.isSequence && /executing step/i.test(String(source.error.message || "")) &&
               !String(source.error.details || "").length) {
             include("js/databaseobject.js");
             out.error.hints = C8O.dbo.stepErrorHints(executionPlan.project, executionPlan.name);
