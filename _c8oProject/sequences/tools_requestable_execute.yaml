@@ -209,9 +209,12 @@ comment: |
         // An agent that met this answer called the login sequence and tried again, twice: a login run by
         // requestable-execute keeps no session for the next call (usage tests 29/10).
         if (/^Authentication required\b/.test(String(out.error.message || "")) && !(executionPlan && executionPlan.authenticatedUser)) {
-          out.error.hint = "This sequence needs a signed-in user: call it again with authenticatedUser (the user name the login " +
-            "sequence sets, for example \"demo\"), or with before: [{requestable: \"<project>.<login sequence>\", variables: {...}}] " +
-            "when it also needs what the login stores in the session (a role). A login run by an earlier call keeps no session.";
+          out.error.hint = "This sequence needs a signed-in user. Three ways: (1) authenticatedUser: the user name the login " +
+            "sequence sets (for example \"demo\"), to run it as that user when it only checks the user; (2) before: " +
+            "[{requestable: \"<project>.<login sequence>\", variables: {...}}] when it also needs what the login stores in the " +
+            "session (a role); (3) viewer-sign-in, for the pages of the app in the Studio viewer. A login run by an earlier call " +
+            "keeps no session. Take the test account from the project notes or project-brief; if none is known, ask the user " +
+            "once for one. Never guess or try passwords: a before sign-in that failed is refused again in this conversation.";
         }
         // The generic "An exception occured while executing step" names neither the step nor the cause (a customer agent
         // looked for them for hours by disabling steps): js/requestable_failure.js reads the error document (details and

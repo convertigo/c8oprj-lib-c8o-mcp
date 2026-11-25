@@ -963,8 +963,9 @@ C8O.requestable.runBefore = function (executionPlan) {
   var InternalRequester = Packages.com.twinsoft.convertigo.engine.requesters.InternalRequester;
   var XMLUtils = Packages.com.twinsoft.convertigo.engine.util.XMLUtils;
   var JsonOutput = Packages.com.twinsoft.convertigo.engine.enums.JsonOutput;
-  executionPlan.sessionAttributesBefore = C8O.requestable._sessionAttributeNames();
-  executionPlan.beforeResults = [];
+  // Every item is read before anything runs: a sign-in that already failed in this conversation with the same values
+  // refuses the whole call (js/before_guard.js).
+  var items = [];
   for (var i = 0; i < list.length; i++) {
     var item = typeof list[i] === 'string' ? { requestable: list[i] }
       : C8O.util.parseObjectInput(list[i], { label: 'before[' + i + ']', allowEmpty: true });
@@ -972,6 +973,21 @@ C8O.requestable.runBefore = function (executionPlan) {
       throw new Error('before[' + i + '] needs a requestable: {"requestable": "<project>.<sequence>", "variables": {...}}.');
     }
     var target = C8O.requestable.parseTarget(item.requestable);
+    var variables = C8O.util.parseObjectInput(item.variables, { label: 'before[' + i + '].variables', allowEmpty: true }) || {};
+    var named = target.project + '.' + (target.isSequence ? '' : target.connector + '.') + target.name;
+    items.push({ target: target, variables: variables, requestable: named });
+  }
+  var guard = C8O.requestable._beforeGuard();
+  var refused = guard ? guard.refusal(context, items) : null;
+  if (refused) {
+    executionPlan.beforeResults = [{ requestable: refused.requestable, status: 'refused' }];
+    throw new Error(refused.message + ' ' + executionPlan.requestable + ' was not run.');
+  }
+  executionPlan.sessionAttributesBefore = C8O.requestable._sessionAttributeNames();
+  executionPlan.beforeResults = [];
+  for (var n = 0; n < items.length; n++) {
+    var target = items[n].target;
+    var variables = items[n].variables;
     var params = new HashMap();
     params.put('__project', target.project);
     if (target.isSequence) {
@@ -980,8 +996,7 @@ C8O.requestable.runBefore = function (executionPlan) {
       params.put('__connector', target.connector);
       params.put('__transaction', target.name);
     }
-    params.put('__context', 'mcp_before_' + java.lang.System.currentTimeMillis() + '_' + i);
-    var variables = C8O.util.parseObjectInput(item.variables, { label: 'before[' + i + '].variables', allowEmpty: true }) || {};
+    params.put('__context', 'mcp_before_' + java.lang.System.currentTimeMillis() + '_' + n);
     var keys = Object.keys(variables);
     for (var k = 0; k < keys.length; k++) {
       var value = variables[keys[k]];
@@ -1001,7 +1016,7 @@ C8O.requestable.runBefore = function (executionPlan) {
     } catch (callError) {
       executionPlan.beforeResults.push({ requestable: target.requestable, status: 'error' });
       var cause = callError && callError.javaException ? callError.javaException.getMessage() : (callError && callError.message) || String(callError);
-      throw new Error('before[' + i + '] ' + target.requestable + ' failed: ' + cause + ' ' + executionPlan.requestable + ' was not run.');
+      throw new Error('before[' + n + '] ' + target.requestable + ' failed: ' + cause + ' ' + executionPlan.requestable + ' was not run.');
     }
     try {
       Engine.theApp.contextManager.remove(requester.getContext());
@@ -1014,10 +1029,35 @@ C8O.requestable.runBefore = function (executionPlan) {
     var error = documentJson && documentJson.error ? documentJson.error : null;
     executionPlan.beforeResults.push({ requestable: target.requestable, status: error ? 'error' : 'ok' });
     if (error) {
-      throw new Error('before[' + i + '] ' + target.requestable + ' answered an error: ' + (error.message || JSON.stringify(error)) +
-        '. ' + executionPlan.requestable + ' was not run.');
+      if (guard) {
+        guard.failed(context, items[n].requestable, variables);
+      }
+      var errorText = error.message || JSON.stringify(error);
+      // the generic step message names nothing: the cause the engine gave (js/requestable_failure.js)
+      try {
+        if (/executing step/i.test(String(error.message || '')) && typeof include === 'function') {
+          include('js/requestable_failure.js');
+          var described = C8O.requestableFailure ? C8O.requestableFailure.describe(error) : null;
+          if (described && described.cause) {
+            errorText = described.cause + (described.step ? ' (step ' + described.step + ')' : '');
+          }
+        }
+      } catch (_ignoreDescribe) {}
+      throw new Error('before[' + n + '] ' + target.requestable + ' answered an error: ' + errorText +
+        '. ' + executionPlan.requestable + ' was not run.' + (guard ? ' The same before with the same values is refused in this ' +
+        'conversation from now on: never guess a password; ask the user for a working test account if none is known.' : ''));
     }
   }
+};
+
+// js/before_guard.js, when the engine has it (the tests of runBefore run without it).
+C8O.requestable._beforeGuard = function () {
+  try {
+    if (typeof C8O.beforeGuard === 'undefined' && typeof include === 'function') {
+      include('js/before_guard.js');
+    }
+  } catch (_noGuard) {}
+  return typeof C8O.beforeGuard !== 'undefined' && typeof C8O.beforeGuard.refusal === 'function' ? C8O.beforeGuard : null;
 };
 
 C8O.requestable._sessionAttributeNames = function () {
