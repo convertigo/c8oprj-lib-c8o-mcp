@@ -1058,7 +1058,8 @@ test('Baserow data needs no native contract section', () => {
   assert.deepEqual(quick.filter(op => !all.includes(op)), []);
   const skill = nocodeSkillText();
   const step1 = skill.split('\n').find(line => line.startsWith('1. Read the no-code contract'));
-  assert.match(step1, /Baserow data needs no section/);
+  // since the contract in one call (19/11): the core it names holds the Baserow sources and saves
+  assert.match(step1, /names its core `quickReference` \([^)]*Baserow sources and saves/);
   assert.doesNotMatch(step1, /`baserowSources` and `backendActions` for Baserow data/);
 });
 // Vibe keeps a tool result inline up to about 16 KB of its JSON indented with sorted keys; a larger one is spilled to
@@ -1388,7 +1389,8 @@ test('the skill and the quick reference say what a tool answers in code mode', (
   // 23/10 on test-nocode (S1): the agent read r.result, got nothing, and spent five reads finding the answer's shape,
   // then looked for the options of a select in config.children.
   const skill = nocodeSkillText();
-  assert.match(skill, /Called from code \(`run_typescript`\), a tool resolves to its answer itself: read `r\.status`, `r\.form`/);
+  // since the long answers joined in the script (19/11): read through whole(), then these keys
+  assert.match(skill, /Then read `status`, `saved`, `id`, `rev` and `validation` after a create or an edit, not `result`, which does not exist/);
   assert.match(skill, /the options of a choice are its `children`/);
   const answers = api().contract({}).quickReference.answers;
   assert.match(answers, /no r\.result/);

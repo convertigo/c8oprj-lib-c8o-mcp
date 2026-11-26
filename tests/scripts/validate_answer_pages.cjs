@@ -470,7 +470,8 @@ test('a contract answer of the core, a section or a part goes out whole; the who
     if (key === 'org') return { apache: { commons: { io: { FileUtils: { readFileToString: file => fs.readFileSync(file.path, 'utf8') } } } } };
     return empty;
   } });
-  const sandbox = { Packages: packages, java: { lang: { System: { currentTimeMillis: () => 0 }, String, reflect: { Array: { newInstance: () => [] } } } } };
+  // java.util.UUID: internal calls name their context with it (as validate_nocode_baserow.cjs gives it since a5e9d82)
+  const sandbox = { Packages: packages, java: { util: { UUID: { randomUUID: () => crypto.randomUUID() } }, lang: { System: { currentTimeMillis: () => 0 }, String, reflect: { Array: { newInstance: () => [] } } } } };
   vm.createContext(sandbox);
   vm.runInContext(read('js/nocode_forms.js'), sandbox);
   const forms = sandbox.C8O.nocodeForms;

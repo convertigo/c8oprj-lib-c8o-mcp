@@ -845,10 +845,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   function quickReferenceContract(forms) {
     var described = forms && forms.quickReference && typeof forms.quickReference === "object" ? forms.quickReference : {};
     var out = {};
-    out.use = "Write reduced JSON: nocode-form-create, nocode-form-edit and nocode-form-compile compile it to C8Oforms JSON, validate it and save it. This core covers usual forms and applications; sectionIndex says which section to ask for details, section example shows a small complete application. What does not fit one answer comes back in remaining.";
+    out.use = "Write reduced JSON: nocode-form-create, -edit and -compile compile it to C8Oforms JSON, validate it and save it. This core covers usual forms and applications; sectionIndex names the section to ask for details.";
     Object.keys(described).forEach(function (key) { out[key] = described[key]; });
     out.answers = "From run_typescript a tool resolves to its answer itself: r.status, r.form, r.id after a create or an edit (no r.result); a refused call has saved:false with validation.issues or error. A saved form: form.formulaire (components: type, name, config.label, config.page; choice options in children), form.pages, form.flows.";
-    out.lifecycle = "Create once. saved=true with bindingFinalization.status=ready ends a creation; saved=true with status partial means the form exists: follow bindingFinalization.recovery, never create again. A refused call saves nothing: fix what it names and call again. Fix every design warning with nocode-form-edit before delivery; validation does not run the business flow nor test Baserow permissions.";
+    out.lifecycle = "Create once. saved=true with bindingFinalization.status=ready ends a creation; status partial means the form exists: follow bindingFinalization.recovery, never create again. A refused call saves nothing: fix what it names and call again. Fix every design warning with nocode-form-edit before delivery; validation does not run the business flow nor test Baserow permissions.";
     return out;
   }
   function callC8oSequence(project, sequence, variables) {
@@ -1356,7 +1356,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
 
   // What each section of the guidance holds, for the index of the core; the C8Oforms of the server describes its own.
   var GUIDANCE_SECTION_PURPOSES = {
-    generationQuality: "design rules of an application (headers, action bars, list and detail, empty states, toasts, data views): read it first",
+    generationQuality: "design rules of an application (headers, action bars, lists, empty states, toasts): read it first",
     generationSteps: "building a large application in steps, checks before delivery",
     styles: "native style recipes, role spacing, mobile margins",
     editTool: "an example of each nocode-form-edit operation",
@@ -1482,8 +1482,31 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     "forbiddenFields", "rootFields", "mediaSupport", "generationQuality", "pageFields", "commonFieldFields", "styleObjectFields", "styleRendering",
     "conditionFields", "dynamicReferences", "componentAuthoring", "baserowShorthand", "baserowSources", "backendActions", "flowAuthoring", "editTool",
     "realWorldPatternsFromGestionDesCreches"];
-  // The version of the guidance of this file, joined to the version of the contract of the C8Oforms of the server.
-  var GUIDANCE_VERSION = "mcp-2026-11-19";
+  // The version of the guidance of this file, joined to the version of the contract of the C8Oforms of the server:
+  // "mcp." and an FNV fingerprint of what this file serves (its guidance sections, the quick reference, the purposes and
+  // parts of the sections). A fixed label stayed "mcp-2026-11-19" while the guidance changed in 0.3.0-beta.54 to 57, and
+  // the Agent Bridge keeps the contract core it puts in the instructions by this version: an unchanged version kept the
+  // old guidance there. Any change of the guidance now changes the version.
+  var GUIDANCE_LABEL = "mcp";
+  function mul32(a, b) {
+    // exact 32-bit multiply without Math.imul (Rhino 1.7 has none)
+    var aLow = a & 0xffff;
+    var aHigh = (a >>> 16) & 0xffff;
+    return (((aLow * b) >>> 0) + ((((aHigh * b) & 0xffff) << 16) >>> 0)) >>> 0;
+  }
+  function fnv1a(text, seed) {
+    var hash = seed >>> 0;
+    for (var i = 0; i < text.length; i++) {
+      hash = mul32((hash ^ (text.charCodeAt(i) & 0xffff)) >>> 0, 0x01000193);
+    }
+    var hex = (hash >>> 0).toString(16);
+    return "00000000".substring(hex.length) + hex;
+  }
+  function guidanceVersion(forms) {
+    var text = JSON.stringify([guidanceSections(forms), quickReferenceContract(forms), GUIDANCE_SECTION_PURPOSES, GUIDANCE_CONTRACT_PARTS]);
+    return GUIDANCE_LABEL + "." + fnv1a(text, 0x811c9dc5) + fnv1a(text, 0x9e3779b9);
+  }
+  C8O.nocodeForms.guidanceVersion = guidanceVersion;
 
   // The contract of the C8Oforms of the server with the guidance of this file, as one object in the order above.
   function authoringContract(forms) {
@@ -1491,7 +1514,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var sections = forms.sections || {};
     var out = {};
     CONTRACT_SECTION_ORDER.forEach(function (key) {
-      if (key === "contractVersion") { out.contractVersion = forms.version + "+" + GUIDANCE_VERSION; }
+      if (key === "contractVersion") { out.contractVersion = forms.version + "+" + guidanceVersion(forms); }
       else if (hasOwn(guidance, key)) { out[key] = guidance[key]; }
       else if (hasOwn(sections, key)) { out[key] = sections[key]; }
     });
@@ -1596,7 +1619,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         types: types,
         aliases: parts.aliases,
         sectionIndex: sectionIndex,
-        moreSections: "Ask nocode-form-contract-get with sections:[...] for what the task needs: generationQuality before generating an application, example for a small complete one, styles for style recipes, componentAuthoring or editTool for what this core omits. A section in parts comes whole when asked by its name, in as many answers as it needs: what does not fit comes back in remaining, ask it next."
+        moreSections: "Ask nocode-form-contract-get with sections:[...] for what the task needs: generationQuality before generating an application, example for a small complete one, styles for style recipes, componentAuthoring or editTool for what this core omits. A section comes whole when asked by its name; what does not fit one answer is named in remaining: ask it next."
       };
     }
     var all = clone(authoring, {});
