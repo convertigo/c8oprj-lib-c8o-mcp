@@ -963,6 +963,26 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  // nocode-baserow-rows-delete: the rows of a table by ids, a filter (the one of rows-list) or all, counted in mode plan,
+  // deleted in mode apply against the count of the plan.
+  function nocodeBaserowRowsDeleteInputSchema() {
+    var filter = nocodeBaserowRowsListInputSchema().properties.filter;
+    return {
+      type: "object",
+      properties: {
+        table: { description: "Id of the Baserow table (a number): from nocode-baserow-catalog-list, or forms_config.table_id_int of a source or an action read by nocode-form-get. Its path Workspace~>Base~>Table is accepted too." },
+        ids: { type: "array", items: { type: "integer" }, description: "Ids of the rows to delete, as nocode-baserow-rows-list answers them (1000 at most). Give exactly one of ids, filter and all." },
+        filter: filter,
+        all: { type: "boolean", description: "true deletes every row of the table (to empty it)." },
+        mode: { type: "string", enum: ["plan", "apply"], default: "plan", description: "plan (the default) counts the rows that match and answers the first of them, deleting nothing; apply deletes them. Tell the user the count before an apply." },
+        expectedCount: { type: "integer", minimum: 0, description: "With mode apply and a filter or all: the count the plan answered. Another count now (the table changed) is refused and nothing is deleted." },
+        token: nocodeFormsTokenProperty()
+      },
+      required: ["table"],
+      additionalProperties: false
+    };
+  }
+
   function nocodeBaserowRowsListInputSchema() {
     var condition = {
       type: "object",
@@ -1195,20 +1215,23 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
             ]
           }
         },
-        targetTable: { type: "string", description: "Target table name for link_row fields." },
+        targetTable: { type: "string", description: "For link_row, the linked table: a table of this schema, or a table of the same base by name, id or path Workspace~>Base~>Table (it need not be listed in the schema)." },
         multiple: { type: "boolean", description: "For link_row, whether multiple linked rows are allowed when supported by Baserow." },
         createRelatedField: { type: "boolean", description: "For link_row, whether Baserow should create the reciprocal related field." },
-        relatedFieldName: { type: "string", description: "Optional reciprocal link field name." },
+        relatedFieldName: { type: "string", description: "Optional name of the reciprocal link field Baserow creates in the linked table (it is renamed once the link exists)." },
         through: { type: "string", description: "For lookup/rollup/count, the existing link_row field name." },
         targetField: { type: "string", description: "For lookup/rollup, the field name to report from the linked table." },
-        formula: { type: "string", description: "Formula expression for formula fields." },
+        formula: { type: "string", description: "Formula expression for formula fields. Formulas are created after the links of the same call; the formula of an existing formula field is changed to this one." },
+        rename: { type: "string", description: "New name of this existing field (name is its current name)." },
+        delete: { type: "boolean", description: "true deletes this existing field and every value it holds (never the primary field). A plan lists it; an apply deletes it only with confirmDelete: true, given once the user agreed." },
+        confirmDelete: { type: "boolean", description: "With delete: true, the user agreed to delete this field and its values." },
         decimals: { type: "integer", minimum: 0, maximum: 10, description: "For number: decimal places (Baserow number_decimal_places). Without it: 0 for integer, 2 for decimal, else the most decimals of the sample rows (a coordinate needs 5 or 6)." },
         negative: { type: "boolean", description: "For number: whether values below 0 are accepted (Baserow number_negative). Default true; false (or unsigned: true, or min: 0) refuses them." },
         unsigned: { type: "boolean", description: "For number: true refuses values below 0 (negative: false)." },
         min: { type: "number", description: "For number: a minimum of 0 or more refuses values below 0 (negative: false), a minimum below 0 accepts them; only its sign is used." },
         baserowOptions: { type: "object", additionalProperties: true, description: "Raw Baserow create-field options for advanced/current field types; they win over decimals and negative. An existing number field is widened (number_negative true, more decimals) when the schema or its sample rows need it, never narrowed." }
       },
-      required: ["name", "type"],
+      required: ["name"],
       additionalProperties: false
     };
     var tableSchema = {
@@ -3266,6 +3289,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_nocode_baserow_rows_list") {
       return nocodeBaserowRowsListInputSchema();
     }
+    if (seq === "tools_nocode_baserow_rows_delete") {
+      return nocodeBaserowRowsDeleteInputSchema();
+    }
     if (seq === "tools_nocode_baserow_schema_apply") {
       return nocodeBaserowSchemaApplyInputSchema();
     }
@@ -3278,7 +3304,13 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
         properties: {
           id: { type: "string", description: "Existing form document id from the current No Code context." },
           rev: { type: "string", description: "Optional document revision. Omit to read the latest saved version." },
-          find: { type: "string", description: "Optional word or text. Answers only the texts of the form a user sees that hold it (names of the form and pages, labels, texts, placeholders, choices, flow names, toast and alert messages), case and accents ignored, each with its path, its component or flow and, when it is HTML or holds references, its stored value (raw) to patch, instead of the whole form. Use it before changing a word everywhere." },
+          find: { type: "string", description: "Optional word or text. Answers the texts of the form a user sees that hold it (matches: names of the form and pages, labels, texts, placeholders, choices, flow names, toast and alert messages, each with its stored value (raw) when it is HTML or holds references), then the stored values the application runs that hold it (codeMatches: card templates, expressions, defaultFrom declarations, filters, record variables of a save, conditions, sources, styles), case and accents ignored, each with its path and its component, page or flow, instead of the whole form. Use it before changing a word everywhere, or to find which component reads a field." },
+          component: { anyOf: [{ type: "string" }, { type: "array", items: { type: "string" } }], description: "Optional name or id of a component, or a list of them. Answers those components only, as saved, each with the page it is shown on and, for a container (layout, modal, card), its children (id, name, type): ask a child by name to read it." },
+          page: { anyOf: [{ type: "string" }, { type: "array", items: { type: "string" } }], description: "Optional name, pageTechName or number from 1 of a page, or a list of them. Answers each page with its components." },
+          flow: { anyOf: [{ type: "string" }, { type: "array", items: { type: "string" } }], description: "Optional id or name of a flow, or a list of them. Answers each flow with its steps and the components that run it (usedBy)." },
+          outline: { type: "boolean", description: "Optional. true answers the outline only: the pages with their components (name:type, nested under their container) and the flows (id, name, steps, triggers), to choose what to read." },
+          whole: { type: "boolean", description: "Optional. A form too large to answer whole (over 200,000 characters) answers its outline: true answers it whole anyway, in many answer pages." },
+          warnings: { type: "boolean", description: "Optional. true answers the validation of the saved form (issues and warnings, a warning repeated on many components grouped) instead of the form; with component, page or flow, those of these parts only. An edit answers only the warnings it brought or touched, with the count of the others." },
           token: nocodeFormsTokenProperty()
         },
         required: ["id"],
@@ -3641,7 +3673,8 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     tools_nocode_form_update: true,
     tools_nocode_form_publish: true,
     tools_nocode_app_create: true,
-    tools_nocode_baserow_schema_apply: true
+    tools_nocode_baserow_schema_apply: true,
+    tools_nocode_baserow_rows_delete: true
   };
   C8O.schemaOverrides.HELD_WRITE_TOOLS = HELD_WRITE_TOOLS;
   var HELD_STATUSES = ["awaiting_confirmation", "refused", "error"];

@@ -56,6 +56,7 @@ Allowed Convertigo MCP tools:
 - `nocode-form-contract-get`
 - `nocode-baserow-catalog-list`
 - `nocode-baserow-rows-list`
+- `nocode-baserow-rows-delete`
 - `nocode-baserow-schema-get`
 - `nocode-baserow-schema-apply`
 - `nocode-form-compile`
