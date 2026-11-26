@@ -470,3 +470,25 @@ test('nocode-form-get warnings:true answers the steps No Code Studio wrote as an
   const part = clone(h.client.read(id, { warnings: true, flow: 'keep_item' }, h.auth)).validation;
   assert.equal(part.warnings.filter(w => w.code === 'editor_flow_element_kept').length, 2, 'the warnings of the flow asked');
 });
+
+// ---- repeated static blocks (26/11) ---------------------------------------------------------------------------------
+
+test('the edit that makes the eighth static copy of a block answers repeated_static_block, and warnings:true lists it', () => {
+  const h = harness();
+  const block = n => ({ type: 'layout', name: 'participant_' + n, cols: [{ size: 6 }, { size: 6 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }],
+    children: [{ type: 'text', name: 'participant_name_' + n, label: 'Nom ' + n }, { type: 'text', name: 'participant_mail_' + n, label: 'E-mail ' + n }] });
+  const reduced = { name: 'Inscriptions', navigationMode: 'custom', pages: [{ name: 'Groupe', fields: [{ type: 'text', name: 'groupe', label: 'Groupe' }, ...[1, 2, 3, 4, 5, 6, 7].map(block)] }] };
+  const first = clone(h.client.create(reduced, h.auth));
+  assert.equal(first.saved, true, JSON.stringify(first.validation && first.validation.issues));
+  assert.ok(!first.validation.warnings.some(w => w.code === 'repeated_static_block'), 'seven copies: below the threshold');
+  const eighth = clone(h.client.edit(first.id, [{ action: 'add_field', pageName: 'Groupe', fieldObject: block(8) }], h.auth));
+  assert.equal(eighth.saved, true, JSON.stringify(eighth.error || eighth.validation.issues));
+  const told = eighth.validation.warnings.find(w => w.code === 'repeated_static_block');
+  assert.ok(told, JSON.stringify(eighth.validation.warnings.map(w => w.code)));
+  assert.equal(told.count, 8);
+  assert.match(told.message, /^Page Groupe: 8 static copies of the same block \(participant_1, participant_2, participant_3 … participant_8, 3 components each\)/);
+  const read = clone(h.client.read(first.id, { warnings: true }, h.auth)).validation;
+  assert.ok(read.warnings.some(w => w.code === 'repeated_static_block' && w.count === 8));
+  const validated = clone(h.client.validate(h.state.forms[first.id], h.auth)).validation;
+  assert.ok(validated.warnings.some(w => w.code === 'repeated_static_block'), 'nocode-form-validate too');
+});

@@ -552,7 +552,138 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   }
 
   function validateForm(form, options) {
-    return formsRun("validate", { form: form, options: formsOptions(options) }, options);
+    return withStructureWarnings(formsRun("validate", { form: form, options: formsOptions(options) }, options), form);
+  }
+
+  // ---- the shape of an application (usage feedback 26/11) ------------------------------------------------------------
+  // An agent made a record and its sub-records editable in one save with 50 static copies of an 8-component card
+  // (name_1 .. name_50), 50 near-identical « remove » flows and one flow revealing the next copy: 689 components, 463 on
+  // one page, 5 to 10 s to open it in No Code Studio, a cap of 50 entries, and no warning. Repeated data belongs in a
+  // linked table. A page whose root components hold at least REPEATED_BLOCK_MIN subtrees of the same shape (same types,
+  // same arrangement) whose names differ only by a number at the end, or a form with REPEATED_BLOCK_MIN flows of that
+  // kind, is told so with the count and the names; a page over HEAVY_PAGE_COMPONENTS components is told its weight.
+  var REPEATED_BLOCK_MIN = 8;
+  var HEAVY_PAGE_COMPONENTS = 150;
+  var REPEATED_DATA_ADVICE = "Repeated data (lines, participants, findings, parts...) belongs in a linked table, not in static copies: " +
+    "save the parent record first, then show its rows in a card list or a grid filtered on the parent, with an « Add » button that opens " +
+    "a small modal saving one row, and one « remove » flow that takes the id of the selected row (nocode-app-create builds such a list " +
+    "with its entry form). Static copies make the page heavy and cap the number of entries.";
+  function numberedBase(name) {
+    var text = trimmed(name);
+    var match = /^(.*?)[\s_-]*\d+$/.exec(text);
+    return match && match[1].length ? match[1] : null;
+  }
+  function namesSample(names) {
+    return names.length > 4 ? names.slice(0, 3).join(", ") + " … " + names[names.length - 1] : names.join(", ");
+  }
+  function structureWarnings(form) {
+    var warnings = [];
+    if (!form || typeof form !== "object") { return warnings; }
+    var formulaire = ensureArray(form.formulaire);
+    var byId = componentsById(form);
+    var indexOf = {};
+    formulaire.forEach(function (item, index) { if (item && item.id != null) { indexOf[String(item.id)] = index; } });
+    var signatures = {};
+    var sizes = {};
+    function shape(item, depth) {
+      var key = String(item.id);
+      if (signatures[key] != null) { return signatures[key]; }
+      var kids = depth > 12 ? [] : ensureArray(item.childrenRefs).map(function (ref) { return byId[String(ref)]; }).filter(function (child) { return !!child; });
+      sizes[key] = 1 + kids.reduce(function (sum, child) { shape(child, depth + 1); return sum + (sizes[String(child.id)] || 1); }, 0);
+      signatures[key] = String(item.type) + (kids.length ? "(" + kids.map(function (child) { return shape(child, depth + 1); }).join(",") + ")" : "");
+      return signatures[key];
+    }
+    var pages = ensureArray(form.pages);
+    var pageNames = {};
+    pages.forEach(function (page) { if (page) { pageNames[String(page.pageTechName)] = page.name || page.pageTechName; } });
+    // copies of one container on a page, the largest first; a copy inside a copy already told is not told again
+    var groups = {};
+    formulaire.forEach(function (item) {
+      if (!item || item.id == null || !ensureArray(item.childrenRefs).length) { return; }
+      var base = numberedBase(item.name);
+      if (base == null) { return; }
+      var signature = shape(item, 0);
+      if (sizes[String(item.id)] < 2) { return; }
+      var page = rootPageOf(byId, item);
+      var key = String(page) + "|" + base + "|" + signature;
+      (groups[key] = groups[key] || { page: page, base: base, size: sizes[String(item.id)], items: [] }).items.push(item);
+    });
+    var covered = {};
+    function cover(item) {
+      covered[String(item.id)] = true;
+      ensureArray(item.childrenRefs).forEach(function (ref) { var child = byId[String(ref)]; if (child && !covered[String(child.id)]) { cover(child); } });
+    }
+    Object.keys(groups).map(function (key) { return groups[key]; }).filter(function (group) { return group.items.length >= REPEATED_BLOCK_MIN; })
+      .sort(function (a, b) { return b.size - a.size; }).forEach(function (group) {
+        var fresh = group.items.filter(function (item) { return !covered[String(item.id)]; });
+        if (fresh.length < REPEATED_BLOCK_MIN) { return; }
+        fresh.forEach(cover);
+        var names = fresh.map(function (item) { return item.name; });
+        warnings.push({
+          code: "repeated_static_block",
+          message: "Page " + (pageNames[String(group.page)] || group.page) + ": " + fresh.length + " static copies of the same block (" + namesSample(names) + ", " +
+            group.size + " components each). " + REPEATED_DATA_ADVICE,
+          path: "/formulaire/" + indexOf[String(fresh[0].id)],
+          count: fresh.length,
+          names: names.slice(0, 60)
+        });
+      });
+    // near-identical flows: the same steps, ids or names that differ only by a number at the end
+    var flowGroups = {};
+    ensureArray(form.flows).forEach(function (flow, index) {
+      if (!flow) { return; }
+      var base = numberedBase(flow.id) || numberedBase(flow.name);
+      if (base == null) { return; }
+      var steps = ensureArray(flow.elements).map(function (element) { return element && element.type; }).join(">");
+      var key = base + "|" + steps;
+      (flowGroups[key] = flowGroups[key] || { base: base, steps: ensureArray(flow.elements).length, flows: [] }).flows.push({ flow: flow, index: index });
+    });
+    Object.keys(flowGroups).map(function (key) { return flowGroups[key]; }).filter(function (group) { return group.flows.length >= REPEATED_BLOCK_MIN; }).forEach(function (group) {
+      var ids = group.flows.map(function (entry) { return String(entry.flow.id); });
+      warnings.push({
+        code: "repeated_flow",
+        message: group.flows.length + " near-identical flows (" + namesSample(ids) + ", " + group.steps + " step" + (group.steps === 1 ? "" : "s") + " each): " +
+          "one flow per copy of a block. " + REPEATED_DATA_ADVICE,
+        path: "/flows/" + group.flows[0].index,
+        count: group.flows.length,
+        names: ids.slice(0, 60)
+      });
+    });
+    // heavy pages: every component shown on the page, nested ones included
+    var perPage = {};
+    formulaire.forEach(function (item) {
+      if (!item || !item.config) { return; }
+      var page = String(rootPageOf(byId, item));
+      perPage[page] = (perPage[page] || 0) + 1;
+    });
+    pages.forEach(function (page, index) {
+      var count = page ? perPage[String(page.pageTechName)] || 0 : 0;
+      if (count <= HEAVY_PAGE_COMPONENTS) { return; }
+      warnings.push({
+        code: "heavy_page",
+        message: "Page " + (page.name || page.pageTechName) + " holds more than " + (Math.floor(count / 50) * 50) + " components (over " + HEAVY_PAGE_COMPONENTS +
+          "): No Code Studio needs seconds to open it and the application renders it slowly. Split it into pages, and show repeated data from a table " +
+          "(a card list or a grid) instead of static copies.",
+        path: "/pages/" + index,
+        count: count
+      });
+    });
+    return warnings;
+  }
+  C8O.nocodeForms.structureWarnings = structureWarnings;
+  C8O.nocodeForms.REPEATED_BLOCK_MIN = REPEATED_BLOCK_MIN;
+  C8O.nocodeForms.HEAVY_PAGE_COMPONENTS = HEAVY_PAGE_COMPONENTS;
+  // The structure warnings added to a validation of C8Oforms ({ validation } of validate, or the validation itself).
+  function withStructureWarnings(result, form) {
+    var validation = result && result.validation ? result.validation : result;
+    if (!validation || typeof validation !== "object" || !Array.isArray(validation.warnings)) { return result; }
+    var found;
+    try { found = structureWarnings(form); } catch (_noStructureCheck) { found = []; }
+    if (found.length) {
+      validation.warnings = validation.warnings.concat(found);
+      validation.warningCount = validation.warnings.length;
+    }
+    return result;
   }
 
   function formBindingCount(form, options) {
@@ -663,6 +794,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           placeholders: "Give text, select and date inputs a useful placeholder or none: a missing placeholder is compiled to an empty one, never the prototype example text."
         },
         data: {
+          repeated: "Repeated data (lines, participants, findings, parts) is a linked table, never static copies of a block (line_1 ... line_N) with one flow per copy (warnings repeated_static_block, repeated_flow, heavy_page): save the parent, then list its children in a card list or a grid filtered on the parent, an Add button opening a small modal that saves one child, one remove flow taking the id of the selected row. nocode-app-create builds such a list with its entry form.",
           local: "sourceEnabled=false is transient UI state, never a substitute for business storage. Use local row actions only for an explicitly temporary interaction; never deliver fictitious-row buttons as an application feature.",
           connected: "Deliver an operational application. For Baserow, discover the authorized workspace/base, plan and create the dedicated schema required by the application (field names in the user's language: they are the grid column headers), then bind save actions and result views to those tables. Ask for an unresolved destination or access; do not fall back to a local demonstration. Do not seed invented records unless explicitly requested.",
           unsupported: "Do not put rows/sampleRows/data directly on a reduced grid: Forms does not initialize local grid rows from those properties. Do not use a self source as a pretend grid backend.",
@@ -1505,8 +1637,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var authentication = null;
     try { authentication = validateToken(opts); } catch (_authenticationError) { authentication = null; }
     var user = authentication && authentication.authenticated === true ? trimmed(authentication.user) : "";
-    return formsRun("validate", { form: form, options: formsOptions(opts, { baserowLinks: true, user: user }) }, opts,
-      user ? { fieldsOf: tableFieldsReader(authentication) } : null);
+    return withStructureWarnings(formsRun("validate", { form: form, options: formsOptions(opts, { baserowLinks: true, user: user }) }, opts,
+      user ? { fieldsOf: tableFieldsReader(authentication) } : null), form);
   }
   C8O.nocodeForms.save = saveForm;
   C8O.nocodeForms.get = getForm;
