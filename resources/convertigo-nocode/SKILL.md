@@ -17,7 +17,7 @@ Tool order: a new application over business records (a list of records with its 
 
 ## Skill freshness
 
-- Skill guidance version: `2026-09-04.vibe-serial-transport-v1`.
+- Skill guidance version: `{{GUIDANCE_VERSION}}`.
 - During bootstrap, compare this value with `MCP guidance version` in `convertigo://capabilities`. If the MCP value differs or is missing, rerun `_setupCodex` for the current MCP endpoint before using no-code mutation tools.
 - When the caller surface supports MCP request metadata, send `params._meta.convertigoGuidanceVersion` with this skill guidance version on the first guarded Convertigo `tools/call`; raw HTTP clients may use the `X-Convertigo-Guidance-Version` header. An `_meta.convertigoGuidanceWarning` mismatch requires setup refresh before no-code mutation. A missing-version warning is advisory when this skill version already matches `convertigo://capabilities`: continue the current task and let the managed host refresh its transport configuration.
 

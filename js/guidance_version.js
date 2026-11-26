@@ -15,6 +15,23 @@ C8O.guidance = C8O.guidance || {};
   // fingerprint appended below, not by this constant: never rely on editing it.
   var GUIDANCE_LABEL = "2026-09-18.skill-layers";
 
+  var NOCODE_SKILL_FOLDER = "convertigo-nocode";
+  var NOCODE_SKILL_FILE = NOCODE_SKILL_FOLDER + "/SKILL.md";
+
+  // The drawer files the No Code skill names, in its order (the drawer lines of SKILL.md, as tests/helpers/nocode_skill
+  // and the setups read them).
+  function noCodeDrawerNames(skillText) {
+    var names = [];
+    var pattern = /^> Drawer `([a-z0-9][a-z0-9-]*\.md)`/gm;
+    var match;
+    while ((match = pattern.exec(String(skillText == null ? "" : skillText))) !== null) {
+      if (names.indexOf(match[1]) < 0) {
+        names.push(match[1]);
+      }
+    }
+    return names;
+  }
+
   // Files whose content defines the installed guidance. The common skill and
   // the per-harness bootstraps (js/setup_common.js) are the skill text itself;
   // the resources index and the task routes define layer 3 and the routing
@@ -25,7 +42,10 @@ C8O.guidance = C8O.guidance || {};
     ["resources", "resources_index.json"],
     ["resources", "guide_drawers.json"],
     ["js", "resources.js"],
-    ["js", "setup_common.js"]
+    ["js", "setup_common.js"],
+    // The No Code skill and its drawers (named by its "> Drawer `x.md`" lines, read below): an installed copy of it
+    // (_setupCodex, _setupClaude, the Agent Bridge) carries this version, so a change of it makes the copy stale.
+    ["resources", NOCODE_SKILL_FILE]
   ];
 
   function mul32(a, b) {
@@ -61,6 +81,25 @@ C8O.guidance = C8O.guidance || {};
     return hashPart(text, 0x811c9dc5) + hashPart(text, 0x9e3779b9);
   };
 
+  // The texts the version is the fingerprint of: the sources above, then the drawers the No Code skill names.
+  // readFile(folder, name): c8oReadCatalogFile in the engine, a file read in the Agent Bridge and the tests.
+  C8O.guidance.fingerprintParts = function (readFile) {
+    var parts = [];
+    var skillText = "";
+    for (var i = 0; i < FINGERPRINT_SOURCES.length; i++) {
+      var text = String(readFile(FINGERPRINT_SOURCES[i][0], FINGERPRINT_SOURCES[i][1]));
+      if (FINGERPRINT_SOURCES[i][1] === NOCODE_SKILL_FILE) {
+        skillText = text;
+      }
+      parts.push(text);
+    }
+    var drawers = noCodeDrawerNames(skillText);
+    for (var d = 0; d < drawers.length; d++) {
+      parts.push(String(readFile("resources", NOCODE_SKILL_FOLDER + "/" + drawers[d])));
+    }
+    return parts;
+  };
+
   C8O.guidance.fingerprintSources = function () {
     var names = [];
     for (var i = 0; i < FINGERPRINT_SOURCES.length; i++) {
@@ -84,6 +123,15 @@ C8O.guidance = C8O.guidance || {};
       );
       parts.push(String(file.length()) + "@" + String(file.lastModified()));
     }
+    // every file of the No Code skill folder, the drawers included
+    var folder = new File(c8oResolveCatalogDirectory("resources"), NOCODE_SKILL_FOLDER);
+    var files = folder.listFiles();
+    var names = [];
+    for (var f = 0; files !== null && f < files.length; f++) {
+      names.push(String(files[f].getName()) + "=" + String(files[f].length()) + "@" + String(files[f].lastModified()));
+    }
+    names.sort();
+    parts.push(names.join(","));
     return parts.join("|");
   }
 
@@ -100,10 +148,7 @@ C8O.guidance = C8O.guidance || {};
     } catch (_ignoreStamp) {
       stamp = "";
     }
-    var parts = [];
-    for (var i = 0; i < FINGERPRINT_SOURCES.length; i++) {
-      parts.push(String(c8oReadCatalogFile(FINGERPRINT_SOURCES[i][0], FINGERPRINT_SOURCES[i][1])));
-    }
+    var parts = C8O.guidance.fingerprintParts(c8oReadCatalogFile);
     var version = GUIDANCE_LABEL + "." + C8O.guidance.fingerprintOf(parts);
     if (stamp.length) {
       try {
@@ -115,6 +160,7 @@ C8O.guidance = C8O.guidance || {};
   }
 
   C8O.guidance.computeVersion = computeGuidanceVersion;
+  C8O.guidance.noCodeDrawerNames = noCodeDrawerNames;
 
   if (!trim(C8O.MCP_GUIDANCE_VERSION).length) {
     try {
@@ -205,6 +251,49 @@ C8O.guidance = C8O.guidance || {};
       return "mcp_guidance_version_mismatch expected=" + expected + " got=" + received;
     }
     return "";
+  };
+
+  // A No Code write from a client whose installed skill carries another guidance version (a Codex or Claude Code home set
+  // up by an earlier _setupCodex, an agent outside Tigo): its skill is out of date. Said once per session (the
+  // conversation, else the bearer: js/mcp_repeated_failures.js sessionKey), on the writes only, and only when the client
+  // sends its version; a client that sends none is not told. Answers null for a tool that is not a No Code one (its
+  // guarded warning, if any, stays), "" when there is nothing to say.
+  var NOCODE_WRITE_TOOLS = {
+    "nocode-form-create": true, "nocode-form-edit": true, "nocode-form-update": true, "nocode-form-publish": true,
+    "nocode-app-create": true, "nocode-baserow-schema-apply": true, "nocode-baserow-rows-delete": true
+  };
+  var NOCODE_NOTICE_KEY = "lib_ConvertigoMCP.noCodeSkillNotices";
+  var NOCODE_NOTICE_MAX = 5000;
+  C8O.guidance.noCodeSkillNotice = function (toolName, params, headerVersion, toolArguments, store, sessionKey, newMap) {
+    var name = trim(toolName).toLowerCase().replace(/_/g, "-");
+    if (!/^nocode-/.test(name)) {
+      return null;
+    }
+    if (NOCODE_WRITE_TOOLS[name] !== true) {
+      return "";
+    }
+    var expected = C8O.guidance.expectedVersion();
+    var received = C8O.guidance.versionFromRequest(params, headerVersion, toolArguments);
+    if (!received.length || received === expected) {
+      return "";
+    }
+    try {
+      if (store && typeof newMap === "function") {
+        if (store.get(NOCODE_NOTICE_KEY) == null) {
+          store.set(NOCODE_NOTICE_KEY, newMap());
+        }
+        var seen = store.get(NOCODE_NOTICE_KEY);
+        if (seen.size() > NOCODE_NOTICE_MAX) {
+          seen.clear();
+        }
+        if (seen.putIfAbsent(trim(sessionKey) + "|" + received + "|" + expected, "1") != null) {
+          return "";
+        }
+      }
+    } catch (_noNoticeStore) {}
+    return "convertigo_nocode_skill_outdated: the installed Convertigo No Code skill is out of date (installed " + received +
+      ", this MCP serves " + expected + "). Rerun the setup of your harness for this MCP endpoint (_setupCodex, _setupClaude or " +
+      "_setupVibe) and reload the skill before the next change. Said once per session.";
   };
 
   C8O.guidance.warningForToolCall = function (toolName, params, headerVersion, toolArguments) {

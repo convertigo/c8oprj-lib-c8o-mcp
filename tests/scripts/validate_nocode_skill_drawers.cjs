@@ -35,7 +35,7 @@ const DRAWER_BUDGET = 12000;
 // Then the line of errors.md on a No Code write that answers running with its id (23/11).
 // Then nocode-baserow-schema-get (23/11): allowed in SKILL.md, the schema of existing tables read before an apply changes
 // them (workflow-existing.md step 6, sources.md), its running read and its refusals (errors.md).
-const SKILL_TEXT_SHA256 = '1e17e9302a3950c42f3448dbc42671ca2d78c56b1dfff5c03a6ebcbf6377af67';
+const SKILL_TEXT_SHA256 = '982699ed53749e6ce4d5a5db1b00fe7a8af6d8e71017ac076235fce2ba5fd6d8';
 
 test('SKILL.md names each drawer once, and each drawer file of its folder is named', () => {
   const named = pointers.map(p => p.file);

@@ -895,6 +895,21 @@ if (methodName === "initialize") {
   } catch (_guidanceError) {
     mcpGuidanceWarning = "";
   }
+  // A No Code tool: an out-of-date installed skill is said once per session, on a write (js/guidance_version.js).
+  try {
+    var noCodeSkillNotice = C8O.guidance.noCodeSkillNotice(
+      toolNameRaw,
+      paramsObject,
+      (typeof guidanceHeaderVersion !== "undefined") ? guidanceHeaderVersion : "",
+      toolArgs,
+      context ? context.server : null,
+      C8O.mcpRepeat && C8O.mcpRepeat.sessionKey ? C8O.mcpRepeat.sessionKey(context) : "",
+      function () { return new java.util.concurrent.ConcurrentHashMap(); }
+    );
+    if (noCodeSkillNotice !== null) {
+      mcpGuidanceWarning = noCodeSkillNotice;
+    }
+  } catch (_ignoreNoCodeSkillNotice) {}
   toolArgs = C8O.guidance.stripToolArguments(toolArgs);
   // The answer of this call says when an identical call of the session already failed the same way; keying it never
   // fails the call.
