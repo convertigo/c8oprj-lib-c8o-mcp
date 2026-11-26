@@ -1043,7 +1043,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       options: formsOptions(opts)
     }, opts);
     var sanitized = prepared.form;
-    var validation = keepEditorFlowElements(prepared.validation, sanitized, opts.currentForm);
+    var validation = keepEditorFlowElements(prepared.validation, sanitized, opts.currentForm, opts);
     if (!validation.valid) {
       return { status: "invalid", saved: false, validation: validation };
     }
@@ -1670,7 +1670,10 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // the catalog of the user's no-code database.
   function compileReduced(reduced, options) {
     var opts = options || {};
-    return withRepairs(formsRun("compile", { reduced: reduced, options: formsOptions(opts) }, opts), reduced);
+    var compiled = withRepairs(formsRun("compile", { reduced: reduced, options: formsOptions(opts) }, opts), reduced);
+    // a step only No Code Studio writes, in a creation or a compilation: the refusal says where the user adds it
+    if (compiled && compiled.validation && compiled.form) { keepEditorFlowElements(compiled.validation, compiled.form, null, opts); }
+    return compiled;
   }
   C8O.nocodeForms.compile = compileReduced;
   // nocode-form-validate (baserowLinks): the static checks, then, with the authenticated No Code account, the selects
@@ -1716,17 +1719,67 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     });
     return byId;
   }
-  function keepEditorFlowElements(validation, form, current) {
-    if (!validation || !current || !Array.isArray(validation.issues) || !validation.issues.length) { return validation; }
-    var before = flowElementsById(current);
+  // The flow steps of No Code Studio: the actions of its palette (AllTypes.json, cat "action"), read from the C8Oforms of
+  // the server once per call that needs them; null when the catalog cannot be read.
+  function editorStepTypes(options) {
+    try {
+      var types = {};
+      ensureArray((formsRun("catalog", {}, options || {}) || {}).catalog).forEach(function (item) {
+        if (item && item.cat === "action" && item.type) { types[String(item.type)] = true; }
+      });
+      return types;
+    } catch (_noCatalog) {
+      return null;
+    }
+  }
+  // A step by its name, or by its type when its name is the one the editor generates (toast1800000000011).
+  function stepLabel(element) {
+    var name = element && element.name != null ? String(element.name) : "";
+    if (!name.length || name === String(element.type) + String(element.id) || /^[a-z_]+\d{9,}$/.test(name)) { return "the " + element.type + " step"; }
+    return "«" + name + "»";
+  }
+  // A new step of a type No Code Studio has and the C8Oforms of the server does not write (unwrittenSteps): on test-nocode
+  // (26/11) an agent refused close_overlay put a push_page __c8o_back instead and called it the supported way, which leaves
+  // the page (the modal closes only as a side effect, without its closing flow) and does nothing without a previous page.
+  // C8Oforms words the refusal, with its reason when it gives one (quoted as it is, never reworded); the MCP adds what
+  // it does not say: ask the user to add the step in No Code Studio, where, and never replace it.
+  function explainEditorOnlySteps(refused, options) {
+    if (!refused.length) { return; }
+    var editorTypes = editorStepTypes(options);
+    refused.forEach(function (entry) {
+      var element = entry.element;
+      var type = String(element.type);
+      if (editorTypes && !editorTypes[type]) { return; }
+      var flow = entry.flow;
+      var flowLabel = flow.name ? "«" + flow.name + "» (" + flow.id + ")" : String(flow.id);
+      var previous = entry.elementIndex > 0 ? ensureArray(flow.elements)[entry.elementIndex - 1] : null;
+      var where = "flow " + flowLabel + ", step " + (entry.elementIndex + 1) + (previous ? ", after " + stepLabel(previous) : ", first step");
+      var said = trimmed(entry.issue.message);
+      var reason = trimmed(entry.issue.reason);
+      var why = reason.length ? (said.indexOf(reason) >= 0 ? "" : " Reason: " + reason + (/[.!?]$/.test(reason) ? "" : ".")) :
+        " " + type + " is a step of No Code Studio that the tools of this C8Oforms do not write.";
+      entry.issue.message = (said.length ? said.replace(/([^.!?])$/, "$1.") : "Unsupported flow element: " + type + ".") + why +
+        " Ask the user to add it in No Code Studio, in " + where + ". Never replace it with a navigation (push_page, __c8o_back included) or another step: " +
+        "they do not do what it does (a page change, for one, closes a modal or a side panel only as a side effect, without its closing flow, and does nothing without a previous page).";
+      entry.issue.addInNoCodeStudio = { type: type, flow: flow.name || String(flow.id), flowId: flow.id, position: entry.elementIndex + 1,
+        after: previous ? stepLabel(previous).replace(/^«|»$/g, "") : null };
+    });
+  }
+  function keepEditorFlowElements(validation, form, current, options) {
+    if (!validation || !Array.isArray(validation.issues) || !validation.issues.length) { return validation; }
+    var before = current ? flowElementsById(current) : {};
     var kept = [];
+    var refused = [];
     validation.issues = validation.issues.filter(function (issue) {
       if (!issue || EDITOR_ONLY_ISSUE_CODES.indexOf(issue.code) < 0) { return true; }
       var at = /^\/flows\/(\d+)\/elements\/(\d+)(\/|$)/.exec(String(issue.path || ""));
       var flow = at ? ensureArray(form && form.flows)[Number(at[1])] : null;
       var element = flow ? ensureArray(flow.elements)[Number(at[2])] : null;
       var saved = element && element.id != null ? before[String(element.id)] : null;
-      if (!saved || saved.type !== element.type) { return true; }
+      if (!saved || saved.type !== element.type) {
+        if (flow && element && element.type) { refused.push({ issue: issue, flow: flow, element: element, elementIndex: Number(at[2]) }); }
+        return true;
+      }
       kept.push({
         code: "editor_flow_element_kept",
         message: "Flow " + (flow.name || flow.id) + ": the step " + (element.name || element.id) + " (" + element.type + ") was written in No Code Studio and the tools do not write this type: kept as it is, not checked. Change it in No Code Studio.",
@@ -1734,6 +1787,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       });
       return false;
     });
+    explainEditorOnlySteps(refused, options);
     if (kept.length) {
       validation.warnings = ensureArray(validation.warnings).concat(kept);
       validation.issueCount = validation.issues.length;
@@ -1860,7 +1914,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         saved.form = actual;
         saved.readbackVerified = true;
         var savedWarnings = saveTimeWarnings(saved.validation);
-        saved.validation = keepEditorFlowElements(validateForm(actual, readOptions).validation, actual, currentForm);
+        saved.validation = keepEditorFlowElements(validateForm(actual, readOptions).validation, actual, currentForm, readOptions);
         keepSaveTimeWarnings(saved.validation, savedWarnings);
         return saved;
       }
@@ -2538,7 +2592,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (flag(question.warnings)) {
       // the warnings of the saved form, those of the parts asked when some are, the repeated ones grouped; the flow steps
       // No Code Studio wrote that the tools do not write are warnings, as an edit answers them (keepEditorFlowElements)
-      var validation = keepEditorFlowElements(validateForm(current, options).validation, current, current);
+      var validation = keepEditorFlowElements(validateForm(current, options).validation, current, current, options);
       answer = { status: "ok", fetched: true, id: String(current._id), rev: String(current._rev), name: current.name };
       if (asksParts) {
         var parts = formParts(current, question);

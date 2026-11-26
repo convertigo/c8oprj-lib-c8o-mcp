@@ -177,7 +177,7 @@ test('the guidance names no step a C8Oforms may write: the rule is general and t
   assert.match(drawer, /Never replace it with a navigation \(`push_page`, `__c8o_back` included\) or another step/);
 });
 
-test('a step the C8Oforms refuses keeps the refusal C8Oforms words; one No Code Studio wrote is kept', () => {
+test('a step No Code Studio wrote is kept; a new one keeps the refusal of C8Oforms and says to ask the user where, never a navigation', () => {
   const h = harness();
   const id = created(h);
   const flow = h.state.forms[id].flows.find(f => f.id === 'keep_item');
@@ -185,10 +185,47 @@ test('a step the C8Oforms refuses keeps the refusal C8Oforms words; one No Code 
   const kept = clone(h.client.edit(id, [{ action: 'update_field', fieldName: 'titre', patch: { label: 'Titre' } }], h.auth));
   assert.equal(kept.saved, true, JSON.stringify(kept.validation && kept.validation.issues));
   assert.ok(kept.validation.warnings.some(w => w.code === 'editor_flow_element_kept' && /set_properties/.test(w.message)));
-  const added = clone(h.client.edit(id, [{ action: 'update_flow', flowId: 'open_detail', patch: { elements: [{ id: 1799000000109, name: 'Autre', type: 'set_properties', config: {} }] } }], h.auth));
+  const saves = h.state.saves;
+  const steps = h.state.forms[id].flows.find(f => f.id === 'keep_item').elements;
+  const added = clone(h.client.edit(id, [{ action: 'update_flow', flowId: 'keep_item', patch: { elements: [steps[0], { id: 1799000000101, name: 'Fermer la fenêtre', type: 'close_overlay', config: { target: '' } }] } }], h.auth));
   assert.equal(added.saved, false);
+  assert.equal(h.state.saves, saves, 'nothing saved');
   const issue = added.validation.issues.find(i => i.code === 'unsupported_flow_element');
-  assert.match(issue.message, /^Unsupported flow element: set_properties/, 'the words of C8Oforms, with its reason when it gives one');
+  // the words of C8Oforms first, as it gives them; this C8Oforms gives no reason: the MCP says what the step is
+  assert.match(issue.message, /^Unsupported flow element: close_overlay\. close_overlay is a step of No Code Studio that the tools of this C8Oforms do not write\. /);
+  assert.match(issue.message, /Ask the user to add it in No Code Studio, in flow «Garder» \(keep_item\), step 2, after the toast step\./);
+  assert.match(issue.message, /Never replace it with a navigation \(push_page, __c8o_back included\) or another step/);
+  assert.deepEqual(issue.addInNoCodeStudio, { type: 'close_overlay', flow: 'Garder', flowId: 'keep_item', position: 2, after: 'the toast step' });
+});
+
+test('the reason C8Oforms gives is quoted as it is, never reworded, and not twice', () => {
+  const nf = api();
+  const form = { flows: [{ id: 'f', name: 'Oui', elements: [{ id: 1, name: 'Valider', type: 'toast' }, { id: 2, name: 'Fermer', type: 'close_overlay' }] }] };
+  const reason = 'closes a modal or a side panel, which the reduced contract does not write yet';
+  const issue = message => ({ valid: false, issues: [{ code: 'unsupported_flow_element', message, path: '/flows/0/elements/1/type', reason }], warnings: [] });
+  const apart = clone(nf.keepEditorFlowElements(issue('Unsupported flow element: close_overlay'), form, null, {})).issues[0].message;
+  assert.ok(apart.startsWith('Unsupported flow element: close_overlay. Reason: ' + reason + '. Ask the user to add it in No Code Studio, in flow «Oui» (f), step 2, after «Valider».'), apart);
+  assert.doesNotMatch(apart, /is a step of No Code Studio that the tools/, 'no wording of ours beside the reason of C8Oforms');
+  const within = clone(nf.keepEditorFlowElements(issue('Unsupported flow element: close_overlay (' + reason + ')'), form, null, {})).issues[0].message;
+  assert.equal(within.split(reason).length, 2, 'the reason once');
+});
+
+test('a creation with an editor step first is refused the same way; a type the palette does not have keeps the refusal as it is', () => {
+  const h = harness();
+  const c = clone(h.client.create({ name: 'X', navigationMode: 'custom', pages: [{ name: 'P', fields: [{ type: 'button', name: 'b', label: 'B', flow: 'f' }] }],
+    flows: [{ id: 'f', name: 'Ouvrir', elements: [{ type: 'open_overlay' }, { type: 'toast', message: 'ok' }] }] }, h.auth));
+  assert.equal(c.saved, false);
+  const issue = c.validation.issues.find(i => i.code === 'unsupported_flow_element');
+  assert.match(issue.message, /in flow «Ouvrir» \(f\), step 1, first step\./);
+  assert.equal(issue.addInNoCodeStudio.after, null);
+  assert.equal(h.state.saves, 0);
+  const unknown = clone(h.client.compile({ name: 'Z', pages: [{ name: 'P', fields: [{ type: 'button', name: 'b', label: 'B', flow: 'f' }] }],
+    flows: [{ id: 'f', name: 'Inconnu', elements: [{ type: 'teleport_user' }] }] }, h.auth));
+  const plain = ((unknown.validation && unknown.validation.issues) || []).find(i => i.code === 'unsupported_flow_element');
+  if (plain) {
+    assert.equal(plain.addInNoCodeStudio, undefined);
+    assert.doesNotMatch(plain.message, /No Code Studio/);
+  }
 });
 
 test('a reduced key of a modal in an update_field patch names its native place, config.overlay.<key>', () => {
