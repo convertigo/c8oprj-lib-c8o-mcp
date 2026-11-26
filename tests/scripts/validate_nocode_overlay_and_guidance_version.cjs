@@ -190,3 +190,20 @@ test('a step the C8Oforms refuses keeps the refusal C8Oforms words; one No Code 
   const issue = added.validation.issues.find(i => i.code === 'unsupported_flow_element');
   assert.match(issue.message, /^Unsupported flow element: set_properties/, 'the words of C8Oforms, with its reason when it gives one');
 });
+
+test('a reduced key of a modal in an update_field patch names its native place, config.overlay.<key>', () => {
+  const h = harness();
+  const id = created(h);
+  const form = h.state.forms[id];
+  // a modal as No Code Studio (or a C8Oforms of contract v32) saves it: a layout with config.overlay, at the root of a page
+  const page = form.pages[0].pageTechName;
+  form.formulaire.push({ id: 1799000000201, type: 'layout', name: 'confirm_modal', childrenRefs: [], conditions: {},
+    config: { page, cols: [{ size: 12 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }],
+      overlay: { kind: 'modal', title: 'Confirmer ?', size: 'medium', dismissible: true, phone: 'full', closeFlow: '' } } });
+  const saves = h.state.saves;
+  const r = clone(h.client.edit(id, [{ action: 'update_field', fieldName: 'confirm_modal', patch: { title: 'Vraiment ?' } }], h.auth));
+  assert.equal(r.saved, false);
+  assert.equal(h.state.saves, saves);
+  assert.equal(r.error.code, 'unread_patch_key');
+  assert.match(r.error.message, /patch\.title is not a key of a layout as saved, whose title is config\.overlay\.title: write patch\.config\.overlay\.title \(the other keys of config\.overlay are kept\)/);
+});

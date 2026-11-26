@@ -2194,9 +2194,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var proto = prototypes[entry.item.type];
       var configs = [entry.old.config, proto && proto.config].filter(isPlainObjectValue);
       var inConfig = configs.some(function (config) { return hasOwn(config, entry.key); });
+      // a key one level down in config, as the title of a modal is config.overlay.title (C8Oforms contract v32): the
+      // edit merges a nested object key by key
+      var nested = inConfig ? "" : configs.map(function (config) {
+        return Object.keys(config).filter(function (name) { return isPlainObjectValue(config[name]) && hasOwn(config[name], entry.key); })[0] || "";
+      }).filter(function (name) { return name.length; })[0] || "";
       var keys = Object.keys(proto || entry.old).filter(function (key) { return key !== "id"; });
       return entry.item.name + " (" + entry.item.type + "): patch." + entry.key + " is not a key of a " + entry.item.type + " as saved" +
         (inConfig ? ", whose " + entry.key + " is config." + entry.key + ": write patch.config." + entry.key :
+          nested ? ", whose " + entry.key + " is config." + nested + "." + entry.key + ": write patch.config." + nested + "." + entry.key + " (the other keys of config." + nested + " are kept)" :
           " (its keys: " + keys.join(", ") + "): update_field merges the native shape, as nocode-form-get component shows it; add_field and create take the reduced keys");
     });
   }
