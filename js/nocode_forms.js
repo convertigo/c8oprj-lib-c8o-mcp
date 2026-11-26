@@ -517,8 +517,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     walk(input && (input.reduced || input.operations), "", 0);
     var reason = trimmed(error && error.reason);
     var why = reason.length && message.indexOf(reason) < 0 ? " Reason: " + reason + (/[.!?]$/.test(reason) ? "" : ".") : "";
-    return message.replace(/([^.!?])$/, "$1.") + why + " Ask the user to add it in No Code Studio" +
-      (place ? (place.page ? ", on page \u00ab" + place.page + "\u00bb" : "") + ", as component \u00ab" + place.name + "\u00bb" : "") + ". " + NO_APPROXIMATION;
+    var where = place ? (place.page ? "on page \u00ab" + place.page + "\u00bb, " : "") + "as component \u00ab" + place.name + "\u00bb" : "where it belongs";
+    return message.replace(/([^.!?])$/, "$1.") + why + askTheUser("add it", reason, message, where);
   }
 
   // The catalog of the user's no-code database, read with the user's account (nocode_baserow.js), [] when unreadable.
@@ -571,7 +571,19 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       if (hasOwn(opts, key) && opts[key] != null) { out[key] = opts[key]; }
     });
     out.project = formsProjectName(opts);
+    // the form as saved (C8Oforms 2.3, validate and prepareSave): what No Code Studio wrote and the tools do not is kept
+    // with a warning editor_component_kept or editor_setting_kept when the save leaves it as it was; without it, every
+    // occurrence is an issue and an edit around it is refused
+    var stored = opts.stored || opts.currentForm;
+    if (stored && typeof stored === "object" && !Array.isArray(stored)) { out.stored = stored; }
     Object.keys(extra || {}).forEach(function (key) { out[key] = extra[key]; });
+    return out;
+  }
+  // options with one more key, the others shared
+  function withOption(options, key, value) {
+    var out = {};
+    Object.keys(options || {}).forEach(function (name) { out[name] = options[name]; });
+    out[key] = value;
     return out;
   }
 
@@ -1874,68 +1886,109 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     });
     return value;
   }
-  // The dotted path of a setting from the JSON pointer of an issue (/formulaire/3/config/iconGap: config.iconGap).
-  function settingPathOf(issue) {
+  // What an unwritten_component or unwritten_setting issue is about, from its path: a component (/formulaire/<i>), a page
+  // (/pages/<i>) or the form itself (its root: /i18n, /config/anonym_resp_auth, type "form"), with the matching part of
+  // the form as saved (by id, by pageTechName, the form); null when the path names none of them.
+  function unwrittenOwner(issue, form, current) {
+    var path = String(issue.path || "");
+    var at = /^\/formulaire\/(\d+)(\/(.*))?$/.exec(path);
+    if (at) {
+      var item = ensureArray(form && form.formulaire)[Number(at[1])];
+      if (!item) { return null; }
+      return { kind: "component", item: item, saved: current && item.id != null ? componentsById(current)[String(item.id)] || null : null, rest: at[3] || "" };
+    }
+    at = /^\/pages\/(\d+)(\/(.*))?$/.exec(path);
+    if (at) {
+      var page = ensureArray(form && form.pages)[Number(at[1])];
+      if (!page) { return null; }
+      var savedPage = current ? ensureArray(current.pages).filter(function (candidate) { return candidate && String(candidate.pageTechName) === String(page.pageTechName); })[0] || null : null;
+      return { kind: "page", item: page, saved: savedPage, rest: at[3] || "" };
+    }
+    if (issue.code === "unwritten_setting" && /^\/[^/]/.test(path)) { return { kind: "form", item: form || {}, saved: current || null, rest: path.substring(1) }; }
+    return null;
+  }
+  // The dotted path of a setting: the one the issue gives, else the rest of its JSON pointer (config/iconGap: config.iconGap).
+  function settingPathOf(issue, owner) {
     var given = trimmed(issue.setting);
     if (given.length) { return given; }
-    var at = /^\/formulaire\/\d+\/(.+)$/.exec(String(issue.path || ""));
-    return at ? at[1].split("/").join(".") : "";
+    return owner && owner.rest ? owner.rest.split("/").join(".") : "";
   }
   function pageNameOf(form, item) {
     var tech = rootPageOf(componentsById(form), item);
     var page = ensureArray(form && form.pages).filter(function (candidate) { return candidate && String(candidate.pageTechName) === String(tech); })[0];
     return page ? String(page.name || page.pageTechName) : (tech != null ? String(tech) : "");
   }
+  // Where the user does it, in words and in fields: the page and the component, the page alone, or the form's settings.
+  function unwrittenPlace(owner, form, setting, type) {
+    // the type C8Oforms names (modal), else the type as saved (layout), else page or form
+    var place = { type: trimmed(type) || (owner.kind === "component" ? String(owner.item.type) : owner.kind) };
+    var words;
+    if (owner.kind === "component") {
+      place.page = pageNameOf(form, owner.item);
+      place.component = owner.item.name;
+      words = "on page «" + place.page + "», " + (setting.length ? "component «" + owner.item.name + "»" : "as component «" + owner.item.name + "»");
+    } else if (owner.kind === "page") {
+      place.page = String(owner.item.name || owner.item.pageTechName);
+      words = "in the settings of page «" + place.page + "»";
+    } else {
+      words = "in the settings of the form";
+    }
+    if (setting.length) { place.setting = setting; words += ", setting " + setting; }
+    return { fields: place, words: words };
+  }
   var NO_APPROXIMATION = "Never replace it with an approximation: another component, a style or HTML, or a navigation.";
+  // "Ask the user to add it in No Code Studio", without "in No Code Studio" when the reason of C8Oforms already says it.
+  function askTheUser(verb, reason, said, where) {
+    var named = /No Code Studio/.test(reason) || /No Code Studio/.test(said);
+    return " Ask the user to " + verb + (named ? "" : " in No Code Studio") + ", " + where + ". " + NO_APPROXIMATION;
+  }
   // A new component, or a new or changed setting, the C8Oforms of the server does not write: its refusal first, as it
   // gives it, its reason quoted once as it is; then whom to ask, where (page, component, setting), and no approximation.
   function explainEditorOnlyComponents(refused, form) {
     refused.forEach(function (entry) {
       var issue = entry.issue;
-      var item = entry.item;
-      var setting = issue.code === "unwritten_setting" ? settingPathOf(issue) : "";
-      var page = pageNameOf(form, item);
+      var owner = entry.owner;
+      var setting = issue.code === "unwritten_setting" ? settingPathOf(issue, owner) : "";
+      var place = unwrittenPlace(owner, form, setting, issue.type);
       var said = trimmed(issue.message);
       var reason = trimmed(issue.reason);
-      var what = setting.length ? "the setting " + setting + " of a " + item.type : "a " + item.type;
+      var subject = owner.kind === "component" ? "a " + owner.item.type : "the " + owner.kind;
       var why = reason.length ? (said.indexOf(reason) >= 0 ? "" : " Reason: " + reason + (/[.!?]$/.test(reason) ? "" : ".")) :
-        " It is " + what + ", which No Code Studio writes and the tools of this C8Oforms do not.";
-      issue.message = (said.length ? said.replace(/([^.!?])$/, "$1.") : (setting.length ? "Unwritten setting: " + setting : "Unwritten component: " + item.type) + ".") + why +
-        " Ask the user to " + (setting.length ? "set it" : "add it") + " in No Code Studio, on page \u00ab" + page + "\u00bb, " +
-        (setting.length ? "component \u00ab" + item.name + "\u00bb, setting " + setting : "as component \u00ab" + item.name + "\u00bb") + ". " + NO_APPROXIMATION;
-      issue.addInNoCodeStudio = { type: String(item.type), page: page, component: item.name };
-      if (setting.length) { issue.addInNoCodeStudio.setting = setting; }
+        " It is " + (setting.length ? "the setting " + setting + " of " + subject : subject) + ", which No Code Studio writes and the tools of this C8Oforms do not.";
+      issue.message = (said.length ? said.replace(/([^.!?])$/, "$1.") : (setting.length ? "Unwritten setting: " + setting : "Unwritten component: " + owner.item.type) + ".") + why +
+        askTheUser(setting.length ? "set it" : "add it", reason, said, place.words);
+      issue.addInNoCodeStudio = place.fields;
     });
   }
   function keepEditorFlowElements(validation, form, current, options) {
     if (!validation || !Array.isArray(validation.issues) || !validation.issues.length) { return validation; }
     var before = current ? flowElementsById(current) : {};
-    var beforeComponents = current ? componentsById(current) : {};
     var kept = [];
     var refused = [];
     var refusedComponents = [];
     validation.issues = validation.issues.filter(function (issue) {
       if (!issue || EDITOR_ONLY_ISSUE_CODES.indexOf(issue.code) < 0) { return true; }
       if (issue.code === "unwritten_component" || issue.code === "unwritten_setting") {
-        var cm = /^\/formulaire\/(\d+)(\/|$)/.exec(String(issue.path || ""));
-        var item = cm ? ensureArray(form && form.formulaire)[Number(cm[1])] : null;
-        if (!item) { return true; }
-        var savedItem = item.id != null ? beforeComponents[String(item.id)] : null;
-        var setting = issue.code === "unwritten_setting" ? settingPathOf(issue) : "";
-        var same = !!savedItem && savedItem.type === item.type && (!setting.length ||
-          (valueAtPath(savedItem, setting) !== undefined && JSON.stringify(valueAtPath(savedItem, setting)) === JSON.stringify(valueAtPath(item, setting))));
+        var owner = unwrittenOwner(issue, form, current);
+        if (!owner) { return true; }
+        var setting = issue.code === "unwritten_setting" ? settingPathOf(issue, owner) : "";
+        var saved = owner.saved;
+        var same = !!saved && (owner.kind !== "component" || saved.type === owner.item.type) && (setting.length ?
+          valueAtPath(saved, setting) !== undefined && JSON.stringify(valueAtPath(saved, setting)) === JSON.stringify(valueAtPath(owner.item, setting)) :
+          JSON.stringify(saved.config || null) === JSON.stringify(owner.item.config || null));
         if (!same) {
-          refusedComponents.push({ issue: issue, item: item });
+          refusedComponents.push({ issue: issue, owner: owner });
           return true;
         }
-        var where = "Page " + pageNameOf(form, item) + ": ";
+        var where = owner.kind === "component" ? "Page " + pageNameOf(form, owner.item) + ": " : owner.kind === "page" ? "Page " + (owner.item.name || owner.item.pageTechName) + ": " : "Form: ";
+        var whose = owner.kind === "component" ? " of " + owner.item.name + " (" + owner.item.type + ")" : owner.kind === "page" ? " of the page" : " of the form";
         kept.push(setting.length ? {
           code: "editor_setting_kept",
-          message: where + "the setting " + setting + " of " + item.name + " (" + item.type + ") was set in No Code Studio and the tools of this C8Oforms do not write it: kept as it is, not checked. Change it in No Code Studio.",
+          message: where + "the setting " + setting + whose + " was set in No Code Studio and the tools of this C8Oforms do not write it: kept as it is, not checked. Change it in No Code Studio.",
           path: String(issue.path)
         } : {
           code: "editor_component_kept",
-          message: where + "the component " + item.name + " (" + item.type + ") was written in No Code Studio and the tools of this C8Oforms do not write it: kept as it is, not checked. Change it in No Code Studio.",
+          message: where + "the component " + owner.item.name + " (" + owner.item.type + ") was written in No Code Studio and the tools of this C8Oforms do not write it: kept as it is, not checked. Change it in No Code Studio.",
           path: String(issue.path)
         });
         return false;
@@ -2009,7 +2062,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (!validation || !Array.isArray(validation.warnings) || validation.warnings.length <= WARNINGS_ANSWERED_WHOLE || !before || !after) { return saved; }
     var previous = {};
     try {
-      ensureArray(validateForm(before, withoutKey(options, "currentForm")).validation.warnings).forEach(function (item) { if (item) { previous[warningKey(before, item)] = true; } });
+      ensureArray(validateForm(before, withOption(withoutKey(options, "currentForm"), "stored", before)).validation.warnings).forEach(function (item) { if (item) { previous[warningKey(before, item)] = true; } });
     } catch (_noPreviousWarnings) {
       return saved;
     }
@@ -2083,7 +2136,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         saved.form = actual;
         saved.readbackVerified = true;
         var savedWarnings = saveTimeWarnings(saved.validation);
-        saved.validation = keepEditorFlowElements(validateForm(actual, readOptions).validation, actual, currentForm, readOptions);
+        saved.validation = keepEditorFlowElements(validateForm(actual, currentForm ? withOption(readOptions, "stored", currentForm) : readOptions).validation, actual, currentForm, readOptions);
         keepSaveTimeWarnings(saved.validation, savedWarnings);
         return saved;
       }
@@ -2421,8 +2474,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       if (unwritten) {
         var page = pageNameOf(edited, entry.item);
         return entry.item.name + " (" + entry.item.type + "): patch." + entry.key + " is the setting " + unwritten.path + ", which the tools of this C8Oforms do not write. Reason: " +
-          unwritten.reason + (/[.!?]$/.test(unwritten.reason) ? "" : ".") + " Ask the user to set it in No Code Studio, on page \u00ab" + page + "\u00bb, component \u00ab" +
-          entry.item.name + "\u00bb, setting " + unwritten.path + ". " + NO_APPROXIMATION;
+          unwritten.reason + (/[.!?]$/.test(unwritten.reason) ? "" : ".") + askTheUser("set it", unwritten.reason, "", "on page \u00ab" + page + "\u00bb, component \u00ab" +
+          entry.item.name + "\u00bb, setting " + unwritten.path);
       }
       var proto = prototypes[entry.item.type];
       var configs = [entry.old.config, proto && proto.config].filter(isPlainObjectValue);
@@ -2771,7 +2824,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (flag(question.warnings)) {
       // the warnings of the saved form, those of the parts asked when some are, the repeated ones grouped; the flow steps
       // No Code Studio wrote that the tools do not write are warnings, as an edit answers them (keepEditorFlowElements)
-      var validation = keepEditorFlowElements(validateForm(current, options).validation, current, current, options);
+      var validation = keepEditorFlowElements(validateForm(current, withOption(options, "stored", current)).validation, current, current, options);
       answer = { status: "ok", fetched: true, id: String(current._id), rev: String(current._rev), name: current.name };
       if (asksParts) {
         var parts = formParts(current, question);

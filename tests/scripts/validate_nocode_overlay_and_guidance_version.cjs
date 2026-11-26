@@ -140,23 +140,28 @@ function apiWithContract(change) {
 
 test('the steps the C8Oforms does not write come from its contract: its table, else its palette without its written types', () => {
   // the C8Oforms of the checkout: the actions of its palette its contract types leave out
-  const derived = clone(api().contract({ sections: ['editTool'] })).sections.editTool.unwrittenSteps;
+  // the section unwritten of the contract when this C8Oforms has one (2.3), else its palette without its written types
+  const derived = clone(apiWithContract(c => { delete c.sections.unwritten; }).contract({ sections: ['editTool'] })).sections.editTool.unwrittenSteps;
   const palette = JSON.parse(fs.readFileSync(path.join(formsRoot, 'DisplayObjects/mobile/assets/components/AllTypes.json'), 'utf8'));
   const types = clone(api().contract({})).types;
   const expected = [...new Set(palette.filter(item => item.cat === 'action').map(item => item.type))].filter(type => !types.includes(type)).sort();
   assert.deepEqual(Object.keys(derived).sort(), expected);
   assert.ok(expected.length >= 1, 'this C8Oforms leaves at least one step to No Code Studio');
+  const raw = JSON.parse(formsEngine(formsRoot).sequence('NoCode_Contract', {}).document.res.json).result;
+  if (raw.sections && raw.sections.unwritten) {
+    assert.deepEqual(clone(api().contract({ sections: ['editTool'] })).sections.editTool.unwrittenSteps, raw.sections.unwritten.flowElements || {});
+  }
   // a C8Oforms that writes modals (contract v32): their steps are no longer listed
-  const v32 = clone(apiWithContract(c => { c.types = c.types.concat(['open_overlay', 'close_overlay', 'modal', 'side_panel']); }).contract({ sections: ['editTool'] })).sections.editTool.unwrittenSteps;
+  const v32 = clone(apiWithContract(c => { delete c.sections.unwritten; c.types = c.types.concat(['open_overlay', 'close_overlay', 'modal', 'side_panel']); }).contract({ sections: ['editTool'] })).sections.editTool.unwrittenSteps;
   assert.equal(v32.open_overlay, undefined);
   assert.equal(v32.close_overlay, undefined);
   // its own table, with its reasons, is taken as it is
   const table = { set_properties: 'changes the properties of a component at runtime; configured in No Code Studio' };
-  const given = clone(apiWithContract(c => { c.unwrittenFlowElements = table; }).contract({ sections: ['editTool'] })).sections.editTool.unwrittenSteps;
+  const given = clone(apiWithContract(c => { delete c.sections.unwritten; c.unwrittenFlowElements = table; }).contract({ sections: ['editTool'] })).sections.editTool.unwrittenSteps;
   assert.deepEqual(given, table);
   // the guidance version follows what is served
-  const v31Version = clone(api().contract({})).contractVersion;
-  const v32Version = clone(apiWithContract(c => { c.types = c.types.concat(['open_overlay', 'close_overlay']); }).contract({})).contractVersion;
+  const v31Version = clone(apiWithContract(c => { delete c.sections.unwritten; }).contract({})).contractVersion;
+  const v32Version = clone(apiWithContract(c => { delete c.sections.unwritten; c.types = c.types.concat(['open_overlay', 'close_overlay']); }).contract({})).contractVersion;
   assert.notEqual(v32Version.split('+')[1], v31Version.split('+')[1], 'another list of steps is another guidance');
 });
 
