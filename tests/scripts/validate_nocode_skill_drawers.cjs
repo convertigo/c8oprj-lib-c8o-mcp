@@ -35,7 +35,9 @@ const DRAWER_BUDGET = 12000;
 // Then the line of errors.md on a No Code write that answers running with its id (23/11).
 // Then nocode-baserow-schema-get (23/11): allowed in SKILL.md, the schema of existing tables read before an apply changes
 // them (workflow-existing.md step 6, sources.md), its running read and its refusals (errors.md).
-const SKILL_TEXT_SHA256 = '982699ed53749e6ce4d5a5db1b00fe7a8af6d8e71017ac076235fce2ba5fd6d8';
+// Then skill-install (26/11): the freshness line calls skill-install (or the setup) on a different version, the tool is in
+// the allowed list, and the bootstrap and reveal lines say the same in fewer words (SKILL.md within its budget).
+const SKILL_TEXT_SHA256 = '4db8701e074d59839ccf54f88371e767c7a209ec44553df7bc969bf365dd58b2';
 
 test('SKILL.md names each drawer once, and each drawer file of its folder is named', () => {
   const named = pointers.map(p => p.file);

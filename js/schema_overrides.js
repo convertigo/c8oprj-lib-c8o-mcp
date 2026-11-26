@@ -1865,6 +1865,56 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     return openObjectSchema({ partialAnswer: partialAnswerSchema(true) });
   }
 
+  // skill-install (js/skill_package.js): the skill of a client that has none or an out-of-date one.
+  function skillInstallInputSchema() {
+    return {
+      type: "object",
+      properties: {
+        harness: { type: "string", default: "generic", description: "Your harness: codex, claude, vibe or generic. Sets targetDir and the setup the skill names." },
+        skill: { type: "string", default: "convertigo-nocode", description: "convertigo-nocode (default) or convertigo-generalist. One skill per call." },
+        installedVersion: { type: "string", description: "The `Skill guidance version` of the installed SKILL.md; empty when the skill is not installed." },
+        installedFiles: {
+          type: "array",
+          description: "The files of the installed skill folder, {path, sha256} or plain names: answers what to create, update or delete.",
+          items: { anyOf: [{ type: "string" }, closedObjectSchema({ path: { type: "string" }, sha256: { type: "string" } })] }
+        },
+        plan: { type: "boolean", default: false, description: "true: the files with their checksums and the obsolete ones, without content." },
+        file: { type: "string", description: "One file by its plain name (a drawer such as checks.md, or SKILL.md): its content alone." },
+        all: { type: "boolean", default: false, description: "true: every file with its content (long: it comes in answer pages)." }
+      },
+      additionalProperties: false
+    };
+  }
+
+  function skillInstallOutputSchema() {
+    var str = { type: "string" };
+    var strings = stringArraySchema();
+    return openObjectSchema({
+      status: { type: "string", enum: ["install", "plan", "up_to_date", "ok", "not_applicable", "invalid", "error"] },
+      skill: str,
+      version: { type: "string", description: "The guidance version this MCP serves; the installed SKILL.md carries it." },
+      installedVersion: str,
+      upToDate: { type: "boolean" },
+      harness: str,
+      targetDir: { type: "string", description: "The skill folder to write the files in." },
+      message: str,
+      howTo: strings,
+      files: { type: "array", description: "Each file: path, chars, bytes, sha256, action (write, create, update, unchanged) and its resource URI.", items: openObjectSchema({}) },
+      obsolete: strings,
+      remaining: strings,
+      missingFiles: strings,
+      refusedPaths: strings,
+      content: { type: "string", description: "The content of SKILL.md (or of the file asked): apply it at once." },
+      contents: { type: "array", items: openObjectSchema({ path: str, content: str }) },
+      path: str,
+      writeTo: str,
+      chars: { type: "integer" },
+      bytes: { type: "integer" },
+      sha256: str,
+      resource: str
+    });
+  }
+
   // project-brief, project-notes-write and viewer-sign-in (js/project_brief.js, js/viewer_session.js).
   function projectBriefInputSchema() {
     return {
@@ -3160,6 +3210,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     if (seq === "tools_answer_page") {
       return answerPageInputSchema();
     }
+    if (seq === "tools_skill_install") {
+      return skillInstallInputSchema();
+    }
     if (seq === "tools_project_brief") {
       return projectBriefInputSchema();
     }
@@ -3570,6 +3623,9 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     }
     if (seq === "tools_answer_page") {
       return answerPageOutputSchema();
+    }
+    if (seq === "tools_skill_install") {
+      return skillInstallOutputSchema();
     }
     if (seq === "tools_project_brief") {
       return projectBriefOutputSchema();

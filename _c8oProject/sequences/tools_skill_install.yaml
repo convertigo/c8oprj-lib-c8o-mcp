@@ -1,0 +1,66 @@
+accessibility: Private
+comment: |
+  Install or update a Convertigo skill (No Code by default)
+  Answers a Convertigo skill to a client that has none or an out-of-date one: convertigo-nocode by default (its SKILL.md and drawers), or convertigo-generalist. Its SKILL.md carries the guidance version it is made from: give installedVersion (and installedFiles, the path and sha256 of each file of the skill folder) to learn whether it is up to date. The answer holds the SKILL.md to apply at once, the files with their sha256 to write in the skill folder of your harness (targetDir) for the next sessions, the obsolete files to delete, and how to read each drawer (file, or the resources convertigo://skills/convertigo-nocode/<file>); all:true answers every file, plan:true the files without content. Text skill files only: never a token, a key or a client configuration. Writes nothing.
+↓Run [steps.SimpleStep-1797260030011]: 
+  expression: |
+    'include("js/skill_package.js");
+    var skillInstallArgs = {
+      harness: typeof harness === "undefined" ? null : harness,
+      skill: typeof skill === "undefined" ? null : skill,
+      installedVersion: typeof installedVersion === "undefined" ? null : installedVersion,
+      installedFiles: typeof installedFiles === "undefined" ? null : installedFiles,
+      plan: typeof plan === "undefined" ? null : plan,
+      file: typeof file === "undefined" ? null : file,
+      all: typeof all === "undefined" ? null : all
+    };
+    var skillInstallResult = null;
+    try {
+      skillInstallResult = C8O.skillPackage.install(skillInstallArgs, { authKind: typeof authKind === "undefined" || authKind === null ? "" : String(authKind) });
+    } catch (e) {
+      skillInstallResult = { status: "error", error: { code: "skill_install_failed", message: "The skill files could not be read: " + e } };
+    }'
+↓result [steps.JsonToXmlStep-1797260030013]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: skillInstallResult
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓harness [variables.RequestableVariable-1797260030021]: 
+  comment: 'Your harness: codex, claude, vibe or generic (default), for the folder to write and the setup named in the skill.'
+  description: 'Your harness: codex, claude, vibe or generic (default), for the folder to write and the setup named in the skill.'
+  value: ''
+↓skill [variables.RequestableVariable-1797260030023]: 
+  comment: 'convertigo-nocode (default) or convertigo-generalist. One skill per call.'
+  description: 'convertigo-nocode (default) or convertigo-generalist. One skill per call.'
+  value: ''
+↓installedVersion [variables.RequestableVariable-1797260030025]: 
+  comment: 'The Skill guidance version line of the installed SKILL.md; empty when the skill is not installed.'
+  description: 'The Skill guidance version line of the installed SKILL.md; empty when the skill is not installed.'
+  value: ''
+↓installedFiles [variables.RequestableVariable-1797260030027]: 
+  comment: 'Optional: the files of the installed skill folder, [{path, sha256}] or plain names. Answers what to create, update or delete.'
+  description: 'Optional: the files of the installed skill folder, [{path, sha256}] or plain names. Answers what to create, update or delete.'
+  value: ''
+↓plan [variables.RequestableVariable-1797260030029]: 
+  comment: 'true: the files, their checksums and the obsolete ones, without content.'
+  description: 'true: the files, their checksums and the obsolete ones, without content.'
+  value: ''
+↓file [variables.RequestableVariable-1797260030031]: 
+  comment: 'One file of the skill by its plain name (a drawer such as checks.md, or SKILL.md): answers its content alone.'
+  description: 'One file of the skill by its plain name (a drawer such as checks.md, or SKILL.md): answers its content alone.'
+  value: ''
+↓all [variables.RequestableVariable-1797260030033]: 
+  comment: 'true: every file with its content in one answer (long: it comes in answer pages).'
+  description: 'true: every file with its content in one answer (long: it comes in answer pages).'
+  value: ''
+↓authKind [variables.RequestableVariable-1797260030035]: 
+  comment: 'Set by mcp_endpoint: the kind of the caller token.'
+  value: ''

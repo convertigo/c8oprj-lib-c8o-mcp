@@ -17,6 +17,7 @@ var C8O_RESOURCES_BUILTIN = [
       "# Convertigo MCP capabilities",
       "",
       "- MCP guidance version: `" + C8O.MCP_GUIDANCE_VERSION + "`. Compare the installed skill once; rerun the setup for your harness on mismatch before mutation. Missing transport metadata is advisory when the installed version matches.",
+      "- No Code (C8Oforms) work: the skill `convertigo-nocode` of this version, served as convertigo://skills/convertigo-nocode and one URI per drawer (convertigo://skills/convertigo-nocode/<file>). Not installed, or another version: call `skill-install` before any No Code change, apply the SKILL.md it answers at once, and write its files for the next sessions.",
       "- Live tools/list, resources/list and prompts/list are the contract. Read known guide URIs directly; open one summary or exact drawer per call, never a batch of guide reads.",
       "- Inspect with databaseobject-tree-get; mutate with databaseobject-tree-apply; order dependent writes in batch-call; prove with requestable-execute; persist with project-save.",
       "- Keep the exact requested project name. New NGX apps start with marketplace-import(template_ngxBuilderIonic), then mobile-builder-open(wait=false). Use typed HTTP/SQL transactions behind business sequences; prove application data before wiring UI events/actions and SC locals.",
@@ -65,8 +66,9 @@ function c8oLoadResourcesIndex() {
       seen[String(entry.uri).toLowerCase()] = true;
     }
   }
-  for (var j = 0; j < C8O_RESOURCES_BUILTIN.length; j++) {
-    var builtin = C8O_RESOURCES_BUILTIN[j];
+  var builtins = C8O_RESOURCES_BUILTIN.concat(c8oSkillResourceEntries());
+  for (var j = 0; j < builtins.length; j++) {
+    var builtin = builtins[j];
     var key = String(builtin.uri || "").toLowerCase();
     if (!key.length || seen[key]) {
       continue;
@@ -74,6 +76,18 @@ function c8oLoadResourcesIndex() {
     parsed.push(builtin);
   }
   return parsed;
+}
+
+// The No Code skill as resources (js/skill_package.js): its SKILL.md and one URI per drawer, at the current version.
+function c8oSkillResourceEntries() {
+  try {
+    if (typeof C8O.skillPackage === "undefined" || typeof C8O.skillPackage.resourceEntries !== "function") {
+      include("js/skill_package.js");
+    }
+    return C8O.skillPackage.resourceEntries();
+  } catch (_noSkillResources) {
+    return [];
+  }
 }
 
 function c8oNormalizeResourceEntry(entry) {
@@ -136,6 +150,12 @@ function c8oReadResourceFile(entry) {
   }
   if (entry.text != null) {
     return String(entry.text);
+  }
+  if (entry.skillFile) {
+    if (typeof C8O.skillPackage === "undefined" || typeof C8O.skillPackage.fileText !== "function") {
+      include("js/skill_package.js");
+    }
+    return C8O.skillPackage.fileText(entry.skillFile.skill, entry.skillFile.path);
   }
   if (!entry.file) {
     throw new Error("Resource entry has no file property");

@@ -3,6 +3,9 @@ comment: Builds the MCP initialize response
 ↓IncludeReporting [steps.SimpleStep-1773134763368]: 
   comment: Load reporting helper
   expression: include("js/reporting.js");
+↓IncludeInstructions [steps.SimpleStep-1797260030001]: 
+  comment: Load the server instructions (skill bootstrap) and the guidance version
+  expression: 'include("js/guidance_version.js"); include("js/server_instructions.js");'
 ↓result [steps.JsonObjectStep-1761754374045]: 
   key: 
     - xmlizable: 
@@ -193,6 +196,8 @@ comment: Builds the MCP initialize response
         - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
         - SmartType: 
           - ↑mode: JS
-          - →→: '"Use Convertigo MCP tools to inspect and manage the engine."'
+          - →→: 'C8O.serverInstructions.text(typeof authKind === "undefined" || authKind === null ? "" : String(authKind), C8O.MCP_GUIDANCE_VERSION)'
 ↓initProtocol [variables.RequestableVariable-1761756892361]: 
   value: 2025-06-18
+↓authKind [variables.RequestableVariable-1797260030003]: 
+  comment: The kind of the caller's MCP token (nocode for a No Code token), set by mcp_endpoint.

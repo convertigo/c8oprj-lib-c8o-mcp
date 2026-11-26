@@ -108,6 +108,7 @@
   ↓tools_scheduler_apply [sequences.GenericSequence]: 🗏 sequences/tools_scheduler_apply.yaml
   ↓tools_scheduler_list [sequences.GenericSequence]: 🗏 sequences/tools_scheduler_list.yaml
   ↓tools_seed_proof [sequences.GenericSequence]: 🗏 sequences/tools_seed_proof.yaml
+  ↓tools_skill_install [sequences.GenericSequence]: 🗏 sequences/tools_skill_install.yaml
   ↓tools_sql_select [sequences.GenericSequence]: 🗏 sequences/tools_sql_select.yaml
   ↓tools_sql_transaction_create [sequences.GenericSequence]: 🗏 sequences/tools_sql_transaction_create.yaml
   ↓tools_subagent_run [sequences.GenericSequence]: 🗏 sequences/tools_subagent_run.yaml

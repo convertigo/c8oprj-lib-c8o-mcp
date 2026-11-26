@@ -21,9 +21,10 @@ C8O.nocodeToolPolicy = {
   }
 };
 // Tools every agent needs, No Code ones included: answer-page reads the pages of a long answer of the caller's own call
-// (js/mcp_answer_pages.js). A No Code token may call them (the router), they are listed to it (mcp_tools_list), and the
+// (js/mcp_answer_pages.js), skill-install answers the skill of a client that has none or an out-of-date one
+// (js/skill_package.js). A No Code token may call them (the router), they are listed to it (mcp_tools_list), and the
 // No Code profile allows them.
-C8O.nocodeToolPolicy.SHARED_TOOLS = ["tools_answer_page"];
+C8O.nocodeToolPolicy.SHARED_TOOLS = ["tools_answer_page", "tools_skill_install"];
 C8O.nocodeToolPolicy.shared = function (sequence) {
   return C8O.nocodeToolPolicy.SHARED_TOOLS.indexOf(String(sequence)) !== -1;
 };

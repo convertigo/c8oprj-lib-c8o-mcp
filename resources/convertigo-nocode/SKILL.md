@@ -18,10 +18,10 @@ Tool order: a new application over business records (a list of records with its 
 ## Skill freshness
 
 - Skill guidance version: `{{GUIDANCE_VERSION}}`.
-- During bootstrap, compare this value with `MCP guidance version` in `convertigo://capabilities`. If the MCP value differs or is missing, rerun `_setupCodex` for the current MCP endpoint before using no-code mutation tools.
+- During bootstrap, compare this value with `MCP guidance version` in `convertigo://capabilities`. If the MCP value differs or is missing, call `skill-install` (or rerun `_setupCodex`) before using no-code mutation tools.
 - When the caller surface supports MCP request metadata, send `params._meta.convertigoGuidanceVersion` with this skill guidance version on the first guarded Convertigo `tools/call`; raw HTTP clients may use the `X-Convertigo-Guidance-Version` header. An `_meta.convertigoGuidanceWarning` mismatch requires setup refresh before no-code mutation. A missing-version warning is advisory when this skill version already matches `convertigo://capabilities`: continue the current task and let the managed host refresh its transport configuration.
 
-Bootstrap is required once per agent conversation for a given MCP endpoint and guidance version, not once per user message. On follow-up turns, reuse the skill, capabilities, and route guides already present in the conversation context. Do not reopen this `SKILL.md`, reread `convertigo://capabilities`, or reread an already-used guide unless the MCP endpoint changed, the MCP reports a guidance-version mismatch, or the required bootstrap context is explicitly unavailable.
+Bootstrap once per conversation for a given MCP endpoint and guidance version, not per user message. On follow-up turns, reuse the skill, capabilities and guides already in the context. Do not reopen this `SKILL.md`, reread `convertigo://capabilities` or an already-used guide unless the endpoint changed, the MCP reports a guidance-version mismatch, or that context is unavailable.
 
 ## No-Code Authentication
 
@@ -42,8 +42,8 @@ No-code form reads, create, edit/update, and Baserow catalog operations require 
 ## Optional UI reveal mode
 
 - If the integrated assistant or host context says Convertigo reveal mode is enabled, pass `reveal:true` only on supported no-code mutation tools that should visibly move No Code Studio while you work: `nocode-form-create`, `nocode-form-edit`, and `nocode-form-update`.
-- Do not add `reveal:true` to read-only calls such as contract, compile, validate, or catalog tools.
-- Treat a `result.reveal.status` of `skipped`, `unsupported`, or `intent` as a UI hint result, not as a no-code mutation failure.
+- Never add `reveal:true` to read-only calls (contract, compile, validate, catalog).
+- A `result.reveal.status` of `skipped`, `unsupported` or `intent` is a UI hint, not a failed mutation.
 
 ## Hard Tool Boundary
 
@@ -68,6 +68,7 @@ Allowed Convertigo MCP tools:
 - `nocode-form-preview-capture`
 - `nocode-report-create`, only when it is listed (see Feedback to Convertigo)
 - `answer-page`, for the next pages of a long answer (see Long answers)
+- `skill-install`, for this skill (see Skill freshness)
 
 > Drawer `forms-list.md` — Finding the user's forms: read it when a form is named without its id, or the user asks which or how many forms they have.
 

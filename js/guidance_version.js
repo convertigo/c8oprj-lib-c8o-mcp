@@ -43,6 +43,8 @@ C8O.guidance = C8O.guidance || {};
     ["resources", "guide_drawers.json"],
     ["js", "resources.js"],
     ["js", "setup_common.js"],
+    // the rendering of the skills that skill-install, the convertigo://skills resources and the setups answer
+    ["js", "skill_package.js"],
     // The No Code skill and its drawers (named by its "> Drawer `x.md`" lines, read below): an installed copy of it
     // (_setupCodex, _setupClaude, the Agent Bridge) carries this version, so a change of it makes the copy stale.
     ["resources", NOCODE_SKILL_FILE]
@@ -292,8 +294,9 @@ C8O.guidance = C8O.guidance || {};
       }
     } catch (_noNoticeStore) {}
     return "convertigo_nocode_skill_outdated: the installed Convertigo No Code skill is out of date (installed " + received +
-      ", this MCP serves " + expected + "). Rerun the setup of your harness for this MCP endpoint (_setupCodex, _setupClaude or " +
-      "_setupVibe) and reload the skill before the next change. Said once per session.";
+      ", this MCP serves " + expected + "). Before the next change, call skill-install (harness, installedVersion) and apply " +
+      "the SKILL.md it answers now, then write its files for the next sessions; its drawers are also the resources " +
+      "convertigo://skills/convertigo-nocode/<file>. Said once per session.";
   };
 
   C8O.guidance.warningForToolCall = function (toolName, params, headerVersion, toolArguments) {

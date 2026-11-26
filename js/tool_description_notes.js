@@ -18,3 +18,14 @@ C8O.toolDescriptionNotes = {
     "Never use a bare ${my.symbol}, and never put a secret in the default."
   ].join(" ")
 };
+
+// The design rules a No Code write must keep even when the agent has no skill yet, on the tools that write a form
+// (js/skill_package.js answers the whole skill): repeated data, buttons, layout, validation, and the skill bootstrap.
+C8O.noCodeDesignNote = "Design rules: repeated data (lines, participants, findings) goes in a linked Baserow table shown by a list, " +
+  "never in copies of a block or one flow per copy; each button runs a named flow that does the work (a toast alone saves nothing); " +
+  "group fields in sections and keep the native spacing of each role; fix the issues and warnings of the answered validation before reporting. " +
+  "No convertigo-nocode skill, or another version: call skill-install first.";
+C8O.toolDescriptionNotes.tools_nocode_form_create = C8O.noCodeDesignNote;
+C8O.toolDescriptionNotes.tools_nocode_form_edit = C8O.noCodeDesignNote;
+C8O.toolDescriptionNotes.tools_nocode_form_update = C8O.noCodeDesignNote;
+C8O.toolDescriptionNotes.tools_nocode_app_create = C8O.noCodeDesignNote;

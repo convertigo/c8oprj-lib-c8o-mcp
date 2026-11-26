@@ -125,7 +125,9 @@ C8O.studioWriteConfirm = C8O.studioWriteConfirm || {};
     // signs the Studio browser in as an account of the app: its session only, never the project
     tools_viewer_sign_in: true,
     // the next page of an answer the agent already got (js/mcp_answer_pages.js)
-    tools_answer_page: true
+    tools_answer_page: true,
+    // answers the files of a skill for the agent to write in its own folder; writes nothing (js/skill_package.js)
+    tools_skill_install: true
   };
 
   // requestable-execute of these projects changes Tigo itself.

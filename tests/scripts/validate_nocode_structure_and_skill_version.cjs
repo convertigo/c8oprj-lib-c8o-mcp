@@ -154,7 +154,7 @@ test('an out-of-date installed No Code skill is told once per session, on a No C
   const old = '2026-09-18.skill-layers.bbbbbbbbbbbbbbbb';
   assert.equal(call('nocode-form-get', old), '', 'a read says nothing');
   const first = call('nocode-form-edit', old);
-  assert.match(first, /^convertigo_nocode_skill_outdated: the installed Convertigo No Code skill is out of date \(installed 2026-09-18\.skill-layers\.b+, this MCP serves 2026-09-18\.skill-layers\.a+\)\. Rerun the setup of your harness/);
+  assert.match(first, /^convertigo_nocode_skill_outdated: the installed Convertigo No Code skill is out of date \(installed 2026-09-18\.skill-layers\.b+, this MCP serves 2026-09-18\.skill-layers\.a+\)\. Before the next change, call skill-install \(harness, installedVersion\) and apply the SKILL\.md it answers now, then write its files for the next sessions; its drawers are also the resources convertigo:\/\/skills\/convertigo-nocode\/<file>\./);
   assert.equal(call('nocode-form-edit', old), '', 'once per session');
   assert.equal(call('nocode_baserow_rows_delete', old), '', 'the same session, another write');
   assert.match(call('nocode-form-create', old, 'conversation:two'), /out of date/, 'another session is told');

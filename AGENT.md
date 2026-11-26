@@ -325,6 +325,18 @@ Tests: `tests/scripts/validate_nocode_skill_drawers.cjs` (sizes, installs, the d
 whole text once: its fingerprint changes with any change of the skill text). The content tests read that whole text
 through `tests/helpers/nocode_skill.cjs`.
 
+A client outside Tigo (an agent with no skill, or one of another guidance version) gets the same files from the MCP
+itself, rendered by `js/skill_package.js` (part of the guidance fingerprint):
+- the `initialize` instructions (`js/server_instructions.js`) are a short bootstrap: for a No Code token, call
+  `skill-install` when `convertigo-nocode` is missing or its `Skill guidance version` differs, plus the rules that hold
+  before the skill is read; any other token keeps the engine sentence and gets the same check;
+- `skill-install` answers SKILL.md to apply at once and every file with its bytes and sha256 to write in the skill
+  folder of the harness, the obsolete files and `up_to_date`; `file`, `all` (answer pages) and `plan`. It writes
+  nothing and answers plain skill files only. Its files equal what `_setupCodex`/`_setupClaude` install;
+- the resources `convertigo://skills/convertigo-nocode` (SKILL.md for any client) and `.../<drawer>`;
+- the stale notice of a No Code write and `convertigo://capabilities` point to them.
+Tests: `tests/scripts/validate_skill_install.cjs`.
+
 ## Files That Matter Most
 
 - `_c8oProject/sequences/mcp_endpoint.yaml`

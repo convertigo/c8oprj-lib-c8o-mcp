@@ -589,7 +589,11 @@ var ARGUMENT_ALIASES = {
   tools_attachment_read: { file: "name", fileName: "name", filename: "name", file_name: "name", attachment: "name", attachmentName: "name", path: "name", sheetName: "sheet", sheet_name: "sheet", tab: "sheet", nextOffset: "offset", next_offset: "offset", start: "offset", cursor: "offset", rows: "limit", size: "limit", pageSize: "limit", page_size: "limit", maxRows: "limit" },
   // Its answer gives nextCursor and says to browse with cursor, which the sequence reads as _nextCursor: an agent that
   // passed cursor got the first page again.
-  tools_marketplace_list: { cursor: "_nextCursor", nextCursor: "_nextCursor", query: "search", q: "search" }
+  tools_marketplace_list: { cursor: "_nextCursor", nextCursor: "_nextCursor", query: "search", q: "search" },
+  // the names an agent gives the skill, its installed version, its folder's files and the plan (js/skill_package.js)
+  tools_skill_install: { skills: "skill", name: "skill", client: "harness", agent: "harness", version: "installedVersion", installed: "installedVersion",
+    installed_version: "installedVersion", currentVersion: "installedVersion", installed_files: "installedFiles", files: "installedFiles",
+    dryRun: "plan", dry_run: "plan", path: "file" }
 };
 
 // Arguments an agent gets by default when it does not give them; a direct sequence call (the Assistant's table picker)
@@ -801,7 +805,13 @@ function injectMeta(target) {
 }
 if (methodName === "initialize") {
   callSequence = "mcp_initialize";
-  callVariables = { initProtocol: SUPPORTED_PROTOCOL };
+  // the server instructions bootstrap the skill of the caller's kind (js/server_instructions.js)
+  callVariables = {
+    initProtocol: SUPPORTED_PROTOCOL,
+    authKind: typeof mcpAuthentication !== "undefined" && mcpAuthentication && mcpAuthentication.kind
+      ? String(mcpAuthentication.kind)
+      : ""
+  };
 } else if (methodName === "notifications/initialized") {
   responseStatus = "202";
   responseHasBody = false;
@@ -1128,6 +1138,12 @@ if (methodName === "initialize") {
       // The capture is requested in the conversation of the call only, never in one the model names.
       if (targetSequence === "tools_nocode_form_preview_capture") {
         callVariables.conversationId = managedConversationId;
+      }
+      // skill-install answers the skills of the caller's kind (js/skill_package.js): the kind of its token, never an argument.
+      if (targetSequence === "tools_skill_install") {
+        callVariables.authKind = typeof mcpAuthentication !== "undefined" && mcpAuthentication && mcpAuthentication.kind
+          ? String(mcpAuthentication.kind)
+          : "";
       }
       // One writer per project while a constructor sub-agent builds it: its own session only.
       try {
