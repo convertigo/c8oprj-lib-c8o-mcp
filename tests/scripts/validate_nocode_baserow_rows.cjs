@@ -555,6 +555,7 @@ test('rows-delete is a No Code write: listed to No Code agents, held in apply mo
   const confirm = sandbox.C8O.nocodeWriteConfirm;
   assert.equal(confirm.holds('tools_nocode_baserow_rows_delete', { table: '30', all: 'true', mode: 'plan' }), false);
   assert.equal(confirm.holds('tools_nocode_baserow_rows_delete', { table: '30', all: 'true', mode: 'apply', expectedCount: '178' }), true);
-  assert.deepEqual(plain(confirm.summary('tools_nocode_baserow_rows_delete', { table: '30', all: 'true', mode: 'apply', expectedCount: '178' }, null)).items, [{ action: 'delete_rows', target: '30 (178)' }]);
-  assert.deepEqual(plain(confirm.summary('tools_nocode_baserow_rows_delete', { table: '30', ids: '[4,5]', mode: 'apply' }, null)).items, [{ action: 'delete_rows', target: '30 (2)' }]);
+  assert.deepEqual(plain(confirm.summary('tools_nocode_baserow_rows_delete', { table: '30', all: 'true', mode: 'apply', expectedCount: '178' }, null)).items, [{ action: 'delete_rows', target: '30', detail: '178' }]);
+  assert.deepEqual(plain(confirm.summary('tools_nocode_baserow_rows_delete', { table: '30', ids: '[4,5]', mode: 'apply' }, null)).items, [{ action: 'delete_rows', target: '30', detail: '2' }]);
+  assert.deepEqual(plain(confirm.summary('tools_nocode_baserow_rows_delete', { table: 'Team~>Sales~>Deals', all: true, mode: 'apply' }, null)).items, [{ action: 'delete_rows', target: 'Team~>Sales~>Deals', detail: 'all' }]);
 });

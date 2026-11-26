@@ -343,12 +343,12 @@ C8O.nocodeWriteConfirm = C8O.nocodeWriteConfirm || {};
       summary.formName = trimmed(schema.baseName || base || schema.databaseName);
       items.push({ action: "apply_schema", target: summary.formName, tables: list(schema.tables).map(function (table) { return trimmed(table && (table.name || table.tableName)); }).filter(function (name) { return name.length; }).slice(0, 10) });
     } else if (sequence === "tools_nocode_baserow_rows_delete") {
-      // the table and how many rows: the count of the plan, or the ids given
+      // the table, and how many rows in detail: the ids given, the count of the plan, or "all" (the panel words it)
       var table = parsed(args.table);
       var target = trimmed(table && typeof table === "object" ? (table.path || table.id) : table);
       var rows = list(args.ids).length || Number(trimmed(args.expectedCount)) || 0;
       summary.formName = target;
-      items.push({ action: "delete_rows", target: target + (rows ? " (" + rows + ")" : truthy(args.all) ? " (*)" : "") });
+      items.push({ action: "delete_rows", target: target, detail: rows ? String(rows) : (truthy(args.all) ? "all" : "") });
     }
     if (!items.length) {
       items.push({ action: "change" });
