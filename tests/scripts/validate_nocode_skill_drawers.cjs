@@ -40,7 +40,10 @@ const DRAWER_BUDGET = 12000;
 // Then the steps the C8Oforms of the server does not write (26/11): named by its contract (unwrittenSteps), asked of the
 // user with their flow and place, never replaced by a navigation; no modal claimed unwritable (workflow-existing.md,
 // generation-quality.md).
-const SKILL_TEXT_SHA256 = '6817310fb127960b08706d8852de29d70e8530ffe35c4b7bd6be5ab83bc5444e';
+// Then the components and settings the C8Oforms of the server does not write (C8Oforms 2.3, table unwritten): kept as
+// No Code Studio wrote them, asked of the user with their page, component and setting, never approximated
+// (workflow-existing.md).
+const SKILL_TEXT_SHA256 = '9fc9a3e960e9a89f8c162f6e6f774a4ef42075c765ed7ada0a23285c3e14059d';
 
 test('SKILL.md names each drawer once, and each drawer file of its folder is named', () => {
   const named = pointers.map(p => p.file);

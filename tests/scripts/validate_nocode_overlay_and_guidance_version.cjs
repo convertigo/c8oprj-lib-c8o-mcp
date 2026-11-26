@@ -163,9 +163,9 @@ test('the steps the C8Oforms does not write come from its contract: its table, e
 test('the guidance names no step a C8Oforms may write: the rule is general and the list is the server\'s', () => {
   const editTool = clone(api().contract({ sections: ['editTool'] })).sections.editTool;
   const rule = editTool.notes.find(note => /editor_flow_element_kept/.test(note));
-  assert.match(rule, /A flow step of a type this C8Oforms does not write \(unwrittenSteps, with its reason\)/);
-  assert.match(rule, /ask the user to add it in No Code Studio, naming the flow and the step it follows/);
-  assert.match(rule, /never replace it with a navigation \(push_page, __c8o_back included\) or another step/);
+  assert.match(rule, /A component, a setting or a flow step this C8Oforms does not write \(unwrittenComponents, unwrittenSettings, unwrittenSteps, each with its reason\)/);
+  assert.match(rule, /ask the user to add it in No Code Studio, naming the page, the component and the setting, or the flow and the step it follows/);
+  assert.match(rule, /never replace it with an approximation: another component, a style or HTML, a navigation \(push_page, __c8o_back included\) or another step/);
   const served = JSON.stringify(clone(api().contract({ sections: ['all'] })));
   assert.doesNotMatch(served.replace(/"unwrittenSteps":\{[^}]*\}/g, ''), /a modal opened or closed|small modal|tools cannot add (a|one) modal/i);
   for (const file of ['workflow-existing.md', 'generation-quality.md', 'SKILL.md']) {
@@ -173,8 +173,8 @@ test('the guidance names no step a C8Oforms may write: the rule is general and t
     assert.doesNotMatch(text, /a modal or a side panel opened or closed|small modal/, file);
   }
   const drawer = fs.readFileSync(path.join(root, 'resources/convertigo-nocode/workflow-existing.md'), 'utf8');
-  assert.match(drawer, /lists them in `unwrittenSteps`/);
-  assert.match(drawer, /Never replace it with a navigation \(`push_page`, `__c8o_back` included\) or another step/);
+  assert.match(drawer, /lists them in `unwrittenComponents`, `unwrittenSettings` and `unwrittenSteps`/);
+  assert.match(drawer, /Never replace it with an approximation: another component, a style or HTML, a navigation \(`push_page`, `__c8o_back` included\) or another step/);
 });
 
 test('a step No Code Studio wrote is kept; a new one keeps the refusal of C8Oforms and says to ask the user where, never a navigation', () => {

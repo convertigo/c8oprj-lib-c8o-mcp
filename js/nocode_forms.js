@@ -492,9 +492,33 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       throw formsError("c8oforms_contract_error", "C8Oforms NoCode_Form " + operation + " gave no answer" + (failure ? ": " + JSON.stringify(failure) : ""));
     }
     if (answer.error) {
-      throw formsError(answer.error.code, answer.error.message, answer.error);
+      throw formsError(answer.error.code, explainUnwrittenComponentError(answer.error, input), answer.error);
     }
     return answer;
+  }
+
+  // A component C8Oforms refuses to write with an error rather than an issue (unwritten_component, or before C8Oforms 2.3
+  // "Unsupported form component type: <type>. <reason>" from its compilation): its words stay first, then whom to ask,
+  // where (the page and the name the call gave it), and no approximation.
+  var UNSUPPORTED_COMPONENT_MESSAGE = /^Unsupported form component type: ([A-Za-z0-9_-]+)\./;
+  function explainUnwrittenComponentError(error, input) {
+    var message = String(error && error.message != null ? error.message : "");
+    var match = UNSUPPORTED_COMPONENT_MESSAGE.exec(message);
+    var type = error && error.code === "unwritten_component" ? trimmed(error.type) : (match ? match[1] : "");
+    if (!type.length || message.indexOf(NO_APPROXIMATION) >= 0) { return message; }
+    var place = null;
+    function walk(node, page, depth) {
+      if (place || node == null || typeof node !== "object" || depth > 12) { return; }
+      if (Array.isArray(node)) { node.forEach(function (child) { walk(child, page, depth + 1); }); return; }
+      if (String(node.type) === type && trimmed(node.name).length) { place = { name: trimmed(node.name), page: page }; return; }
+      var here = Array.isArray(node.fields) && trimmed(node.name).length ? trimmed(node.name) : trimmed(node.pageName || node.pageTechName || node.page || "") || page;
+      Object.keys(node).forEach(function (key) { walk(node[key], here, depth + 1); });
+    }
+    walk(input && (input.reduced || input.operations), "", 0);
+    var reason = trimmed(error && error.reason);
+    var why = reason.length && message.indexOf(reason) < 0 ? " Reason: " + reason + (/[.!?]$/.test(reason) ? "" : ".") : "";
+    return message.replace(/([^.!?])$/, "$1.") + why + " Ask the user to add it in No Code Studio" +
+      (place ? (place.page ? ", on page \u00ab" + place.page + "\u00bb" : "") + ", as component \u00ab" + place.name + "\u00bb" : "") + ". " + NO_APPROXIMATION;
   }
 
   // The catalog of the user's no-code database, read with the user's account (nocode_baserow.js), [] when unreadable.
@@ -818,6 +842,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         operationsShape: "Pass operations as an array for multiple edits or as one operation object for a single edit.",
         // the flow steps the C8Oforms of the server does not write (unwrittenSteps in C8O.nocodeForms.contract), never a list of this file
         unwrittenSteps: forms && forms.unwrittenSteps ? forms.unwrittenSteps : {},
+        unwrittenComponents: forms && forms.unwrittenComponents ? forms.unwrittenComponents : {},
+        unwrittenSettings: forms && forms.unwrittenSettings ? forms.unwrittenSettings : {},
         commonOperations: [
           { action: "finalize_baserow_bindings", note: "Only operation in the call. Resume an already saved creation by returned id; do not manually patch identity fields or recreate the form." },
           { action: "update_field", note: "A part of a long defaultFrom expression: defaultFromEdit, each find once in the declared expression; the tools compile the result. Refused when No Code Studio changed the expression that runs: send defaultFrom whole.", example: { action: "update_field", fieldName: "total", patch: { defaultFromEdit: [{ find: "* 1.2", replace: "* 1.055" }] } } }
@@ -828,7 +854,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           "Use patch for updates; component settings usually live under config.",
           "Use ids when available; names are accepted for user-friendly edits but must be unique.",
           "A key the operation does not read beside its patch, fieldObject or element, or a patch key the component does not have as saved, is refused with the place it belongs (unread_operation_key, unread_patch_key): nothing is saved.",
-          "A flow step of a type this C8Oforms does not write (unwrittenSteps, with its reason) is kept as No Code Studio wrote it (warning editor_flow_element_kept), and the tools cannot add one (unsupported_flow_element): ask the user to add it in No Code Studio, naming the flow and the step it follows; never replace it with a navigation (push_page, __c8o_back included) or another step.",
+          "A component, a setting or a flow step this C8Oforms does not write (unwrittenComponents, unwrittenSettings, unwrittenSteps, each with its reason) is kept as No Code Studio wrote it (warnings editor_component_kept, editor_setting_kept, editor_flow_element_kept), and the tools cannot add one (unwritten_component, unwritten_setting, unsupported_flow_element): ask the user to add it in No Code Studio, naming the page, the component and the setting, or the flow and the step it follows; never replace it with an approximation: another component, a style or HTML, a navigation (push_page, __c8o_back included) or another step.",
           "The answer lists the warnings the edit brought and those of what it changed; validation.otherWarnings counts the others (nocode-form-get warnings:true lists them)."
         ]
       },
@@ -1540,7 +1566,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // contract v32, 2.3), and a list here said a modal could not be written to an agent of a C8Oforms that writes them.
   var UNWRITTEN_STEP_REASON = "not written by the tools of this C8Oforms: No Code Studio writes it";
   function unwrittenSteps(forms, options) {
-    var table = forms && forms.unwrittenFlowElements;
+    var table = forms && forms.unwritten && typeof forms.unwritten === "object" && forms.unwritten.flowElements ? forms.unwritten.flowElements : forms && forms.unwrittenFlowElements;
     if (table && typeof table === "object" && !Array.isArray(table)) {
       var given = {};
       Object.keys(table).forEach(function (type) { given[type] = trimmed(table[type]) || UNWRITTEN_STEP_REASON; });
@@ -1558,10 +1584,57 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   }
   C8O.nocodeForms.unwrittenSteps = unwrittenSteps;
 
+  // The components and the settings the C8Oforms of the server does not write, from its table unwritten (C8Oforms 2.3):
+  // components { type: { reason, prototype } } (a modal is a layout with config.overlay: its prototype says how to know
+  // it in a saved form), settings { type or "*": { native path, as config.iconGap: reason } }. Without the table, the
+  // component types of its palette (not its actions) that neither its types nor its componentAuthoring name, and no
+  // setting: nothing guessed, never a list of this file.
+  var UNWRITTEN_COMPONENT_REASON = "not written by the tools of this C8Oforms: No Code Studio writes it";
+  var UNWRITTEN_SETTING_REASON = "not written by the tools of this C8Oforms: No Code Studio sets it";
+  function unwrittenComponents(forms, options) {
+    var table = forms && forms.unwritten && typeof forms.unwritten === "object" ? forms.unwritten.components : null;
+    if (table && typeof table === "object" && !Array.isArray(table)) {
+      var given = {};
+      Object.keys(table).forEach(function (type) {
+        var value = table[type];
+        var entry = value && typeof value === "object" && !Array.isArray(value) ? clone(value, {}) : { reason: trimmed(value) };
+        entry.reason = trimmed(entry.reason) || UNWRITTEN_COMPONENT_REASON;
+        given[type] = entry;
+      });
+      return given;
+    }
+    var known = {};
+    ensureArray(forms && forms.types).forEach(function (type) { known[String(type)] = true; });
+    Object.keys((forms && forms.sections && forms.sections.componentAuthoring) || {}).forEach(function (type) { known[String(type)] = true; });
+    var out = {};
+    try {
+      ensureArray((formsRun("catalog", {}, options || {}) || {}).catalog).forEach(function (item) {
+        if (item && item.type && item.cat !== "action" && !known[String(item.type)]) { out[String(item.type)] = { reason: UNWRITTEN_COMPONENT_REASON }; }
+      });
+    } catch (_noCatalog) {}
+    return out;
+  }
+  function unwrittenSettings(forms) {
+    var table = forms && forms.unwritten && typeof forms.unwritten === "object" ? forms.unwritten.settings : null;
+    var out = {};
+    if (!table || typeof table !== "object" || Array.isArray(table)) { return out; }
+    Object.keys(table).forEach(function (type) {
+      var paths = table[type];
+      if (!paths || typeof paths !== "object" || Array.isArray(paths)) { return; }
+      out[type] = {};
+      Object.keys(paths).forEach(function (path) { out[type][path] = trimmed(paths[path]) || UNWRITTEN_SETTING_REASON; });
+    });
+    return out;
+  }
+  C8O.nocodeForms.unwrittenComponents = unwrittenComponents;
+  C8O.nocodeForms.unwrittenSettings = unwrittenSettings;
+
   C8O.nocodeForms.contract = function (options) {
     var opts = options || {};
     var forms = formsRun("contract", {}, opts);
     forms.unwrittenSteps = unwrittenSteps(forms, opts);
+    forms.unwrittenComponents = unwrittenComponents(forms, opts);
+    forms.unwrittenSettings = unwrittenSettings(forms);
     useFormsSections(forms);
     var types = forms.types;
     var authoring = authoringContract(forms);
@@ -1711,7 +1784,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // made every later edit by the tools invalid, and the user had to take the steps out, edit, and put them back by hand.
   // A step the saved form already had, with the same type, is kept as the editor wrote it: its issue becomes a warning.
   // A new step of such a type, or a step whose type changed, is still refused.
-  var EDITOR_ONLY_ISSUE_CODES = ["unsupported_flow_element"];
+  // unwritten_component and unwritten_setting: the codes of C8Oforms 2.3 for a component or a setting its contract does
+  // not write (its table unwritten), on the model of unsupported_flow_element.
+  var EDITOR_ONLY_ISSUE_CODES = ["unsupported_flow_element", "unwritten_component", "unwritten_setting"];
   function flowElementsById(form) {
     var byId = {};
     ensureArray(form && form.flows).forEach(function (flow) {
@@ -1765,13 +1840,81 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         after: previous ? stepLabel(previous).replace(/^«|»$/g, "") : null };
     });
   }
+  // ---- a component or a setting only No Code Studio writes (C8Oforms 2.3, table unwritten) --------------------------
+  // The value at a dotted path of a component (config.iconGap), undefined when it has none.
+  function valueAtPath(item, path) {
+    var value = item;
+    String(path || "").split(".").filter(function (key) { return key.length; }).forEach(function (key) {
+      value = value != null && typeof value === "object" ? value[key] : undefined;
+    });
+    return value;
+  }
+  // The dotted path of a setting from the JSON pointer of an issue (/formulaire/3/config/iconGap: config.iconGap).
+  function settingPathOf(issue) {
+    var given = trimmed(issue.setting);
+    if (given.length) { return given; }
+    var at = /^\/formulaire\/\d+\/(.+)$/.exec(String(issue.path || ""));
+    return at ? at[1].split("/").join(".") : "";
+  }
+  function pageNameOf(form, item) {
+    var tech = rootPageOf(componentsById(form), item);
+    var page = ensureArray(form && form.pages).filter(function (candidate) { return candidate && String(candidate.pageTechName) === String(tech); })[0];
+    return page ? String(page.name || page.pageTechName) : (tech != null ? String(tech) : "");
+  }
+  var NO_APPROXIMATION = "Never replace it with an approximation: another component, a style or HTML, or a navigation.";
+  // A new component, or a new or changed setting, the C8Oforms of the server does not write: its refusal first, as it
+  // gives it, its reason quoted once as it is; then whom to ask, where (page, component, setting), and no approximation.
+  function explainEditorOnlyComponents(refused, form) {
+    refused.forEach(function (entry) {
+      var issue = entry.issue;
+      var item = entry.item;
+      var setting = issue.code === "unwritten_setting" ? settingPathOf(issue) : "";
+      var page = pageNameOf(form, item);
+      var said = trimmed(issue.message);
+      var reason = trimmed(issue.reason);
+      var what = setting.length ? "the setting " + setting + " of a " + item.type : "a " + item.type;
+      var why = reason.length ? (said.indexOf(reason) >= 0 ? "" : " Reason: " + reason + (/[.!?]$/.test(reason) ? "" : ".")) :
+        " It is " + what + ", which No Code Studio writes and the tools of this C8Oforms do not.";
+      issue.message = (said.length ? said.replace(/([^.!?])$/, "$1.") : (setting.length ? "Unwritten setting: " + setting : "Unwritten component: " + item.type) + ".") + why +
+        " Ask the user to " + (setting.length ? "set it" : "add it") + " in No Code Studio, on page \u00ab" + page + "\u00bb, " +
+        (setting.length ? "component \u00ab" + item.name + "\u00bb, setting " + setting : "as component \u00ab" + item.name + "\u00bb") + ". " + NO_APPROXIMATION;
+      issue.addInNoCodeStudio = { type: String(item.type), page: page, component: item.name };
+      if (setting.length) { issue.addInNoCodeStudio.setting = setting; }
+    });
+  }
   function keepEditorFlowElements(validation, form, current, options) {
     if (!validation || !Array.isArray(validation.issues) || !validation.issues.length) { return validation; }
     var before = current ? flowElementsById(current) : {};
+    var beforeComponents = current ? componentsById(current) : {};
     var kept = [];
     var refused = [];
+    var refusedComponents = [];
     validation.issues = validation.issues.filter(function (issue) {
       if (!issue || EDITOR_ONLY_ISSUE_CODES.indexOf(issue.code) < 0) { return true; }
+      if (issue.code === "unwritten_component" || issue.code === "unwritten_setting") {
+        var cm = /^\/formulaire\/(\d+)(\/|$)/.exec(String(issue.path || ""));
+        var item = cm ? ensureArray(form && form.formulaire)[Number(cm[1])] : null;
+        if (!item) { return true; }
+        var savedItem = item.id != null ? beforeComponents[String(item.id)] : null;
+        var setting = issue.code === "unwritten_setting" ? settingPathOf(issue) : "";
+        var same = !!savedItem && savedItem.type === item.type && (!setting.length ||
+          (valueAtPath(savedItem, setting) !== undefined && JSON.stringify(valueAtPath(savedItem, setting)) === JSON.stringify(valueAtPath(item, setting))));
+        if (!same) {
+          refusedComponents.push({ issue: issue, item: item });
+          return true;
+        }
+        var where = "Page " + pageNameOf(form, item) + ": ";
+        kept.push(setting.length ? {
+          code: "editor_setting_kept",
+          message: where + "the setting " + setting + " of " + item.name + " (" + item.type + ") was set in No Code Studio and the tools of this C8Oforms do not write it: kept as it is, not checked. Change it in No Code Studio.",
+          path: String(issue.path)
+        } : {
+          code: "editor_component_kept",
+          message: where + "the component " + item.name + " (" + item.type + ") was written in No Code Studio and the tools of this C8Oforms do not write it: kept as it is, not checked. Change it in No Code Studio.",
+          path: String(issue.path)
+        });
+        return false;
+      }
       var at = /^\/flows\/(\d+)\/elements\/(\d+)(\/|$)/.exec(String(issue.path || ""));
       var flow = at ? ensureArray(form && form.flows)[Number(at[1])] : null;
       var element = flow ? ensureArray(flow.elements)[Number(at[2])] : null;
@@ -1788,6 +1931,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       return false;
     });
     explainEditorOnlySteps(refused, options);
+    explainEditorOnlyComponents(refusedComponents, form);
     if (kept.length) {
       validation.warnings = ensureArray(validation.warnings).concat(kept);
       validation.issueCount = validation.issues.length;
@@ -2241,10 +2385,30 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     } catch (_noCatalog) {
       prototypes = {};
     }
+    // the settings the C8Oforms of the server does not write (its table unwritten), read only when a key is refused
+    var unwrittenTable = {};
+    try { unwrittenTable = unwrittenSettings(formsRun("contract", {}, options)); } catch (_noContract) { unwrittenTable = {}; }
+    function unwrittenSettingOf(item, key) {
+      var found = null;
+      [String(item.type), "*"].forEach(function (type) {
+        var paths = unwrittenTable[type] || {};
+        Object.keys(paths).forEach(function (path) {
+          if (!found && (path === key || path.split(".").pop() === key)) { found = { path: path, reason: paths[path] }; }
+        });
+      });
+      return found;
+    }
     return found.filter(function (entry) {
       var proto = prototypes[entry.item.type];
       return !(proto && hasOwn(proto, entry.key));
     }).map(function (entry) {
+      var unwritten = unwrittenSettingOf(entry.item, entry.key);
+      if (unwritten) {
+        var page = pageNameOf(edited, entry.item);
+        return entry.item.name + " (" + entry.item.type + "): patch." + entry.key + " is the setting " + unwritten.path + ", which the tools of this C8Oforms do not write. Reason: " +
+          unwritten.reason + (/[.!?]$/.test(unwritten.reason) ? "" : ".") + " Ask the user to set it in No Code Studio, on page \u00ab" + page + "\u00bb, component \u00ab" +
+          entry.item.name + "\u00bb, setting " + unwritten.path + ". " + NO_APPROXIMATION;
+      }
       var proto = prototypes[entry.item.type];
       var configs = [entry.old.config, proto && proto.config].filter(isPlainObjectValue);
       var inConfig = configs.some(function (config) { return hasOwn(config, entry.key); });
