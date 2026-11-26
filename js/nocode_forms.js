@@ -504,7 +504,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   function explainUnwrittenComponentError(error, input) {
     var message = String(error && error.message != null ? error.message : "");
     var match = UNSUPPORTED_COMPONENT_MESSAGE.exec(message);
-    var type = error && error.code === "unwritten_component" ? trimmed(error.type) : (match ? match[1] : "");
+    // the type C8Oforms names in the error, else in its words (contract v36 throws unwritten_component without a type)
+    var type = (error && error.code === "unwritten_component" ? trimmed(error.type) : "") || (match ? match[1] : "");
     if (!type.length || message.indexOf(NO_APPROXIMATION) >= 0) { return message; }
     var place = null;
     function walk(node, page, depth) {
