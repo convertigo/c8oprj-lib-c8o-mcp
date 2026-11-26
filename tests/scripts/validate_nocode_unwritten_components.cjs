@@ -117,7 +117,11 @@ const NO_APPROXIMATION = 'Never replace it with an approximation: another compon
 const MODAL = { reason: 'A modal is a layout with config.overlay { kind: modal }, opened by open_overlay: the reduced contract does not write overlays yet; add it in No Code Studio.',
   prototype: { type: 'layout', config: 'overlay.kind=modal' } };
 const ICON_GAP = 'the gap between the icon and the text of a button: configured in No Code Studio';
-const table23 = c => { c.unwritten = { components: { modal: MODAL }, settings: { button: { 'config.iconGap': ICON_GAP } }, flowElements: { set_properties: 'changes the properties of a component at runtime; configured in No Code Studio' } }; };
+const SET_PROPERTIES = 'changes the properties of a component at runtime; configured in No Code Studio';
+// the section unwritten of C8Oforms 2.3, in its two agreed shapes: reasons alone and settings by path, or components with
+// their prototype and settings by component type
+const table23 = c => { c.sections.unwritten = { components: { modal: MODAL.reason }, settings: { 'config.boxStyle.iconGap': ICON_GAP }, flowElements: { set_properties: SET_PROPERTIES } }; };
+const table23ByType = c => { c.sections.unwritten = { components: { modal: MODAL }, settings: { button: { 'config.iconGap': ICON_GAP } }, flowElements: { set_properties: SET_PROPERTIES } }; };
 const editTool = client => clone(client.contract({ sections: ['editTool'] })).sections.editTool;
 
 test('the components and settings the C8Oforms does not write come from its table; without it, nothing is guessed', () => {
@@ -125,9 +129,15 @@ test('the components and settings the C8Oforms does not write come from its tabl
   assert.deepEqual(v31.unwrittenComponents, {}, 'the palette of this C8Oforms has no component its contract leaves out');
   assert.deepEqual(v31.unwrittenSettings, {}, 'no setting guessed without the table');
   const v23 = editTool(api(null, null, contractOverrides(table23)));
-  assert.deepEqual(v23.unwrittenComponents, { modal: MODAL });
-  assert.deepEqual(v23.unwrittenSettings, { button: { 'config.iconGap': ICON_GAP } });
-  assert.deepEqual(v23.unwrittenSteps, { set_properties: 'changes the properties of a component at runtime; configured in No Code Studio' }, 'unwritten.flowElements');
+  assert.deepEqual(v23.unwrittenComponents, { modal: MODAL.reason });
+  assert.deepEqual(v23.unwrittenSettings, { 'config.boxStyle.iconGap': ICON_GAP });
+  assert.deepEqual(v23.unwrittenSteps, { set_properties: SET_PROPERTIES }, 'unwritten.flowElements');
+  const byType = editTool(api(null, null, contractOverrides(table23ByType)));
+  assert.deepEqual(byType.unwrittenComponents, { modal: MODAL.reason }, 'the reason of a component given with its prototype');
+  assert.deepEqual(byType.unwrittenSettings, { button: { 'config.iconGap': ICON_GAP } });
+  // the section is served as C8Oforms gives it, among the others
+  const sections = clone(api(null, null, contractOverrides(table23)).contract({ sections: ['unwritten'] })).sections;
+  assert.deepEqual(sections.unwritten.settings, { 'config.boxStyle.iconGap': ICON_GAP });
   const version = client => clone(client.contract({})).contractVersion.split('+')[1];
   assert.notEqual(version(api(null, null, contractOverrides(table23))), version(api()), 'the table is in the guidance version');
   const rule = v23.notes.find(note => /editor_component_kept/.test(note));
@@ -177,7 +187,7 @@ test('C8Oforms 2.3 issues: what No Code Studio wrote is kept as a warning; a new
   assert.match(bare.issues[0].message, /^Unwritten component modal\. It is a layout, which No Code Studio writes and the tools of this C8Oforms do not\. Ask the user/);
 });
 
-test('a C8Oforms without the table (contract v31): a modal the compilation refuses keeps its words and gets the place, by creation and by edit', () => {
+test('a C8Oforms before 2.3, without the section: a modal the compilation refuses keeps its words and gets the place, by creation and by edit', () => {
   const h = harness();
   // the compilation throws; nocode-form-create answers its message as create_failed (js/nocode_form_write_job.js)
   let message = '';
@@ -194,14 +204,19 @@ test('a C8Oforms without the table (contract v31): a modal the compilation refus
 });
 
 test('unread_patch_key on a setting of the table quotes its reason and says where the user sets it', () => {
+  for (const [table, setting] of [[table23, 'config.boxStyle.iconGap'], [table23ByType, 'config.iconGap']]) {
+    const t = harness(null, table);
+    const tid = created(t);
+    const before = t.state.saves;
+    const refused = clone(t.client.edit(tid, [{ action: 'update_field', fieldName: 'ouvrir', patch: { iconGap: '8px' } }], t.auth));
+    assert.equal(refused.saved, false);
+    assert.equal(t.state.saves, before);
+    assert.equal(refused.error.code, 'unread_patch_key');
+    assert.ok(refused.error.message.includes('ouvrir (button): patch.iconGap is the setting ' + setting + ', which the tools of this C8Oforms do not write. Reason: ' + ICON_GAP +
+      '. Ask the user to set it in No Code Studio, on page «Catalogue», component «ouvrir», setting ' + setting + '. ' + NO_APPROXIMATION), refused.error.message);
+  }
   const h = harness(null, table23);
   const id = created(h);
-  const saves = h.state.saves;
-  const r = clone(h.client.edit(id, [{ action: 'update_field', fieldName: 'ouvrir', patch: { iconGap: '8px' } }], h.auth));
-  assert.equal(r.saved, false);
-  assert.equal(h.state.saves, saves);
-  assert.equal(r.error.code, 'unread_patch_key');
-  assert.match(r.error.message, /ouvrir \(button\): patch\.iconGap is the setting config\.iconGap, which the tools of this C8Oforms do not write\. Reason: the gap between the icon and the text of a button: configured in No Code Studio\. Ask the user to set it in No Code Studio, on page «Catalogue», component «ouvrir», setting config\.iconGap\./);
   // another root key keeps the message of the native shape
   const other = clone(h.client.edit(id, [{ action: 'update_field', fieldName: 'ouvrir', patch: { colour: 'red' } }], h.auth));
   assert.match(other.error.message, /patch\.colour is not a key of a button as saved/);

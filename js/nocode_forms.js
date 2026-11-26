@@ -1565,8 +1565,16 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // leave out. Never a list of this file: what a C8Oforms writes changes with its version (modals and their steps since
   // contract v32, 2.3), and a list here said a modal could not be written to an agent of a C8Oforms that writes them.
   var UNWRITTEN_STEP_REASON = "not written by the tools of this C8Oforms: No Code Studio writes it";
+  // The section unwritten of the contract (C8Oforms 2.3): { components: { type: reason }, settings: { path as No Code
+  // Studio saves it, as config.boxStyle.iconGap: reason }, flowElements: { type: reason } }; null when it has none.
+  function unwrittenSection(forms) {
+    var section = forms && forms.sections && forms.sections.unwritten;
+    if (!section || typeof section !== "object" || Array.isArray(section)) { section = forms && forms.unwritten; }
+    return section && typeof section === "object" && !Array.isArray(section) ? section : null;
+  }
   function unwrittenSteps(forms, options) {
-    var table = forms && forms.unwritten && typeof forms.unwritten === "object" && forms.unwritten.flowElements ? forms.unwritten.flowElements : forms && forms.unwrittenFlowElements;
+    var section = unwrittenSection(forms);
+    var table = section && section.flowElements ? section.flowElements : forms && forms.unwrittenFlowElements;
     if (table && typeof table === "object" && !Array.isArray(table)) {
       var given = {};
       Object.keys(table).forEach(function (type) { given[type] = trimmed(table[type]) || UNWRITTEN_STEP_REASON; });
@@ -1584,23 +1592,22 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   }
   C8O.nocodeForms.unwrittenSteps = unwrittenSteps;
 
-  // The components and the settings the C8Oforms of the server does not write, from its table unwritten (C8Oforms 2.3):
-  // components { type: { reason, prototype } } (a modal is a layout with config.overlay: its prototype says how to know
-  // it in a saved form), settings { type or "*": { native path, as config.iconGap: reason } }. Without the table, the
-  // component types of its palette (not its actions) that neither its types nor its componentAuthoring name, and no
-  // setting: nothing guessed, never a list of this file.
+  // The components and the settings the C8Oforms of the server does not write, from the section unwritten of its contract
+  // (C8Oforms 2.3): components { type: reason }, settings { path as No Code Studio saves it: reason }. Without the
+  // section, the component types of its palette (not its actions) that neither its types nor its componentAuthoring
+  // name, and no setting: nothing guessed, never a list of this file.
   var UNWRITTEN_COMPONENT_REASON = "not written by the tools of this C8Oforms: No Code Studio writes it";
   var UNWRITTEN_SETTING_REASON = "not written by the tools of this C8Oforms: No Code Studio sets it";
+  function reasonText(value, fallback) {
+    var text = value && typeof value === "object" && !Array.isArray(value) ? trimmed(value.reason) : trimmed(value);
+    return text || fallback;
+  }
   function unwrittenComponents(forms, options) {
-    var table = forms && forms.unwritten && typeof forms.unwritten === "object" ? forms.unwritten.components : null;
+    var section = unwrittenSection(forms);
+    var table = section ? section.components : null;
     if (table && typeof table === "object" && !Array.isArray(table)) {
       var given = {};
-      Object.keys(table).forEach(function (type) {
-        var value = table[type];
-        var entry = value && typeof value === "object" && !Array.isArray(value) ? clone(value, {}) : { reason: trimmed(value) };
-        entry.reason = trimmed(entry.reason) || UNWRITTEN_COMPONENT_REASON;
-        given[type] = entry;
-      });
+      Object.keys(table).forEach(function (type) { given[type] = reasonText(table[type], UNWRITTEN_COMPONENT_REASON); });
       return given;
     }
     var known = {};
@@ -1609,22 +1616,40 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var out = {};
     try {
       ensureArray((formsRun("catalog", {}, options || {}) || {}).catalog).forEach(function (item) {
-        if (item && item.type && item.cat !== "action" && !known[String(item.type)]) { out[String(item.type)] = { reason: UNWRITTEN_COMPONENT_REASON }; }
+        if (item && item.type && item.cat !== "action" && !known[String(item.type)]) { out[String(item.type)] = UNWRITTEN_COMPONENT_REASON; }
       });
     } catch (_noCatalog) {}
     return out;
   }
+  // { path: reason } as the section gives it; a value that is itself a table is the settings of one component type.
   function unwrittenSettings(forms) {
-    var table = forms && forms.unwritten && typeof forms.unwritten === "object" ? forms.unwritten.settings : null;
+    var section = unwrittenSection(forms);
+    var table = section ? section.settings : null;
     var out = {};
     if (!table || typeof table !== "object" || Array.isArray(table)) { return out; }
-    Object.keys(table).forEach(function (type) {
-      var paths = table[type];
-      if (!paths || typeof paths !== "object" || Array.isArray(paths)) { return; }
-      out[type] = {};
-      Object.keys(paths).forEach(function (path) { out[type][path] = trimmed(paths[path]) || UNWRITTEN_SETTING_REASON; });
+    Object.keys(table).forEach(function (key) {
+      var value = table[key];
+      if (value && typeof value === "object" && !Array.isArray(value) && !hasOwn(value, "reason")) {
+        out[key] = {};
+        Object.keys(value).forEach(function (path) { out[key][path] = reasonText(value[path], UNWRITTEN_SETTING_REASON); });
+      } else {
+        out[key] = reasonText(value, UNWRITTEN_SETTING_REASON);
+      }
     });
     return out;
+  }
+  // The setting of the section a key of a component names (its whole path, or its last part), null when none.
+  function unwrittenSettingOf(settings, item, key) {
+    var found = null;
+    function match(path, reason) {
+      if (!found && (path === key || String(path).split(".").pop() === key)) { found = { path: path, reason: reason }; }
+    }
+    Object.keys(settings || {}).forEach(function (entry) {
+      var value = settings[entry];
+      if (typeof value === "string") { match(entry, value); }
+      else if (value && typeof value === "object" && (entry === String(item.type) || entry === "*")) { Object.keys(value).forEach(function (path) { match(path, value[path]); }); }
+    });
+    return found;
   }
   C8O.nocodeForms.unwrittenComponents = unwrittenComponents;
   C8O.nocodeForms.unwrittenSettings = unwrittenSettings;
@@ -1785,7 +1810,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // A step the saved form already had, with the same type, is kept as the editor wrote it: its issue becomes a warning.
   // A new step of such a type, or a step whose type changed, is still refused.
   // unwritten_component and unwritten_setting: the codes of C8Oforms 2.3 for a component or a setting its contract does
-  // not write (its table unwritten), on the model of unsupported_flow_element.
+  // not write (its section unwritten; a listed setting is refused, never dropped), on the model of unsupported_flow_element.
   var EDITOR_ONLY_ISSUE_CODES = ["unsupported_flow_element", "unwritten_component", "unwritten_setting"];
   function flowElementsById(form) {
     var byId = {};
@@ -2388,21 +2413,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     // the settings the C8Oforms of the server does not write (its table unwritten), read only when a key is refused
     var unwrittenTable = {};
     try { unwrittenTable = unwrittenSettings(formsRun("contract", {}, options)); } catch (_noContract) { unwrittenTable = {}; }
-    function unwrittenSettingOf(item, key) {
-      var found = null;
-      [String(item.type), "*"].forEach(function (type) {
-        var paths = unwrittenTable[type] || {};
-        Object.keys(paths).forEach(function (path) {
-          if (!found && (path === key || path.split(".").pop() === key)) { found = { path: path, reason: paths[path] }; }
-        });
-      });
-      return found;
-    }
     return found.filter(function (entry) {
       var proto = prototypes[entry.item.type];
       return !(proto && hasOwn(proto, entry.key));
     }).map(function (entry) {
-      var unwritten = unwrittenSettingOf(entry.item, entry.key);
+      var unwritten = unwrittenSettingOf(unwrittenTable, entry.item, entry.key);
       if (unwritten) {
         var page = pageNameOf(edited, entry.item);
         return entry.item.name + " (" + entry.item.type + "): patch." + entry.key + " is the setting " + unwritten.path + ", which the tools of this C8Oforms do not write. Reason: " +
