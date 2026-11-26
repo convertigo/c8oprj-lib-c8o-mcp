@@ -1345,7 +1345,9 @@ test('sticky: compiled into config, validated, and an edit puts reduced config k
   assert.equal(r.form.formulaire[0].sticky, undefined);
   const bad = api().compile(styled([{ type: 'description', name: 'search', description: '<p>Search</p>', sticky: 'top' }]));
   assert.ok(clone(bad.validation.issues).some(i => i.code === 'invalid_sticky'));
-  assert.deepEqual(clone(api().contract({ sections: ['all'] }).authoringContract.commonFieldFields.sticky.enum), ['always', 'notOnPhone']);
+  // the values of the C8Oforms of the server (contract v33 adds bottom and bottomNotOnPhone): never a list fixed here
+  const stickyValues = clone(api().contract({ sections: ['all'] }).authoringContract.commonFieldFields.sticky.enum);
+  for (const value of ['always', 'notOnPhone']) assert.ok(stickyValues.includes(value), stickyValues.join());
   const h = creationHarness();
   const start = h.client.create(connectedWithoutIdentities(), h.auth);
   const grid = start.form.formulaire.find(f => f.type === 'grid');
