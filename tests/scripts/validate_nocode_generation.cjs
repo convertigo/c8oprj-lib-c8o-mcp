@@ -565,7 +565,9 @@ test('the agent names the editor place of a default, or says it cannot see the e
   // "clock" default in the field properties, then to a "context" choice that "needs a recent viewer". Neither exists:
   // the editor has a Default value tab, text or JavaScript; the contract only spoke of defaultFrom and of the viewer.
   const client = api();
-  const section = client.contract({ sections: ['contextualDefaults'] }).sections.contextualDefaults;
+  // the section whole, or its parts when the C8Oforms of the server cuts it (contract v35: sources, rules)
+  const read = readSections(client, ['contextualDefaults']).sections;
+  const section = read.contextualDefaults || Object.assign({}, ...Object.keys(read).filter(key => key.indexOf('contextualDefaults.') === 0).map(key => read[key]));
   assert.match(section.editor, /^Where No Code Studio sets a default by hand: select the text, slider, datetime, time or barcode component, tab Default value \(French: Valeur par défaut\) of its configuration\./);
   assert.match(section.editor, /typed as text, or as JavaScript after the JavaScript logo button/);
   assert.match(section.editor, /That tab has no clock, today, user or query choice and no initial\/reactive switch\./);
@@ -1052,7 +1054,9 @@ test('Baserow data needs no native contract section', () => {
   const listed = Object.values(shorthand.operators).filter(Array.isArray).flat();
   assert.ok(listed.length >= 15);
   assert.deepEqual(listed.filter(op => !all.includes(op)), []);
-  assert.doesNotMatch(shorthand.filter, /baserowSources/);
+  // the shorthand is the whole filter syntax; a pointer to the rules of one key (baserowSources.filter.userValue, the
+  // connected user, contract v35) is no send to the native section
+  assert.doesNotMatch(shorthand.filter.replace(/baserowSources\.filter\.userValue/g, ''), /baserowSources/);
   const quick = api().contract({}).quickReference.baserow.operators.match(/\b[a-z]+(?:_[a-z]+)+\b|\b(?:contains|equal|empty|boolean)\b/g);
   assert.ok(quick.length >= 15);
   assert.deepEqual(quick.filter(op => !all.includes(op)), []);

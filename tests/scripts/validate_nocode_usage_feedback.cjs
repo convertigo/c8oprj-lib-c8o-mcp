@@ -175,11 +175,22 @@ test('find also answers the stored values the application runs: card templates, 
 
 // ---- T17, T4: flow steps written in No Code Studio ----------------------------------------------------------------
 
+
+// A flow step the C8Oforms of the checkout does not write (flowElements supported: false in its registry): open_overlay
+// before contract v32, set_properties since. The steps written in No Code Studio that the tools do not write are those.
+function unwrittenStepTypes() {
+  const sandbox = {};
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(formsRoot, 'js/nocode_form_components.js'), 'utf8'), sandbox);
+  const steps = sandbox.c8oNocodeFormComponents.flowElements;
+  return Object.keys(steps).filter(type => steps[type] && steps[type].supported === false);
+}
+const EDITOR_STEP = unwrittenStepTypes()[0];
 function withModalSteps(h, id) {
   const form = h.state.forms[id];
   const flow = form.flows.find(f => f.id === 'keep_item');
-  flow.elements.push({ id: 1799000000001, name: 'Ouvrir la modale', type: 'open_overlay', config: { target: '1799000000002' } });
-  flow.elements.push({ id: 1799000000003, name: 'Fermer la modale', type: 'close_overlay', config: {} });
+  flow.elements.push({ id: 1799000000001, name: 'Ouvrir la modale', type: EDITOR_STEP, config: {} });
+  flow.elements.push({ id: 1799000000003, name: 'Fermer la modale', type: EDITOR_STEP, config: {} });
   return form;
 }
 
@@ -192,12 +203,12 @@ test('a step written in No Code Studio that the tools do not write no longer blo
   assert.equal(edited.validation.valid, true);
   const kept = edited.validation.warnings.filter(w => w.code === 'editor_flow_element_kept');
   assert.equal(kept.length, 2);
-  assert.match(kept[0].message, /Ouvrir la modale \(open_overlay\).*No Code Studio/);
+  assert.match(kept[0].message, new RegExp('Ouvrir la modale \\(' + EDITOR_STEP + '\\).*No Code Studio'));
   const steps = h.state.forms[id].flows.find(f => f.id === 'keep_item').elements.map(e => e.type);
-  assert.deepEqual(steps.slice(-2), ['open_overlay', 'close_overlay'], 'the steps are saved as they were');
+  assert.deepEqual(steps.slice(-2), [EDITOR_STEP, EDITOR_STEP], 'the steps are saved as they were');
   // a step of such a type that the saved form did not have is refused, nothing saved
   const saves = h.state.saves;
-  const added = clone(h.client.edit(id, [{ action: 'update_flow', flowId: 'open_detail', patch: { elements: [{ id: 1799000000009, name: 'Autre', type: 'open_overlay', config: {} }] } }], h.auth));
+  const added = clone(h.client.edit(id, [{ action: 'update_flow', flowId: 'open_detail', patch: { elements: [{ id: 1799000000009, name: 'Autre', type: EDITOR_STEP, config: {} }] } }], h.auth));
   assert.equal(added.saved, false);
   assert.ok(added.validation.issues.some(i => i.code === 'unsupported_flow_element'), JSON.stringify(added));
   assert.equal(h.state.saves, saves);

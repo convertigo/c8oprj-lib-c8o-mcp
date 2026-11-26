@@ -98,6 +98,18 @@ function created(h, reduced) {
   return r.id;
 }
 
+
+// A flow step the C8Oforms of the checkout does not write (flowElements supported: false in its registry): open_overlay
+// before contract v32, set_properties since.
+function unwrittenStepTypes() {
+  const sandbox = {};
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(formsRoot, 'js/nocode_form_components.js'), 'utf8'), sandbox);
+  const steps = sandbox.c8oNocodeFormComponents.flowElements;
+  return Object.keys(steps).filter(type => steps[type] && steps[type].supported === false);
+}
+const EDITOR_STEP = unwrittenStepTypes()[0];
+
 // ---- the version of the guidance --------------------------------------------------------------------------------------
 
 test('the guidance version is a fingerprint of the guidance served: the same each time, another as soon as one sentence changes', () => {
@@ -151,17 +163,17 @@ test('the steps the C8Oforms does not write come from its contract: its table, e
   if (raw.sections && raw.sections.unwritten) {
     assert.deepEqual(clone(api().contract({ sections: ['editTool'] })).sections.editTool.unwrittenSteps, raw.sections.unwritten.flowElements || {});
   }
-  // a C8Oforms that writes modals (contract v32): their steps are no longer listed
-  const v32 = clone(apiWithContract(c => { delete c.sections.unwritten; c.types = c.types.concat(['open_overlay', 'close_overlay', 'modal', 'side_panel']); }).contract({ sections: ['editTool'] })).sections.editTool.unwrittenSteps;
-  assert.equal(v32.open_overlay, undefined);
-  assert.equal(v32.close_overlay, undefined);
+  // a C8Oforms that writes one more step (as contract v32 writes the steps of modals): it is no longer listed
+  const step = expected[0];
+  const newer = clone(apiWithContract(c => { delete c.sections.unwritten; c.types = c.types.concat([step]); }).contract({ sections: ['editTool'] })).sections.editTool.unwrittenSteps;
+  assert.equal(newer[step], undefined);
   // its own table, with its reasons, is taken as it is
   const table = { set_properties: 'changes the properties of a component at runtime; configured in No Code Studio' };
   const given = clone(apiWithContract(c => { delete c.sections.unwritten; c.unwrittenFlowElements = table; }).contract({ sections: ['editTool'] })).sections.editTool.unwrittenSteps;
   assert.deepEqual(given, table);
   // the guidance version follows what is served
   const v31Version = clone(apiWithContract(c => { delete c.sections.unwritten; }).contract({})).contractVersion;
-  const v32Version = clone(apiWithContract(c => { delete c.sections.unwritten; c.types = c.types.concat(['open_overlay', 'close_overlay']); }).contract({})).contractVersion;
+  const v32Version = clone(apiWithContract(c => { delete c.sections.unwritten; c.types = c.types.concat([step]); }).contract({})).contractVersion;
   assert.notEqual(v32Version.split('+')[1], v31Version.split('+')[1], 'another list of steps is another guidance');
 });
 
@@ -186,21 +198,22 @@ test('a step No Code Studio wrote is kept; a new one keeps the refusal of C8Ofor
   const h = harness();
   const id = created(h);
   const flow = h.state.forms[id].flows.find(f => f.id === 'keep_item');
-  flow.elements.push({ id: 1799000000103, name: 'Propriétés', type: 'set_properties', config: {} });
+  flow.elements.push({ id: 1799000000103, name: 'Propriétés', type: EDITOR_STEP, config: {} });
   const kept = clone(h.client.edit(id, [{ action: 'update_field', fieldName: 'titre', patch: { label: 'Titre' } }], h.auth));
   assert.equal(kept.saved, true, JSON.stringify(kept.validation && kept.validation.issues));
-  assert.ok(kept.validation.warnings.some(w => w.code === 'editor_flow_element_kept' && /set_properties/.test(w.message)));
+  assert.ok(kept.validation.warnings.some(w => w.code === 'editor_flow_element_kept' && w.message.includes(EDITOR_STEP)));
   const saves = h.state.saves;
   const steps = h.state.forms[id].flows.find(f => f.id === 'keep_item').elements;
-  const added = clone(h.client.edit(id, [{ action: 'update_flow', flowId: 'keep_item', patch: { elements: [steps[0], { id: 1799000000101, name: 'Fermer la fenêtre', type: 'close_overlay', config: { target: '' } }] } }], h.auth));
+  const added = clone(h.client.edit(id, [{ action: 'update_flow', flowId: 'keep_item', patch: { elements: [steps[0], { id: 1799000000101, name: 'Autre étape', type: EDITOR_STEP, config: {} }] } }], h.auth));
   assert.equal(added.saved, false);
   assert.equal(h.state.saves, saves, 'nothing saved');
   const issue = added.validation.issues.find(i => i.code === 'unsupported_flow_element');
-  // the words of C8Oforms first, as it gives them; this C8Oforms gives no reason: the MCP says what the step is
-  assert.match(issue.message, /^Unsupported flow element: close_overlay\. close_overlay is a step of No Code Studio that the tools of this C8Oforms do not write\. /);
-  assert.match(issue.message, /Ask the user to add it in No Code Studio, in flow «Garder» \(keep_item\), step 2, after the toast step\./);
+  // the words of C8Oforms first, as it gives them (with its reason since contract v35; without it, what the step is)
+  assert.ok(issue.message.startsWith('Unsupported flow element: ' + EDITOR_STEP), issue.message);
+  assert.ok(issue.reason ? issue.message.split(issue.reason).length === 2 : issue.message.includes(EDITOR_STEP + ' is a step of No Code Studio that the tools of this C8Oforms do not write.'), issue.message);
+  assert.match(issue.message, /Ask the user to add it( in No Code Studio)?, in flow «Garder» \(keep_item\), step 2, after the toast step\./);
   assert.match(issue.message, /Never replace it with a navigation \(push_page, __c8o_back included\) or another step/);
-  assert.deepEqual(issue.addInNoCodeStudio, { type: 'close_overlay', flow: 'Garder', flowId: 'keep_item', position: 2, after: 'the toast step' });
+  assert.deepEqual(issue.addInNoCodeStudio, { type: EDITOR_STEP, flow: 'Garder', flowId: 'keep_item', position: 2, after: 'the toast step' });
 });
 
 test('the reason C8Oforms gives is quoted as it is, never reworded, and not twice', () => {
@@ -218,7 +231,7 @@ test('the reason C8Oforms gives is quoted as it is, never reworded, and not twic
 test('a creation with an editor step first is refused the same way; a type the palette does not have keeps the refusal as it is', () => {
   const h = harness();
   const c = clone(h.client.create({ name: 'X', navigationMode: 'custom', pages: [{ name: 'P', fields: [{ type: 'button', name: 'b', label: 'B', flow: 'f' }] }],
-    flows: [{ id: 'f', name: 'Ouvrir', elements: [{ type: 'open_overlay' }, { type: 'toast', message: 'ok' }] }] }, h.auth));
+    flows: [{ id: 'f', name: 'Ouvrir', elements: [{ type: EDITOR_STEP }, { type: 'toast', message: 'ok' }] }] }, h.auth));
   assert.equal(c.saved, false);
   const issue = c.validation.issues.find(i => i.code === 'unsupported_flow_element');
   assert.match(issue.message, /in flow «Ouvrir» \(f\), step 1, first step\./);
@@ -244,7 +257,11 @@ test('a reduced key of a modal in an update_field patch names its native place, 
       overlay: { kind: 'modal', title: 'Confirmer ?', size: 'medium', dismissible: true, phone: 'full', closeFlow: '' } } });
   const saves = h.state.saves;
   const r = clone(h.client.edit(id, [{ action: 'update_field', fieldName: 'confirm_modal', patch: { title: 'Vraiment ?' } }], h.auth));
-  assert.equal(r.saved, false);
+  if (r.saved) {
+    // a C8Oforms that writes modals (contract v32 and later) merges the reduced keys into config.overlay
+    assert.equal(h.state.forms[id].formulaire.find(c => c.name === 'confirm_modal').config.overlay.title, 'Vraiment ?');
+    return;
+  }
   assert.equal(h.state.saves, saves);
   assert.equal(r.error.code, 'unread_patch_key');
   assert.match(r.error.message, /patch\.title is not a key of a layout as saved, whose title is config\.overlay\.title: write patch\.config\.overlay\.title \(the other keys of config\.overlay are kept\)/);
