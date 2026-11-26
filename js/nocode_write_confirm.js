@@ -45,7 +45,8 @@ C8O.nocodeWriteConfirm = C8O.nocodeWriteConfirm || {};
     tools_nocode_form_update: "nocode-form-update",
     tools_nocode_form_publish: "nocode-form-publish",
     tools_nocode_app_create: "nocode-app-create",
-    tools_nocode_baserow_schema_apply: "nocode-baserow-schema-apply"
+    tools_nocode_baserow_schema_apply: "nocode-baserow-schema-apply",
+    tools_nocode_baserow_rows_delete: "nocode-baserow-rows-delete"
   };
   // Never part of what a call changes: the credential, the reveal hint, what the router adds.
   var IGNORED_ARGUMENTS = { token: true, reveal: true, confirmId: true, conversationId: true, browserDebugPort: true, _showExperimental: true, __nolog: true, _nextCursor: true, _progressToken: true, _meta: true };
@@ -139,7 +140,7 @@ C8O.nocodeWriteConfirm = C8O.nocodeWriteConfirm || {};
     if (waitsForWrite(sequence, args)) {
       return false;
     }
-    if (sequence === "tools_nocode_baserow_schema_apply") {
+    if (sequence === "tools_nocode_baserow_schema_apply" || sequence === "tools_nocode_baserow_rows_delete") {
       return trimmed(args.mode).toLowerCase() === "apply";
     }
     if (sequence === "tools_nocode_app_create") {
@@ -341,6 +342,13 @@ C8O.nocodeWriteConfirm = C8O.nocodeWriteConfirm || {};
       var base = schema.base && typeof schema.base === "object" ? schema.base.name : schema.base;
       summary.formName = trimmed(schema.baseName || base || schema.databaseName);
       items.push({ action: "apply_schema", target: summary.formName, tables: list(schema.tables).map(function (table) { return trimmed(table && (table.name || table.tableName)); }).filter(function (name) { return name.length; }).slice(0, 10) });
+    } else if (sequence === "tools_nocode_baserow_rows_delete") {
+      // the table and how many rows: the count of the plan, or the ids given
+      var table = parsed(args.table);
+      var target = trimmed(table && typeof table === "object" ? (table.path || table.id) : table);
+      var rows = list(args.ids).length || Number(trimmed(args.expectedCount)) || 0;
+      summary.formName = target;
+      items.push({ action: "delete_rows", target: target + (rows ? " (" + rows + ")" : truthy(args.all) ? " (*)" : "") });
     }
     if (!items.length) {
       items.push({ action: "change" });

@@ -1103,6 +1103,9 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
           createRelatedField: field.createRelatedField,
           relatedFieldName: trimmed(field.relatedFieldName || field.linkRowRelatedFieldName),
           formula: trimmed(field.formula),
+          remove: field.delete === true || field.remove === true || trimmed(field.delete).toLowerCase() === "true" || trimmed(field.remove).toLowerCase() === "true",
+          confirmDelete: field.confirmDelete === true || trimmed(field.confirmDelete).toLowerCase() === "true",
+          rename: trimmed(field.rename || field.newName),
           baserowOptions: field.baserowOptions || field.optionsObject || {},
           number: type === "number" ? numberSpec(field, trimmed(field.type).toLowerCase(), fieldPath) : null,
           raw: field
@@ -1305,7 +1308,41 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     return createdTable;
   }
 
-  function buildFieldBody(field, tableByName, fieldsByTableName, allowUnresolved) {
+  // Usage feedback (23/11): a link field to a table of the base that the schema did not list failed with "links to unknown
+  // or unsaved table", a message that did not say to add that table, without fields, to the schema. The target of a link
+  // is looked up in the schema first, then among the tables of the base (by id, name or Workspace~>Base~>Table path):
+  // Baserow links only tables of the same base. outside: { catalog, base, fieldsOf(tableId) }.
+  function linkTargetOutsideSchema(field, outside) {
+    if (!outside || !outside.base || numberOrNull(outside.base.id) == null) {
+      return null;
+    }
+    var ref = trimmed(field.targetTable);
+    var segments = ref.split("~>").map(function (part) { return trimmed(part); });
+    var tableName = segments[segments.length - 1];
+    var wantedId = numberOrNull(field.raw && (field.raw.targetTableId || field.raw.linkRowTableId)) || numberOrNull(tableName);
+    var baseId = numberOrNull(outside.base.id);
+    var tables = ensureArray(outside.catalog && outside.catalog.tables);
+    var matches = function (table) {
+      return (wantedId != null && numberOrNull(table.id) === wantedId) || (tableName.length && trimmed(table.name).toLowerCase() === tableName.toLowerCase());
+    };
+    var inBase = tables.filter(function (table) { return numberOrNull(table.baseId || table.databaseId) === baseId && matches(table); });
+    if (inBase.length) {
+      return inBase[0];
+    }
+    var elsewhere = tables.filter(matches);
+    var ofBase = tables.filter(function (table) { return numberOrNull(table.baseId || table.databaseId) === baseId; });
+    var baseTables = ofBase.map(function (table) { return table.name + " (" + table.id + ")"; });
+    var namedBase = findByIdOrName(outside.catalog && outside.catalog.bases, baseId, null);
+    var baseName = trimmed(outside.base.name) || trimmed(namedBase && namedBase.name) || trimmed(ofBase.length && ofBase[0].baseName) || String(baseId);
+    if (elsewhere.length) {
+      throw new Error("Field " + field.name + " links to table " + ref + ", which is in another base (" + (elsewhere[0].baseName || elsewhere[0].baseId || elsewhere[0].databaseId) +
+        "): Baserow links only tables of the same base, " + baseName + ". Its tables: " + baseTables.join(", ") + ".");
+    }
+    throw new Error("Field " + field.name + " links to table " + ref + ", which is neither in schema.tables nor among the tables of base " + baseName +
+      " (" + (baseTables.length ? baseTables.join(", ") : "none") + "): give the name or the id of one of them as targetTable, or add the table to schema.tables to create it.");
+  }
+
+  function buildFieldBody(field, tableByName, fieldsByTableName, allowUnresolved, outside) {
     var body = { name: field.name, type: field.type };
     if (field.description.length) {
       body.description = field.description;
@@ -1325,6 +1362,18 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     }
     if (field.type === "link_row") {
       var linkedTable = tableByName[field.targetTable.toLowerCase()];
+      if (!linkedTable || numberOrNull(linkedTable.id) == null) {
+        try {
+          linkedTable = linkTargetOutsideSchema(field, outside) || linkedTable;
+        } catch (outsideError) {
+          if (!allowUnresolved) {
+            throw outsideError;
+          }
+          if (outside && outside.warnings) {
+            outside.warnings.push({ code: "link_target_unknown", table: field.raw && field.raw.tableName, field: field.name, message: String(outsideError && outsideError.message ? outsideError.message : outsideError) });
+          }
+        }
+      }
       if (!linkedTable || numberOrNull(linkedTable.id) == null) {
         if (!allowUnresolved) {
           throw new Error("Field " + field.name + " links to unknown or unsaved table " + field.targetTable + ".");
@@ -1365,6 +1414,10 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
           break;
         }
       }
+      if (!targetFields.length && linkedTableId != null && outside && typeof outside.fieldsOf === "function") {
+        // a link to a table of the base the schema does not list
+        try { targetFields = outside.fieldsOf(linkedTableId) || []; } catch (_unreadLinkedFields) { targetFields = []; }
+      }
       var targetField = findByIdOrName(targetFields, field.raw.targetFieldId, field.targetField);
       if (!targetField) {
         if (!allowUnresolved) {
@@ -1381,7 +1434,102 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     return body;
   }
 
-  function ensureFields(plan, tableSpec, table, create, apply, fieldsByTableName, tableByName, editor, bearer) {
+  // ---- fields changed or deleted (usage feedback 18/11) -------------------------------------------------------------
+  // An existing field of the schema: rename (rename: "<new name>"), a formula or a description that differs is changed
+  // in place, with the user's account. Its type is never changed (a field_type_mismatch warning says it).
+  function changeField(plan, tableSpec, existing, field, apply, bearer, existingByName) {
+    var body = {};
+    var what = [];
+    if (field.rename.length && field.rename !== existing.name) {
+      var taken = existingByName[field.rename.toLowerCase()];
+      if (taken && taken !== existing) {
+        throw new Error("Rename " + tableSpec.name + "." + field.name + " to " + field.rename + ": the table already has a field " + taken.name + ". Nothing of this field was changed.");
+      }
+      body.name = field.rename;
+      what.push("name " + field.rename);
+    }
+    if (field.type === "formula" && field.formula.length && normalizeFieldType(existing.type) === "formula" && trimmed(existing.formula) !== field.formula) {
+      body.formula = field.formula;
+      what.push("formula");
+    }
+    if (field.description.length && trimmed(existing.description) !== field.description) {
+      body.description = field.description;
+      what.push("description");
+    }
+    if (!what.length) {
+      return false;
+    }
+    pushAction(plan, "update_field", "Change field: " + what.join(", ") + ".", { table: tableSpec.name, field: field.name, fieldId: existing.id, patch: body });
+    if (!apply) {
+      return false;
+    }
+    body.type = existing.type;
+    if (!body.name) {
+      body.name = existing.name;
+    }
+    try {
+      callBaserowJson("_api_database_fields__field_id___PATCH", {
+        field_id: baserowId(existing.id),
+        __body: JSON.stringify(body),
+        __header_Authorization: trimmed(bearer).length ? bearer : getBaserowBearer()
+      });
+    } catch (patchError) {
+      throw new Error(formatLibWriteError("Change field " + tableSpec.name + "." + field.name, patchError));
+    }
+    Object.keys(body).forEach(function (key) { existing[key] = body[key]; });
+    return true;
+  }
+
+  // delete: true removes a field and every value it holds. A plan lists it; an apply deletes it only with
+  // confirmDelete: true on the same field, given once the user agreed (the plan says so), and never the primary field.
+  function removeField(plan, tableSpec, table, existing, field, apply, bearer) {
+    if (!existing) {
+      pushAction(plan, "field_absent", "Field to delete is not in the table: nothing to do.", { table: tableSpec.name, field: field.name });
+      return;
+    }
+    if (existing.primary === true || existing.primary === "true") {
+      throw new Error("Field " + tableSpec.name + "." + field.name + " is the primary field of its table: Baserow never deletes it. Rename it instead (rename).");
+    }
+    pushAction(plan, "delete_field", "Delete field and all its values" + (field.confirmDelete ? "." : ": the user must agree, then apply with confirmDelete: true on this field."), { table: tableSpec.name, field: field.name, fieldId: existing.id, type: existing.type });
+    if (!apply) {
+      return;
+    }
+    if (!field.confirmDelete) {
+      throw new Error("Field " + tableSpec.name + "." + field.name + " is to be deleted with all its values: tell the user, then send it again with confirmDelete: true. Nothing was changed.");
+    }
+    try {
+      callBaserowJson("_api_database_fields__field_id___DELETE", {
+        field_id: baserowId(existing.id),
+        __header_Authorization: trimmed(bearer).length ? bearer : getBaserowBearer()
+      });
+    } catch (deleteError) {
+      throw new Error(formatLibWriteError("Delete field " + tableSpec.name + "." + field.name, deleteError));
+    }
+    plan.deleted = plan.deleted || { fields: [] };
+    plan.deleted.fields.push({ table: tableSpec.name, tableId: table && table.id, name: field.name, id: numberOrNull(existing.id) });
+  }
+
+  // relatedFieldName: Baserow names the field it creates in the linked table after the table of the link; it was not
+  // taken at creation (usage feedback 18/11): that field is renamed once the link exists.
+  function nameRelatedField(plan, tableSpec, created, field, bearer) {
+    var relatedId = numberOrNull(created.link_row_related_field_id || created.link_row_related_field);
+    if (relatedId == null) {
+      plan.warnings.push({ code: "related_field_not_named", table: tableSpec.name, field: field.name, message: "Baserow gave no related field for " + field.name + " (has_related_field false?): relatedFieldName " + field.relatedFieldName + " was not applied." });
+      return;
+    }
+    try {
+      callBaserowJson("_api_database_fields__field_id___PATCH", {
+        field_id: baserowId(relatedId),
+        __body: JSON.stringify({ name: field.relatedFieldName, type: "link_row" }),
+        __header_Authorization: trimmed(bearer).length ? bearer : getBaserowBearer()
+      });
+      pushAction(plan, "name_related_field", "Related field named.", { table: tableSpec.name, field: field.name, relatedFieldId: relatedId, name: field.relatedFieldName });
+    } catch (renameError) {
+      plan.warnings.push({ code: "related_field_not_named", table: tableSpec.name, field: field.name, message: "The related field of " + field.name + " keeps the name Baserow gave it: " + String(renameError && renameError.message ? renameError.message : renameError) });
+    }
+  }
+
+  function ensureFields(plan, tableSpec, table, create, apply, fieldsByTableName, tableByName, editor, bearer, outside) {
     if ((!table || numberOrNull(table.id) == null) && apply) {
       pushAction(plan, "fields_skipped", "Fields skipped because table is not available.", { table: tableSpec.name });
       return;
@@ -1390,10 +1538,12 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
     var tableKey = tableSpec.name.toLowerCase();
     var existingFields = fieldsByTableName[tableKey] || [];
     var existingByName = indexByName(existingFields);
+    // Formulas come with the lookups, after the links: a formula reading a link created in the same call failed (usage
+    // feedback 18/11), as Baserow refuses a formula naming a field that does not exist yet.
     var phases = [
-      function (field) { return field.type !== "link_row" && field.type !== "lookup" && field.type !== "rollup" && field.type !== "count"; },
+      function (field) { return field.type !== "link_row" && field.type !== "lookup" && field.type !== "rollup" && field.type !== "count" && field.type !== "formula"; },
       function (field) { return field.type === "link_row"; },
-      function (field) { return field.type === "lookup" || field.type === "rollup" || field.type === "count"; }
+      function (field) { return field.type === "lookup" || field.type === "rollup" || field.type === "count" || field.type === "formula"; }
     ];
     for (var p = 0; p < phases.length; p++) {
       for (var f = 0; f < tableSpec.fields.length; f++) {
@@ -1403,9 +1553,22 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
           continue;
         }
         var existing = existingByName[field.name.toLowerCase()];
+        if (field.remove) {
+          // usage feedback (18/11): fields no longer used stayed in the tables, no tool deleted one
+          removeField(plan, tableSpec, table, existing, field, apply, bearer);
+          if (apply && existing) {
+            existingFields = existingFields.filter(function (item) { return item !== existing; });
+            fieldsByTableName[tableKey] = existingFields;
+            existingByName = indexByName(existingFields);
+          }
+          continue;
+        }
+        if (existing && changeField(plan, tableSpec, existing, field, apply, bearer, existingByName)) {
+          existingByName = indexByName(existingFields);
+        }
         if (existing) {
           pushAction(plan, "field_exists", "Field already exists.", { table: tableSpec.name, field: field.name, fieldId: existing.id, type: existing.type });
-          if (existing.type && normalizeFieldType(existing.type) !== field.type) {
+          if (existing.type && trimmed(field.raw.type).length && normalizeFieldType(existing.type) !== field.type) {
             plan.warnings.push({
               code: "field_type_mismatch",
               table: tableSpec.name,
@@ -1425,7 +1588,7 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
           pushAction(plan, "field_missing", "Field is missing and create.fields is false.", { table: tableSpec.name, field: field.name, type: field.type });
           continue;
         }
-        var body = buildFieldBody(field, tableByName, fieldsByTableName, !apply);
+        var body = buildFieldBody(field, tableByName, fieldsByTableName, !apply, outside);
         if (field.type === "number" && field.number) {
           field.number.planned = { negative: booleanValue(body.number_negative), decimals: numberOrNull(body.number_decimal_places) || 0 };
         }
@@ -1452,6 +1615,9 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
             throw new Error("Create field " + tableSpec.name + "." + field.name + ": Baserow did not create it (no field of that name in the table after the call).");
           }
           plan.created.fields.push({ table: tableSpec.name, tableId: table.id, name: field.name, type: field.type, id: createdField ? numberOrNull(createdField.id) : null });
+          if (field.type === "link_row" && field.relatedFieldName.length && createdField) {
+            nameRelatedField(plan, tableSpec, createdField, field, bearer);
+          }
         }
       }
     }
@@ -2103,6 +2269,20 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         }
       }
 
+      if (apply) {
+        // a deletion the user has not agreed to changes nothing of the call
+        var unconfirmed = [];
+        schema.tables.forEach(function (spec) {
+          spec.fields.forEach(function (item) { if (item.remove && !item.confirmDelete) { unconfirmed.push(spec.name + "." + item.name); } });
+        });
+        if (unconfirmed.length) {
+          return failedPlan(plan, {
+            code: "field_delete_not_confirmed",
+            message: "Nothing was changed: deleting " + unconfirmed.join(", ") + " removes every value " + (unconfirmed.length > 1 ? "they hold" : "it holds") +
+              ". Run the schema with mode plan, tell the user which fields go, then apply with confirmDelete: true on each of them."
+          });
+        }
+      }
       var fieldsByTableName = {};
       for (var ft = 0; ft < schema.tables.length; ft++) {
         var spec = schema.tables[ft];
@@ -2113,8 +2293,14 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
           fieldsByTableName[spec.name.toLowerCase()] = [];
         }
       }
+      var outsideTables = {
+        catalog: catalog,
+        base: base,
+        warnings: plan.warnings,
+        fieldsOf: function (tableId) { return readTableFields(tableId, authentication.user, bearer); }
+      };
       for (var ef = 0; ef < schema.tables.length; ef++) {
-        ensureFields(plan, schema.tables[ef], tableByName[schema.tables[ef].name.toLowerCase()], create, apply, fieldsByTableName, tableByName, authentication.user, bearer);
+        ensureFields(plan, schema.tables[ef], tableByName[schema.tables[ef].name.toLowerCase()], create, apply, fieldsByTableName, tableByName, authentication.user, bearer, outsideTables);
       }
 
       var rowKeyLookup = {};
@@ -2280,6 +2466,25 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
   var ROWS_FILTER_CONDITIONS_MAX = 50;
   var ROWS_UNREADABLE = /ERROR_USER_NOT_IN_GROUP|ERROR_TABLE_DOES_NOT_EXIST|PERMISSION_DENIED|ERROR_NO_PERMISSION|http_40[134]\b/i;
   var ROWS_REFUSED_QUERY = /ERROR_\w*FILTER\w*|ERROR_ORDER_BY\w*|ERROR_FIELD_DOES_NOT_EXIST|not found in the list of table columns/;
+  // Usage feedback (23/11, a base imported again): a filter or a sort on a field the table has answered
+  // ERROR_FILTER_FIELD_NOT_FOUND with the id of a field the table no longer had, while other reads of the same field
+  // worked. lib_BaseRow.TableGetDataNative maps the names to ids with the fields of the table it keeps 60 s for a token
+  // (js/fields_cache.js), and only its own field writes renew them: a field deleted and created again in Baserow (an
+  // import, a restore, the data tab) kept its old id there for up to a minute. The names were checked on a fresh read
+  // above: the field list of the lib is renewed once and the read made again; a second refusal says it.
+  var ROWS_FIELD_GONE = /ERROR_FILTER_FIELD_NOT_FOUND|ERROR_ORDER_BY_FIELD_NOT_FOUND|ERROR_FIELD_DOES_NOT_EXIST/;
+  function renewLibFieldsCache() {
+    try {
+      var project = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getOriginalProjectByName("lib_BaseRow");
+      var generation = project != null ? project.get("fields_cache_generation") : null;
+      if (generation != null && typeof generation.incrementAndGet === "function") {
+        generation.incrementAndGet();
+        return true;
+      }
+    } catch (_noLibFieldsCache) {}
+    return false;
+  }
+  C8O.nocodeBaserow.renewLibFieldsCache = renewLibFieldsCache;
 
   function rowsRequestError(code, message) {
     var error = new Error(message);
@@ -2685,7 +2890,7 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         return all.indexOf(name) === index;
       }) : [];
 
-      var read = withoutLogs(function () {
+      var readRows = function () { return withoutLogs(function () {
         return callC8oSequenceNative("lib_BaseRow", "TableGetDataNative", {
           table_id: baserowId(table.id),
           page: String(page),
@@ -2697,10 +2902,20 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
           describeStructure: "false",
           authorization: bearer
         });
-      });
-      var rawText = nativeText(read && read.raw);
-      var data = rawText == null ? null : (typeof rawText === "string" ? JSON.parse(rawText) : rawText);
-      var failure = nativeError(read && read.error) || (data && data.error ? data : null);
+      }); };
+      var outcome = function (read) {
+        var rawText = nativeText(read && read.raw);
+        var parsed = rawText == null ? null : (typeof rawText === "string" ? JSON.parse(rawText) : rawText);
+        return { data: parsed, failure: nativeError(read && read.error) || (parsed && parsed.error ? parsed : null) };
+      };
+      var first = outcome(readRows());
+      var renewed = false;
+      if (first.failure && ROWS_FIELD_GONE.test(errorText(first.failure)) && (filter || sorts.length) && C8O.nocodeBaserow.renewLibFieldsCache()) {
+        renewed = true;
+        first = outcome(readRows());
+      }
+      var data = first.data;
+      var failure = first.failure;
       if (failure || !data) {
         var failureText = failure ? errorText(failure) : "lib_BaseRow.TableGetDataNative answered no rows";
         if (ROWS_UNREADABLE.test(failureText)) {
@@ -2708,6 +2923,11 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         }
         if (/ERROR_INVALID_PAGE/.test(failureText)) {
           return answer("invalid_request", "invalid_page", "Page " + page + " is past the last page of the rows that match: read from page 1, nextPage says when a page follows.", table);
+        }
+        if (ROWS_FIELD_GONE.test(failureText)) {
+          return answer("error", "field_list_stale", "Baserow does not know a field id the read used (" + failureText + "), though every column named is a field of table " + table.id +
+            " now: lib_BaseRow keeps the fields of a table 60 seconds and they changed in Baserow since (a field deleted and created again, a base imported again)" +
+            (renewed ? ", and the read made again after renewing them was refused too" : "") + ". The filter is right: read again in a minute, or tell the user if it goes on.", table);
         }
         if (ROWS_REFUSED_QUERY.test(failureText)) {
           return answer("invalid_request", "baserow_refused_query", "Baserow refused the filter or the sort (" + failureText + "). Check each operator against the type of its column (quickReference.baserow.operators).", table);
@@ -2726,6 +2946,9 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         });
         return out;
       });
+      if (renewed) {
+        notes.push("The first read used a field list of the table older than a change made in Baserow: it was read again with the current fields.");
+      }
       if (state.truncated) {
         notes.push(state.truncated + " text cell" + (state.truncated > 1 ? "s" : "") + " longer than " + ROWS_TEXT_MAX + " characters " + (state.truncated > 1 ? "are" : "is") + " cut (\u2026).");
       }
@@ -2759,6 +2982,241 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
         return answer("invalid_request", e.rowsCode, String(e.message), table);
       }
       return answer("error", "baserow_rows_failed", String(e && e.message ? e.message : e), table);
+    }
+  };
+
+  // nocode-baserow-rows-delete (usage feedback 25/11: the rows of 5 tables, 178 in all, emptied by hand in Baserow before
+  // an application went live, no tool could delete a row). The rows of a table of the user's catalog, by their ids, by
+  // a filter (the filter of nocode-baserow-rows-list) or all of them, with the user's own Baserow account. mode plan
+  // (the default) deletes nothing: it answers how many rows match and the first of them. mode apply deletes them only
+  // when expectedCount is the count the plan answered (ids alone need none): a table that changed since is refused, and
+  // nothing is deleted. At most DELETE_MAX rows per call, in batches of DELETE_BATCH (Baserow's limit): the answer says
+  // how many remain and the call that deletes them. In the "confirm before changing" mode of the user, an apply waits
+  // for the user's answer like every No Code write (js/nocode_write_confirm.js).
+  var DELETE_MAX = 1000;
+  var DELETE_BATCH = 200;
+  var DELETE_PAGE = 200;
+  var DELETE_SCAN_MAX = 5000;
+  var DELETE_SAMPLE = 10;
+
+  function deleteIdList(value) {
+    var list = jsonOrText(value);
+    if (list == null || list === "") {
+      return [];
+    }
+    if (!Array.isArray(list)) {
+      list = String(list).replace(/^\s*\[|\]\s*$/g, "").split(",");
+    }
+    var ids = [];
+    list.forEach(function (item) {
+      var id = numberOrNull(item && typeof item === "object" ? item.id : item);
+      if (id == null || id <= 0 || Math.floor(id) !== id) {
+        throw rowsRequestError("invalid_ids", "ids are the ids of rows (positive whole numbers, as nocode-baserow-rows-list answers them), not " + JSON.stringify(item) + ".");
+      }
+      if (ids.indexOf(id) < 0) {
+        ids.push(id);
+      }
+    });
+    return ids;
+  }
+
+  C8O.nocodeBaserow.rowsDelete = function (options) {
+    var opts = options || {};
+    var authentication = validateToken(opts.token);
+    if (!authentication || authentication.authenticated !== true) {
+      return { status: "auth_required", authentication: authentication || { authenticated: false }, deleted: 0 };
+    }
+    var table = null;
+    function answer(status, code, message, extra) {
+      var out = { status: status, error: { code: code, message: message }, deleted: 0 };
+      if (table) {
+        out.table = table;
+      }
+      Object.keys(extra || {}).forEach(function (key) { out[key] = extra[key]; });
+      return out;
+    }
+    try {
+      var mode = trimmed(opts.mode || "plan").toLowerCase();
+      if (mode !== "plan" && mode !== "apply") {
+        return answer("invalid_request", "invalid_mode", "mode is plan (count the rows, delete nothing) or apply (delete them).");
+      }
+      var tableRef = rowsTableReference(opts.table);
+      var ids = deleteIdList(opts.ids);
+      var all = opts.all === true || trimmed(opts.all).toLowerCase() === "true";
+      var filterSpec = jsonOrText(opts.filter);
+      var hasFilter = filterSpec != null && !(typeof filterSpec === "object" && !Array.isArray(filterSpec) && !Object.keys(filterSpec).length) && trimmed(filterSpec) !== "";
+      if ((ids.length ? 1 : 0) + (hasFilter ? 1 : 0) + (all ? 1 : 0) !== 1) {
+        return answer("invalid_request", "rows_required", "Name the rows to delete with one of: ids (a list of row ids), filter (as nocode-baserow-rows-list takes it) or all: true (every row of the table).");
+      }
+      if (ids.length > DELETE_MAX) {
+        return answer("invalid_request", "too_many_ids", ids.length + " ids: a call deletes at most " + DELETE_MAX + " rows; give them in several calls.");
+      }
+      var bearer = editorBaserowBearer();
+      if (!bearer.length) {
+        return answer("unauthorized", "baserow_account_unavailable", "The Baserow account of the authenticated No Code user could not be opened, so nothing was deleted. Ask the user to open the No Code Studio data tab once, then retry.");
+      }
+      table = tableRef.id != null ? { id: tableRef.id } : rowsTableFromCatalog(tableRef.path);
+      var tableFields;
+      try {
+        tableFields = readFreshTableFields(table.id, bearer);
+      } catch (readError) {
+        var readText = errorText(readError.baserowError) + " " + String(readError && readError.message ? readError.message : readError);
+        if (ROWS_UNREADABLE.test(readText)) {
+          return answer("unauthorized", "table_not_readable", "The Baserow account of the user cannot read table " + table.id + ": use a table of nocode-baserow-catalog-list. Nothing was deleted.");
+        }
+        throw readError;
+      }
+      if (!tableFields) {
+        return answer("unauthorized", "table_not_readable", "Baserow gave no fields for table " + table.id + " to the account of the user: use a table of nocode-baserow-catalog-list. Nothing was deleted.");
+      }
+      var resolveField = rowsFieldResolver(tableFields);
+      var primary = tableFields.filter(function (field) { return field && (field.primary === true || field.primary === "true"); })[0];
+      var primaryName = primary ? trimmed(primary.name) : "";
+      var filter = hasFilter ? rowsFilterExpression(filterSpec, resolveField) : null;
+      var readPage = function (page) {
+        var read = withoutLogs(function () {
+          return callC8oSequenceNative("lib_BaseRow", "TableGetDataNative", {
+            table_id: baserowId(table.id),
+            page: String(page),
+            size: String(DELETE_PAGE),
+            include_fields: primaryName.length ? baserowFieldList([primaryName].concat(filter ? rowsFilterFields(filter) : []).filter(function (name, i, list) { return list.indexOf(name) === i; })) : null,
+            filterExpression: filter ? JSON.stringify(filter) : null,
+            raw_json: "true",
+            describeStructure: "false",
+            authorization: bearer
+          });
+        });
+        var rawText = nativeText(read && read.raw);
+        var data = rawText == null ? null : (typeof rawText === "string" ? JSON.parse(rawText) : rawText);
+        var failure = nativeError(read && read.error) || (data && data.error ? data : null);
+        if (failure || !data) {
+          var error = new Error(failure ? errorText(failure) : "lib_BaseRow.TableGetDataNative answered no rows");
+          error.readFailure = true;
+          throw error;
+        }
+        return data;
+      };
+      var shown = function (row) {
+        var out = { id: row.id };
+        if (primaryName.length && row && Object.prototype.hasOwnProperty.call(row, primaryName)) {
+          out[primaryName] = compactCell(row[primaryName], trimmed(primary.type), { truncated: 0 });
+        }
+        return out;
+      };
+      // the rows that will be deleted: their count, the first of them, and the ids of the first DELETE_MAX
+      var count = 0;
+      var sample = [];
+      var targets = [];
+      var missing = [];
+      var scanned = true;
+      if (ids.length) {
+        var wanted = {};
+        ids.forEach(function (id) { wanted[id] = true; });
+        var found = {};
+        for (var scanPage = 1; (scanPage - 1) * DELETE_PAGE < DELETE_SCAN_MAX; scanPage++) {
+          var scan = readPage(scanPage);
+          ensureArray(scan.results).forEach(function (row) {
+            if (row && wanted[row.id] && !found[row.id]) {
+              found[row.id] = true;
+              targets.push(row.id);
+              if (sample.length < DELETE_SAMPLE) { sample.push(shown(row)); }
+            }
+          });
+          if (targets.length === ids.length || scan.next == null || !String(scan.next).length || String(scan.next) === "null") {
+            break;
+          }
+          if (scanPage * DELETE_PAGE >= DELETE_SCAN_MAX) {
+            scanned = targets.length === ids.length;
+          }
+        }
+        missing = scanned ? ids.filter(function (id) { return !found[id]; }) : [];
+        count = targets.length;
+        if (!scanned) {
+          // a table too large to look for every id: the ids not found yet are counted as given, Baserow checks them
+          ids.forEach(function (id) { if (!found[id]) { targets.push(id); } });
+          count = ids.length;
+        }
+      } else {
+        var first = readPage(1);
+        count = numberOrNull(first.count) || 0;
+        ensureArray(first.results).slice(0, DELETE_SAMPLE).forEach(function (row) { sample.push(shown(row)); });
+      }
+      var what = ids.length ? { ids: ids } : all ? { all: true } : { filter: filterSpec };
+      var callText = function (expected) {
+        var args = ["table: " + JSON.stringify(table.id)];
+        Object.keys(what).forEach(function (key) { args.push(key + ": " + JSON.stringify(what[key])); });
+        args.push("mode: \"apply\"");
+        if (!ids.length) { args.push("expectedCount: " + expected); }
+        return "nocode-baserow-rows-delete({ " + args.join(", ") + " })";
+      };
+      if (mode === "plan") {
+        var plan = { status: "ok", mode: "plan", table: table, count: count, sample: sample, deleted: 0 };
+        if (missing.length) {
+          plan.missing = missing;
+        }
+        if (!scanned) {
+          plan.notes = ["The table holds more than " + DELETE_SCAN_MAX + " rows: the ids not found among them are left to Baserow to check."];
+        }
+        plan.next = count ? "Tell the user how many rows will be deleted (" + count + (count > DELETE_MAX ? ", " + DELETE_MAX + " per call" : "") + "), then: " + callText(count) + ". Deleted rows go to the Baserow trash of the base." :
+          "No row matches: nothing to delete.";
+        return plan;
+      }
+      if (missing.length) {
+        return answer("invalid_request", "rows_missing", "Table " + table.id + " has no row " + missing.join(", ") + ": nothing was deleted. Give the ids of existing rows (nocode-baserow-rows-list).", { missing: missing, count: count });
+      }
+      if (!ids.length) {
+        var expected = opts.expectedCount == null || trimmed(opts.expectedCount) === "" ? null : numberOrNull(opts.expectedCount);
+        if (expected == null) {
+          return answer("invalid_request", "expected_count_required", "Nothing was deleted: an apply with a filter or all:true gives expectedCount, the count of mode plan, which is " + count + " now. Tell the user, then: " + callText(count) + ".", { count: count });
+        }
+        if (expected !== count) {
+          return answer("conflict", "count_changed", "Nothing was deleted: " + count + " rows match now, not " + expected + " (the table changed since the plan). Tell the user the new count, then: " + callText(count) + ".", { count: count });
+        }
+        // the ids of the first DELETE_MAX rows that match
+        for (var page = 1; targets.length < Math.min(count, DELETE_MAX); page++) {
+          var rows = ensureArray(readPage(page).results);
+          if (!rows.length) {
+            break;
+          }
+          rows.forEach(function (row) { if (row && row.id != null && targets.length < DELETE_MAX) { targets.push(row.id); } });
+        }
+      }
+      var deleted = [];
+      for (var at = 0; at < targets.length; at += DELETE_BATCH) {
+        var batch = targets.slice(at, at + DELETE_BATCH);
+        try {
+          callBaserowJson("_api_database_rows_table__table_id__batch_delete__POST", {
+            table_id: baserowId(table.id),
+            __body: JSON.stringify({ items: batch }),
+            __header_Authorization: bearer
+          });
+        } catch (deleteError) {
+          return answer(deleted.length ? "partial" : "error", "rows_delete_failed", (deleted.length ? deleted.length + " rows were deleted, then " : "") + "Baserow refused to delete rows " + batch[0] + " to " + batch[batch.length - 1] +
+            ": " + String(deleteError && deleteError.message ? deleteError.message : deleteError) + ". Check with nocode-baserow-rows-list before any retry.", { deleted: deleted.length, deletedIds: deleted });
+        }
+        deleted = deleted.concat(batch);
+      }
+      var remaining = Math.max(0, count - deleted.length);
+      var done = { status: "ok", mode: "apply", table: table, deleted: deleted.length, deletedIds: deleted.slice(0, 200), remaining: remaining };
+      if (deleted.length > 200) {
+        done.notes = ["deletedIds lists the first 200 ids."];
+      }
+      done.next = remaining ? remaining + " rows still match: " + callText(remaining) + "." : "Deleted rows go to the Baserow trash of the base, where the user can restore them.";
+      return done;
+    } catch (e) {
+      if (e && e.rowsCode) {
+        return answer("invalid_request", e.rowsCode, String(e.message) + " Nothing was deleted.");
+      }
+      if (e && e.readFailure) {
+        var text = String(e.message);
+        if (ROWS_UNREADABLE.test(text)) {
+          return answer("unauthorized", "table_not_readable", "The Baserow account of the user cannot read the rows of table " + (table && table.id) + " (" + text + "). Nothing was deleted.");
+        }
+        if (ROWS_REFUSED_QUERY.test(text)) {
+          return answer("invalid_request", "baserow_refused_query", "Baserow refused the filter (" + text + "). Check each operator against the type of its column (quickReference.baserow.operators). Nothing was deleted.");
+        }
+      }
+      return answer("error", "rows_delete_failed", String(e && e.message ? e.message : e) + ". Nothing was deleted.");
     }
   };
 

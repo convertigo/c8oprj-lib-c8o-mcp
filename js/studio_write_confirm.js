@@ -69,7 +69,8 @@ C8O.studioWriteConfirm = C8O.studioWriteConfirm || {};
     tools_nocode_form_update: "nocode-form-update",
     tools_nocode_form_publish: "nocode-form-publish",
     tools_nocode_app_create: "nocode-app-create",
-    tools_nocode_baserow_schema_apply: "nocode-baserow-schema-apply"
+    tools_nocode_baserow_schema_apply: "nocode-baserow-schema-apply",
+    tools_nocode_baserow_rows_delete: "nocode-baserow-rows-delete"
   };
 
   // The tools that change nothing in a project or in the Studio. requestable-execute and crud-proof may change an

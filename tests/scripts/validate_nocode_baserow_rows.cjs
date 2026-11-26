@@ -74,6 +74,10 @@ function fakeBaserow(options = {}) {
   }
   function tableGetDataNative(params) {
     if (options.nativeAnswer) return options.nativeAnswer;
+    // the field list lib_BaseRow keeps 60 s still holds the old id of a field created again in Baserow
+    if (options.staleFields && (params.filterExpression || params.order_by) && (options.staleFields === 'always' || !state.renewed)) {
+      return { raw: JSON.stringify({ error: 'ERROR_FILTER_FIELD_NOT_FOUND', detail: 'The field 47995 was not found in the table.' }) };
+    }
     const refused = outsideInclude(params);
     if (refused) return { raw: JSON.stringify(refused) };
     let rows = state.rows.slice();
@@ -116,6 +120,16 @@ function fakeBaserow(options = {}) {
       case 'TableGetDataNative':
         assert.equal(params.__nativeCall, 'true', 'TableGetDataNative is called natively, its outputs as a map');
         return { native: tableGetDataNative(params) };
+      case '_api_database_rows_table__table_id__batch_delete__POST': {
+        assert.equal(params.__header_Authorization, 'JWT user-token', 'rows are deleted with the user\'s account');
+        const items = JSON.parse(params.__body).items;
+        assert.ok(items.length <= 200, 'Baserow deletes 200 rows per batch at most');
+        const missing = items.filter(id => !state.rows.some(row => row.id === id));
+        if (missing.length || options.refuseDelete) return { document: { object: { error: 'ERROR_ROW_DOES_NOT_EXIST', detail: 'The rows ' + missing.join(', ') + ' do not exist.' } } };
+        state.rows = state.rows.filter(row => !items.includes(row.id));
+        state.deleted = (state.deleted || []).concat(items);
+        return { document: {} };
+      }
       default: throw new Error('unexpected call ' + name);
     }
   }
@@ -127,7 +141,7 @@ function javaMap(object) {
   return { entrySet: () => ({ iterator: () => { let i = 0; return { hasNext: () => i < entries.length, next: () => { const [key, value] = entries[i++]; return { getKey: () => key, getValue: () => value }; } }; } }) };
 }
 
-function sandboxFor(transport) {
+function sandboxFor(transport, libProject) {
   const empty = new Proxy(function () {}, { get: (_, key) => key === Symbol.toPrimitive ? () => '' : empty });
   class HashMap { constructor() { this.values = {}; } put(key, value) { this.values[key] = value; } }
   class InternalRequester {
@@ -141,7 +155,7 @@ function sandboxFor(transport) {
     }
     getContext() { return {}; }
   }
-  const engine = { theApp: { contextManager: { remove() {} } } };
+  const engine = { theApp: { contextManager: { remove() {} }, databaseObjectsManager: libProject ? { getOriginalProjectByName: name => name === 'lib_BaseRow' ? libProject : null } : undefined } };
   const mdc = {};
   const packages = new Proxy(empty, { get: (_, key) => {
     if (key === 'java') return { util: { HashMap } };
@@ -426,4 +440,121 @@ test('the tool is declared, allowed in No Code with its schema and aliases, and 
     assert.match(section, when);
   }
   assert.match(read('TOOLS.md'), /\| `nocode-baserow-rows-list` \| `tools_nocode_baserow_rows_list` \|/);
+});
+
+// Usage feedback (23/11): after a base was imported again, a filter on a field of the table answered
+// ERROR_FILTER_FIELD_NOT_FOUND with the id the field had before, then worked a minute later.
+test('a filter refused for a field id the lib kept 60 s is read again once with the current fields, then said as such', () => {
+  const fake = fakeBaserow({ staleFields: 'once' });
+  const generation = { value: 1, incrementAndGet() { fake.state.renewed = true; return ++this.value; } };
+  const libProject = { get: key => key === 'fields_cache_generation' ? generation : null };
+  const result = plain(sandboxFor(fake.transport, libProject).C8O.nocodeBaserow.rowsList({ token: 't', table: 30, filter: { column: 'Stage', operator: 'single_select_equal', value: 'Won' } }));
+  assert.equal(result.status, 'ok', JSON.stringify(result.error));
+  assert.equal(generation.value, 2, 'the field list of the lib renewed once');
+  assert.equal(fake.state.calls.filter(c => c.name === 'TableGetDataNative').length, 2);
+  assert.ok(result.rows.length > 0);
+  assert.match(result.notes.join(' '), /read again with the current fields/);
+
+  const still = fakeBaserow({ staleFields: 'always' });
+  const lib = { get: () => ({ incrementAndGet() { return 3; } }) };
+  const refused = plain(sandboxFor(still.transport, lib).C8O.nocodeBaserow.rowsList({ token: 't', table: 30, filter: { column: 'Stage', operator: 'single_select_equal', value: 'Won' } }));
+  assert.equal(refused.error.code, 'field_list_stale');
+  assert.match(refused.error.message, /lib_BaseRow keeps the fields of a table 60 seconds.*the read made again after renewing them was refused too.*The filter is right/);
+  // without the lib's field list at hand, no second read: the same explanation
+  const alone = rowsList({ table: 30, filter: { column: 'Stage', operator: 'single_select_equal', value: 'Won' } }, { staleFields: 'always' });
+  assert.equal(alone.result.error.code, 'field_list_stale');
+  assert.equal(alone.calls.filter(c => c.name === 'TableGetDataNative').length, 1);
+});
+
+// ---- nocode-baserow-rows-delete (usage feedback 25/11: 178 rows of 5 tables emptied by hand in Baserow) -------------
+
+function rowsDelete(options, fakeOptions, fake = fakeBaserow(fakeOptions)) {
+  const result = plain(load(fake.transport).rowsDelete(Object.assign({ token: 't' }, options)));
+  return { result, fake, deletes: fake.state.calls.filter(c => c.name === '_api_database_rows_table__table_id__batch_delete__POST') };
+}
+
+test('rows-delete plan counts the rows of a filter and deletes nothing; apply needs that count', () => {
+  const filter = { column: 'Stage', operator: 'single_select_equal', value: 'Won' };
+  const plan = rowsDelete({ table: 30, filter });
+  assert.equal(plan.result.status, 'ok', JSON.stringify(plan.result.error));
+  assert.equal(plan.result.mode, 'plan');
+  assert.equal(plan.result.count, 27);
+  assert.equal(plan.result.sample.length, 10);
+  assert.deepEqual(Object.keys(plan.result.sample[0]), ['id', 'Name'], 'the id and the primary field');
+  assert.match(plan.result.next, /nocode-baserow-rows-delete\(\{ table: 30, filter: .*mode: "apply", expectedCount: 27 \}\)/);
+  assert.equal(plan.deletes.length, 0);
+  assert.ok(!plan.fake.state.calls.some(c => /batch_delete|Delete/.test(c.name)), 'a plan writes nothing');
+  // an apply without the count, or with another count, deletes nothing
+  const blind = rowsDelete({ table: 30, filter, mode: 'apply' });
+  assert.equal(blind.result.error.code, 'expected_count_required');
+  assert.equal(blind.deletes.length, 0);
+  const changed = rowsDelete({ table: 30, filter, mode: 'apply', expectedCount: 25 });
+  assert.equal(changed.result.error.code, 'count_changed');
+  assert.match(changed.result.error.message, /27 rows match now, not 25/);
+  assert.equal(changed.deletes.length, 0);
+  // the count of the plan deletes those rows, and only them
+  const done = rowsDelete({ table: 30, filter, mode: 'apply', expectedCount: 27 });
+  assert.equal(done.result.status, 'ok', JSON.stringify(done.result.error));
+  assert.equal(done.result.deleted, 27);
+  assert.equal(done.result.remaining, 0);
+  assert.ok(done.fake.state.rows.every(row => row.Stage.value === 'Open'));
+  assert.equal(done.fake.state.rows.length, 28);
+  assert.match(done.result.next, /Baserow trash/);
+});
+
+test('rows-delete by ids checks that each row exists; all:true empties a table in calls of 1000 rows', () => {
+  const missing = rowsDelete({ table: 30, ids: [3, 4, 999], mode: 'apply' });
+  assert.equal(missing.result.error.code, 'rows_missing');
+  assert.deepEqual(missing.result.missing, [999]);
+  assert.equal(missing.deletes.length, 0, 'nothing deleted when an id is not a row of the table');
+  const plan = rowsDelete({ table: 30, ids: '[3, 4, 999]' });
+  assert.equal(plan.result.count, 2);
+  assert.deepEqual(plan.result.missing, [999]);
+  const ids = rowsDelete({ table: 30, ids: [3, 4], mode: 'apply' });
+  assert.equal(ids.result.deleted, 2);
+  assert.deepEqual(ids.result.deletedIds, [3, 4]);
+  // a table of 1,450 rows: 1000 in the first call, in batches of 200, then the call for the rest
+  const fake = fakeBaserow({ rowCount: 1450 });
+  const first = rowsDelete({ table: 30, all: true, mode: 'apply', expectedCount: 1450 }, null, fake);
+  assert.equal(first.result.deleted, 1000);
+  assert.equal(first.result.remaining, 450);
+  assert.equal(first.deletes.length, 5);
+  assert.match(first.result.next, /450 rows still match: .*all: true, mode: "apply", expectedCount: 450/);
+  const rest = rowsDelete({ table: 30, all: true, mode: 'apply', expectedCount: 450 }, null, fake);
+  assert.equal(rest.result.deleted, 450);
+  assert.equal(fake.state.rows.length, 0);
+  // exactly one way to name the rows
+  assert.equal(rowsDelete({ table: 30 }).result.error.code, 'rows_required');
+  assert.equal(rowsDelete({ table: 30, all: true, ids: [1] }).result.error.code, 'rows_required');
+  assert.equal(rowsDelete({ table: 30, ids: [1.5] }).result.error.code, 'invalid_ids');
+  // a table the user cannot read is refused before any row is read
+  assert.equal(rowsDelete({ table: 31, all: true, mode: 'apply', expectedCount: 1 }).result.error.code, 'table_not_readable');
+});
+
+test('rows-delete answers the rows deleted when Baserow refuses a batch, and its sequence takes its arguments as text', () => {
+  const fake = fakeBaserow({ rowCount: 300 });
+  let batches = 0;
+  const transport = (name, params) => {
+    if (name === '_api_database_rows_table__table_id__batch_delete__POST' && ++batches === 2) return { document: { object: { error: 'ERROR_USER_NOT_IN_GROUP', detail: 'The user does not belong to the workspace.' } } };
+    return fake.transport(name, params);
+  };
+  const partial = plain(load(transport).rowsDelete({ token: 't', table: 30, all: true, mode: 'apply', expectedCount: 300 }));
+  assert.equal(partial.status, 'partial');
+  assert.equal(partial.deleted, 200);
+  assert.match(partial.error.message, /200 rows were deleted, then Baserow refused to delete rows 201 to 300/);
+  const step = runSequenceStep('tools_nocode_baserow_rows_delete.yaml', { table: '30', filter: '{"column":"Stage","operator":"single_select_equal","value":"Open"}', mode: 'plan' }, fakeBaserow().transport);
+  assert.equal(step.status, 'ok', JSON.stringify(step.error));
+  assert.equal(step.count, 28);
+});
+
+test('rows-delete is a No Code write: listed to No Code agents, held in apply mode only by the confirmation of changes', () => {
+  const sandbox = sandboxFor(() => { throw new Error('no call'); });
+  sandbox.include('js/nocode_tool_policy.js');
+  sandbox.include('js/nocode_write_confirm.js');
+  assert.equal(sandbox.C8O.nocodeToolPolicy.allows('tools_nocode_baserow_rows_delete'), true);
+  const confirm = sandbox.C8O.nocodeWriteConfirm;
+  assert.equal(confirm.holds('tools_nocode_baserow_rows_delete', { table: '30', all: 'true', mode: 'plan' }), false);
+  assert.equal(confirm.holds('tools_nocode_baserow_rows_delete', { table: '30', all: 'true', mode: 'apply', expectedCount: '178' }), true);
+  assert.deepEqual(plain(confirm.summary('tools_nocode_baserow_rows_delete', { table: '30', all: 'true', mode: 'apply', expectedCount: '178' }, null)).items, [{ action: 'delete_rows', target: '30 (178)' }]);
+  assert.deepEqual(plain(confirm.summary('tools_nocode_baserow_rows_delete', { table: '30', ids: '[4,5]', mode: 'apply' }, null)).items, [{ action: 'delete_rows', target: '30 (2)' }]);
 });

@@ -579,6 +579,7 @@ var ARGUMENT_ALIASES = {
   tools_project_list: { cursor: "_nextCursor", nextCursor: "_nextCursor" },
   tools_databaseobject_move: { at: "position" },
   tools_databaseobject_copy: { position: "at" },
+  tools_nocode_baserow_rows_delete: { tableId: "table", table_id: "table", table_id_int: "table", rowIds: "ids", row_ids: "ids", rows: "ids", where: "filter", expected: "expectedCount", expected_count: "expectedCount", count: "expectedCount" },
   tools_nocode_baserow_rows_list: { tableId: "table", table_id: "table", table_id_int: "table", columns: "fields", where: "filter", order: "sort", orderBy: "sort", order_by: "sort", pageSize: "size", limit: "size" },
   // the names of catalog-list (tableId, databaseId) and of schema-apply (baseId, databaseName) for what to read
   tools_nocode_baserow_schema_get: { table: "tables", tableId: "tables", tableIds: "tables", table_id: "tables", tableName: "tables", tableNames: "tables", baseId: "base", base_id: "base", databaseId: "base", database_id: "base", database: "base", baseName: "base", databaseName: "base", includeLinked: "linked", linkedTables: "linked", withRows: "rows", includeRows: "rows", data: "rows" },

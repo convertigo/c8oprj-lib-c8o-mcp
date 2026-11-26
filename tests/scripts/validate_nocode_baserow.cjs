@@ -54,8 +54,27 @@ function fakeBaserow(options = {}) {
       case 'TableCreateColumn': {
         const body = JSON.parse(params.data);
         if (!options.refuseFields) {
-          state.fields[params.table_id] = (state.fields[params.table_id] || []).concat([{ id: state.nextId++, table_id: Number(params.table_id), ...body }]);
+          const created = { id: state.nextId++, table_id: Number(params.table_id), ...body };
+          state.fields[params.table_id] = (state.fields[params.table_id] || []).concat([created]);
+          // Baserow creates the related field in the linked table, named after the table of the link
+          if (body.type === 'link_row' && body.link_row_table_id && body.has_related_field !== false) {
+            const related = { id: state.nextId++, name: state.tables.find(t => t.id === Number(params.table_id)).name, type: 'link_row', table_id: body.link_row_table_id, link_row_table_id: Number(params.table_id) };
+            created.link_row_related_field_id = related.id;
+            state.fields[body.link_row_table_id] = (state.fields[body.link_row_table_id] || []).concat([related]);
+          }
         }
+        return { document: {} };
+      }
+      case '_api_database_fields__field_id___PATCH': {
+        assert.equal(params.__header_Authorization, 'JWT user-token', 'a field is changed with the user\'s account');
+        const field = Object.values(state.fields).flat().find(f => f.id === Number(params.field_id));
+        Object.assign(field, JSON.parse(params.__body));
+        return { document: { object: field } };
+      }
+      case '_api_database_fields__field_id___DELETE': {
+        assert.equal(params.__header_Authorization, 'JWT user-token', 'a field is deleted with the user\'s account');
+        for (const table of Object.keys(state.fields)) state.fields[table] = state.fields[table].filter(f => f.id !== Number(params.field_id));
+        state.deletedFields = (state.deletedFields || []).concat([Number(params.field_id)]);
         return { document: {} };
       }
       case '_api_applications_workspace__workspace_id___POST': {
@@ -554,4 +573,81 @@ test('sample rows go to the columns they name: a column Nom keeps its value, the
   const deals = C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', view: 'compact', schema: { baseId: 20, tables: [{ id: 30, name: 'Deals', sampleRows: [{ nom: 'Umbrella' }] }] } });
   assert.equal(deals.status, 'ok', JSON.stringify(deals.error));
   assert.deepEqual(JSON.parse(fake.state.calls.filter(c => c.name === 'TableCreateRow').pop().params.data), { Name: 'Umbrella' });
+});
+
+// Usage feedback (23/11): a link field to a table of the base that the schema did not list failed with "links to
+// unknown or unsaved table", and the table had to be added to the schema without fields.
+test('a link field reaches a table of the base the schema does not list; another base or no such table is said', () => {
+  const fake = fakeBaserow();
+  fake.state.tables.push({ id: 31, name: 'Companies', baseId: 20 });
+  fake.state.fields[31] = [{ id: 311, name: 'Name', type: 'text', primary: true, table_id: 31 }, { id: 312, name: 'City', type: 'text', table_id: 31 }];
+  fake.state.bases.push({ id: 21, name: 'Archive', workspaceId: 10 });
+  fake.state.tables.push({ id: 41, name: 'Suppliers', baseId: 21 });
+  const C8O = load(fake.transport).C8O;
+  const linked = plain(C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema: { baseId: 20, tables: [{ name: 'Deals', fields: [
+    { name: 'Client', type: 'link_row', targetTable: 'companies' },
+    { name: 'Client city', type: 'lookup', through: 'Client', targetField: 'City' }
+  ] }] } }));
+  assert.equal(linked.status, 'ok', JSON.stringify(linked.error));
+  const created = fake.state.calls.filter(c => c.name === 'TableCreateColumn').map(c => JSON.parse(c.params.data));
+  assert.equal(created.find(f => f.name === 'Client').link_row_table_id, 31);
+  assert.equal(created.find(f => f.name === 'Client city').target_field_id, 312, 'the lookup reads the fields of the linked table');
+  // by id and by path too
+  const byPath = plain(load(fakeBaserowWith(fake)).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'plan', schema: { baseId: 20, tables: [{ name: 'Deals', fields: [{ name: 'Fournisseur', type: 'link_row', targetTable: 'Team~>Sales~>Companies' }] }] } }));
+  assert.equal(byPath.actions.find(a => a.type === 'create_field').body.link_row_table_id, 31);
+  // a table of another base: Baserow links only tables of one base
+  const other = plain(load(fake.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema: { baseId: 20, tables: [{ name: 'Deals', fields: [{ name: 'Supplier', type: 'link_row', targetTable: 'Suppliers' }] }] } }));
+  assert.equal(other.status, 'error');
+  assert.match(other.error.message, /Supplier links to table Suppliers, which is in another base \(Archive\): Baserow links only tables of the same base, Sales\. Its tables: Deals \(30\), Companies \(31\)/);
+  // no such table: the tables of the base are named, and the way to create it
+  const none = plain(load(fake.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema: { baseId: 20, tables: [{ name: 'Deals', fields: [{ name: 'Owner', type: 'link_row', targetTable: 'People' }] }] } }));
+  assert.match(none.error.message, /Owner links to table People, which is neither in schema\.tables nor among the tables of base Sales \(Deals \(30\), Companies \(31\)\): give the name or the id of one of them as targetTable, or add the table to schema\.tables to create it/);
+  // a plan says it as a warning
+  const plan = plain(load(fake.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'plan', schema: { baseId: 20, tables: [{ name: 'Deals', fields: [{ name: 'Owner', type: 'link_row', targetTable: 'People' }] }] } }));
+  assert.equal(plan.status, 'ok');
+  assert.equal(plan.warnings.find(w => w.code === 'link_target_unknown').field, 'Owner');
+});
+function fakeBaserowWith(fake) { return fake.transport; }
+
+// Usage feedback (18/11): no field could be changed or deleted, a formula reading a link created in the same call
+// failed, and relatedFieldName was not applied.
+test('schema-apply renames a field, changes a formula, and deletes a field only once the user agreed', () => {
+  const fake = fakeBaserow();
+  fake.state.fields[30].push({ id: 304, name: 'Old notes', type: 'long_text', table_id: 30 });
+  fake.state.fields[30].push({ id: 305, name: 'Total', type: 'formula', formula: "field('Name')", table_id: 30 });
+  const schema = fields => ({ baseId: 20, tables: [{ name: 'Deals', fields }] });
+  const run = (mode, fields) => plain(load(fake.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode, schema: schema(fields) }));
+  const plan = run('plan', [{ name: 'Stage', rename: 'Phase' }, { name: 'Total', type: 'formula', formula: "concat(field('Name'), '!')" }, { name: 'Old notes', delete: true }]);
+  assert.equal(plan.status, 'ok', JSON.stringify(plan.error));
+  assert.deepEqual(plan.actions.filter(a => /update_field|delete_field/.test(a.type)).map(a => a.type + ' ' + a.field).sort(), ['delete_field Old notes', 'update_field Stage', 'update_field Total']);
+  assert.match(plan.actions.find(a => a.type === 'delete_field').message, /the user must agree, then apply with confirmDelete: true/);
+  assert.ok(!plan.warnings.some(w => w.code === 'field_type_mismatch'), 'no type given: no type compared');
+  // an apply of a deletion without the agreement changes nothing at all
+  const refused = run('apply', [{ name: 'Stage', rename: 'Phase' }, { name: 'Old notes', delete: true }]);
+  assert.equal(refused.error.code, 'field_delete_not_confirmed');
+  assert.ok(!fake.state.calls.some(c => /PATCH|DELETE/.test(c.name)), 'nothing changed');
+  const done = run('apply', [{ name: 'Stage', rename: 'Phase' }, { name: 'Total', type: 'formula', formula: "concat(field('Name'), '!')" }, { name: 'Old notes', delete: true, confirmDelete: true }]);
+  assert.equal(done.status, 'ok', JSON.stringify(done.error));
+  const names = fake.state.fields[30].map(f => f.name);
+  assert.ok(names.includes('Phase') && !names.includes('Stage') && !names.includes('Old notes'), names.join(', '));
+  assert.equal(fake.state.fields[30].find(f => f.name === 'Total').formula, "concat(field('Name'), '!')");
+  assert.deepEqual(fake.state.deletedFields, [304]);
+  assert.deepEqual(done.deleted.fields.map(f => f.name), ['Old notes']);
+  // the primary field is never deleted; a rename to a name the table has is refused
+  assert.match(run('apply', [{ name: 'Name', delete: true, confirmDelete: true }]).error.message, /primary field of its table: Baserow never deletes it/);
+  assert.match(run('apply', [{ name: 'Phase', rename: 'Total' }]).error.message, /already has a field Total/);
+});
+
+test('schema-apply creates a formula after the link it reads, and names the related field as asked', () => {
+  const fake = fakeBaserow();
+  fake.state.tables.push({ id: 31, name: 'Companies', baseId: 20 });
+  fake.state.fields[31] = [{ id: 311, name: 'Name', type: 'text', primary: true, table_id: 31 }];
+  const result = plain(load(fake.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema: { baseId: 20, tables: [{ name: 'Deals', fields: [
+    { name: 'Client label', type: 'formula', formula: "join(lookup('Account', 'Name'), ', ')" },
+    { name: 'Account', type: 'link_row', targetTable: 'Companies', relatedFieldName: 'Deals of the company' }
+  ] }] } }));
+  assert.equal(result.status, 'ok', JSON.stringify(result.error));
+  const order = fake.state.calls.filter(c => c.name === 'TableCreateColumn').map(c => JSON.parse(c.params.data).name);
+  assert.deepEqual(order, ['Account', 'Client label'], 'the link first, then the formula that reads it');
+  assert.ok(fake.state.fields[31].some(f => f.name === 'Deals of the company'), fake.state.fields[31].map(f => f.name).join(', '));
 });

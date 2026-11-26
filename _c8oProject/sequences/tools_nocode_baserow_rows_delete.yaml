@@ -1,0 +1,53 @@
+accessibility: Private
+comment: |
+  Delete rows of a No Code Baserow table
+  Deletes rows of a Baserow table with the Baserow account of the authenticated No Code user: by their ids, by a filter (the reduced filter of nocode-baserow-rows-list, literal values) or all of them (all: true, to empty a table). mode plan (the default) deletes nothing and answers how many rows match and the first of them. mode apply deletes them; with a filter or all: true it needs expectedCount, the count of the plan, and refuses (count_changed, nothing deleted) when the table changed since. At most 1000 rows per call: the answer says how many remain and the next call. Deleted rows go to the Baserow trash of the base. Tell the user the count and get their agreement before an apply. A table the user cannot read or change is refused.
+responseTimeout: 300
+↓Run [steps.SimpleStep-1797260002001]: 
+  expression: |
+    'include("js/nocode_baserow.js");
+    result = C8O.nocodeBaserow.rowsDelete({
+      token: token,
+      table: typeof table === "undefined" ? null : table,
+      ids: typeof ids === "undefined" ? null : ids,
+      filter: typeof filter === "undefined" ? null : filter,
+      all: typeof all === "undefined" ? null : all,
+      mode: typeof mode === "undefined" ? null : mode,
+      expectedCount: typeof expectedCount === "undefined" ? null : expectedCount
+    });'
+↓result [steps.JsonToXmlStep-1797260002002]: 
+  jsonObject: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: JS
+        - →→: result
+  key: 
+    - xmlizable: 
+      - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+      - SmartType: 
+        - ↑mode: PLAIN
+        - →→: result
+↓token [variables.RequestableVariable-1797260002003]: 
+  comment: 'No Code Studio bearer token. Leave empty in the integrated assistant: the MCP bearer authentication supplies it.'
+  description: 'No Code Studio bearer token. Leave empty in the integrated assistant: the MCP bearer authentication supplies it.'
+↓table [variables.RequestableVariable-1797260002004]: 
+  comment: Id of the Baserow table, from nocode-baserow-catalog-list or forms_config.table_id_int of a form source; its path Workspace~>Base~>Table is accepted too.
+  description: Id of the Baserow table, from nocode-baserow-catalog-list or forms_config.table_id_int of a form source; its path Workspace~>Base~>Table is accepted too.
+  required: true
+↓ids [variables.RequestableVariable-1797260002005]: 
+  comment: Optional JSON list of the ids of the rows to delete (nocode-baserow-rows-list answers them), 1000 at most.
+  description: Optional JSON list of the ids of the rows to delete (nocode-baserow-rows-list answers them), 1000 at most.
+↓filter [variables.RequestableVariable-1797260002006]: 
+  comment: 'Optional filter of the rows to delete, in the reduced shorthand of nocode-baserow-rows-list: { column, operator, value } or { all: [...] } / { any: [...] } nested, with literal values.'
+  description: 'Optional filter of the rows to delete, in the reduced shorthand of nocode-baserow-rows-list: { column, operator, value } or { all: [...] } / { any: [...] } nested, with literal values.'
+↓all [variables.RequestableVariable-1797260002007]: 
+  comment: Optional, true deletes every row of the table. Give exactly one of ids, filter and all.
+  description: Optional, true deletes every row of the table. Give exactly one of ids, filter and all.
+↓mode [variables.RequestableVariable-1797260002008]: 
+  comment: plan (the default) counts the rows and deletes nothing; apply deletes them.
+  description: plan (the default) counts the rows and deletes nothing; apply deletes them.
+  value: plan
+↓expectedCount [variables.RequestableVariable-1797260002009]: 
+  comment: With mode apply and a filter or all, the count the plan answered; another count now refuses the apply, nothing deleted.
+  description: With mode apply and a filter or all, the count the plan answered; another count now refuses the apply, nothing deleted.

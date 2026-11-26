@@ -71,6 +71,7 @@
   ↓tools_nocode_app_create [sequences.GenericSequence]: 🗏 sequences/tools_nocode_app_create.yaml
   ↓tools_nocode_attachment_read [sequences.GenericSequence]: 🗏 sequences/tools_nocode_attachment_read.yaml
   ↓tools_nocode_baserow_catalog_list [sequences.GenericSequence]: 🗏 sequences/tools_nocode_baserow_catalog_list.yaml
+  ↓tools_nocode_baserow_rows_delete [sequences.GenericSequence]: 🗏 sequences/tools_nocode_baserow_rows_delete.yaml
   ↓tools_nocode_baserow_rows_list [sequences.GenericSequence]: 🗏 sequences/tools_nocode_baserow_rows_list.yaml
   ↓tools_nocode_baserow_schema_apply [sequences.GenericSequence]: 🗏 sequences/tools_nocode_baserow_schema_apply.yaml
   ↓tools_nocode_baserow_schema_get [sequences.GenericSequence]: 🗏 sequences/tools_nocode_baserow_schema_get.yaml
