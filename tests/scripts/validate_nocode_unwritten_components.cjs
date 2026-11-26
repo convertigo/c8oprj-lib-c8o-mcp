@@ -190,7 +190,7 @@ test('C8Oforms 2.3 issues: what No Code Studio wrote is kept as a warning; a new
   fresh.formulaire[1].id = 99;
   const r1 = clone(nf.keepEditorFlowElements(issues(), changed, current, {}));
   // the reasons of C8Oforms say No Code Studio: not said again
-  assert.equal(r1.issues[0].message, 'Unwritten setting config.iconGap of a button. Reason: ' + ICON_GAP + '. Ask the user to set it, on page «Accueil», component «ouvrir», setting config.iconGap. ' + NO_APPROXIMATION);
+  assert.equal(r1.issues[0].message, 'Unwritten setting config.iconGap of a button. Reason: ' + ICON_GAP + '. Ask the user to change it, on page «Accueil», component «ouvrir», setting config.iconGap. ' + NO_APPROXIMATION);
   assert.deepEqual(r1.issues[0].addInNoCodeStudio, { type: 'button', page: 'Accueil', component: 'ouvrir', setting: 'config.iconGap' });
   const r2 = clone(nf.keepEditorFlowElements(issues(), fresh, current, {}));
   const modal = r2.issues.find(i => i.code === 'unwritten_component');
@@ -292,9 +292,9 @@ test('the form and its pages carry settings too: kept unchanged, refused changed
   changed.i18n.en.hello = 'Hi';
   changed.pages[0].config.pageOnly = 2;
   const refused = clone(nf.keepEditorFlowElements(issues(), changed, current, {}));
-  assert.equal(refused.issues[0].message, 'Unwritten setting i18n of the form. Reason: the translations of the form: add them in No Code Studio. Ask the user to set it, in the settings of the form, setting i18n. ' + NO_APPROXIMATION);
+  assert.equal(refused.issues[0].message, 'Unwritten setting i18n of the form. Reason: the translations of the form: add them in No Code Studio. Ask the user to change it, in the settings of the form, setting i18n. ' + NO_APPROXIMATION);
   assert.deepEqual(refused.issues[0].addInNoCodeStudio, { type: 'form', setting: 'i18n' });
-  assert.equal(refused.issues[1].message, 'Unwritten setting config.pageOnly of a page. Reason: a page setting. Ask the user to set it in No Code Studio, in the settings of page «Accueil», setting config.pageOnly. ' + NO_APPROXIMATION);
+  assert.equal(refused.issues[1].message, 'Unwritten setting config.pageOnly of a page. Reason: a page setting. Ask the user to change it in No Code Studio, in the settings of page «Accueil», setting config.pageOnly. ' + NO_APPROXIMATION);
   assert.deepEqual(refused.issues[1].addInNoCodeStudio, { type: 'page', page: 'Accueil', setting: 'config.pageOnly' });
 });
 

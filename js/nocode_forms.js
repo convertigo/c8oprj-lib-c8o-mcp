@@ -1926,7 +1926,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (owner.kind === "component") {
       place.page = pageNameOf(form, owner.item);
       place.component = owner.item.name;
-      words = "on page «" + place.page + "», " + (setting.length ? "component «" + owner.item.name + "»" : "as component «" + owner.item.name + "»");
+      // "as component" names the component the user adds; one the form already has is named as it is
+      words = "on page «" + place.page + "», " + (setting.length || owner.saved ? "component «" + owner.item.name + "»" : "as component «" + owner.item.name + "»");
     } else if (owner.kind === "page") {
       place.page = String(owner.item.name || owner.item.pageTechName);
       words = "in the settings of page «" + place.page + "»";
@@ -1937,6 +1938,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return { fields: place, words: words };
   }
   var NO_APPROXIMATION = "Never replace it with an approximation: another component, a style or HTML, or a navigation.";
+  // What the user does in No Code Studio: change what the form as saved already has, else add a component or set a setting.
+  function unwrittenVerb(owner, setting) {
+    if (setting.length) { return owner.saved && valueAtPath(owner.saved, setting) !== undefined ? "change it" : "set it"; }
+    return owner.saved ? "change it" : "add it";
+  }
   // "Ask the user to add it in No Code Studio", without "in No Code Studio" when the reason of C8Oforms already says it.
   function askTheUser(verb, reason, said, where) {
     var named = /No Code Studio/.test(reason) || /No Code Studio/.test(said);
@@ -1956,7 +1962,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var why = reason.length ? (said.indexOf(reason) >= 0 ? "" : " Reason: " + reason + (/[.!?]$/.test(reason) ? "" : ".")) :
         " It is " + (setting.length ? "the setting " + setting + " of " + subject : subject) + ", which No Code Studio writes and the tools of this C8Oforms do not.";
       issue.message = (said.length ? said.replace(/([^.!?])$/, "$1.") : (setting.length ? "Unwritten setting: " + setting : "Unwritten component: " + owner.item.type) + ".") + why +
-        askTheUser(setting.length ? "set it" : "add it", reason, said, place.words);
+        askTheUser(unwrittenVerb(owner, setting), reason, said, place.words);
       issue.addInNoCodeStudio = place.fields;
     });
   }
