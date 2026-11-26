@@ -566,8 +566,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   var HEAVY_PAGE_COMPONENTS = 150;
   var REPEATED_DATA_ADVICE = "Repeated data (lines, participants, findings, parts...) belongs in a linked table, not in static copies: " +
     "save the parent record first, then show its rows in a card list or a grid filtered on the parent, with an « Add » button that opens " +
-    "a small modal saving one row, and one « remove » flow that takes the id of the selected row (nocode-app-create builds such a list " +
-    "with its entry form). Static copies make the page heavy and cap the number of entries.";
+    "the entry form of one row (a page, or a modal where the contract writes them), and one « remove » flow that takes the id of the " +
+    "selected row (nocode-app-create builds such a list with its entry form). Static copies make the page heavy and cap the number of entries.";
   function numberedBase(name) {
     var text = trimmed(name);
     var match = /^(.*?)[\s_-]*\d+$/.exec(text);
@@ -794,7 +794,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           placeholders: "Give text, select and date inputs a useful placeholder or none: a missing placeholder is compiled to an empty one, never the prototype example text."
         },
         data: {
-          repeated: "Repeated data (lines, participants, findings, parts) is a linked table, never static copies of a block (line_1 ... line_N) with one flow per copy (warnings repeated_static_block, repeated_flow, heavy_page): save the parent, then list its children in a card list or a grid filtered on the parent, an Add button opening a small modal that saves one child, one remove flow taking the id of the selected row. nocode-app-create builds such a list with its entry form.",
+          repeated: "Repeated data (lines, participants, findings, parts) is a linked table, never static copies of a block (line_1 ... line_N) with one flow per copy (warnings repeated_static_block, repeated_flow, heavy_page): save the parent, then list its children in a card list or a grid filtered on the parent, an Add button opening the entry form of one child (a page, or a modal where the contract writes them), one remove flow taking the id of the selected row. nocode-app-create builds such a list with its entry form.",
           local: "sourceEnabled=false is transient UI state, never a substitute for business storage. Use local row actions only for an explicitly temporary interaction; never deliver fictitious-row buttons as an application feature.",
           connected: "Deliver an operational application. For Baserow, discover the authorized workspace/base, plan and create the dedicated schema required by the application (field names in the user's language: they are the grid column headers), then bind save actions and result views to those tables. Ask for an unresolved destination or access; do not fall back to a local demonstration. Do not seed invented records unless explicitly requested.",
           unsupported: "Do not put rows/sampleRows/data directly on a reduced grid: Forms does not initialize local grid rows from those properties. Do not use a self source as a pretend grid backend.",
@@ -816,6 +816,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         persistence: "The tool fetches through C8Oforms.APIV2_getDocument and saves through C8Oforms.APIV2_updateFormulaireDocument. Never write FullSync directly.",
         requiredInputs: ["id", "operations", "token"],
         operationsShape: "Pass operations as an array for multiple edits or as one operation object for a single edit.",
+        // the flow steps the C8Oforms of the server does not write (unwrittenSteps in C8O.nocodeForms.contract), never a list of this file
+        unwrittenSteps: forms && forms.unwrittenSteps ? forms.unwrittenSteps : {},
         commonOperations: [
           { action: "finalize_baserow_bindings", note: "Only operation in the call. Resume an already saved creation by returned id; do not manually patch identity fields or recreate the form." },
           { action: "update_field", note: "A part of a long defaultFrom expression: defaultFromEdit, each find once in the declared expression; the tools compile the result. Refused when No Code Studio changed the expression that runs: send defaultFrom whole.", example: { action: "update_field", fieldName: "total", patch: { defaultFromEdit: [{ find: "* 1.2", replace: "* 1.055" }] } } }
@@ -826,7 +828,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
           "Use patch for updates; component settings usually live under config.",
           "Use ids when available; names are accepted for user-friendly edits but must be unique.",
           "A key the operation does not read beside its patch, fieldObject or element, or a patch key the component does not have as saved, is refused with the place it belongs (unread_operation_key, unread_patch_key): nothing is saved.",
-          "A flow step No Code Studio wrote that the tools do not write (a modal opened or closed, properties set at run time) is kept as it is (warning editor_flow_element_kept); the tools cannot add one.",
+          "A flow step of a type this C8Oforms does not write (unwrittenSteps, with its reason) is kept as No Code Studio wrote it (warning editor_flow_element_kept), and the tools cannot add one (unsupported_flow_element): ask the user to add it in No Code Studio, naming the flow and the step it follows; never replace it with a navigation (push_page, __c8o_back included) or another step.",
           "The answer lists the warnings the edit brought and those of what it changed; validation.otherWarnings counts the others (nocode-form-get warnings:true lists them)."
         ]
       },
@@ -1532,9 +1534,34 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     Object.keys(forms.sectionParts || {}).forEach(function (key) { CONTRACT_PARTS[key] = forms.sectionParts[key]; });
   }
 
+  // The flow steps the C8Oforms of the server does not write, with their reason: its table unwrittenFlowElements when its
+  // contract gives one, else the actions of its No Code Studio palette (AllTypes.json, cat "action") its contract types
+  // leave out. Never a list of this file: what a C8Oforms writes changes with its version (modals and their steps since
+  // contract v32, 2.3), and a list here said a modal could not be written to an agent of a C8Oforms that writes them.
+  var UNWRITTEN_STEP_REASON = "not written by the tools of this C8Oforms: No Code Studio writes it";
+  function unwrittenSteps(forms, options) {
+    var table = forms && forms.unwrittenFlowElements;
+    if (table && typeof table === "object" && !Array.isArray(table)) {
+      var given = {};
+      Object.keys(table).forEach(function (type) { given[type] = trimmed(table[type]) || UNWRITTEN_STEP_REASON; });
+      return given;
+    }
+    var written = {};
+    ensureArray(forms && forms.types).forEach(function (type) { written[String(type)] = true; });
+    var out = {};
+    try {
+      ensureArray((formsRun("catalog", {}, options || {}) || {}).catalog).forEach(function (item) {
+        if (item && item.cat === "action" && item.type && !written[String(item.type)]) { out[String(item.type)] = UNWRITTEN_STEP_REASON; }
+      });
+    } catch (_noCatalog) {}
+    return out;
+  }
+  C8O.nocodeForms.unwrittenSteps = unwrittenSteps;
+
   C8O.nocodeForms.contract = function (options) {
     var opts = options || {};
     var forms = formsRun("contract", {}, opts);
+    forms.unwrittenSteps = unwrittenSteps(forms, opts);
     useFormsSections(forms);
     var types = forms.types;
     var authoring = authoringContract(forms);
@@ -1676,8 +1703,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   }
 
   // ---- flow steps written in No Code Studio (usage feedback 18/11 and 24/11) -----------------------------------------
-  // C8Oforms answers unsupported_flow_element for the steps its reduced contract does not write (a modal or a side panel
-  // opened or closed, properties set at run time), wherever they come from: one such step, added in No Code Studio,
+  // C8Oforms answers unsupported_flow_element for the steps its reduced contract does not write (unwrittenSteps: properties
+  // set at run time; before contract v32, a modal or a side panel opened or closed), wherever they come from: one such step, added in No Code Studio,
   // made every later edit by the tools invalid, and the user had to take the steps out, edit, and put them back by hand.
   // A step the saved form already had, with the same type, is kept as the editor wrote it: its issue becomes a warning.
   // A new step of such a type, or a step whose type changed, is still refused.

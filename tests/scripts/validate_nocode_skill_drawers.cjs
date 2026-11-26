@@ -37,7 +37,10 @@ const DRAWER_BUDGET = 12000;
 // them (workflow-existing.md step 6, sources.md), its running read and its refusals (errors.md).
 // Then skill-install (26/11): the freshness line calls skill-install (or the setup) on a different version, the tool is in
 // the allowed list, and the bootstrap and reveal lines say the same in fewer words (SKILL.md within its budget).
-const SKILL_TEXT_SHA256 = '4db8701e074d59839ccf54f88371e767c7a209ec44553df7bc969bf365dd58b2';
+// Then the steps the C8Oforms of the server does not write (26/11): named by its contract (unwrittenSteps), asked of the
+// user with their flow and place, never replaced by a navigation; no modal claimed unwritable (workflow-existing.md,
+// generation-quality.md).
+const SKILL_TEXT_SHA256 = '6817310fb127960b08706d8852de29d70e8530ffe35c4b7bd6be5ab83bc5444e';
 
 test('SKILL.md names each drawer once, and each drawer file of its folder is named', () => {
   const named = pointers.map(p => p.file);

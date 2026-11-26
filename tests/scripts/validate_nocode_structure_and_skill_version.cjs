@@ -59,7 +59,8 @@ test('static copies of a block and near-identical flows are told with their coun
   assert.equal(blocks.length, 1, JSON.stringify(found.map(w => w.message)));
   assert.equal(blocks[0].count, 12);
   assert.match(blocks[0].message, /^Page Inspections: 12 static copies of the same block \(finding_card_1, finding_card_2, finding_card_3 … finding_card_12, 8 components each\)\. Repeated data .* linked table/);
-  assert.match(blocks[0].message, /card list or a grid filtered on the parent, with an « Add » button that opens a small modal/);
+  // a modal only where the contract of the server writes them (v32): the advice never assumes one
+  assert.match(blocks[0].message, /card list or a grid filtered on the parent, with an « Add » button that opens the entry form of one row \(a page, or a modal where the contract writes them\)/);
   assert.equal(form.formulaire[Number(blocks[0].path.split('/')[2])].name, 'finding_card_1');
   const flows = found.filter(w => w.code === 'repeated_flow');
   assert.equal(flows.length, 1);
