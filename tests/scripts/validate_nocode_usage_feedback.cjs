@@ -420,3 +420,53 @@ test('defaultFromEdit changes a part of a declared expression and compiles it; a
   assert.equal(stale.error.code, 'expression_changed_in_editor');
   assert.equal(h.state.saves, saves, 'nothing saved');
 });
+
+// ---- after the check on test-nocode (26/11) -------------------------------------------------------------------------
+
+// The JSON Schema rules the input schemas of these tools use, enough to check an instance as a strict client does.
+function instanceErrors(schema, value, at = '') {
+  if (!schema || typeof schema !== 'object') return [];
+  if (schema.anyOf) return schema.anyOf.some(s => !instanceErrors(s, value, at).length) ? [] : [at + ': matches none of anyOf'];
+  if (schema.oneOf) return schema.oneOf.filter(s => !instanceErrors(s, value, at).length).length === 1 ? [] : [at + ': does not match exactly one of oneOf'];
+  const kind = Array.isArray(value) ? 'array' : value === null ? 'null' : Number.isInteger(value) ? 'integer' : typeof value;
+  if (schema.type && ![].concat(schema.type).some(t => t === kind || (t === 'number' && kind === 'integer'))) return [at + ': not ' + schema.type];
+  if (schema.enum && !schema.enum.includes(value)) return [at + ': not in enum'];
+  const errors = [];
+  if (kind === 'object') {
+    for (const key of schema.required || []) if (!(key in value)) errors.push(at + ': ' + key + ' required');
+    for (const [key, item] of Object.entries(value)) {
+      if (schema.properties && key in schema.properties) errors.push(...instanceErrors(schema.properties[key], item, at + '/' + key));
+      else if (schema.additionalProperties === false) errors.push(at + ': ' + key + ' not allowed');
+    }
+  }
+  if (kind === 'array' && schema.items) value.forEach((item, i) => errors.push(...instanceErrors(schema.items, item, at + '/' + i)));
+  return errors;
+}
+
+test('the input schemas take a thumbnail named by an attachment, as the tools do, and refuse a mixed or empty one', () => {
+  const overrides = { C8O: {}, include() {} };
+  vm.runInNewContext(fs.readFileSync(path.join(root, 'js/schema_overrides.js'), 'utf8'), overrides);
+  const edit = clone(overrides.C8O.schemaOverrides.applyInput('tools_nocode_form_edit', null, null));
+  const call = thumbnailImage => ({ id: '1', operations: [{ action: 'set_root', thumbnailImage }] });
+  assert.deepEqual(instanceErrors(edit, call({ attachment: 'logo.png' })), [], 'an attachment is accepted');
+  assert.deepEqual(instanceErrors(edit, call({ contentType: 'image/png', base64: 'iVBORw0KGgo=' })), [], 'base64 is still accepted');
+  assert.notDeepEqual(instanceErrors(edit, call({ attachment: 'logo.png', base64: 'x' })), [], 'not both');
+  assert.notDeepEqual(instanceErrors(edit, call({})), [], 'not empty');
+  assert.notDeepEqual(instanceErrors(edit, call({ contentType: 'image/gif', base64: 'x' })), [], 'a known image type');
+  const create = clone(overrides.C8O.schemaOverrides.applyInput('tools_nocode_form_create', null, null));
+  const update = clone(overrides.C8O.schemaOverrides.applyInput('tools_nocode_form_update', null, null));
+  assert.match(create.properties.reduced.description, /thumbnailImage=\{attachment:'<file name>'\}/);
+  assert.match(update.properties.patch.description, /thumbnailImage=\{attachment:'<file name>'\}/);
+});
+
+test('nocode-form-get warnings:true answers the steps No Code Studio wrote as an edit does: warnings, not issues', () => {
+  const h = harness();
+  const id = created(h);
+  withModalSteps(h, id);
+  const v = clone(h.client.read(id, { warnings: true }, h.auth)).validation;
+  assert.equal(v.valid, true, JSON.stringify(v.issues));
+  assert.ok(!v.issues.some(i => i.code === 'unsupported_flow_element'));
+  assert.equal(v.warnings.filter(w => w.code === 'editor_flow_element_kept').length, 2);
+  const part = clone(h.client.read(id, { warnings: true, flow: 'keep_item' }, h.auth)).validation;
+  assert.equal(part.warnings.filter(w => w.code === 'editor_flow_element_kept').length, 2, 'the warnings of the flow asked');
+});

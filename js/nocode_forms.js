@@ -2348,8 +2348,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var asksParts = partRefs(question.component).length + partRefs(question.page).length + partRefs(question.flow).length > 0;
     var answer;
     if (flag(question.warnings)) {
-      // the warnings of the saved form, those of the parts asked when some are, the repeated ones grouped
-      var validation = validateForm(current, options).validation;
+      // the warnings of the saved form, those of the parts asked when some are, the repeated ones grouped; the flow steps
+      // No Code Studio wrote that the tools do not write are warnings, as an edit answers them (keepEditorFlowElements)
+      var validation = keepEditorFlowElements(validateForm(current, options).validation, current, current);
       answer = { status: "ok", fetched: true, id: String(current._id), rev: String(current._rev), name: current.name };
       if (asksParts) {
         var parts = formParts(current, question);

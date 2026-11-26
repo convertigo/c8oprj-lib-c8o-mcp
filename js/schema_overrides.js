@@ -904,22 +904,41 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
     };
   }
 
+  // A thumbnail image: an image the user attached in the Tigo panel ({ attachment }), or base64 text ({ contentType,
+  // base64 }). The tool checks the bytes either way. The edit operation schema answered only the second shape, and an
+  // agent's { attachment } was refused by a strict client before it reached the tool (test-nocode, 26/11).
   function nocodeThumbnailImageSchema() {
     return {
-      type: "object",
-      properties: {
-        contentType: {
-          type: "string",
-          enum: ["image/png", "image/jpeg", "image/webp"],
-          description: "MIME type for the generated thumbnail image."
+      description: "The thumbnail image: { attachment: '<file name>' } for an image the user attached in the Tigo panel (PNG, JPEG or WebP), else { contentType, base64 }. The bytes are checked before the save: a truncated or altered image is refused, nothing saved.",
+      anyOf: [
+        {
+          type: "object",
+          properties: {
+            attachment: {
+              type: "string",
+              description: "File name of an image the user attached, as the user's message lists it (logo.png)."
+            }
+          },
+          required: ["attachment"],
+          additionalProperties: false
         },
-        base64: {
-          type: "string",
-          description: "Base64 image payload for an image smaller than 512x512 px. Standard base64, URL-safe base64, missing padding, and a data:image/...;base64 prefix are accepted."
+        {
+          type: "object",
+          properties: {
+            contentType: {
+              type: "string",
+              enum: ["image/png", "image/jpeg", "image/webp"],
+              description: "MIME type for the generated thumbnail image."
+            },
+            base64: {
+              type: "string",
+              description: "Base64 image payload for an image smaller than 512x512 px. Standard base64, URL-safe base64, missing padding, and a data:image/...;base64 prefix are accepted."
+            }
+          },
+          required: ["contentType", "base64"],
+          additionalProperties: false
         }
-      },
-      required: ["contentType", "base64"],
-      additionalProperties: false
+      ]
     };
   }
 
@@ -1402,7 +1421,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         project: nocodeFormsProjectProperty(),
-        reduced: jsonObjectOrStringSchema("Reduced creative form JSON (required, except with createId). For Baserow, supply table configuration and mappings but omit form_id/source_id/source_owner: creation finalizes them automatically and verifies readback. If saved=true with status=partial, resume the returned same-id recovery; do not recreate. Thumbnail upload: reduced.thumbnailImage={contentType:'image/png',base64:'...'} is persisted as the thumbnail attachment through APIV2_updateFormulaireDocument."),
+        reduced: jsonObjectOrStringSchema("Reduced creative form JSON (required, except with createId). For Baserow, supply table configuration and mappings but omit form_id/source_id/source_owner: creation finalizes them automatically and verifies readback. If saved=true with status=partial, resume the returned same-id recovery; do not recreate. Thumbnail upload: reduced.thumbnailImage={attachment:'<file name>'} (an image the user attached) or {contentType:'image/png',base64:'...'} is checked, then persisted as the thumbnail attachment through APIV2_updateFormulaireDocument."),
         createId: {
           type: "string",
           description: "createId of a creation that answered status running (a large form): given alone, no reduced, the call waits for that same creation and answers its result with the id of the form. Never send the reduced form of a running creation again."
@@ -1432,7 +1451,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
           type: "string",
           description: "Optional expected document revision. When provided, it is sent back with the patched document."
         },
-        patch: jsonObjectOrStringSchema("JSON Merge Patch object (required, except with updateId) applied to the fetched form, then validated and persisted only through C8Oforms APIs. To upload a generated thumbnail image, include patch.thumbnailImage={contentType:'image/png',base64:'...'}; it is consumed by the tool and not stored in the form JSON."),
+        patch: jsonObjectOrStringSchema("JSON Merge Patch object (required, except with updateId) applied to the fetched form, then validated and persisted only through C8Oforms APIs. To upload a thumbnail image, include patch.thumbnailImage={attachment:'<file name>'} (an image the user attached) or {contentType:'image/png',base64:'...'}; it is checked, consumed by the tool and not stored in the form JSON."),
         updateId: {
           type: "string",
           description: "updateId of an update that answered status running (a large form): given alone with id, no patch, the call waits for that same update and answers its result. Never send the patch of a running update again."
