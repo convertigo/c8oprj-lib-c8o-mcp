@@ -202,7 +202,19 @@ test('C8Oforms 2.3 issues: what No Code Studio wrote is kept as a warning; a new
   assert.match(bare.issues[0].message, /^Unwritten component modal\. It is a layout, which No Code Studio writes and the tools of this C8Oforms do not\. Ask the user/);
 });
 
-test('a modal the tools are asked for keeps the refusal of C8Oforms and gets the place, by creation and by edit', () => {
+// A component type the C8Oforms of the checkout does not write (authorable: false in its registry): modal before contract
+// v32, nav_content since; null when it writes them all.
+function unwrittenComponentType() {
+  const sandbox = {};
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(formsRoot, 'js/nocode_form_components.js'), 'utf8'), sandbox);
+  const components = sandbox.c8oNocodeFormComponents.components;
+  return Object.keys(components).find(type => components[type] && components[type].authorable === false) || null;
+}
+
+test('a component the tools are asked for and do not write keeps the refusal of C8Oforms and gets the place, by creation and by edit', () => {
+  const type = unwrittenComponentType();
+  if (!type) return;
   // before C8Oforms 2.3 the compilation throws (nocode-form-create answers its message as create_failed); since 2.3 the
   // validator answers an issue unwritten_component: the same words of ours either way
   const refusalOf = run => {
@@ -216,18 +228,18 @@ test('a modal the tools are asked for keeps the refusal of C8Oforms and gets the
     }
   };
   const h = harness();
-  const message = refusalOf(() => h.client.create({ name: 'Aide', pages: [{ name: 'Accueil', fields: [{ type: 'text', name: 'nom', label: 'Nom' }, { type: 'modal', name: 'aide', title: 'Aide', fields: [] }] }] }, h.auth));
-  assert.match(message, /^(Unsupported form component type: modal\. |.*modal)/, 'the words of C8Oforms first');
+  const message = refusalOf(() => h.client.create({ name: 'Aide', pages: [{ name: 'Accueil', fields: [{ type: 'text', name: 'nom', label: 'Nom' }, { type, name: 'aide', title: 'Aide', fields: [] }] }] }, h.auth));
+  assert.ok(message.includes(type), 'the words of C8Oforms first: ' + message);
   assert.ok(message.endsWith('Ask the user to add it, on page «Accueil», as component «aide». ' + NO_APPROXIMATION), message);
   assert.equal(h.state.saves, 0);
   // the type C8Oforms names, not the layout it is saved as
   try {
-    const issue = ((clone(h.client.create({ name: 'Aide', pages: [{ name: 'Accueil', fields: [{ type: 'modal', name: 'aide', title: 'Aide', fields: [] }] }] }, h.auth)).validation || {}).issues || []).find(i => i.code === 'unwritten_component');
-    if (issue) assert.equal(issue.addInNoCodeStudio.type, 'modal');
+    const issue = ((clone(h.client.create({ name: 'Aide', pages: [{ name: 'Accueil', fields: [{ type, name: 'aide', title: 'Aide', fields: [] }] }] }, h.auth)).validation || {}).issues || []).find(i => i.code === 'unwritten_component');
+    if (issue) assert.equal(issue.addInNoCodeStudio.type, type);
   } catch (_beforeTwoThree) { /* a C8Oforms before 2.3 throws: no issue to look at */ }
   const id = created(h);
   const saves = h.state.saves;
-  const edited = refusalOf(() => h.client.edit(id, [{ action: 'add_field', pageName: 'Fiche', fieldObject: { type: 'modal', name: 'confirmation', title: 'Sûr ?' } }], h.auth));
+  const edited = refusalOf(() => h.client.edit(id, [{ action: 'add_field', pageName: 'Fiche', fieldObject: { type, name: 'confirmation', title: 'Sûr ?' } }], h.auth));
   assert.ok(edited.endsWith('on page «Fiche», as component «confirmation». ' + NO_APPROXIMATION), edited);
   assert.equal(h.state.saves, saves, 'nothing saved');
 });
@@ -298,14 +310,22 @@ test('the form and its pages carry settings too: kept unchanged, refused changed
   assert.deepEqual(refused.issues[1].addInNoCodeStudio, { type: 'page', page: 'Accueil', setting: 'config.pageOnly' });
 });
 
-test('an edit, an update and a read of warnings give C8Oforms the form as saved (options.stored)', () => {
+test('C8Oforms gets the form as saved on an edit and an update, stored null on a creation, and no key on a validation', () => {
+  // C8Oforms 2.3: without the key it answers as to an older caller (nothing refused that contract v31 accepted), with
+  // stored (an object, or null for a creation) unwritten items a write brings are refused and the others kept
   const seen = [];
   const h = harness(null, null, (sequence, params) => {
     const input = JSON.parse(String(params.input || '{}'));
-    seen.push({ operation: String(params.operation), stored: input.options && input.options.stored ? input.options.stored._id : null });
+    const options = input.options || {};
+    seen.push({ operation: String(params.operation), stored: !Object.prototype.hasOwnProperty.call(options, 'stored') ? 'absent' : options.stored === null ? null : options.stored._id });
   });
-  const id = created(h);
   const of = operation => seen.filter(call => call.operation === operation);
+  const id = created(h);
+  assert.ok(of('compile').length && of('compile').every(call => call.stored === null), 'a creation compiles with stored null: ' + JSON.stringify(seen));
+  assert.ok(of('prepareSave').length && of('prepareSave').every(call => call.stored === null), 'a creation saves with stored null: ' + JSON.stringify(seen));
+  seen.length = 0;
+  h.client.compile({ name: 'X', pages: [{ name: 'P', fields: [{ type: 'text', name: 'a', label: 'A' }] }] }, h.auth);
+  assert.ok(of('compile').length && of('compile').every(call => call.stored === null), JSON.stringify(seen));
   seen.length = 0;
   const r = clone(h.client.edit(id, [{ action: 'update_field', fieldName: 'titre', patch: { label: 'Titre' } }], h.auth));
   assert.equal(r.saved, true, JSON.stringify(r.validation && r.validation.issues));
@@ -317,8 +337,8 @@ test('an edit, an update and a read of warnings give C8Oforms the form as saved 
   seen.length = 0;
   h.client.read(id, { warnings: true }, h.auth);
   assert.ok(of('validate').length && of('validate').every(call => call.stored === id), JSON.stringify(seen));
-  // a creation has no form as saved
+  // nocode-form-validate checks a form the agent holds: as an older caller, what No Code Studio wrote is a warning
   seen.length = 0;
-  created(h);
-  assert.ok(of('prepareSave').length && of('prepareSave').every(call => call.stored === null), JSON.stringify(seen));
+  h.client.validate(clone(h.state.forms[id]), h.auth);
+  assert.ok(of('validate').length && of('validate').every(call => call.stored === 'absent'), JSON.stringify(seen));
 });

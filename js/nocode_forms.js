@@ -571,11 +571,15 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       if (hasOwn(opts, key) && opts[key] != null) { out[key] = opts[key]; }
     });
     out.project = formsProjectName(opts);
-    // the form as saved (C8Oforms 2.3, validate and prepareSave): what No Code Studio wrote and the tools do not is kept
-    // with a warning editor_component_kept or editor_setting_kept when the save leaves it as it was; without it, every
-    // occurrence is an issue and an edit around it is refused
-    var stored = opts.stored || opts.currentForm;
-    if (stored && typeof stored === "object" && !Array.isArray(stored)) { out.stored = stored; }
+    // the form as saved (C8Oforms 2.3, validate and prepareSave): with it, what a write brings or changes that the contract
+    // does not write is refused (unwritten_*) and what No Code Studio wrote and the write leaves as it was is a warning
+    // editor_*_kept; stored null is a creation (nothing saved yet); without the key, C8Oforms answers as to an older caller
+    // (what contract v31 accepted is accepted, unwritten items already there are warnings)
+    if (hasOwn(opts, "stored")) {
+      out.stored = opts.stored && typeof opts.stored === "object" && !Array.isArray(opts.stored) ? opts.stored : null;
+    } else if (opts.currentForm && typeof opts.currentForm === "object" && !Array.isArray(opts.currentForm)) {
+      out.stored = opts.currentForm;
+    }
     Object.keys(extra || {}).forEach(function (key) { out[key] = extra[key]; });
     return out;
   }
@@ -1780,7 +1784,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // the catalog of the user's no-code database.
   function compileReduced(reduced, options) {
     var opts = options || {};
-    var compiled = withRepairs(formsRun("compile", { reduced: reduced, options: formsOptions(opts) }, opts), reduced);
+    // a compilation writes a new form: nothing saved (stored null)
+    var compiled = withRepairs(formsRun("compile", { reduced: reduced, options: formsOptions(hasOwn(opts, "stored") ? opts : withOption(opts, "stored", null)) }, opts), reduced);
     // a step only No Code Studio writes, in a creation or a compilation: the refusal says where the user adds it
     if (compiled && compiled.validation && compiled.form) { keepEditorFlowElements(compiled.validation, compiled.form, null, opts); }
     return compiled;
@@ -1871,7 +1876,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       var why = reason.length ? (said.indexOf(reason) >= 0 ? "" : " Reason: " + reason + (/[.!?]$/.test(reason) ? "" : ".")) :
         " " + type + " is a step of No Code Studio that the tools of this C8Oforms do not write.";
       entry.issue.message = (said.length ? said.replace(/([^.!?])$/, "$1.") : "Unsupported flow element: " + type + ".") + why +
-        " Ask the user to add it in No Code Studio, in " + where + ". Never replace it with a navigation (push_page, __c8o_back included) or another step: " +
+        " Ask the user to add it" + (/No Code Studio/.test(reason) || /No Code Studio/.test(said) ? "" : " in No Code Studio") + ", in " + where +
+        ". Never replace it with a navigation (push_page, __c8o_back included) or another step: " +
         "they do not do what it does (a page change, for one, closes a modal or a side panel only as a side effect, without its closing flow, and does nothing without a previous page).";
       entry.issue.addInNoCodeStudio = { type: type, flow: flow.name || String(flow.id), flowId: flow.id, position: entry.elementIndex + 1,
         after: previous ? stepLabel(previous).replace(/^«|»$/g, "") : null };
@@ -2207,6 +2213,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         // editor save. The existing Forms API remains the only write path.
         var latest = getForm(String(id), finalOptions);
         if (!latest || String(latest._id) !== String(id) || latest._rev !== candidate._rev) { return pending("form_changed_before_finalization"); }
+        // the second save of a creation writes over the first one: the form as saved is that one
+        finalOptions.stored = latest;
         var finalized = saveForm(candidate, finalOptions);
         if (!finalized || finalized.saved !== true) { return pending(finalized && finalized.status === "conflict" ? "form_changed_before_finalization" : "binding_save_failed"); }
         // Keep the successful second revision even if its readback fails.
@@ -2281,6 +2289,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       return compiled;
     }
     var createOptions = clone(options || {}, {});
+    // a creation: nothing saved yet (C8Oforms 2.3 refuses what the contract does not write, as for any write)
+    createOptions.stored = null;
     if (reduced && reduced.thumbnailImage) {
       createOptions.thumbnailImage = reduced.thumbnailImage;
     }
