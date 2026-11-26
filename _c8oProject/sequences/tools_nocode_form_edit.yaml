@@ -31,6 +31,8 @@ responseTimeout: 300
       var askedEditId = writeJob.jobIdOf(typeof editId !== "undefined" ? editId : null);
       var operationsArray = askedEditId.length && writeJob.empty(rawOperations) ? [] : C8O.nocodeForms.parseOperations(rawOperations, "operations", []);
       var writeOptions = { project: project, rev: rev, token: C8O.nocodeForms.callerToken({ token: token }) };
+      // a thumbnail named by an attachment of the user is read with the key of this request (js/nocode_forms.js)
+      writeOptions.readAttachment = C8O.nocodeForms.attachmentReader();
       var writeOwner = writeJob.owner(writeOptions.token);
       if (!writeOwner.length || (!askedEditId.length && !operationsArray.length)) {
         // nothing to run in a thread: no bearer (auth_required) or no operation (no_operations)

@@ -1378,6 +1378,51 @@ C8O.attachmentRead = C8O.attachmentRead || {};
     }
   };
 
+  // An image the user attached, for the thumbnail of an application (nocode-form-create, -edit and -update accept
+  // thumbnailImage { attachment: "<file name>" }): the agent no longer copies the image as base64 text, which a model may
+  // alter (usage feedback 25/11: a 6.5 KB thumbnail saved with its lower third grey). host: as for run, with
+  // base64(ref, maxBytes). Answers { status: "ok", name, contentType, base64 } or a failure.
+  var THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024;
+  api.image = function (name, host) {
+    var owner = trimmed(host.owner());
+    if (!owner.length) {
+      return failure("auth_required", "The attachments are read for the user the No Code Studio signed this agent in for; this request has none.");
+    }
+    var files;
+    try {
+      files = host.list() || [];
+    } catch (_listFailed) {
+      return failure("unreadable", "The attachments of the user could not be listed.");
+    }
+    files.sort(function (a, b) { return Number(b.modified) - Number(a.modified); });
+    var wanted = baseName(name);
+    if (!wanted.length || wanted.indexOf("\u0000") >= 0 || wanted === "." || wanted === "..") {
+      return failure("invalid_argument", "thumbnailImage.attachment is the file name of an image the user attached, as the user's message lists it.");
+    }
+    var matches = findFile(files, wanted);
+    if (!matches.length) {
+      return failure("not_found", "The user has no attachment named \"" + wanted + "\".", { available: files.slice(0, 20).map(function (f) { return f.name; }) });
+    }
+    var file = matches[0];
+    if (Number(file.bytes) > THUMBNAIL_MAX_BYTES) {
+      return failure("too_big", "\"" + file.name + "\" is " + Math.round(Number(file.bytes) / 1024) + " KB; a thumbnail is at most " + Math.round(THUMBNAIL_MAX_BYTES / 1024) + " KB.");
+    }
+    var head = host.head(file.ref, 12) || [];
+    var contentType = null;
+    if (byteAt(head, 0) === 0x89 && byteAt(head, 1) === 0x50 && byteAt(head, 2) === 0x4E && byteAt(head, 3) === 0x47) {
+      contentType = "image/png";
+    } else if (byteAt(head, 0) === 0xFF && byteAt(head, 1) === 0xD8 && byteAt(head, 2) === 0xFF) {
+      contentType = "image/jpeg";
+    } else if (byteAt(head, 0) === 0x52 && byteAt(head, 1) === 0x49 && byteAt(head, 2) === 0x46 && byteAt(head, 3) === 0x46 &&
+      byteAt(head, 8) === 0x57 && byteAt(head, 9) === 0x45 && byteAt(head, 10) === 0x42 && byteAt(head, 11) === 0x50) {
+      contentType = "image/webp";
+    }
+    if (!contentType) {
+      return failure("unsupported_type", "\"" + file.name + "\" is not a PNG, JPEG or WebP image: a thumbnail is one of these.");
+    }
+    return { status: "ok", name: file.name, contentType: contentType, base64: String(host.base64(file.ref, THUMBNAIL_MAX_BYTES)) };
+  };
+
   api.limits = {
     maxFileBytes: MAX_FILE_BYTES, maxRows: MAX_ROWS, defaultRows: DEFAULT_ROWS, maxColumns: MAX_COLUMNS,
     textChunk: TEXT_CHUNK, answerBudget: ANSWER_BUDGET, cellMaxChars: CELL_MAX_CHARS, maxPdfPages: MAX_PDF_PAGES
@@ -1527,6 +1572,9 @@ C8O.attachmentRead = C8O.attachmentRead || {};
         } finally {
           input.close();
         }
+      },
+      base64: function (ref, maxBytes) {
+        return String(java.util.Base64.getEncoder().encodeToString(readStream(new java.io.FileInputStream(ref), maxBytes)));
       },
       zipNames: function (ref, max) {
         var zip = new java.util.zip.ZipFile(ref);

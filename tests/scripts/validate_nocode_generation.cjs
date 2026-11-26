@@ -409,7 +409,7 @@ test('save readback returns authoritative ids and does not retry a successful wr
   const start = source.indexOf('  function attachSavedForm(');
   const end = source.indexOf('  C8O.nocodeForms.create =', start);
   let actual = { _id: 'created-id', _rev: '2-saved', name: 'Persisted name' };
-  const ctx = { clone, getForm: () => actual, validateForm: () => ({ validation: { valid: true, warnings: [], warningCount: 0 } }) };
+  const ctx = { clone, getForm: () => actual, validateForm: () => ({ validation: { valid: true, warnings: [], warningCount: 0 } }), withoutKey: value => value || {}, keepEditorFlowElements: validation => validation };
   vm.runInNewContext(source.slice(start, end), ctx);
   const saved = () => ({ saved: true, response: { id: 'created-id', rev: '1-created' }, validation: { warnings: [], warningCount: 0 } });
   const verified = ctx.attachSavedForm(saved(), { name: 'Compiled name' }, {});
@@ -1750,11 +1750,11 @@ test('nocode-form-get find lists every visible text holding a word, flow message
 
   const sequence = fs.readFileSync(path.join(root, '_c8oProject/sequences/tools_nocode_form_get.yaml'), 'utf8');
   assert.match(sequence, /↓find \[variables\.RequestableVariable-\d+\]: \n/);
-  assert.match(sequence, /C8O\.nocodeForms\.findText\(current, wanted\)/);
+  assert.match(sequence, /C8O\.nocodeForms\.read\(id, \{\n\s+find: typeof find === "undefined" \? null : find,/);
   const overrides = { C8O: {}, include() {} };
   vm.runInNewContext(fs.readFileSync(path.join(root, 'js/schema_overrides.js'), 'utf8'), overrides);
   const schema = clone(overrides.C8O.schemaOverrides.applyInput('tools_nocode_form_get', null, null));
-  assert.deepEqual(Object.keys(schema.properties).sort(), ['find', 'id', 'rev', 'token']);
+  assert.deepEqual(Object.keys(schema.properties).sort(), ['component', 'find', 'flow', 'id', 'outline', 'page', 'rev', 'token', 'warnings', 'whole']);
   assert.match(nocodeSkillText(), /call `nocode-form-get` with `find`/);
 });
 // Skyjo (28/10, TigoAccess 5324f308): the slider Tour had min 1 and the prototype default 0. The editor no longer shows
@@ -2187,7 +2187,7 @@ test('a form too large to answer whole: an edit answers its id, revision, name a
   assert.equal(edited.formOmitted.components, h.state.forms[id].formulaire.length);
   assert.deepEqual(clone(edited.formOmitted.pages), clone(h.state.forms[id].pages.map(p => p.name)));
   assert.deepEqual(clone(edited.formOmitted.pages), ['Accueil', 'Saisie']);
-  assert.match(edited.formOmitted.read, /nocode-form-get find/);
+  assert.match(edited.formOmitted.read, /nocode-form-get component, page or flow \(a name or an id\), or find/);
   assert.ok(JSON.stringify(edited).length < 5000, 'the answer stays small');
   const saved = h.state.forms[id].formulaire.find(f => f.name === 'valeur');
   assert.match(JSON.stringify(saved.config), /Valeur relevée/);

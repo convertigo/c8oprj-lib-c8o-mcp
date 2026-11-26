@@ -13,6 +13,8 @@ responseTimeout: 300
     var askedUpdateId = writeJob.jobIdOf(typeof updateId !== "undefined" ? updateId : null);
     var patchObject = askedUpdateId.length && writeJob.empty(patch) ? {} : C8O.nocodeForms.parseObject(patch, "patch", {});
     var writeOptions = { project: project, rev: rev, token: C8O.nocodeForms.callerToken({ token: token }) };
+    // a thumbnail named by an attachment of the user is read with the key of this request (js/nocode_forms.js)
+    writeOptions.readAttachment = C8O.nocodeForms.attachmentReader();
     var writeOwner = writeJob.owner(writeOptions.token);
     if (!writeOwner.length || (!askedUpdateId.length && !Object.keys(patchObject).length)) {
       // nothing to run in a thread: no bearer (auth_required) or an empty patch (empty_patch)

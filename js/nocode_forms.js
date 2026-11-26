@@ -685,13 +685,17 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         requiredInputs: ["id", "operations", "token"],
         operationsShape: "Pass operations as an array for multiple edits or as one operation object for a single edit.",
         commonOperations: [
-          { action: "finalize_baserow_bindings", note: "Only operation in the call. Resume an already saved creation by returned id; do not manually patch identity fields or recreate the form." }
+          { action: "finalize_baserow_bindings", note: "Only operation in the call. Resume an already saved creation by returned id; do not manually patch identity fields or recreate the form." },
+          { action: "update_field", note: "A part of a long defaultFrom expression: defaultFromEdit, each find once in the declared expression; the tools compile the result. Refused when No Code Studio changed the expression that runs: send defaultFrom whole.", example: { action: "update_field", fieldName: "total", patch: { defaultFromEdit: [{ find: "* 1.2", replace: "* 1.055" }] } } }
           // the operations of the C8Oforms of the server follow (forms.editOperations)
         ].concat(ensureArray(forms.editOperations)),
         notes: [
           "Use fieldObject with the same reduced component shape accepted by nocode-form-compile.",
           "Use patch for updates; component settings usually live under config.",
-          "Use ids when available; names are accepted for user-friendly edits but must be unique."
+          "Use ids when available; names are accepted for user-friendly edits but must be unique.",
+          "A key the operation does not read beside its patch, fieldObject or element, or a patch key the component does not have as saved, is refused with the place it belongs (unread_operation_key, unread_patch_key): nothing is saved.",
+          "A flow step No Code Studio wrote that the tools do not write (a modal opened or closed, properties set at run time) is kept as it is (warning editor_flow_element_kept); the tools cannot add one.",
+          "The answer lists the warnings the edit brought and those of what it changed; validation.otherWarnings counts the others (nocode-form-get warnings:true lists them)."
         ]
       },
       realWorldPatternsFromGestionDesCreches: [
@@ -905,7 +909,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
       options: formsOptions(opts)
     }, opts);
     var sanitized = prepared.form;
-    var validation = prepared.validation;
+    var validation = keepEditorFlowElements(prepared.validation, sanitized, opts.currentForm);
     if (!validation.valid) {
       return { status: "invalid", saved: false, validation: validation };
     }
@@ -1025,7 +1029,130 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     }
     base64 = String(base64).replace(/\s+/g, "");
     base64 = normalizeBase64Payload(base64);
+    var problem = imageProblem(contentType, base64);
+    if (problem) {
+      return { error: { code: "invalid_thumbnail_image", message: problem + " Nothing was saved. Send the image again, or name an image the user attached: thumbnailImage: { attachment: \"<file name>\" }.", path: "/thumbnailImage/base64" } };
+    }
     return { media: { contentType: contentType, base64: base64 } };
+  }
+
+  // ---- the thumbnail image checked before it is saved (usage feedback 25/11) ------------------------------------------
+  // A thumbnail is sent as base64 text the model writes: a 6.5 KB PNG copied with slips was saved with its lower third
+  // grey, and the tool answered saved. The bytes are read before the save: the signature of the type given, every PNG
+  // chunk whole with its CRC up to IEND, a JPEG up to its end marker, a WebP as long as its RIFF header says.
+  var BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  var THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024;
+  function base64Bytes(text) {
+    if (text.length % 4 !== 0 || !/^[A-Za-z0-9+\/]*={0,2}$/.test(text)) { return null; }
+    var lookup = {};
+    for (var c = 0; c < BASE64_ALPHABET.length; c++) { lookup[BASE64_ALPHABET.charAt(c)] = c; }
+    var bytes = [];
+    for (var i = 0; i < text.length; i += 4) {
+      var a = lookup[text.charAt(i)], b = lookup[text.charAt(i + 1)];
+      var third = text.charAt(i + 2), fourth = text.charAt(i + 3);
+      var n = (a << 18) | (b << 12) | ((third === "=" ? 0 : lookup[third]) << 6) | (fourth === "=" ? 0 : lookup[fourth]);
+      bytes.push((n >> 16) & 255);
+      if (third !== "=") { bytes.push((n >> 8) & 255); }
+      if (fourth !== "=") { bytes.push(n & 255); }
+    }
+    return bytes;
+  }
+  var CRC_TABLE = null;
+  function crc32(bytes, from, to) {
+    if (!CRC_TABLE) {
+      CRC_TABLE = [];
+      for (var n = 0; n < 256; n++) {
+        var value = n;
+        for (var k = 0; k < 8; k++) { value = value & 1 ? 0xEDB88320 ^ (value >>> 1) : value >>> 1; }
+        CRC_TABLE.push(value >>> 0);
+      }
+    }
+    var crc = 0xFFFFFFFF;
+    for (var i = from; i < to; i++) { crc = CRC_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8); }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+  function u32(bytes, at) { return ((bytes[at] << 24) >>> 0) + (bytes[at + 1] << 16) + (bytes[at + 2] << 8) + bytes[at + 3]; }
+  function u16(bytes, at) { return (bytes[at] << 8) + bytes[at + 1]; }
+  function ascii(bytes, from, to) { var out = ""; for (var i = from; i < to; i++) { out += String.fromCharCode(bytes[i]); } return out; }
+  function imageKind(bytes) {
+    if (bytes.length >= 8 && bytes[0] === 0x89 && ascii(bytes, 1, 4) === "PNG" && bytes[4] === 0x0D && bytes[5] === 0x0A && bytes[6] === 0x1A && bytes[7] === 0x0A) { return "image/png"; }
+    if (bytes.length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) { return "image/jpeg"; }
+    if (bytes.length >= 12 && ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 12) === "WEBP") { return "image/webp"; }
+    return null;
+  }
+  function pngProblem(bytes) {
+    var at = 8;
+    var first = true;
+    while (true) {
+      if (at + 8 > bytes.length) { return "The PNG image is truncated: it ends after " + bytes.length + " bytes, before its IEND chunk."; }
+      var length = u32(bytes, at);
+      var type = ascii(bytes, at + 4, at + 8);
+      if (first && type !== "IHDR") { return "The PNG image does not start with its IHDR chunk."; }
+      first = false;
+      if (at + 12 + length > bytes.length) { return "The PNG image is truncated: its " + type + " chunk needs " + (at + 12 + length) + " bytes, the image has " + bytes.length + "."; }
+      if (crc32(bytes, at + 4, at + 8 + length) !== u32(bytes, at + 8 + length)) { return "The PNG image is damaged: its " + type + " chunk (at byte " + at + ") does not match its checksum, so the base64 text was altered."; }
+      if (type === "IEND") { return null; }
+      at += 12 + length;
+    }
+  }
+  function jpegProblem(bytes) {
+    var end = bytes.length;
+    while (end > 2 && bytes[end - 1] === 0) { end--; }
+    if (end < 4 || bytes[end - 2] !== 0xFF || bytes[end - 1] !== 0xD9) { return "The JPEG image is truncated: it does not end with its end marker (FF D9)."; }
+    return null;
+  }
+  function webpProblem(bytes) {
+    var size = bytes[4] + (bytes[5] << 8) + (bytes[6] << 16) + ((bytes[7] << 24) >>> 0);
+    if (bytes.length < size + 8) { return "The WebP image is truncated: its header says " + (size + 8) + " bytes, the image has " + bytes.length + "."; }
+    return null;
+  }
+  function imageProblem(contentType, base64) {
+    var bytes = base64Bytes(base64);
+    if (!bytes) { return "thumbnailImage.base64 is not base64 text (characters A-Z, a-z, 0-9, + and /, = only at the end)."; }
+    if (!bytes.length) { return "thumbnailImage.base64 is empty."; }
+    if (bytes.length > THUMBNAIL_MAX_BYTES) { return "The thumbnail is " + Math.round(bytes.length / 1024) + " KB; it is at most " + Math.round(THUMBNAIL_MAX_BYTES / 1024) + " KB."; }
+    var kind = imageKind(bytes);
+    if (!kind) { return "The bytes are not a PNG, JPEG or WebP image (their signature is not one of these)."; }
+    if (kind !== contentType) { return "The bytes are a " + kind + " image, not " + contentType + ": give contentType " + kind + "."; }
+    return kind === "image/png" ? pngProblem(bytes) : kind === "image/jpeg" ? jpegProblem(bytes) : webpProblem(bytes);
+  }
+  C8O.nocodeForms.imageProblem = imageProblem;
+
+  // thumbnailImage { attachment: "<file name>" }: an image the user attached in the Tigo panel, read with the user's key
+  // (js/attachment_read.js) in place of base64 text. options.readAttachment(name) is made in the request (the key comes
+  // from it) by attachmentReader, before a write that may run in a thread of its own.
+  C8O.nocodeForms.attachmentReader = function () {
+    try {
+      if (typeof include === "function") {
+        include("js/reporting.js");
+        include("js/attachment_read.js");
+      }
+      var owner = C8O.reporting.requestFeedbackUserKey();
+      var agents = C8O.tigoAgentsDirectory(String(Engine.USER_WORKSPACE_PATH), File);
+      var host = C8O.attachmentRead.javaHost({ owner: owner, agentsDirectory: String(agents.getPath()) });
+      return function (name) { return C8O.attachmentRead.image(name, host); };
+    } catch (_noAttachments) {
+      return function () { return { status: "error", error: { code: "unreadable", message: "The attachments of the user cannot be read by this server." } }; };
+    }
+  };
+  // The thumbnailImage values that name an attachment, replaced by its contentType and base64, in place.
+  function resolveAttachmentImages(value, options, depth) {
+    if (!value || typeof value !== "object" || (depth || 0) > 8) { return; }
+    Object.keys(value).forEach(function (key) {
+      var item = value[key];
+      if (key === "thumbnailImage" && item && typeof item === "object" && !Array.isArray(item) && trimmed(item.attachment).length) {
+        var read = options && typeof options.readAttachment === "function" ? options.readAttachment(trimmed(item.attachment)) :
+          { status: "error", error: { code: "unreadable", message: "This call cannot read the user's attachments: send contentType and base64." } };
+        if (!read || read.status !== "ok") {
+          throw formsError("thumbnail_attachment_unreadable", "thumbnailImage.attachment " + JSON.stringify(trimmed(item.attachment)) + ": " +
+            String(read && read.error && read.error.message ? read.error.message : "the attachment could not be read") +
+            (read && read.error && Array.isArray(read.error.available) && read.error.available.length ? " The user's attachments: " + read.error.available.join(", ") + "." : "") + " Nothing was saved.");
+        }
+        value[key] = { contentType: read.contentType, base64: read.base64 };
+        return;
+      }
+      resolveAttachmentImages(item, options, (depth || 0) + 1);
+    });
   }
 
   function normalizeBase64Payload(base64) {
@@ -1368,7 +1495,9 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   // written into a link_row column (read only: the fields of the written tables). A select the respondents of the
   // published form cannot read is an issue there, whoever wrote it; a save only reports one it leaves alone.
   C8O.nocodeForms.validate = function (form, options) {
-    return withRepairs(validateWithLinks(form, options), form);
+    var answer = withRepairs(validateWithLinks(form, options), form);
+    if (answer && answer.validation) { groupWarnings(answer.validation, form); }
+    return answer;
   };
   function validateWithLinks(form, options) {
     var opts = options || {};
@@ -1383,13 +1512,165 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   C8O.nocodeForms.get = getForm;
   // the No Code user of the call: {authenticated, user} (nocode-form-preview-capture names the user of its request)
   C8O.nocodeForms.authentication = validateToken;
+  // An object without one key, for the options cloned as JSON (the form read before an edit is not cloned with them).
+  function withoutKey(value, key) {
+    if (!value || typeof value !== "object" || !hasOwn(value, key)) { return value || {}; }
+    var out = {};
+    Object.keys(value).forEach(function (name) { if (name !== key) { out[name] = value[name]; } });
+    return out;
+  }
+
+  // ---- flow steps written in No Code Studio (usage feedback 18/11 and 24/11) -----------------------------------------
+  // C8Oforms answers unsupported_flow_element for the steps its reduced contract does not write (a modal or a side panel
+  // opened or closed, properties set at run time), wherever they come from: one such step, added in No Code Studio,
+  // made every later edit by the tools invalid, and the user had to take the steps out, edit, and put them back by hand.
+  // A step the saved form already had, with the same type, is kept as the editor wrote it: its issue becomes a warning.
+  // A new step of such a type, or a step whose type changed, is still refused.
+  var EDITOR_ONLY_ISSUE_CODES = ["unsupported_flow_element"];
+  function flowElementsById(form) {
+    var byId = {};
+    ensureArray(form && form.flows).forEach(function (flow) {
+      ensureArray(flow && flow.elements).forEach(function (element) { if (element && element.id != null) { byId[String(element.id)] = element; } });
+    });
+    return byId;
+  }
+  function keepEditorFlowElements(validation, form, current) {
+    if (!validation || !current || !Array.isArray(validation.issues) || !validation.issues.length) { return validation; }
+    var before = flowElementsById(current);
+    var kept = [];
+    validation.issues = validation.issues.filter(function (issue) {
+      if (!issue || EDITOR_ONLY_ISSUE_CODES.indexOf(issue.code) < 0) { return true; }
+      var at = /^\/flows\/(\d+)\/elements\/(\d+)(\/|$)/.exec(String(issue.path || ""));
+      var flow = at ? ensureArray(form && form.flows)[Number(at[1])] : null;
+      var element = flow ? ensureArray(flow.elements)[Number(at[2])] : null;
+      var saved = element && element.id != null ? before[String(element.id)] : null;
+      if (!saved || saved.type !== element.type) { return true; }
+      kept.push({
+        code: "editor_flow_element_kept",
+        message: "Flow " + (flow.name || flow.id) + ": the step " + (element.name || element.id) + " (" + element.type + ") was written in No Code Studio and the tools do not write this type: kept as it is, not checked. Change it in No Code Studio.",
+        path: String(issue.path).replace(/\/type$/, "")
+      });
+      return false;
+    });
+    if (kept.length) {
+      validation.warnings = ensureArray(validation.warnings).concat(kept);
+      validation.issueCount = validation.issues.length;
+      validation.warningCount = validation.warnings.length;
+      validation.valid = validation.issueCount === 0;
+    }
+    return validation;
+  }
+  C8O.nocodeForms.keepEditorFlowElements = keepEditorFlowElements;
+
+  // ---- the warnings of an edit (usage feedback 18/11 and 24/11) -------------------------------------------------------
+  // Each edit of a large application answered its 69 to 95 warnings, nearly all the same (a runtime check of each computed
+  // field, a submit without a required check on each button): the one the edit had just brought was lost among them. An
+  // edit answers the warnings it brought and those of what it changed, with the count of the others by code.
+  var WARNINGS_ANSWERED_WHOLE = 10;
+  var WARNING_GROUP_FROM = 6;
+  // A warning's place by the id of its component, flow or page, the same in the form before and after the edit (an
+  // index moves when a component is added before it).
+  function warningAnchor(form, path) {
+    var p = String(path || "");
+    var m = /^\/formulaire\/(\d+)(.*)$/.exec(p);
+    if (m) { var item = ensureArray(form && form.formulaire)[Number(m[1])]; return item && item.id != null ? { owner: "c:" + item.id, at: "c:" + item.id + m[2] } : { owner: p, at: p }; }
+    m = /^\/flows\/(\d+)(.*)$/.exec(p);
+    if (m) { var flow = ensureArray(form && form.flows)[Number(m[1])]; return flow && flow.id != null ? { owner: "f:" + flow.id, at: "f:" + flow.id + m[2] } : { owner: p, at: p }; }
+    m = /^\/pages\/(\d+)(.*)$/.exec(p);
+    if (m) { var page = ensureArray(form && form.pages)[Number(m[1])]; return page && page.pageTechName != null ? { owner: "p:" + page.pageTechName, at: "p:" + page.pageTechName + m[2] } : { owner: p, at: p }; }
+    return { owner: p, at: p };
+  }
+  function warningKey(form, warning) {
+    return String(warning.code) + "|" + warningAnchor(form, warning.path).at + "|" + String(warning.message);
+  }
+  // The components, flows and pages the edit added or changed, by anchor owner.
+  function changedOwners(before, after) {
+    var changed = {};
+    function compare(list, oldList, prefix, idKey) {
+      var old = {};
+      ensureArray(oldList).forEach(function (item) { if (item && item[idKey] != null) { old[String(item[idKey])] = JSON.stringify(item); } });
+      ensureArray(list).forEach(function (item) {
+        if (item && item[idKey] != null && old[String(item[idKey])] !== JSON.stringify(item)) { changed[prefix + item[idKey]] = true; }
+      });
+    }
+    compare(after && after.formulaire, before && before.formulaire, "c:", "id");
+    compare(after && after.flows, before && before.flows, "f:", "id");
+    compare(after && after.pages, before && before.pages, "p:", "pageTechName");
+    return changed;
+  }
+  function focusWarnings(saved, before, options) {
+    var validation = saved && saved.validation;
+    var after = saved && saved.form;
+    if (!validation || !Array.isArray(validation.warnings) || validation.warnings.length <= WARNINGS_ANSWERED_WHOLE || !before || !after) { return saved; }
+    var previous = {};
+    try {
+      ensureArray(validateForm(before, withoutKey(options, "currentForm")).validation.warnings).forEach(function (item) { if (item) { previous[warningKey(before, item)] = true; } });
+    } catch (_noPreviousWarnings) {
+      return saved;
+    }
+    var changed = changedOwners(before, after);
+    var shown = [];
+    var others = {};
+    var otherCount = 0;
+    validation.warnings.forEach(function (item) {
+      if (!item) { return; }
+      if (!previous[warningKey(after, item)] || changed[warningAnchor(after, item.path).owner] || SAVE_TIME_WARNING_CODES.indexOf(item.code) >= 0) {
+        shown.push(item);
+        return;
+      }
+      otherCount++;
+      others[item.code] = (others[item.code] || 0) + 1;
+    });
+    if (!otherCount) { return saved; }
+    validation.warnings = shown;
+    validation.warningCount = shown.length;
+    validation.otherWarnings = {
+      count: otherCount,
+      byCode: others,
+      note: "Warnings the form already had, on components, flows and pages this write did not change: not listed. nocode-form-get warnings:true lists them all (with component, page or flow: those of these parts)."
+    };
+    return saved;
+  }
+
+  // The same warning on many components (a runtime check of each computed field): its first occurrences, then one entry
+  // with the count and the components, flows or pages of the others.
+  function groupWarnings(validation, form) {
+    if (!validation || !Array.isArray(validation.warnings) || validation.warnings.length < WARNING_GROUP_FROM) { return validation; }
+    var byCode = {};
+    validation.warnings.forEach(function (item) { if (item && item.code) { byCode[item.code] = (byCode[item.code] || 0) + 1; } });
+    var seen = {};
+    var groups = {};
+    var out = [];
+    var byId = componentsById(form);
+    var flows = {};
+    ensureArray(form && form.flows).forEach(function (flow) { if (flow && flow.id != null) { flows[String(flow.id)] = flow; } });
+    validation.warnings.forEach(function (item) {
+      if (!item || !item.code || byCode[item.code] < WARNING_GROUP_FROM) { out.push(item); return; }
+      seen[item.code] = (seen[item.code] || 0) + 1;
+      if (seen[item.code] <= 2) { out.push(item); return; }
+      if (!groups[item.code]) {
+        groups[item.code] = { code: item.code, count: 0, message: "The same warning on " + (byCode[item.code] - 2) + " more: the first ones above say what it is.", on: [] };
+        out.push(groups[item.code]);
+      }
+      var group = groups[item.code];
+      group.count++;
+      var owner = warningAnchor(form, item.path).owner;
+      var name = /^c:/.test(owner) && byId[owner.substring(2)] ? byId[owner.substring(2)].name : /^f:/.test(owner) && flows[owner.substring(2)] ? flows[owner.substring(2)].name || owner.substring(2) : owner.replace(/^[cfp]:/, "");
+      if (group.on.length < 40 && group.on.indexOf(name) < 0) { group.on.push(name); }
+    });
+    validation.warnings = out;
+    return validation;
+  }
+  C8O.nocodeForms.groupWarnings = groupWarnings;
+
   function attachSavedForm(saved, candidate, options) {
     if (saved.saved !== true) { saved.form = candidate; return saved; }
     var result = saved.response || {};
     var id = result.id || candidate._id;
     // The persisted API document can differ from the compiled one (ids, media,
     // page flags). Never report an unsaved snapshot as a verified saved form.
-    var readOptions = clone(options || {}, {});
+    var currentForm = options && options.currentForm;
+    var readOptions = clone(withoutKey(options, "currentForm"), {});
     delete readOptions.rev;
     try {
       var actual = id ? getForm(String(id), readOptions) : null;
@@ -1397,7 +1678,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         saved.form = actual;
         saved.readbackVerified = true;
         var savedWarnings = saveTimeWarnings(saved.validation);
-        saved.validation = validateForm(actual, readOptions).validation;
+        saved.validation = keepEditorFlowElements(validateForm(actual, readOptions).validation, actual, currentForm);
         keepSaveTimeWarnings(saved.validation, savedWarnings);
         return saved;
       }
@@ -1425,6 +1706,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     warnings.forEach(function (item) { if (!seen[item.code + "|" + item.path]) { validation.warnings.push(item); } });
     validation.warningCount = validation.warnings.length;
   }
+
 
   function finalizeBaserowBindings(saved, options, expectedCount, newForm) {
     var id = saved.form && saved.form._id || saved.response && saved.response.id;
@@ -1505,6 +1787,8 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     opts.strictBindingPaths = prepared.strictBindingPaths;
     opts.removedInputNames = prepared.removedInputNames;
     var expected = prepared.expected;
+    // the steps No Code Studio wrote that the saved form already had do not block the save (keepEditorFlowElements)
+    opts.currentForm = current;
     var saved = saveForm(edited, opts);
     attachSavedForm(saved, prepared.candidate, opts);
     if (saved.saved === true && opts.strictBindingPaths.length) {
@@ -1520,7 +1804,11 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     return saved;
   }
 
+  function attachmentFailure(error) {
+    return { status: "invalid", saved: false, error: { code: error && error.code ? error.code : "thumbnail_attachment_unreadable", message: String(error && error.message ? error.message : error) } };
+  }
   C8O.nocodeForms.create = function (reduced, options) {
+    try { resolveAttachmentImages(reduced, options); } catch (attachmentError) { return attachmentFailure(attachmentError); }
     var compiled = compileReduced(reduced, options);
     if (!compiled || compiled.status !== "ok") {
       if (compiled) {
@@ -1549,6 +1837,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
   }
   C8O.nocodeForms.update = function (id, patch, options) {
     if (!patch || typeof patch !== "object" || Array.isArray(patch) || !Object.keys(patch).length) { return nothingToSave("empty_patch", "The patch changes nothing"); }
+    try { resolveAttachmentImages(patch, options); } catch (attachmentError) { return attachmentFailure(attachmentError); }
     var current = getForm(id, options);
     if (current && current.fetched === false) {
       current.saved = false;
@@ -1560,8 +1849,176 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     var referencesResolved = merged.referencesResolved;
     var saved = saveEditedForm(currentForm, patched, options);
     if (referencesResolved.length) { saved.referencesResolved = referencesResolved; }
-    return withRepairs(saved, patch, merged);
+    withRepairs(saved, patch, merged);
+    focusWarnings(saved, currentForm, options);
+    return saved;
   };
+  // ---- what an edit operation reads (usage feedback 18/11 and 24/11) ------------------------------------------------
+  // update_field read only its patch: a defaultFrom given beside it was dropped and the edit answered saved. The keys the
+  // C8Oforms edit operations read at the level of an operation, when the operation also carries the object they apply
+  // (a patch, a fieldObject, an element, a pageObject): any other key there is refused before anything is saved, with
+  // the place it belongs. An operation without that object is itself the object (add_field, add_flow_element): not
+  // checked here.
+  var EDIT_ACTION_ALIASES = {
+    add_component: "add_field", update_component: "update_field", remove_component: "remove_field", delete_component: "delete_field",
+    move_component: "move_field", add_element: "add_field", update_element: "update_field", remove_element: "remove_field",
+    delete_element: "delete_field", move_element: "move_field"
+  };
+  var EDIT_SELECTOR_KEYS = ["action", "op", "type"];
+  var EDIT_OPERATION_KEYS = {
+    update_field: { carrier: ["patch", "fieldObject", "field"], keys: ["fieldId", "id", "field", "fieldName", "name", "patch", "fieldObject"] },
+    update_page: { carrier: ["patch", "pageObject", "pageData"], keys: ["pageTechName", "pageId", "page", "pageName", "name", "patch", "pageObject", "pageData", "description"] },
+    update_flow: { carrier: ["patch", "flowData"], keys: ["flowId", "id", "flow", "flowName", "name", "patch", "flowData"] },
+    update_flow_element: { carrier: ["patch", "element"], keys: ["flowId", "id", "flow", "flowName", "name", "elementId", "elementName", "element", "patch"] },
+    add_field: { carrier: ["fieldObject", "field"], keys: ["fieldObject", "field", "pageName", "pageTechName", "pageId", "page", "parentFieldId", "parentId", "parent",
+      "index", "before", "beforeFieldName", "beforeFieldId", "after", "afterFieldName", "afterFieldId", "styleDefaults"] },
+    add_flow_element: { carrier: ["element"], keys: ["flowId", "id", "flow", "flowName", "name", "element", "index", "parentId", "parent", "parentElementId", "refKey", "targetCardChild"] }
+  };
+  // add_page with a pageObject builds the page from it alone: name, iconName, header or description beside it were dropped
+  // (a page named "Page 4" instead of the name given, then "page not found" for the rest of the edit).
+  var ADD_PAGE_OPERATION_KEYS = ["action", "op", "type", "index", "navigationMode", "pageObject", "pageData", "page"];
+
+  function isPlainObjectValue(value) { return !!value && typeof value === "object" && !Array.isArray(value); }
+
+  function operationActionOf(op) {
+    var action = trimmed(op.action || op.op || op.type).toLowerCase();
+    return EDIT_ACTION_ALIASES[action] || action;
+  }
+
+  // The operations as C8Oforms will read them (add_page keys moved into its pageObject), or an error naming each key an
+  // operation would drop and where it goes. repairs: the moves made, answered to the agent.
+  function checkEditOperations(operations, repairs) {
+    var problems = [];
+    function visit(op, at) {
+      if (!isPlainObjectValue(op)) { return op; }
+      if (!op.action && !op.op && !op.type) {
+        if (isPlainObjectValue(op.operation)) { var inner = clone(op, {}); inner.operation = visit(op.operation, at); return inner; }
+        if (Array.isArray(op.operations)) { var outer = clone(op, {}); outer.operations = op.operations.map(function (item, i) { return visit(item, at + ".operations[" + i + "]"); }); return outer; }
+        return op;
+      }
+      var action = operationActionOf(op);
+      if (action === "add_page") {
+        var pageKey = ["pageObject", "pageData"].filter(function (key) { return isPlainObjectValue(op[key]); })[0] || (isPlainObjectValue(op.page) ? "page" : null);
+        if (!pageKey) { return op; }
+        var moved = clone(op, {});
+        Object.keys(op).forEach(function (key) {
+          if (ADD_PAGE_OPERATION_KEYS.indexOf(key) >= 0 || key === pageKey) { return; }
+          var into = moved[pageKey];
+          if (hasOwn(into, key) && JSON.stringify(into[key]) !== JSON.stringify(op[key])) {
+            problems.push(at + " (add_page): " + key + " is given twice, " + JSON.stringify(op[key]) + " beside " + pageKey + " and " + JSON.stringify(into[key]) + " in it: keep one");
+            return;
+          }
+          into[key] = op[key];
+          delete moved[key];
+          repairs.push({ code: "operation_key_moved", at: at, message: "add_page: " + key + " given beside " + pageKey + " was moved into it (the page is built from " + pageKey + " alone)" });
+        });
+        return moved;
+      }
+      var spec = EDIT_OPERATION_KEYS[action];
+      if (!spec || !spec.carrier.some(function (key) { return isPlainObjectValue(op[key]); })) { return op; }
+      var carrier = spec.carrier.filter(function (key) { return isPlainObjectValue(op[key]); })[0];
+      var dropped = Object.keys(op).filter(function (key) { return EDIT_SELECTOR_KEYS.indexOf(key) < 0 && spec.keys.indexOf(key) < 0; });
+      if (dropped.length) {
+        problems.push(at + " (" + action + "): " + dropped.join(", ") + (dropped.length > 1 ? " are" : " is") + " not read at the level of the operation, beside " + carrier +
+          ": put " + (dropped.length > 1 ? "them" : "it") + " in " + carrier + " (" + dropped.map(function (key) { return carrier + "." + key; }).join(", ") + "). " +
+          "This operation reads " + spec.keys.join(", "));
+      }
+      return op;
+    }
+    var checked = ensureArray(operations).map(function (op, index) { return visit(op, "operations[" + index + "]"); });
+    if (problems.length) {
+      var error = formsError("unread_operation_key", "Nothing was saved: " + problems.join("; ") + ".");
+      error.keys = problems;
+      throw error;
+    }
+    return checked;
+  }
+  C8O.nocodeForms.checkEditOperations = checkEditOperations;
+
+  // ---- a part of an expression changed (usage feedback 24/11) ---------------------------------------------------------
+  // A change of one line of a 6,000-character reactive expression sent the whole expression again, with the risk of a
+  // slip each time. update_field patch.defaultFromEdit: [{ find, replace }] changes the declared expression
+  // (config.contextDefault, what defaultFrom compiled) where find is, once each, and sends it as defaultFrom: C8Oforms
+  // compiles it as any defaultFrom. Refused, nothing saved, when find is not in it or more than once, or when the
+  // expression that runs is no longer the one declared (No Code Studio changed it): defaultFrom is then sent whole.
+  function expandExpressionEdits(operations, current) {
+    var byId = componentsById(current);
+    return ensureArray(operations).map(function (op, index) {
+      if (!isPlainObjectValue(op) || operationActionOf(op) !== "update_field" || !isPlainObjectValue(op.patch) || !hasOwn(op.patch, "defaultFromEdit")) { return op; }
+      var at = "operations[" + index + "] (update_field)";
+      var ref = trimmed(op.fieldId || op.id || (typeof op.field === "string" ? op.field : ""));
+      var named = trimmed(op.fieldName || op.name);
+      var item = (ref.length && byId[ref]) || ensureArray(current.formulaire).filter(function (candidate) { return candidate && named.length && candidate.name === named; })[0];
+      if (!item) { throw formsError("unknown_field", "Nothing was saved: " + at + " names no component (" + (named || ref) + ")."); }
+      if (hasOwn(op.patch, "defaultFrom")) { throw formsError("unread_operation_key", "Nothing was saved: " + at + ": give defaultFrom (the whole value) or defaultFromEdit (parts of its expression), not both."); }
+      var declared = item.config && item.config.contextDefault;
+      if (!isPlainObjectValue(declared) || declared.source !== "expression" || typeof declared.expression !== "string") {
+        throw formsError("no_expression", "Nothing was saved: " + item.name + " has no declared defaultFrom expression to change (config.contextDefault): send defaultFrom whole.");
+      }
+      var running = item.sources && item.sources.self && item.sources.self.vars && item.sources.self.vars.selfVar;
+      if (!running || typeof running.str !== "string" || running.str.indexOf(declared.expression) < 0) {
+        throw formsError("expression_changed_in_editor", "Nothing was saved: the expression " + item.name + " runs (sources.self.vars.selfVar) is no longer the one declared in config.contextDefault: No Code Studio changed it. Read it with nocode-form-get component and send defaultFrom whole.");
+      }
+      var text = declared.expression;
+      ensureArray(op.patch.defaultFromEdit).forEach(function (edit, e) {
+        var find = edit && edit.find != null ? String(edit.find) : "";
+        var by = edit && (edit.replace != null ? edit.replace : edit["with"] != null ? edit["with"] : edit.by);
+        if (!find.length || by == null) { throw formsError("invalid_expression_edit", "Nothing was saved: " + at + " defaultFromEdit[" + e + "] is { find: \"<exact text of the expression>\", replace: \"<new text>\" }."); }
+        var times = text.split(find).length - 1;
+        if (times !== 1) {
+          throw formsError("expression_edit_not_found", "Nothing was saved: " + at + " defaultFromEdit[" + e + "]: " + JSON.stringify(find.length > 80 ? find.substring(0, 79) + "…" : find) +
+            (times ? " is " + times + " times in the expression of " + item.name + ": give a longer find, found once." : " is not in the expression of " + item.name + " (spaces and quotes count): read it with nocode-form-get component."));
+        }
+        text = text.split(find).join(String(by));
+      });
+      var changed = clone(op, {});
+      changed.patch = clone(op.patch, {});
+      delete changed.patch.defaultFromEdit;
+      changed.patch.defaultFrom = clone(declared, {});
+      changed.patch.defaultFrom.expression = text;
+      return changed;
+    });
+  }
+  C8O.nocodeForms.expandExpressionEdits = expandExpressionEdits;
+
+  // A merge patch is stored as given: a key a component does not have (patch.cols for a layout, whose columns are
+  // config.cols; patch.values for a select, whose choices are children) was saved at its root, where the viewer never
+  // reads it, and the edit answered saved. Each component the edit changed is compared with what it had and with the
+  // prototype of its type (C8Oforms catalog): a key that appears at its root and is in neither is refused, nothing saved.
+  var ROOT_KEYS_ALWAYS = ["id", "type", "name", "config", "sources", "sourcesMarkers", "sourcesCircles", "sourcesPolygons", "sourcesCenter", "actions",
+    "conditions", "childrenRefs", "parentRef", "children", "flow"];
+  function unreadRootKeys(current, edited, options) {
+    var before = componentsById(current);
+    var found = [];
+    ensureArray(edited && edited.formulaire).forEach(function (item) {
+      if (!item || item.id == null || !before[String(item.id)]) { return; }
+      var old = before[String(item.id)];
+      Object.keys(item).forEach(function (key) {
+        if (hasOwn(old, key) || ROOT_KEYS_ALWAYS.indexOf(key) >= 0 || /^__/.test(key) || key.charAt(0) === "_") { return; }
+        found.push({ item: item, old: old, key: key });
+      });
+    });
+    if (!found.length) { return []; }
+    var prototypes = {};
+    try {
+      ensureArray(formsRun("catalog", {}, options).catalog).forEach(function (proto) { if (proto && proto.type && !prototypes[proto.type]) { prototypes[proto.type] = proto; } });
+    } catch (_noCatalog) {
+      prototypes = {};
+    }
+    return found.filter(function (entry) {
+      var proto = prototypes[entry.item.type];
+      return !(proto && hasOwn(proto, entry.key));
+    }).map(function (entry) {
+      var proto = prototypes[entry.item.type];
+      var configs = [entry.old.config, proto && proto.config].filter(isPlainObjectValue);
+      var inConfig = configs.some(function (config) { return hasOwn(config, entry.key); });
+      var keys = Object.keys(proto || entry.old).filter(function (key) { return key !== "id"; });
+      return entry.item.name + " (" + entry.item.type + "): patch." + entry.key + " is not a key of a " + entry.item.type + " as saved" +
+        (inConfig ? ", whose " + entry.key + " is config." + entry.key + ": write patch.config." + entry.key :
+          " (its keys: " + keys.join(", ") + "): update_field merges the native shape, as nocode-form-get component shows it; add_field and create take the reduced keys");
+    });
+  }
+
   C8O.nocodeForms.edit = function (id, operations, options) {
     try {
       var requestedOperations = ensureArray(operations);
@@ -1576,12 +2033,21 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         return current;
       }
       var currentForm = current && current.res ? current.res : current;
-      var applied = formsRun("edit", { form: currentForm, operations: operations, options: formsOptions(options) }, options);
+      resolveAttachmentImages(requestedOperations, options);
+      var keyRepairs = [];
+      var checkedOperations = checkEditOperations(expandExpressionEdits(requestedOperations, currentForm), keyRepairs);
+      var applied = formsRun("edit", { form: currentForm, operations: checkedOperations, options: formsOptions(options) }, options);
+      var unread = unreadRootKeys(currentForm, applied.form, options);
+      if (unread.length) {
+        return { status: "error", saved: false, error: { code: "unread_patch_key", message: "Nothing was saved: " + unread.join("; ") + "." } };
+      }
       var saved = saveEditedForm(currentForm, applied.form, options);
       withRepairs(saved, operations, applied);
+      if (keyRepairs.length) { saved.repairs = ensureArray(saved.repairs).concat(keyRepairs); }
       saved.operations = applied.operations;
       if (applied.referencesResolved.length) { saved.referencesResolved = applied.referencesResolved; }
       saved.allTypesPath = applied.allTypesPath;
+      focusWarnings(saved, currentForm, options);
       return saved;
     } catch (e) {
       var failure = {
@@ -1645,7 +2111,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
         components: components,
         pages: pages.slice(0, 40),
         reason: "The saved form is " + chars + " characters: only its id, revision and name are answered.",
-        read: "Read what you need to check with nocode-form-get find (a word of a label, a page or a flow), never the whole form."
+        read: "Read what you need to check with nocode-form-get component, page or flow (a name or an id), or find (a word), never the whole form."
       }
     };
   }
@@ -1660,6 +2126,7 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     if (savedId != null) { out.id = String(savedId); }
     if (savedRev != null) { out.rev = String(savedRev); }
     Object.keys(result).forEach(function (key) { if (!hasOwn(out, key)) { out[key] = result[key]; } });
+    if (out.validation && typeof out.validation === "object") { groupWarnings(out.validation, result.form); }
     if (out.form && typeof out.form === "object") {
       out.form = agentView(out.form);
       var formChars = JSON.stringify(out.form).length;
@@ -1683,11 +2150,337 @@ C8O.nocodeForms = C8O.nocodeForms || {};
     C8O.nocodeForms[name] = function () { return agentResult(raw.apply(null, arguments)); };
   });
   // nocode-form-get find: every text of the form a user sees that holds a word, found by the C8Oforms of the server (it
-  // knows where its components keep their texts).
+  // knows where its components keep their texts), then the same word in what a user does not read but the application
+  // runs: card templates, expressions, filters, the variables a save writes, conditions and sources (codeMatches).
+  // Usage feedback (25/11): find only looked at visible texts, and the only way to read one card template or one
+  // expression of a 615,000-character application was to read it whole.
   function findText(form, query, options) {
-    return formsRun("findText", { form: form, query: query }, options);
+    var found = formsRun("findText", { form: form, query: query }, options);
+    var seen = {};
+    ensureArray(found && found.matches).forEach(function (match) { if (match && match.path) { seen[String(match.path)] = true; } });
+    var code = codeFind(form, query, seen);
+    found.codeMatches = code.matches;
+    found.codeCount = code.count;
+    return found;
   }
   C8O.nocodeForms.findText = findText;
+
+  // ---- a part of a form: one component, page or flow, an outline, and the stored values that hold a word -------------
+
+  function foldText(value) {
+    var text = String(value == null ? "" : value).toLowerCase();
+    try {
+      if (typeof text.normalize === "function") { return text.normalize("NFD").replace(/[̀-ͯ]/g, ""); }
+    } catch (_noNormalize) {}
+    try {
+      return String(Packages.java.text.Normalizer.normalize(text, Packages.java.text.Normalizer.Form.NFD)).replace(/[̀-ͯ]/g, "");
+    } catch (_noJavaNormalizer) {}
+    return text;
+  }
+
+  // The names or ids an agent gives: an array (a Java list from the engine too), a JSON array as text, the text of a list
+  // the engine wrote ("[a, b]", as contractSectionList reads it), or one name, kept whole (a name may hold a comma).
+  function partRefs(value) {
+    if (value == null || value === "") { return []; }
+    if (!Array.isArray(value) && typeof value === "object" && typeof value.size === "function" && typeof value.get === "function") {
+      var listed = [];
+      for (var i = 0; i < value.size(); i++) { listed.push(value.get(i)); }
+      value = listed;
+    }
+    if (Array.isArray(value)) { return value.map(function (item) { return trimmed(item); }).filter(function (item) { return item.length > 0; }); }
+    var text = trimmed(value);
+    if (/^\[[\s\S]*\]$/.test(text)) {
+      try { return partRefs(JSON.parse(text)); } catch (_notJsonList) {}
+      return text.replace(/^\[|\]$/g, "").split(",").map(function (item) { return trimmed(item).replace(/^["']|["']$/g, ""); }).filter(function (item) { return item.length > 0; });
+    }
+    return text.length ? [text] : [];
+  }
+
+  // The page a component is shown on: the page of its root container (a nested component may name another page).
+  function rootPageOf(byId, item) {
+    var current = item;
+    var seen = {};
+    while (current && current.parentRef != null && byId[String(current.parentRef)] && !seen[String(current.parentRef)]) {
+      seen[String(current.parentRef)] = true;
+      current = byId[String(current.parentRef)];
+    }
+    return current && current.config ? current.config.page : null;
+  }
+
+  function componentsById(form) {
+    var byId = {};
+    ensureArray(form && form.formulaire).forEach(function (item) { if (item && item.id != null) { byId[String(item.id)] = item; } });
+    return byId;
+  }
+
+  // One named thing among items: by id, by exact name, by name without case and accents, by number from 1 (pages).
+  function resolvePart(items, ref, keys, byNumber) {
+    var wanted = trimmed(ref);
+    var folded = foldText(wanted);
+    var i;
+    for (i = 0; i < items.length; i++) {
+      if (!items[i]) { continue; }
+      for (var k = 0; k < keys.length; k++) {
+        if (items[i][keys[k]] != null && String(items[i][keys[k]]) === wanted) { return items[i]; }
+      }
+    }
+    var loose = items.filter(function (item) {
+      return item && keys.some(function (key) { return item[key] != null && foldText(item[key]) === folded; });
+    });
+    if (loose.length === 1) { return loose[0]; }
+    if (byNumber && /^[1-9][0-9]*$/.test(wanted) && Number(wanted) <= items.length) { return items[Number(wanted) - 1]; }
+    return null;
+  }
+
+  // What to tell an agent when a name matches nothing: the names that hold it, else the first names of the form.
+  function partSuggestions(items, ref, key) {
+    var folded = foldText(ref);
+    var names = items.map(function (item) { return item && item[key] != null ? String(item[key]) : null; }).filter(function (name) { return name != null && name.length; });
+    var close = names.filter(function (name) { var f = foldText(name); return f.indexOf(folded) >= 0 || (f.length >= 3 && folded.indexOf(f) >= 0); });
+    return (close.length ? close : names).slice(0, 15);
+  }
+
+  function partName(item) {
+    return item ? (item.name != null && String(item.name).length ? String(item.name) : String(item.id)) : null;
+  }
+
+  // nocode-form-get component, page, flow: those parts of the saved form, each as the tools answer a form (agentView),
+  // instead of the whole form. A container lists its children (id, name, type): ask them by name to read them.
+  function formParts(form, ask) {
+    var byId = componentsById(form);
+    var pages = ensureArray(form.pages);
+    var flows = ensureArray(form.flows);
+    var formulaire = ensureArray(form.formulaire);
+    var pageNames = {};
+    pages.forEach(function (page) { if (page) { pageNames[String(page.pageTechName)] = page.name; } });
+    var answer = { status: "ok", fetched: true, id: String(form._id), rev: String(form._rev), name: form.name };
+    var notFound = [];
+    function children(item) {
+      return ensureArray(item.childrenRefs).map(function (ref) {
+        var child = byId[String(ref)];
+        return child ? { id: String(child.id), name: child.name, type: child.type } : { id: String(ref), missing: true };
+      });
+    }
+    function componentView(item) {
+      var view = agentView(item);
+      var page = rootPageOf(byId, item);
+      if (page != null) { view.shownOnPage = pageNames[String(page)] || page; }
+      if (ensureArray(item.childrenRefs).length) { view.children = children(item); }
+      return view;
+    }
+    var componentRefs = partRefs(ask.component);
+    if (componentRefs.length) {
+      answer.components = [];
+      componentRefs.forEach(function (ref) {
+        var item = resolvePart(formulaire, ref, ["id", "name"], false);
+        if (!item) { notFound.push({ component: ref, known: partSuggestions(formulaire, ref, "name") }); return; }
+        answer.components.push(componentView(item));
+      });
+    }
+    var pageRefs = partRefs(ask.page);
+    if (pageRefs.length) {
+      answer.pages = [];
+      pageRefs.forEach(function (ref) {
+        var page = resolvePart(pages, ref, ["pageTechName", "name"], true);
+        if (!page) { notFound.push({ page: ref, known: partSuggestions(pages, ref, "name") }); return; }
+        var onPage = formulaire.filter(function (item) { return item && item.config && String(rootPageOf(byId, item)) === String(page.pageTechName); });
+        answer.pages.push({ page: agentView(page), components: onPage.map(function (item) { return componentView(item); }) });
+      });
+    }
+    var flowRefs = partRefs(ask.flow);
+    if (flowRefs.length) {
+      answer.flows = [];
+      flowRefs.forEach(function (ref) {
+        var flow = resolvePart(flows, ref, ["id", "name"], false);
+        if (!flow) { notFound.push({ flow: ref, known: partSuggestions(flows, ref, "name") }); return; }
+        var view = agentView(flow);
+        var users = formulaire.filter(function (item) { return item && item.flow != null && String(item.flow) === String(flow.id); }).map(function (item) { return partName(item); });
+        if (users.length) { view.usedBy = users; }
+        answer.flows.push(view);
+      });
+    }
+    if (notFound.length) {
+      answer.notFound = notFound;
+      answer.next = "Give the exact name or id of each part not found (known lists names of the form), or read the outline with nocode-form-get outline:true.";
+    }
+    return answer;
+  }
+  C8O.nocodeForms.formParts = formParts;
+
+  // The map of a form: its pages with their components (name and type, nested ones under their container) and its flows,
+  // to choose the parts to read. Answered by nocode-form-get outline:true, and in place of a form too large to answer whole.
+  function formMap(form) {
+    var byId = componentsById(form);
+    var formulaire = ensureArray(form.formulaire);
+    function entry(item, depth) {
+      var text = partName(item) + ":" + item.type;
+      var kids = ensureArray(item.childrenRefs).map(function (ref) { return byId[String(ref)]; }).filter(function (child) { return !!child; });
+      if (!kids.length || depth > 6) { return text; }
+      var out = {};
+      out[text] = kids.map(function (child) { return entry(child, depth + 1); });
+      return out;
+    }
+    var pages = ensureArray(form.pages).map(function (page, index) {
+      var top = formulaire.filter(function (item) { return item && item.parentRef == null && item.config && String(item.config.page) === String(page.pageTechName); });
+      return { number: index + 1, name: page.name, pageTechName: page.pageTechName, components: top.map(function (item) { return entry(item, 0); }) };
+    });
+    var flows = ensureArray(form.flows).map(function (flow) {
+      var item = { id: flow.id, name: flow.name, steps: ensureArray(flow.elements).length };
+      var triggers = ensureArray(flow.triggers).map(function (trigger) { return typeof trigger === "string" ? trigger : trigger && (trigger.on || trigger.type); }).filter(function (on) { return !!on; });
+      if (triggers.length) { item.on = triggers; }
+      return item;
+    });
+    return { pages: pages, flows: flows, components: formulaire.length };
+  }
+  C8O.nocodeForms.formMap = formMap;
+
+  function flag(value) {
+    return value === true || trimmed(value).toLowerCase() === "true";
+  }
+
+  // nocode-form-get: the saved form, some of its parts (component, page, flow), its outline, or the texts that hold a
+  // word (find). A form whose view is over AGENT_FORM_MAX_CHARS answers its outline unless whole:true is asked.
+  C8O.nocodeForms.read = function (id, ask, options) {
+    var question = ask || {};
+    var current = getForm(id, options);
+    if (current && current.fetched === false) { return current; }
+    var wanted = trimmed(question.find);
+    var asksParts = partRefs(question.component).length + partRefs(question.page).length + partRefs(question.flow).length > 0;
+    var answer;
+    if (flag(question.warnings)) {
+      // the warnings of the saved form, those of the parts asked when some are, the repeated ones grouped
+      var validation = validateForm(current, options).validation;
+      answer = { status: "ok", fetched: true, id: String(current._id), rev: String(current._rev), name: current.name };
+      if (asksParts) {
+        var parts = formParts(current, question);
+        var owners = {};
+        ensureArray(parts.components).forEach(function (item) { owners["c:" + item.id] = true; });
+        ensureArray(parts.flows).forEach(function (item) { owners["f:" + item.id] = true; });
+        ensureArray(parts.pages).forEach(function (item) {
+          owners["p:" + item.page.pageTechName] = true;
+          ensureArray(item.components).forEach(function (component) { owners["c:" + component.id] = true; });
+        });
+        var keep = function (item) { return item && owners[warningAnchor(current, item.path).owner] === true; };
+        validation.issues = ensureArray(validation.issues).filter(keep);
+        validation.warnings = ensureArray(validation.warnings).filter(keep);
+        validation.issueCount = validation.issues.length;
+        validation.warningCount = validation.warnings.length;
+        if (parts.notFound) { answer.notFound = parts.notFound; }
+      }
+      answer.validation = groupWarnings(validation, current);
+      return answer;
+    }
+    if (wanted.length) {
+      // only the texts that hold the word, not the whole form
+      var found = findText(current, wanted, options);
+      answer = { status: "ok", fetched: true, id: String(current._id), rev: String(current._rev), find: wanted, count: found.count, matches: found.matches,
+        codeCount: found.codeCount, codeMatches: found.codeMatches };
+      if (asksParts) {
+        var withParts = formParts(current, question);
+        ["components", "pages", "flows", "notFound", "next"].forEach(function (key) { if (hasOwn(withParts, key)) { answer[key] = withParts[key]; } });
+      }
+      return answer;
+    }
+    if (asksParts) { return formParts(current, question); }
+    if (flag(question.outline)) {
+      return { status: "ok", fetched: true, id: String(current._id), rev: String(current._rev), name: current.name, outline: formMap(current) };
+    }
+    var view = agentView(current);
+    if (!flag(question.whole)) {
+      var chars = JSON.stringify(view).length;
+      if (chars > AGENT_FORM_MAX_CHARS) {
+        return {
+          status: "ok", fetched: true, id: String(current._id), rev: String(current._rev), name: current.name,
+          formOmitted: {
+            chars: chars,
+            reason: "The saved form is " + chars + " characters: its outline is answered instead.",
+            read: "Read the parts you need with component, page or flow (names or ids from the outline), a word with find, or the whole form with whole:true (" + Math.ceil(chars / 14000) + " answer pages)."
+          },
+          outline: formMap(current)
+        };
+      }
+    }
+    return { status: "ok", fetched: true, form: view };
+  };
+
+  // Where a stored value is, in words, from its path (generic: the keys the components, steps and sources use).
+  function codePlace(path) {
+    if (/\/config\/galleryTemplate(\/|$)/.test(path)) { return "card template"; }
+    if (/\/config\/contextDefault(\/|$)/.test(path)) { return "defaultFrom declaration"; }
+    if (/\/sources\/self\/vars\/selfVar(\/|$)/.test(path)) { return "expression"; }
+    if (/\/conditions\//.test(path)) { return "condition"; }
+    if (/[Ff]ilter/.test(path)) { return "filter"; }
+    if (/[Ss]ort/.test(path)) { return "sort"; }
+    if (/\/actions\//.test(path) || /forms_freeVars|forms_id|forms_values/.test(path)) { return "record variables"; }
+    if (/\/sources[A-Za-z]*\//.test(path)) { return "source"; }
+    if (/[Ss]tyle|\/config\/html$|\/css/.test(path)) { return "style or html"; }
+    return "value";
+  }
+
+  var CODE_FIND_MAX = 40;
+  var CODE_SNIPPET = 80;
+  var CODE_SKIPPED_KEYS = { _id: true, _rev: true, id: true, pageTechName: true, parentRef: true, childrenRefs: true, page: true, fakeId: true };
+  // Every stored text that holds the word and is not a visible text C8Oforms already answered (seen: their paths).
+  function codeFind(form, query, seen) {
+    var wanted = foldText(trimmed(query));
+    var matches = [];
+    var total = 0;
+    if (!wanted.length || !form || typeof form !== "object") { return { matches: matches, count: 0 }; }
+    var byId = componentsById(form);
+    var pageNames = {};
+    ensureArray(form.pages).forEach(function (page) { if (page) { pageNames[String(page.pageTechName)] = page.name; } });
+    function visit(value, path, owner, depth) {
+      if (value == null || depth > 40) { return; }
+      if (typeof value === "string") {
+        if (seen[path]) { return; }
+        var folded = foldText(value);
+        var at = folded.indexOf(wanted);
+        if (at < 0) { return; }
+        var times = folded.split(wanted).length - 1;
+        total++;
+        if (matches.length < CODE_FIND_MAX) {
+          var start = Math.max(0, at - CODE_SNIPPET);
+          var end = Math.min(value.length, at + wanted.length + CODE_SNIPPET);
+          var match = { where: codePlace(path), path: path, text: (start > 0 ? "…" : "") + value.substring(start, end) + (end < value.length ? "…" : "") };
+          if (times > 1) { match.times = times; }
+          if (value.length > end - start) { match.length = value.length; }
+          Object.keys(owner).forEach(function (key) { if (owner[key] != null && owner[key] !== "") { match[key] = owner[key]; } });
+          matches.push(match);
+        }
+        return;
+      }
+      if (typeof value !== "object") { return; }
+      if (Array.isArray(value)) {
+        value.forEach(function (item, index) { visit(item, path + "/" + index, owner, depth + 1); });
+        return;
+      }
+      Object.keys(value).forEach(function (key) {
+        if (CODE_SKIPPED_KEYS[key] === true || key === "_c8oMeta") { return; }
+        visit(value[key], path + "/" + key, owner, depth + 1);
+      });
+    }
+    ensureArray(form.pages).forEach(function (page, index) {
+      if (page) { visit(page, "/pages/" + index, { page: page.name }, 0); }
+    });
+    ensureArray(form.formulaire).forEach(function (item, index) {
+      if (!item || typeof item !== "object") { return; }
+      var page = rootPageOf(byId, item);
+      visit(item, "/formulaire/" + index, { component: item.name, type: item.type, page: page != null ? pageNames[String(page)] || page : null }, 0);
+    });
+    ensureArray(form.flows).forEach(function (flow, index) {
+      if (!flow || typeof flow !== "object") { return; }
+      Object.keys(flow).forEach(function (key) {
+        if (key === "elements" || CODE_SKIPPED_KEYS[key] === true) { return; }
+        visit(flow[key], "/flows/" + index + "/" + key, { flow: flow.id }, 1);
+      });
+      ensureArray(flow.elements).forEach(function (element, e) {
+        if (element) { visit(element, "/flows/" + index + "/elements/" + e, { flow: flow.id, step: element.name || element.type }, 1); }
+      });
+    });
+    if (form.config) { visit(form.config, "/config", {}, 0); }
+    return { matches: matches, count: total };
+  }
+  C8O.nocodeForms.codeFind = codeFind;
   C8O.nocodeForms.agentView = agentView;
   C8O.nocodeForms.AGENT_FORM_MAX_CHARS = AGENT_FORM_MAX_CHARS;
   // The bearer of the call: the token given, else the Authorization header of the request.

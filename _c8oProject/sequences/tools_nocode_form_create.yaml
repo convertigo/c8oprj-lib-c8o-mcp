@@ -14,6 +14,8 @@ responseTimeout: 300
     var askedCreateId = writeJob.jobIdOf(typeof createId !== "undefined" ? createId : null);
     var reducedObject = askedCreateId.length && writeJob.empty(reduced) ? {} : C8O.nocodeForms.parseObject(reduced, "reduced", {});
     var writeOptions = { project: project, token: C8O.nocodeForms.callerToken({ token: token }) };
+    // a thumbnail named by an attachment of the user is read with the key of this request (js/nocode_forms.js)
+    writeOptions.readAttachment = C8O.nocodeForms.attachmentReader();
     var writeOwner = writeJob.owner(writeOptions.token);
     if (!writeOwner.length) {
       // no bearer: auth_required at once

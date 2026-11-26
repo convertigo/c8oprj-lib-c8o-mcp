@@ -1,22 +1,20 @@
 accessibility: Private
 comment: |
   Read an existing No Code form without modifying it
-  Use before auditing, proposing improvements, or editing a form identified by its document id. Reads the latest saved form through C8Oforms.APIV2_getDocument with the authenticated No Code bearer user and existing ACLs. Returns status, fetched and form on success; auth_required for token failures or unavailable when the form is missing or inaccessible. Never use an empty edit/update to read. The token is supplied out-of-band by the integrated host.
+  Use before auditing, proposing improvements, or editing a form identified by its document id. Reads the latest saved form through C8Oforms.APIV2_getDocument with the authenticated No Code bearer user and existing ACLs. Returns status, fetched and form on success; auth_required for token failures or unavailable when the form is missing or inaccessible. On a large form read only what you need: component, page or flow (names or ids) answer those parts, outline the map of the form (answered instead of a form over 200,000 characters unless whole), find the texts and the stored values holding a word, warnings the validation. Never use an empty edit/update to read. The token is supplied out-of-band by the integrated host.
 ↓Run [steps.SimpleStep-1789129239378]: 
   expression: |
     'include("js/nocode_forms.js");
     try {
-      var current = C8O.nocodeForms.get(id, { project: "C8Oforms", rev: rev, token: token });
-      var wanted = typeof find === "undefined" || find == null ? "" : String(find).trim();
-      if (current && current.fetched === false) {
-        result = current;
-      } else if (wanted.length) {
-        // Only the texts that hold the word, not the whole form.
-        var found = C8O.nocodeForms.findText(current, wanted);
-        result = { status: "ok", fetched: true, id: String(current._id), rev: String(current._rev), find: wanted, count: found.count, matches: found.matches };
-      } else {
-        result = { status: "ok", fetched: true, form: C8O.nocodeForms.agentView(current) };
-      }
+      result = C8O.nocodeForms.read(id, {
+        find: typeof find === "undefined" ? null : find,
+        component: typeof component === "undefined" ? null : component,
+        page: typeof page === "undefined" ? null : page,
+        flow: typeof flow === "undefined" ? null : flow,
+        outline: typeof outline === "undefined" ? null : outline,
+        whole: typeof whole === "undefined" ? null : whole,
+        warnings: typeof warnings === "undefined" ? null : warnings
+      }, { project: "C8Oforms", rev: rev, token: token });
     } catch (e) {
       result = { status: "error", fetched: false, error: { code: "form_read_failed", message: "Unable to read the form through the No Code API." } };
     }'
@@ -40,7 +38,25 @@ comment: |
 ↓rev [variables.RequestableVariable-1789129239384]: 
   comment: Optional revision. Empty reads latest.
 ↓find [variables.RequestableVariable-1793300000001]: 
-  comment: Optional text. Answers only the visible texts of the form that hold it (case and accents ignored), each with its path, instead of the whole form.
-  description: Optional text. Answers only the visible texts of the form that hold it (case and accents ignored), each with its path, instead of the whole form.
+  comment: Optional text. Answers the visible texts of the form that hold it (matches), then the stored values that hold it (codeMatches, card templates, expressions, filters, record variables, conditions), case and accents ignored, each with its path, instead of the whole form.
+  description: Optional text. Answers the visible texts of the form that hold it (matches), then the stored values that hold it (codeMatches, card templates, expressions, filters, record variables, conditions), case and accents ignored, each with its path, instead of the whole form.
+↓component [variables.RequestableVariable-1797260001001]: 
+  comment: Optional names or ids of components (one, or a JSON array). Answers those components only, each with the page it is shown on and, for a container, its children (id, name, type).
+  description: Optional names or ids of components (one, or a JSON array). Answers those components only, each with the page it is shown on and, for a container, its children (id, name, type).
+↓page [variables.RequestableVariable-1797260001002]: 
+  comment: Optional name, pageTechName or number from 1 of pages (one, or a JSON array). Answers each page with its components.
+  description: Optional name, pageTechName or number from 1 of pages (one, or a JSON array). Answers each page with its components.
+↓flow [variables.RequestableVariable-1797260001003]: 
+  comment: Optional ids or names of flows (one, or a JSON array). Answers each flow with its steps and the components that run it (usedBy).
+  description: Optional ids or names of flows (one, or a JSON array). Answers each flow with its steps and the components that run it (usedBy).
+↓outline [variables.RequestableVariable-1797260001004]: 
+  comment: Optional, true answers the outline only: pages with their components (name:type, nested under their container) and flows (id, name, steps, triggers).
+  description: Optional, true answers the outline only: pages with their components (name:type, nested under their container) and flows (id, name, steps, triggers).
+↓whole [variables.RequestableVariable-1797260001005]: 
+  comment: Optional, true answers the whole form even when it is too large to answer whole (its outline is answered then).
+  description: Optional, true answers the whole form even when it is too large to answer whole (its outline is answered then).
+↓warnings [variables.RequestableVariable-1797260001006]: 
+  comment: Optional, true answers the validation of the saved form (issues and warnings, the repeated ones grouped) instead of the form; with component, page or flow, those of these parts only.
+  description: Optional, true answers the validation of the saved form (issues and warnings, the repeated ones grouped) instead of the form; with component, page or flow, those of these parts only.
 ↓token [variables.RequestableVariable-1789129239386]: 
   comment: Optional compatibility field; bearer credential supplied by the host.
