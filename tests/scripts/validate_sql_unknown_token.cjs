@@ -68,8 +68,13 @@ function engine(sql) {
   const values = new Map();
   const server = { get: key => (values.has(key) ? values.get(key) : null), set: (key, value) => values.set(key, value) };
   const host = { now: () => clock.now, digest: value => crypto.createHash('sha256').update(value, 'utf8').digest('hex'), newMap: () => new FakeMap() };
-  const transaction = { getSqlQuery: () => sql.text };
-  const Engine = { theApp: { databaseObjectsManager: { getOriginalProjectByName: () => ({ getConnectorByName: () => ({ getTransactionByName: () => transaction }) }) } } };
+  const jlist = items => ({ size: () => items.length, get: i => items[i] });
+  sql.defaults = sql.defaults || {};
+  sql.url = sql.url || 'jdbc:hsqldb:file:shop';
+  const transaction = { getSqlQuery: () => sql.text,
+    getVariablesList: () => jlist(Object.keys(sql.defaults).map(name => ({ getName: () => name, getValueOrNull: () => sql.defaults[name] }))) };
+  const connector = { getTransactionByName: () => transaction, getJdbcDriverClassName: () => 'org.hsqldb.jdbcDriver', getJdbcURL: () => sql.url };
+  const Engine = { theApp: { databaseObjectsManager: { getOriginalProjectByName: () => ({ getConnectorByName: () => connector }) } } };
   const ctx = {
     C8O: {},
     java: { lang: { System: { currentTimeMillis: () => clock.now } } },
@@ -129,11 +134,19 @@ test('the same SQL with the same values after an unknown token is refused withou
   assert.match(first.runDigest, /^[0-9a-f]{64}$/);
   R.afterCall(first, failure('unknown token:'));
   assert.throws(() => R.guardRepeatedRun(plan({ customer: 'c1' })),
-    /^Error: Refused without running anything: Shop\.shopdb\.list_orders already failed in this conversation with this same SQL and these same values, on "unknown token:", an error the database gives while it reads the statement: it fails again\. Change the SQL first \(databaseobject-tree-apply on the transaction\)\. HSQLDB cannot read @ outside a string \(at "@customer"\): write \{customer\}/);
+    /^Error: Refused without running anything: Shop\.shopdb\.list_orders already failed in this conversation with this same SQL and these same values, on "unknown token:", an error the database gives while it reads the statement: it fails again\. Change the SQL first \(databaseobject-tree-apply on the transaction\), or what it is read with \(the values, the defaults of the variables, the connector\)\. HSQLDB cannot read @ outside a string \(at "@customer"\): write \{customer\}/);
   assert.doesNotThrow(() => R.guardRepeatedRun(plan({ customer: 'c2' })), 'other values run');
   headers['X-Convertigo-Conversation-Id'] = 'conv-2';
   assert.doesNotThrow(() => R.guardRepeatedRun(plan({ customer: 'c1' })), 'another conversation runs it');
   headers['X-Convertigo-Conversation-Id'] = 'conv-1';
+  // what the SQL is read with changed: it runs again
+  sql.defaults.limit = '10';
+  assert.doesNotThrow(() => R.guardRepeatedRun(plan({ customer: 'c1' })), 'a default value of a variable changed');
+  delete sql.defaults.limit;
+  assert.throws(() => R.guardRepeatedRun(plan({ customer: 'c1' })), /Refused without running anything/);
+  sql.url = 'jdbc:hsqldb:file:other';
+  assert.doesNotThrow(() => R.guardRepeatedRun(plan({ customer: 'c1' })), 'the connector changed');
+  sql.url = 'jdbc:hsqldb:file:shop';
   sql.text = 'SELECT * FROM orders WHERE customer = {customer}';
   assert.doesNotThrow(() => R.guardRepeatedRun(plan({ customer: 'c1' })), 'the SQL changed: it runs');
 });

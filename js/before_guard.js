@@ -179,7 +179,9 @@ if (typeof C8O === "undefined") {
   // passwords (TigoAccess 8e1d46fe, 13-18/11): the guard above covered before[] only.
   var SIGN_IN_STEP = /\.(SetAuthenticatedUserStep|LDAPAuthenticationStep)$/;
   var SIGN_IN_CODE = /\bsetAuthenticatedUser\s*\(/;
-  api.signsIn = function (sequence, depth) {
+  // seen: the called sequences already walked by this check, each walked once
+  api.signsIn = function (sequence, depth, seen) {
+    seen = seen || {};
     var stack = [sequence];
     var walked = 0;
     while (stack.length && walked < 2000) {
@@ -217,12 +219,13 @@ if (typeof C8O === "undefined") {
         try {
           target = text(child.getSourceSequence());
         } catch (_noTarget) {}
-        if (target.length && (depth || 0) < 2) {
+        if (target.length && (depth || 0) < 2 && seen[target] !== true) {
+          seen[target] = true;
           var called = null;
           try {
             called = api.host.sequenceOf(target);
           } catch (_noLookup) {}
-          if (called && api.signsIn(called, (depth || 0) + 1)) {
+          if (called && api.signsIn(called, (depth || 0) + 1, seen)) {
             return true;
           }
         }

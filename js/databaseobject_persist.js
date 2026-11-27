@@ -15,6 +15,15 @@ C8O.dbo.saveProject = function (project, errors) {
     return { saved: false, message: message };
   }
   try {
+    // exportProject waits on the Studio on a Windows Studio whose interface is held (a delete took 154 s, 24/11): it runs
+    // on a thread of its own, waited for SAVE_WAIT_MS at most. Past that the save goes on and ends on its own; the call
+    // says so, and the next write of the MCP waits for it (C8O.dbo.awaitPendingSaves) instead of changing a project
+    // being written. An earlier save still running is waited for first, before the version is touched.
+    var saveName = String(project.getName());
+    var before = C8O.dbo.awaitPendingSaves(saveName, C8O.dbo.SAVE_WAIT_MS);
+    if (before) {
+      return C8O.dbo.savePendingResult(before, errors, null, true);
+    }
     var versionUpdate = null;
     try {
       versionUpdate = C8O.project.checkUpdateProjectVersion(project);
@@ -31,18 +40,14 @@ C8O.dbo.saveProject = function (project, errors) {
         message: ""
       };
     }
-    // exportProject waits on the Studio on a Windows Studio whose interface is held (a delete took 154 s, 24/11): it runs
-    // on a thread of its own, waited for SAVE_WAIT_MS at most. Past that the save goes on and ends on its own; the call
-    // says so, and the next write of the MCP waits for it (C8O.dbo.awaitPendingSaves) instead of changing a project
-    // being written.
-    var saveName = String(project.getName());
-    var before = C8O.dbo.awaitPendingSaves(saveName, C8O.dbo.SAVE_WAIT_MS);
-    if (before) {
-      return C8O.dbo.savePendingResult(before, errors, versionUpdate, true);
-    }
     var exported = C8O.util.boundedCall(function () {
       Engine.theApp.databaseObjectsManager.exportProject(project);
-    }, C8O.dbo.SAVE_WAIT_MS, "lib_ConvertigoMCP save of " + saveName);
+    }, C8O.dbo.SAVE_WAIT_MS, "lib_ConvertigoMCP save of " + saveName, function (lateError) {
+      // a save that went on and failed has no call left to answer: the engine log says it, the next save writes again
+      try {
+        Engine.logEngine.error("[lib_ConvertigoMCP] the save of " + saveName + " that went on past its call failed: " + String(lateError));
+      } catch (_noLog) {}
+    });
     if (exported.done !== true) {
       var pending = C8O.dbo.markPendingSave(saveName, exported.thread);
       C8O.dbo.invalidateProjectRuntime(project, errors);

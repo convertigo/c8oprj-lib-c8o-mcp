@@ -1089,16 +1089,32 @@ C8O.requestable._repeatedFailure = function () {
   return typeof C8O.repeatedFailure !== 'undefined' && typeof C8O.repeatedFailure.refusal === 'function' ? C8O.repeatedFailure : null;
 };
 
-// The SQL of the transaction of the call ('' when it has none or it cannot be read).
-C8O.requestable._transactionSql = function (executionPlan) {
+// The SQL of the transaction of the call ('' when it has none or it cannot be read), and what else decides how the
+// database reads it: the driver and the URL of its connector, the default values of its variables (a {{x}} default is
+// written into the SQL). A change of any of them runs the call again.
+C8O.requestable._transactionSource = function (executionPlan) {
+  var source = { sql: '', fingerprint: '' };
   try {
     var project = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getOriginalProjectByName(executionPlan.project, false);
     var connector = project ? project.getConnectorByName(executionPlan.connector) : null;
     var transaction = connector ? connector.getTransactionByName(executionPlan.name) : null;
-    return transaction && transaction.getSqlQuery ? String(transaction.getSqlQuery()) : '';
+    source.sql = transaction && transaction.getSqlQuery ? String(transaction.getSqlQuery()) : '';
+    var parts = [source.sql];
+    try {
+      parts.push(String(connector.getJdbcDriverClassName()), String(connector.getJdbcURL()));
+    } catch (_noConnection) {}
+    try {
+      var list = transaction.getVariablesList();
+      for (var i = 0; list != null && i < list.size(); i++) {
+        var value = list.get(i).getValueOrNull();
+        parts.push(String(list.get(i).getName()) + '=' + (value == null ? '' : String(value)));
+      }
+    } catch (_noVariables) {}
+    source.fingerprint = parts.join('\n');
   } catch (_noSql) {
-    return '';
+    source.sql = '';
   }
+  return source;
 };
 
 // A transaction run with the SQL and the values that the database already refused while reading them answers the same
@@ -1108,11 +1124,12 @@ C8O.requestable.guardRepeatedRun = function (executionPlan) {
   if (!repeated || executionPlan.isSequence) {
     return;
   }
-  var sql = C8O.requestable._transactionSql(executionPlan);
+  var source = C8O.requestable._transactionSource(executionPlan);
+  var sql = source.sql;
   if (!sql.length) {
     return;
   }
-  executionPlan.runDigest = repeated.runDigest(executionPlan.requestable, executionPlan.variables || {}, sql);
+  executionPlan.runDigest = repeated.runDigest(executionPlan.requestable, executionPlan.variables || {}, source.fingerprint);
   var refused = repeated.refusal(context, executionPlan.runDigest);
   if (!refused) {
     return;
@@ -1128,7 +1145,8 @@ C8O.requestable.guardRepeatedRun = function (executionPlan) {
   }
   throw new Error('Refused without running anything: ' + executionPlan.requestable + ' already failed in this conversation with ' +
     'this same SQL and these same values, on "' + refused.cause + '", an error the database gives while it reads the statement: ' +
-    'it fails again. Change the SQL first (databaseobject-tree-apply on the transaction).' + (hints.length ? ' ' + hints.join(' ') : ''));
+    'it fails again. Change the SQL first (databaseobject-tree-apply on the transaction), or what it is read with (the ' +
+    'values, the defaults of the variables, the connector).' + (hints.length ? ' ' + hints.join(' ') : ''));
 };
 
 // After the call, its compact answer in hand (tools_requestable_execute BuildCompactResult): an error of a sign-in run
@@ -1398,7 +1416,13 @@ C8O.requestable._configureExecutor = function (executionPlan) {
 //   queued and runs once the thread is free (a tree refresh, an editor that opens), unless runLate is false: it then
 //   does nothing, for work that acts on a state the call no longer knows.
 // On the interface thread itself the work runs at once (waiting there for the queue would wait for itself).
+// - runMs: long work (a project reload): only its start is bounded by timeoutMs; once started, it is waited for runMs more.
+// - Once a wait timed out, every call of the engine waits STUDIO_UI_RECHECK_MS only, until the interface thread takes a
+//   work again or STUDIO_UI_FROZEN_KEEP_MS passed: a delete, its refresh and the reveal after it each waited the full
+//   bound, past the client timeout (review 27/11).
 C8O.util.STUDIO_UI_WAIT_MS = 10000;
+C8O.util.STUDIO_UI_RECHECK_MS = 1500;
+C8O.util.STUDIO_UI_FROZEN_KEEP_MS = 60000;
 
 C8O.util.studioUiFrozenMessage = function (what, waitedMs) {
   return "The Studio interface did not answer in " + Math.round(Number(waitedMs || 0) / 1000) + " s" +
@@ -1417,6 +1441,10 @@ C8O.util.studioUiExec = function (fn, options) {
   if (host.onUiThread()) {
     return { ran: true, value: fn() };
   }
+  var frozenAt = typeof host.frozenAt === "function" ? Number(host.frozenAt()) || 0 : 0;
+  if (frozenAt > 0 && host.now() - frozenAt < C8O.util.STUDIO_UI_FROZEN_KEEP_MS) {
+    timeoutMs = Math.min(timeoutMs, C8O.util.STUDIO_UI_RECHECK_MS);
+  }
   var state = { value: undefined, error: null };
   var latch = host.latch();
   // 0 queued, 1 started, 2 dropped: without runLate the work either starts or is dropped, never both
@@ -1424,6 +1452,10 @@ C8O.util.studioUiExec = function (fn, options) {
   var runLate = opts.runLate !== false;
   host.asyncExec(function () {
     try {
+      // the interface thread takes work again: the next calls wait their full bound
+      if (typeof host.setFrozenAt === "function") {
+        host.setFrozenAt(0);
+      }
       if (!gate.compareAndSet(0, 1) && !runLate) {
         return;
       }
@@ -1439,7 +1471,16 @@ C8O.util.studioUiExec = function (fn, options) {
   var finished = host.await(latch, timeoutMs);
   if (!finished) {
     var dropped = !runLate && gate.compareAndSet(0, 2);
+    if (!dropped && Number(gate.get()) === 1) {
+      // started: long work goes on for runMs; other work may have ended right now
+      finished = host.await(latch, Number(opts.runMs) > 0 ? Number(opts.runMs) : 1);
+    }
+  }
+  if (!finished) {
     var waitedMs = host.now() - startedAt;
+    if (Number(gate.get()) !== 1 && typeof host.setFrozenAt === "function") {
+      host.setFrozenAt(host.now());
+    }
     return {
       ran: false,
       timedOut: true,
@@ -1488,6 +1529,19 @@ C8O.util.studioUiHost = function () {
     },
     now: function () {
       return Number(java.lang.System.currentTimeMillis());
+    },
+    // when a wait last timed out, for every call of the engine (0: the thread answers)
+    frozenAt: function () {
+      try {
+        return Number(Packages.com.twinsoft.convertigo.engine.Engine.theApp.getShareServerMap().get("lib_ConvertigoMCP.studioUiFrozenAt") || 0);
+      } catch (_noShare) {
+        return 0;
+      }
+    },
+    setFrozenAt: function (ms) {
+      try {
+        Packages.com.twinsoft.convertigo.engine.Engine.theApp.getShareServerMap().set("lib_ConvertigoMCP.studioUiFrozenAt", ms > 0 ? java.lang.Long.valueOf(ms) : null);
+      } catch (_noShare) {}
     }
   };
 };
@@ -1497,18 +1551,25 @@ C8O.util.studioUiHost = function () {
 // - { done: true, value } when it ended in time (its error is thrown here);
 // - { done: false, timedOut: true, waitedMs, thread } when it did not: it goes on and ends on its own. The caller says so
 //   and keeps what depends on it (C8O.dbo.pendingSaveOf) until it ends.
-C8O.util.boundedCall = function (fn, timeoutMs, name) {
+// onLateError(error): told the error of work that ended after the call answered.
+C8O.util.boundedCall = function (fn, timeoutMs, name, onLateError) {
   var host = C8O.util.boundedCallHost();
-  var state = { value: undefined, error: null };
+  var state = { value: undefined, error: null, answered: false };
   var thread = host.start(function () {
     try {
       state.value = fn();
     } catch (callError) {
       state.error = callError;
+      if (state.answered && typeof onLateError === "function") {
+        try {
+          onLateError(callError);
+        } catch (_ignoreLateError) {}
+      }
     }
   }, name);
   var startedAt = host.now();
   if (!host.join(thread, timeoutMs)) {
+    state.answered = true;
     return { done: false, timedOut: true, waitedMs: host.now() - startedAt, thread: thread };
   }
   if (state.error) {

@@ -80,6 +80,13 @@ test('a sign-in is a SetAuthenticatedUserStep, an LDAP authentication, setAuthen
   assert.equal(G.signsIn(bean('core.Sequence', { children: [bean('steps.SetAuthenticatedUserStep', { enabled: false })] })), false, 'a disabled step signs no one in');
   assert.equal(G.signsIn(bean('core.Sequence', { children: [bean('steps.SimpleStep', { expression: 'var x = context.getAuthenticatedUser();' })] })), false);
   assert.equal(G.signsIn(bean('core.Sequence', { children: [bean('steps.SequenceStep', { calls: 'App.unknown' })] })), false);
+  // a sequence called many times is walked once
+  const lookups = [];
+  const helper = bean('core.Sequence', { children: [bean('steps.JsonObjectStep')] });
+  G.host.sequenceOf = qname => { lookups.push(qname); return helper; };
+  const many = bean('core.Sequence', { children: [1, 2, 3].map(() => bean('steps.SequenceStep', { calls: 'App.helper' })) });
+  assert.equal(G.signsIn(many), false);
+  assert.deepEqual(lookups, ['App.helper']);
 });
 
 test('a direct sign-in that refused its values is refused again with them, and after 3 different values', () => {

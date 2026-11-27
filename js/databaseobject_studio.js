@@ -123,7 +123,8 @@ C8O.dbo.studioUi = function (fn, options) {
     return { ran: true, value: fn() };
   }
   var run = C8O.util.studioUiExec(fn, opts);
-  C8O.dbo._studioUiFrozen = run.ran !== true;
+  // work that started and is still running (a long reload) is no sign of a frozen thread
+  C8O.dbo._studioUiFrozen = run.ran !== true && run.started !== true;
   return run;
 };
 
@@ -138,7 +139,10 @@ C8O.dbo.studioUiDeferred = function (result, run, effect) {
 };
 
 // label: what the call writes, named to a call that waits too long ("tree-apply under Shop.Application...").
-C8O.dbo.withStudioLock = function (fn, label) {
+// options.awaitSaves false: work that writes no project (a Project Explorer refresh) does not wait for a save still
+// running; a move saved, left its save running, then waited 30 s per refresh for it (review 27/11).
+C8O.dbo.withStudioLock = function (fn, label, options) {
+  var awaitSaves = !(options && options.awaitSaves === false);
   var store = C8O.dbo.studioLockStore();
   var lock = C8O.dbo.studioLock();
   var acquired = false;
@@ -160,7 +164,7 @@ C8O.dbo.withStudioLock = function (fn, label) {
     throw busy;
   }
   var outermost = lock.getHoldCount() === 1;
-  if (outermost) {
+  if (outermost && awaitSaves) {
     // a save that did not end in its call is still writing a project: wait for it in the rest of the lock wait
     var saving = null;
     try {
@@ -176,6 +180,8 @@ C8O.dbo.withStudioLock = function (fn, label) {
       savingBusy.code = C8O.dbo.STUDIO_LOCK_BUSY;
       throw savingBusy;
     }
+  }
+  if (outermost) {
     store.set(STUDIO_LOCK_KEY + ".holder", JSON.stringify({ what: String(label || "a project write"), since: Number(java.lang.System.currentTimeMillis()) }));
   }
   try {
@@ -192,7 +198,7 @@ C8O.dbo.refreshStudioTreeByQName = function (targetQName, errors) {
   try {
     return C8O.dbo.withStudioLock(function () {
       return C8O.dbo._refreshStudioTreeByQName(targetQName, errors);
-    }, "a Studio tree refresh of " + targetQName);
+    }, "a Studio tree refresh of " + targetQName, { awaitSaves: false });
   } catch (busy) {
     if (!busy || busy.code !== C8O.dbo.STUDIO_LOCK_BUSY) {
       throw busy;
@@ -843,9 +849,10 @@ C8O.dbo.reloadProject = function (projectOrName, errors) {
       var previousIdentity = C8O.dbo.getCachedProjectIdentity(name);
       // ConvertigoPlugin.reloadProject waits for the interface thread without a limit: it runs there, bounded, and is
       // dropped when the thread does not take it (the unsaved changes are kept then).
+      // a big project takes long to reload: only the start is bounded, then the reload is waited for as before
       var reloadRun = C8O.dbo.studioUi(function () {
         ConvertigoPlugin.getDefault().reloadProject(name);
-      }, { label: "the reload of " + name, runLate: false });
+      }, { label: "the reload of " + name, runLate: false, runMs: 110000 });
       if (reloadRun.ran !== true && reloadRun.started !== true) {
         if (discarded) {
           cached.hasChanged = true;

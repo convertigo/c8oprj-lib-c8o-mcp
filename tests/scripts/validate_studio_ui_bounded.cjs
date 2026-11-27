@@ -16,23 +16,32 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const plain = value => JSON.parse(JSON.stringify(value));
 
 // The interface thread: answering runs what is queued when a call waits; frozen runs nothing until release().
-function fakeUi(mode = 'answer') {
+// long: the thread takes the work at once and the work ends longMs later.
+function fakeUi(mode = 'answer', options = {}) {
   const queue = [];
-  const ui = { mode, queue, waits: [], clock: 0, onUi: false };
+  const ui = { mode, queue, waits: [], clock: 0, onUi: false, longMs: options.longMs || 0, mark: 0 };
   ui.release = () => { while (queue.length) queue.shift()(); };
   ui.host = {
     onUiThread: () => ui.onUi,
     asyncExec: work => queue.push(work),
-    latch: () => ({ done: false, countDown() { this.done = true; } }),
+    latch: () => ({ done: false, ended: false, countDown() { if (ui.mode === 'long') this.ended = true; else this.done = true; } }),
     gate: () => ({ v: 0, compareAndSet(a, b) { if (this.v === a) { this.v = b; return true; } return false; }, set(v) { this.v = v; }, get() { return this.v; } }),
     await: (latch, ms) => {
       ui.waits.push(ms);
       if (ui.mode === 'answer') ui.release();
-      else ui.clock += ms;
+      else if (ui.mode === 'long') {
+        if (latch.startedAt === undefined) { latch.startedAt = ui.clock; ui.release(); }
+        const end = latch.startedAt + ui.longMs;
+        if (latch.ended && ui.clock + ms >= end) { ui.clock = Math.max(ui.clock, end); latch.done = true; } else ui.clock += ms;
+      } else ui.clock += ms;
       return latch.done;
     },
     now: () => ui.clock
   };
+  if (options.shared) {
+    ui.host.frozenAt = () => ui.mark;
+    ui.host.setFrozenAt = ms => { ui.mark = ms; };
+  }
   return ui;
 }
 
@@ -69,6 +78,36 @@ test('a wait on the interface thread is bounded: the work runs, is dropped, or s
 
   ui.onUi = true;
   assert.deepEqual(plain(U.studioUiExec(() => 'here')), { ran: true, value: 'here' }, 'on the interface thread itself the work runs at once');
+});
+
+test('long work bounds its start only, and a timed-out wait makes every next call of the engine short', () => {
+  const ctx = sandbox();
+  const U = ctx.C8O.util;
+  // a reload that ends 15 s after it starts: waited for with runMs, reported running without
+  let ui = fakeUi('long', { longMs: 15000, shared: true });
+  U._studioUiHost = ui.host;
+  assert.deepEqual(plain(U.studioUiExec(() => 'reloaded', { timeoutMs: 10000, runMs: 110000, runLate: false })), { ran: true, value: 'reloaded' });
+  assert.deepEqual(ui.waits, [10000, 110000]);
+  ui = fakeUi('long', { longMs: 15000, shared: true });
+  U._studioUiHost = ui.host;
+  const running = U.studioUiExec(() => 'x', { timeoutMs: 10000, runLate: false });
+  assert.equal(running.ran, false);
+  assert.equal(running.started, true, 'taken by the thread and still running');
+  assert.equal(running.dropped, false);
+  assert.equal(ui.mark, 0, 'a running work is no sign of a frozen thread');
+
+  // frozen: the mark is set, the next calls (any tool) wait 1.5 s, and the thread taking work again clears it
+  ui = fakeUi('frozen', { shared: true });
+  U._studioUiHost = ui.host;
+  assert.equal(U.studioUiExec(() => 1, { runLate: true }).ran, false);
+  assert.equal(ui.mark, 10000);
+  assert.equal(U.studioUiExec(() => 2, { runLate: false }).ran, false);
+  assert.deepEqual(ui.waits, [10000, 1500]);
+  ui.release();
+  assert.equal(ui.mark, 0);
+  ui.mode = 'answer';
+  U.studioUiExec(() => 3);
+  assert.deepEqual(ui.waits, [10000, 1500, 10000], 'full bound again');
 });
 
 // The Studio parts databaseobject_studio.js reaches: one Project Explorer view, the cached project, its reload.
@@ -138,13 +177,22 @@ test('a Studio project reload the frozen interface did not take keeps the unsave
   ui.mode = 'answer';
   assert.equal(dbo.reloadProject('Shop', []).reloaded, true);
   assert.deepEqual(calls, [['studio reload', 'Shop'], ['wait']]);
+  // a big project reloads 40 s: its start is bounded, then it is waited for, and it is no frozen thread
+  const long = fakeUi('long', { longMs: 40000 });
+  const slow = studio(long, { changed: true });
+  slow.dbo.waitForProjectReload = () => slow.calls.push(['wait']);
+  const done = plain(slow.dbo.reloadProject('Shop', []));
+  assert.equal(done.reloaded, true, JSON.stringify(done));
+  assert.deepEqual(long.waits, [10000, 110000]);
+  assert.equal(slow.dbo._studioUiFrozen, false);
 });
 
 test('a save that does not end in time answers savePending, and the next write waits for it', () => {
   const ui = fakeUi('answer');
   const { dbo, ctx } = studio(ui);
   vm.runInContext(read('js/databaseobject_persist.js').replace('include("js/mobile_builder_cycle.js");', ''), ctx, { filename: 'js/databaseobject_persist.js' });
-  ctx.C8O.project = { checkUpdateProjectVersion: () => ({ checked: true, version: '1.0.0' }) };
+  const versionChecks = [];
+  ctx.C8O.project = { checkUpdateProjectVersion: p => { versionChecks.push(p.getName()); return { checked: true, version: '1.0.0' }; } };
   dbo.invalidateProjectRuntime = () => ({ invalidated: false });
   const saving = { alive: true, joins: [], join(ms) { this.joins.push(ms); }, isAlive() { return this.alive; } };
   const exports = [];
@@ -173,6 +221,7 @@ test('a save that does not end in time answers savePending, and the next write w
   assert.equal(second.savePending, true);
   assert.match(second.message, /^An earlier save of Shop has been running for 25 s and has not ended: this save waits for it and was not made\./);
   assert.equal(exports.length, 1, 'no second export of a project being written');
+  assert.deepEqual(versionChecks, ['Shop'], 'nor its version touched while it is written');
   saving.alive = false;
   ctx.C8O.util._boundedCallHost = { start: work => { work(); return { isAlive: () => false }; }, join: () => true, now: () => 0 };
   ctx.Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.exportProject = () => exports.push('exported');
@@ -180,7 +229,32 @@ test('a save that does not end in time answers savePending, and the next write w
 });
 
 test('withStudioLock waits for a save still running in the rest of its wait, then refuses without changing anything', () => {
+  class FakeLock {
+    constructor() { this.holds = 0; }
+    tryLock() { this.holds++; return true; }
+    getHoldCount() { return this.holds; }
+    unlock() { this.holds--; }
+  }
+  const shared = new Map();
+  const share = { get: key => (shared.has(key) ? shared.get(key) : null), set: (key, value) => shared.set(key, value) };
+  const ctx = {
+    C8O: { util: { toTrimmedString: v => String(v || '').trim() } },
+    java: { lang: { String: function (t) { this.intern = () => t; }, System: { currentTimeMillis: () => 1000 } },
+      util: { concurrent: { TimeUnit: { MILLISECONDS: 'ms' }, locks: { ReentrantLock: FakeLock } } } },
+    Packages: { com: { twinsoft: { convertigo: { engine: { Engine: { theApp: { getShareServerMap: () => share } } } } } },
+      org: { mozilla: { javascript: { Synchronizer: function (fn) { return () => fn(); } } } } }
+  };
+  vm.createContext(ctx);
+  vm.runInContext(read('js/databaseobject_studio.js'), ctx);
+  const dbo = ctx.C8O.dbo;
+  const saving = { isAlive: () => true, join() {} };
+  const pending = new Map([['Shop', { get: i => (i === 0 ? saving : 0) }]]);
+  shared.set('lib_ConvertigoMCP.pendingSaves', { isEmpty: () => pending.size === 0, keySet: () => ({ toArray: () => [...pending.keys()] }), get: k => pending.get(k), remove: k => pending.delete(k) });
+  assert.throws(() => dbo.withStudioLock(() => 'moved', 'a move'), /The save of Shop has been running for 1 s and has not ended: this call waited and changed nothing\./);
+  assert.equal(dbo.withStudioLock(() => 'refreshed', 'a refresh', { awaitSaves: false }), 'refreshed', 'work that writes no project does not wait');
+  assert.equal(dbo.studioLock().holds, 0);
   const src = read('js/databaseobject_studio.js');
+  assert.match(src, /return C8O\.dbo\._refreshStudioTreeByQName\(targetQName, errors\);\n\s+\}, "a Studio tree refresh of " \+ targetQName, \{ awaitSaves: false \}\);/);
   assert.match(src, /var saving = null;\n\s+try \{\n\s+saving = C8O\.dbo\.awaitPendingSaves\(null, STUDIO_LOCK_WAIT_MS - \(Number\(java\.lang\.System\.currentTimeMillis\(\)\) - lockAskedAt\)\);/);
   assert.match(src, /if \(saving\) \{\n\s+lock\.unlock\(\);/, 'the lock is given back before the refusal');
   assert.match(src, /has been running for " \+ Math\.round\(saving\.runningMs \/ 1000\) \+\n\s+" s and has not ended: this call waited and changed nothing\./);
@@ -198,6 +272,14 @@ test('boundedCall answers within its bound and lets the work go on', () => {
   U._boundedCallHost = { start: work => { work(); return {}; }, join: () => true, now: () => 0 };
   assert.deepEqual(plain(U.boundedCall(() => 'saved', 20000)), { done: true, value: 'saved' });
   assert.throws(() => U.boundedCall(() => { throw new Error('disk full'); }, 20000), /disk full/);
+  // the error of work that ended after the call answered is told to onLateError
+  let later = null;
+  const told = [];
+  U._boundedCallHost = { start: work => { later = work; return {}; }, join: () => false, now: () => 0 };
+  assert.equal(U.boundedCall(() => { throw new Error('disk full'); }, 20000, 'save', e => told.push(String(e.message))).done, false);
+  later();
+  assert.deepEqual(told, ['disk full']);
+  assert.match(read('js/databaseobject_persist.js'), /the save of " \+ saveName \+ " that went on past its call failed: "/);
 });
 
 test('no Studio interface wait of the MCP is left without a bound', () => {
