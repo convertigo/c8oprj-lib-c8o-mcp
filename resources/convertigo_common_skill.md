@@ -6,7 +6,7 @@
 
 ## MCP-first rule
 
-Use Convertigo MCP for inspection and authoring. Never edit `c8oProject.yaml`, `_c8oProject/**/*.yaml`, `project.xml`, `_private/ionic`, `DisplayObjects` or `dist`. Fix source objects or generators. Do not run manual frontend builds. Do not scan the filesystem to rediscover MCP contracts. Read named URIs directly; discover catalogs only for ambiguous routing, missing entries or version mismatch.
+Use Convertigo MCP for inspection and authoring. Never edit `c8oProject.yaml`, `_c8oProject/**/*.yaml`, `project.xml` or generated artifacts. Fix source objects or generators. For tracked NGX translation dictionaries, follow `convertigo://guides/ngx/i18n`. Do not run manual frontend builds. Do not scan the filesystem to rediscover MCP contracts. Read named URIs directly; discover catalogs only for ambiguous routing, missing entries or version mismatch.
 
 Keep the exact requested project name and target project. New NGX projects use `marketplace-import` with `template_ngxBuilderIonic`; open the viewer with `wait=false` early. Standard marketplace libraries are platform components: use the `_ui_ngx` variant for NGX. Before the first project mutation, inventory capabilities and reuse existing libraries; read `convertigo://guides/common/libraries` for the capability table.
 

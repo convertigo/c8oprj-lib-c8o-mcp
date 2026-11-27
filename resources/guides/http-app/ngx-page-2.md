@@ -42,7 +42,7 @@ After `mobile-builder-open`, generated HTML is diagnostic-only but must be check
 - Example input node pattern: `{"name":"QueryInput","className":"ngx.components.UIDynamicElement#Input","properties":{"DoubleBinding":{"mode":"SOURCE","value":"{\"filter\":\"Local\",\"project\":\"<Project>\",\"input\":\"\",\"model\":{\"data\":[{\"localObject\":\"local\"}],\"path\":\"?.query\",\"prefix\":\"\",\"suffix\":\"\",\"custom\":\"\",\"useCustom\":false}}"}}}`. Use the actual local property name chosen for the page.
 - If you already created an input with `Value` or a failed child binding, patch the same input by setting `DoubleBinding`; do not leave `Value` as the only local binding.
 - The submit/refresh trigger needs a visible child `UIText` with the command label appropriate to the app.
-- For any visible text, create `ngx.components.UIText#UIText` with property `textValue` set to the plain text or iterator interpolation. Do not use `i18n` as the visible text value; it leaves empty `UIText` nodes.
+- For any visible text, create `ngx.components.UIText#UIText` with property `textValue` set to the plain text or iterator interpolation. For a localized app, put the key in `textValue` and enable `i18n` as described in `convertigo://guides/ngx/i18n`.
 - Once the query/filter input is accepted, continue immediately with the required trigger action chain and results list. Do not pause for optional styling, placeholder repair, extra page reads, broad replanning, or explanatory prose between the input, trigger, action chain, and list creation.
 
 Trigger action chain:

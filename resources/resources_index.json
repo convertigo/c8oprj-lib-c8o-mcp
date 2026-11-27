@@ -2991,6 +2991,16 @@
     "parentUri": "convertigo://guides/ngx"
   },
   {
+    "uri": "convertigo://guides/ngx/i18n",
+    "name": "Convertigo Frontend NGX — Translations",
+    "description": "Add translation keys and dictionaries, bind localized text, and select the language.",
+    "mimeType": "text/markdown",
+    "file": "guides/ngx/i18n.md",
+    "guideId": "convertigo/frontend-ngx/i18n",
+    "guidanceLevel": "drawer",
+    "parentUri": "convertigo://guides/ngx"
+  },
+  {
     "uri": "convertigo://guides/ngx/page-structure",
     "name": "Convertigo Frontend NGX — Viewer proof, pages and action paths",
     "description": "Open for Viewer proof, pages and action paths.",
@@ -3145,6 +3155,7 @@
       "convertigo://guides/ngx/design",
       "convertigo://guides/ngx/design-finish",
       "convertigo://guides/ngx/presentation",
+      "convertigo://guides/ngx/i18n",
       "convertigo://guides/ngx/page-structure",
       "convertigo://guides/ngx/events",
       "convertigo://guides/ngx/http-search",
