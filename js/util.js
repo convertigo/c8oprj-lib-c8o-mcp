@@ -1050,6 +1050,127 @@ C8O.requestable.runBefore = function (executionPlan) {
   }
 };
 
+// The name a sign-in has in the before guard, the same for a before item and a direct call: <project>.<sequence>.
+C8O.requestable._signInName = function (executionPlan) {
+  return executionPlan.project + '.' + (executionPlan.isSequence ? '' : executionPlan.connector + '.') + executionPlan.name;
+};
+
+// A sequence that signs a user in, run directly by requestable-execute (not in before): a login was tried 61 times with
+// guessed passwords that way (TigoAccess 8e1d46fe, 13-18/11). Its failures go to the before guard, so the same values are
+// refused, and so is any try after REQUESTABLE_TRIES different values in the conversation.
+C8O.requestable.guardSignIn = function (executionPlan, sequence) {
+  var guard = C8O.requestable._beforeGuard();
+  if (!guard || typeof guard.signsIn !== 'function' || !sequence) {
+    return;
+  }
+  var signsIn = false;
+  try {
+    signsIn = guard.signsIn(sequence) === true;
+  } catch (_ignoreSignIn) {
+    signsIn = false;
+  }
+  if (!signsIn) {
+    return;
+  }
+  executionPlan.signIn = true;
+  var refused = guard.refusal(context, [{ requestable: C8O.requestable._signInName(executionPlan), variables: executionPlan.variables || {} }], true);
+  if (refused) {
+    throw new Error(refused.message + ' ' + executionPlan.requestable + ' was not run.');
+  }
+};
+
+// js/repeated_failure.js, when the engine has it.
+C8O.requestable._repeatedFailure = function () {
+  try {
+    if (typeof C8O.repeatedFailure === 'undefined' && typeof include === 'function') {
+      include('js/repeated_failure.js');
+    }
+  } catch (_noRepeatedFailure) {}
+  return typeof C8O.repeatedFailure !== 'undefined' && typeof C8O.repeatedFailure.refusal === 'function' ? C8O.repeatedFailure : null;
+};
+
+// The SQL of the transaction of the call ('' when it has none or it cannot be read).
+C8O.requestable._transactionSql = function (executionPlan) {
+  try {
+    var project = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getOriginalProjectByName(executionPlan.project, false);
+    var connector = project ? project.getConnectorByName(executionPlan.connector) : null;
+    var transaction = connector ? connector.getTransactionByName(executionPlan.name) : null;
+    return transaction && transaction.getSqlQuery ? String(transaction.getSqlQuery()) : '';
+  } catch (_noSql) {
+    return '';
+  }
+};
+
+// A transaction run with the SQL and the values that the database already refused while reading them answers the same
+// error: it is refused without running, with the cause and the hints for that SQL.
+C8O.requestable.guardRepeatedRun = function (executionPlan) {
+  var repeated = C8O.requestable._repeatedFailure();
+  if (!repeated || executionPlan.isSequence) {
+    return;
+  }
+  var sql = C8O.requestable._transactionSql(executionPlan);
+  if (!sql.length) {
+    return;
+  }
+  executionPlan.runDigest = repeated.runDigest(executionPlan.requestable, executionPlan.variables || {}, sql);
+  var refused = repeated.refusal(context, executionPlan.runDigest);
+  if (!refused) {
+    return;
+  }
+  var hints = [];
+  try {
+    if (typeof C8O.sqlDialect === 'undefined' && typeof include === 'function') {
+      include('js/sql_dialect.js');
+    }
+    hints = C8O.sqlDialect.errorHints('', refused.cause, sql, executionPlan.variables || {});
+  } catch (_noHints) {
+    hints = [];
+  }
+  throw new Error('Refused without running anything: ' + executionPlan.requestable + ' already failed in this conversation with ' +
+    'this same SQL and these same values, on "' + refused.cause + '", an error the database gives while it reads the statement: ' +
+    'it fails again. Change the SQL first (databaseobject-tree-apply on the transaction).' + (hints.length ? ' ' + hints.join(' ') : ''));
+};
+
+// After the call, its compact answer in hand (tools_requestable_execute BuildCompactResult): an error of a sign-in run
+// directly is remembered by the before guard and says not to guess; an error with the cause of the failures before it
+// says how many in a row; a success clears the count. Never throws.
+C8O.requestable.afterCall = function (executionPlan, result) {
+  if (!executionPlan || !result || typeof result !== 'object') {
+    return;
+  }
+  var failed = result.status === 'error' && result.error && typeof result.error === 'object';
+  try {
+    var guard = executionPlan.signIn === true && failed ? C8O.requestable._beforeGuard() : null;
+    if (guard) {
+      var name = C8O.requestable._signInName(executionPlan);
+      guard.failed(context, name, executionPlan.variables || {});
+      var tries = typeof guard.tries === 'function' ? guard.tries(context, name) : 0;
+      result.error.hint = (result.error.hint ? result.error.hint + ' ' : '') + name + ' signs a user in and refused these values' +
+        (tries ? ' (' + tries + ' of ' + guard.REQUESTABLE_TRIES + ' different values in this conversation)' : '') + '. Never guess ' +
+        'or try passwords: take the test account from the project notes or project-brief, else ask the user once for one. These ' +
+        'values are refused from now on in this conversation, and every try after ' + guard.REQUESTABLE_TRIES + ' different values. ' +
+        'To run another sequence as a signed-in user, pass authenticatedUser.';
+    }
+  } catch (_ignoreSignInFailure) {}
+  try {
+    var repeated = C8O.requestable._repeatedFailure();
+    if (!repeated) {
+      return;
+    }
+    if (!failed) {
+      repeated.recordSuccess(context, executionPlan.requestable);
+      return;
+    }
+    var count = repeated.recordFailure(context, executionPlan.requestable, result.error, executionPlan.runDigest || null);
+    if (count >= repeated.NOTE_FROM) {
+      result.error.repeated = count;
+      result.error.repeatedNote = 'Failure ' + count + ' in a row of ' + executionPlan.requestable + ' with this same cause in this ' +
+        'conversation: calling it again as it is gives the same error. Read the hints above and change the SQL or the values ' +
+        'they name before the next call; if nothing explains it, tell the user what fails instead of trying again.';
+    }
+  } catch (_ignoreRepeated) {}
+};
+
 // js/before_guard.js, when the engine has it (the tests of runBefore run without it).
 C8O.requestable._beforeGuard = function () {
   try {
@@ -1194,6 +1315,8 @@ C8O.requestable._configureExecutor = function (executionPlan) {
         throw unknownSequence;
       }
     }
+    // A sign-in run directly: refused when its values already failed, or after REQUESTABLE_TRIES values (js/before_guard.js).
+    C8O.requestable.guardSignIn(executionPlan, knownSequence);
     seqStep.setSourceSequence(executionPlan.project + '.' + executionPlan.name);
     C8O.requestable._clearVariables(seqStep);
     C8O.requestable._addVariables(seqStep, executionPlan.variables || {});
@@ -1239,6 +1362,9 @@ C8O.requestable._configureExecutor = function (executionPlan) {
   C8O.requestable._clearVariables(txStep);
   C8O.requestable._addVariables(txStep, executionPlan.variables || {});
   C8O.requestable._resetExecutionState(executionPlan, seqStep, txStep);
+  // The same SQL with the same values that the database already refused while reading it: refused before the call runs
+  // (js/repeated_failure.js).
+  C8O.requestable.guardRepeatedRun(executionPlan);
   if (executionPlan.recordSchema === true) {
     try {
       var txQName = executionPlan.project + '.cn:' + executionPlan.connector + '.tr:' + executionPlan.name;
