@@ -1376,14 +1376,14 @@
         "when": "Cards, labels and readable page structure",
         "sha256": "bc47e31b85aac5497060f35ccfdb19aebb97238328363d643523653c079a7dbe",
         "bodyOffset": 230,
-        "servedSha256": "6ca27c44824701607b210f22d84db93499028fa90054f6084bd7ee6bdb0608f0"
+        "servedSha256": "47bc0d89101990ab524d60fde6dc8ccba9fcc495daaba4f9a728a89d327a1d12"
       },
       {
         "uri": "convertigo://guides/ngx/i18n",
         "file": "guides/ngx/i18n.md",
         "when": "Translation keys, dictionaries and languages",
         "bodyOffset": 209,
-        "servedSha256": "f1387de6135643b24ea5ef4c4492c47e3feeefb9b2c74bba8792389e53c7497b"
+        "servedSha256": "ec9b49183f035d053eb3002ea46ca5de8c0005a05900db0d75a2d92c7335500c"
       },
       {
         "uri": "convertigo://guides/ngx/page-structure",
@@ -1677,7 +1677,7 @@
         "when": "Guidance freshness and MCP-only authoring",
         "sha256": "18f808aa4a6651603803a7e0bf7c2af45b65db5d2414f72cd82f741e971a9260",
         "bodyOffset": 190,
-        "servedSha256": "af6efbb5dd3bab6adf895195a538ac5ea3260f93201813f5e8e5a8859b4716e0",
+        "servedSha256": "d2b3dbfddcde1ce0182d0d57b4aec4753cfe9a65723c815a6db5030a8c8cb0f2",
         "trailingSourceNewlines": 1
       },
       {

@@ -15,7 +15,7 @@ Next: `convertigo://guides/common/libraries`.
 
 - Use Convertigo MCP to inspect and change Convertigo objects.
 - Convertigo project descriptors are MCP-owned. Never read or edit `c8oProject.yaml`, `_c8oProject/**/*.yaml`, or `project.xml` as an authoring fallback. If a required MCP operation still fails after one targeted retry, stop and report the blocker without mutating project files.
-- Fix Convertigo source objects and generators. Treat generated artifacts as diagnostic-only. Tracked NGX translation dictionaries are source assets. See `convertigo://guides/ngx/i18n`.
+- Never edit or repair `_private/ionic`, `dist` or other generated artifacts. They are diagnostic-only surfaces; fix the Convertigo source objects or the MCP generator instead. Under `DisplayObjects`, only the tracked NGX translation dictionaries are source files; see `convertigo://guides/ngx/i18n`.
 - Do not run `npm run build` or other manual frontend builds outside MCP to close a task.
 - Do not use shell, PowerShell, `rg`, or filesystem scans to rediscover MCP tool signatures, installed skill files, or examples already exposed by callable schemas and named guides. Never recursively search a drive root, user profile, workspace root, or generated frontend tree for browser/build diagnostics; use `mobile-builder-open` and `log-view`.
 - Treat the live MCP catalog as the public source of truth: `tools/list`, `resources/list`, `prompts/list`. Use catalog discovery only when this skill cannot route the task, a named resource is missing, or the MCP reports a guidance mismatch.
