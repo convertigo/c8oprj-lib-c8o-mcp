@@ -25,6 +25,29 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
   var compactText = helper.compactText;
   var withGeneratedLines = helper.withGeneratedLines;
 
+  // Work on the Studio interface thread, bounded (C8O.util.studioUiExec): on two customers' Windows Studios that thread
+  // was held and mobile-builder-open waited 61-74 s for it, past the client timeout (TigoAccess b879cbe4, 11-26/11). The
+  // editor opening waits OPEN_EDITOR_WAIT_MS, a viewer read or move VIEWER_UI_WAIT_MS; once the thread did not answer,
+  // the next waits of the call are UI_RECHECK_MS. Never run late: a viewer moved or an editor opened minutes later would
+  // surprise the user, and the next call reads the state again.
+  var OPEN_EDITOR_WAIT_MS = 20000;
+  var VIEWER_UI_WAIT_MS = 5000;
+  var UI_RECHECK_MS = 1500;
+  var studioUiFrozen = null;
+  function onStudioUi(work, timeoutMs, label) {
+    var run = C8O.util.studioUiExec(work, {
+      timeoutMs: studioUiFrozen !== null ? Math.min(timeoutMs, UI_RECHECK_MS) : timeoutMs,
+      label: label,
+      runLate: false
+    });
+    if (run.ran !== true && run.started !== true) {
+      studioUiFrozen = studioUiFrozen || run;
+    } else if (run.ran === true) {
+      studioUiFrozen = null;
+    }
+    return run;
+  }
+
   // An error of the engine's last compilation, "src/app/pages/p/p.ts:317:107: TS2304: Cannot find name 'id'.", as a
   // compile error with its place.
   function engineCompileError(text) {
@@ -354,9 +377,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     }
 
     try {
-      var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
-      var Runnable = Packages.java.lang.Runnable;
-      ConvertigoPlugin.syncExec(new Runnable({ run: function () {
+      var browserRead = onStudioUi(function () {
         try {
           var browser = readPrivateField(editorRef, "c8oBrowser");
           if (browser == null) {
@@ -433,7 +454,10 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
             state.progress = 0;
           }
         } catch (_ignoreBrowserState) {}
-      }}));
+      }, VIEWER_UI_WAIT_MS, "the viewer state");
+      if (browserRead.ran !== true) {
+        state.uiBusy = true;
+      }
     } catch (_ignoreBrowserRead) {}
 
     return state;
@@ -577,8 +601,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
   function reloadOpenViewer(editorRef, segment) {
     var reloaded = false;
     try {
-      var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
-      ConvertigoPlugin.syncExec(new Packages.java.lang.Runnable({ run: function () {
+      onStudioUi(function () {
         try {
           if (editorRef.selectPage) {
             editorRef.selectPage(null);
@@ -586,7 +609,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
             reloaded = true;
           }
         } catch (_ignoreSelect) {}
-      } }));
+      }, VIEWER_UI_WAIT_MS, "the viewer reload");
     } catch (_ignoreReload) {}
     return reloaded;
   }
@@ -621,8 +644,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
   function navigateOpenViewer(editorRef, url) {
     var navigated = false;
     try {
-      var ConvertigoPlugin = Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin;
-      ConvertigoPlugin.syncExec(new Packages.java.lang.Runnable({ run: function () {
+      onStudioUi(function () {
         try {
           var browser = readPrivateField(editorRef, "c8oBrowser");
           if (browser != null && browser.loadURL) {
@@ -630,7 +652,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
             navigated = true;
           }
         } catch (_ignoreNavigate) {}
-      } }));
+      }, VIEWER_UI_WAIT_MS, "the viewer navigation");
     } catch (_ignoreNavigateExec) {}
     return navigated;
   }
@@ -728,7 +750,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         return result;
       }
 
-      ConvertigoPlugin.syncExec(new Runnable({ run: function () {
+      var editorRun = onStudioUi(function () {
         try {
           var view = plugin.getProjectExplorerView ? plugin.getProjectExplorerView() : null;
           if (view == null) {
@@ -868,7 +890,15 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
           result.error = String(uiError);
           result.message = "Unable to open NGX editor: " + result.error;
         }
-      }}));
+      }, OPEN_EDITOR_WAIT_MS, stateOnly === true ? "the NGX editor state" : "the NGX editor opening");
+      if (editorRun.ran !== true) {
+        result.uiBusy = true;
+        result.uiStarted = editorRun.started === true;
+        result.error = "studio_ui_frozen";
+        result.message = editorRun.message + (editorRun.started === true
+          ? " The NGX editor began to open at the last moment: call mobile-builder-open with stateOnly true in a moment to read it."
+          : " The NGX editor was " + (stateOnly === true ? "not read." : "not opened and no build was started."));
+      }
     } catch (openError) {
       result.error = String(openError);
       result.message = "Unable to open NGX editor: " + result.error;
@@ -1095,6 +1125,13 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
         error: ""
       };
     var editorRef = editorResult && editorResult.editorRef ? editorResult.editorRef : null;
+    // The interface thread did not take the editor work in time: nothing else is started or waited for (a build started
+    // beside an editor that may still open would be a second one), and the answer says why at once.
+    var studioUiBusy = studioMode && editorResult && editorResult.uiBusy === true;
+    if (studioUiBusy) {
+      waitValue = false;
+      timeoutSecValue = 0;
+    }
 
     var hasReusableEditor = false;
     var editorBootState = {};
@@ -1109,7 +1146,7 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     } catch (_ignoreReusableReachable) {}
     var reusedExistingBuilder = stateOnlyValue !== true && hasReusableEditor && reusableEditorReachable && !forceRestartValue && !launchedFromEditor;
     var launchRequested = launchedFromEditor === true;
-    if (studioMode && stateOnlyValue !== true && !launchedFromEditor && !reusedExistingBuilder) {
+    if (studioMode && stateOnlyValue !== true && !launchedFromEditor && !reusedExistingBuilder && !studioUiBusy) {
       MobileBuilder.initBuilder(projectRef);
       startBuildWithWsBuilder(projectName, endpoint);
       launchRequested = true;
@@ -1469,6 +1506,10 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
     var idleSince = 0;
     var idleViewerReloaded = false;
     while (waitValue === true && !ready && !stateOnlyStopped && java.lang.System.currentTimeMillis() < deadline) {
+      // the interface thread stopped answering while the call waited: the answer says so instead of waiting on
+      if (studioMode && studioUiFrozen !== null) {
+        break;
+      }
       ready = refreshCurrentState();
       if (ready) {
         break;
@@ -1685,13 +1726,20 @@ C8O.mobileBuilder = C8O.mobileBuilder || {};
       message = message + " To prove what a page shows, call browser-verify {url, paths}: one call, a verifier drives this " +
         "viewer and answers what it saw with screenshots, instead of many browser calls by hand.";
     }
+    if (studioUiBusy) {
+      message = editorResult.message + " " + message;
+      nextAction = { tool: "mobile-builder-open", arguments: { project: projectName, stateOnly: editorResult.uiStarted === true, wait: false } };
+    } else if (studioMode && studioUiFrozen !== null) {
+      message = studioUiFrozen.message + " " + message;
+    }
     var publicEditorResult = {
       requested: editorResult && editorResult.requested === true,
       opened: editorResult && editorResult.opened === true,
       builderLaunchRequested: editorResult && editorResult.builderLaunchRequested === true,
       stateOnly: editorResult && editorResult.stateOnly === true,
       message: editorResult && editorResult.message ? editorResult.message : "",
-      error: editorResult && editorResult.error ? editorResult.error : ""
+      error: editorResult && editorResult.error ? editorResult.error : "",
+      uiBusy: studioUiBusy === true || (studioMode && studioUiFrozen !== null)
     };
 
     var builderState = {

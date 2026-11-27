@@ -64,6 +64,15 @@ if (typeof C8O === "undefined") {
     },
     newMap: function () {
       return new java.util.concurrent.ConcurrentHashMap();
+    },
+    // "<project>.<sequence>" (a SequenceStep's source) as the sequence object, null when it is not loaded
+    sequenceOf: function (qname) {
+      var parts = String(qname).split(".");
+      if (parts.length !== 2) {
+        return null;
+      }
+      var project = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getOriginalProjectByName(parts[0], false);
+      return project != null ? project.getSequenceByName(parts[1]) : null;
     }
   };
 
@@ -120,19 +129,21 @@ if (typeof C8O === "undefined") {
     return state;
   }
 
-  // items: [{requestable, variables}]. The refusal of the call ({index, requestable, message}) or null.
-  api.check = function (store, scope, items, now) {
+  // items: [{requestable, variables}]. The refusal of the call ({index, requestable, message}) or null. direct: the item
+  // is the requestable of the call itself (a sign-in run by requestable-execute), not one of its before.
+  api.check = function (store, scope, items, now, direct) {
     if (!store || !scope) {
       return null;
     }
     var state = readScope(store, scope, now);
     for (var i = 0; i < items.length; i++) {
       var requestable = text(items[i].requestable);
+      var named = direct === true ? requestable + " signs a user in and" : "before[" + i + "] " + requestable;
       if (state.d[api.itemDigest(requestable, items[i].variables)] !== undefined) {
         return {
           index: i,
           requestable: requestable,
-          message: "Refused without running anything: before[" + i + "] " + requestable + " already answered an error in this " +
+          message: "Refused without running anything: " + named + " already answered an error in this " +
             "conversation with these same values (a sign-in that failed fails again). Do not try it again nor guess other " +
             "values: ask the user once for a working test account (or take it from the project notes or project-brief), or " +
             "run the call with authenticatedUser (the user name the login sets) when the sequence only checks the user."
@@ -143,7 +154,7 @@ if (typeof C8O === "undefined") {
         return {
           index: i,
           requestable: requestable,
-          message: "Refused without running anything: before[" + i + "] " + requestable + " already answered an error " +
+          message: "Refused without running anything: " + named + " already answered an error " +
             tries.length + " times in this conversation with different values. Trying values is guessing a password: stop. " +
             "Ask the user once for a working test account (or take it from the project notes or project-brief), or run the " +
             "call with authenticatedUser (the user name the login sets) when the sequence only checks the user."
@@ -151,6 +162,79 @@ if (typeof C8O === "undefined") {
       }
     }
     return null;
+  };
+
+  // The number of different values of requestable that answered an error in the conversation.
+  api.triesOf = function (store, scope, requestable, now) {
+    if (!store || !scope) {
+      return 0;
+    }
+    var tries = readScope(store, scope, now).r[api.requestableDigest(text(requestable))];
+    return Array.isArray(tries) ? tries.length : 0;
+  };
+
+  // Whether a sequence signs a user in: an enabled SetAuthenticatedUserStep or LDAPAuthenticationStep, a
+  // setAuthenticatedUser( call in a JavaScript step, or a call of a sequence that does (an application login calling a
+  // library's SignIn), two calls deep. A login run directly by requestable-execute was tried 61 times with guessed
+  // passwords (TigoAccess 8e1d46fe, 13-18/11): the guard above covered before[] only.
+  var SIGN_IN_STEP = /\.(SetAuthenticatedUserStep|LDAPAuthenticationStep)$/;
+  var SIGN_IN_CODE = /\bsetAuthenticatedUser\s*\(/;
+  // seen: the called sequences already walked by this check, each walked once
+  api.signsIn = function (sequence, depth, seen) {
+    seen = seen || {};
+    var stack = [sequence];
+    var walked = 0;
+    while (stack.length && walked < 2000) {
+      var all = null;
+      try {
+        all = stack.shift().getAllChildren();
+      } catch (_noChildren) {
+        all = null;
+      }
+      for (var i = 0; all && i < all.size(); i++) {
+        var child = all.get(i);
+        walked++;
+        var enabled = true;
+        try {
+          enabled = child.isEnabled() !== false;
+        } catch (_noEnabled) {}
+        if (!enabled) {
+          continue;
+        }
+        var className = "";
+        try {
+          className = String(child.getClass().getName());
+        } catch (_noClass) {}
+        if (SIGN_IN_STEP.test(className)) {
+          return true;
+        }
+        var expression = "";
+        try {
+          expression = text(child.getExpression());
+        } catch (_noExpression) {}
+        if (SIGN_IN_CODE.test(expression)) {
+          return true;
+        }
+        var target = "";
+        try {
+          target = text(child.getSourceSequence());
+        } catch (_noTarget) {}
+        if (target.length && (depth || 0) < 2 && seen[target] !== true) {
+          seen[target] = true;
+          var called = null;
+          try {
+            called = api.host.sequenceOf(target);
+          } catch (_noLookup) {}
+          if (called && api.signsIn(called, (depth || 0) + 1, seen)) {
+            return true;
+          }
+        }
+        if (/\.steps\./.test(className)) {
+          stack.push(child);
+        }
+      }
+    }
+    return false;
   };
 
   // A before requestable answered an error with these values: kept as digests for the conversation.
@@ -204,12 +288,20 @@ if (typeof C8O === "undefined") {
     }
   };
 
-  // In the engine, around C8O.requestable.runBefore. Never throws.
-  api.refusal = function (contextObject, items) {
+  // In the engine, around C8O.requestable.runBefore (and before a sign-in run directly, direct true). Never throws.
+  api.refusal = function (contextObject, items, direct) {
     try {
-      return api.check(contextObject ? contextObject.server : null, api.scopeOf(contextObject), items, api.host.now());
+      return api.check(contextObject ? contextObject.server : null, api.scopeOf(contextObject), items, api.host.now(), direct);
     } catch (_ignoreCheck) {
       return null;
+    }
+  };
+
+  api.tries = function (contextObject, requestable) {
+    try {
+      return api.triesOf(contextObject ? contextObject.server : null, api.scopeOf(contextObject), requestable, api.host.now());
+    } catch (_ignoreTries) {
+      return 0;
     }
   };
 

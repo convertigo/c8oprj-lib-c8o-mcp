@@ -12,6 +12,14 @@ comment: Handles MCP resources/read requests
     }
     var entry = c8oFindResourceByUri(uriText);
     if (!entry) {
+      // The pages of a long tool answer are no resource: an agent read convertigo://answers/<id>/page/2 through
+      // requestable-execute and got Resource not found five times (TigoAccess fcba3bd3, 24/11).
+      var answerUri = /^convertigo:\/\/answers?\/([0-9a-f]{32})(?:\D*?(\d+))?/i.exec(uriText);
+      if (answerUri) {
+        throw new Error(uriText + " is not a resource: the pages of a long answer are read with the tool answer-page " +
+          JSON.stringify({ answerId: answerUri[1].toLowerCase(), page: answerUri[2] ? Number(answerUri[2]) : 2 }) +
+          ", the call partialAnswer.next names, never with resources/read nor requestable-execute.");
+      }
       throw new Error("Resource not found: " + uriText);
     }
     resourceMeta = entry;

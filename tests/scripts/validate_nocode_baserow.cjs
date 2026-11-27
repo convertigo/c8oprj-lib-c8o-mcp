@@ -651,3 +651,65 @@ test('schema-apply creates a formula after the link it reads, and names the rela
   assert.deepEqual(order, ['Account', 'Client label'], 'the link first, then the formula that reads it');
   assert.ok(fake.state.fields[31].some(f => f.name === 'Deals of the company'), fake.state.fields[31].map(f => f.name).join(', '));
 });
+
+// TigoAccess 1ca4964b (test-nocode, 17/11): a schema naming a new base and no workspace failed with "Cannot create base
+// without an existing or newly created workspace id". It follows the rule of nocode-app-create now: the only workspace,
+// else the one No Code Studio made for the user, else the user chooses; none: no_workspace. A workspace is never made.
+test('schema-apply puts a new base without a workspace where nocode-app-create would, and never makes a workspace', () => {
+  const schema = { baseName: 'Leave', tables: [{ name: 'Requests', fields: [{ name: 'Name', type: 'text' }] }] };
+  const only = fakeBaserow();
+  const plan = load(only.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'plan', schema });
+  assert.equal(plan.status, 'ok', JSON.stringify(plan.error));
+  assert.deepEqual(plain(plan.actions.find(a => a.type === 'workspace_chosen')),
+    { type: 'workspace_chosen', message: 'The schema names no workspace: the new base goes to the only workspace of the user.', workspaceId: 10, workspaceName: 'Team' });
+  assert.equal(plan.actions.find(a => a.type === 'create_base').workspaceId, 10);
+  const applied = load(only.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema });
+  assert.equal(applied.status, 'ok', JSON.stringify(applied.error));
+  assert.deepEqual(only.state.bases.filter(b => b.name === 'Leave').map(b => b.workspaceId), [10]);
+  assert.ok(!only.state.calls.some(c => c.name === '_api_workspaces__POST'), 'no workspace made');
+
+  // several: the one named after the user's e-mail
+  const own = fakeBaserow();
+  own.state.workspaces.push({ id: 11, name: 'Convertigo NoCode Databases - person@example.invalid' });
+  own.state.bases.push({ id: 21, name: 'Notes', workspaceId: 11 });
+  const mine = load(own.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema });
+  assert.equal(mine.status, 'ok', JSON.stringify(mine.error));
+  assert.match(mine.actions.find(a => a.type === 'workspace_chosen').message, /the workspace No Code Studio made for the user/);
+  assert.deepEqual(own.state.bases.filter(b => b.name === 'Leave').map(b => b.workspaceId), [11]);
+
+  // several and none of them the user's: the user chooses, nothing is written
+  const several = fakeBaserow();
+  several.state.workspaces.push({ id: 11, name: 'Other' });
+  several.state.bases.push({ id: 21, name: 'Notes', workspaceId: 11 });
+  const choose = load(several.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema });
+  assert.equal(choose.status, 'error');
+  assert.equal(choose.error.code, 'workspace_required');
+  assert.match(choose.error.message, /^Nothing was changed: the schema names no workspace for the new base Leave and the user has several Baserow workspaces\. Ask the user which one \(workspaces lists them\), then give workspaceId with baseName\.$/);
+  assert.deepEqual(plain(choose.error.workspaces.map(w => [w.id, w.name, w.baseCount])), [[10, 'Team', 1], [11, 'Other', 1]]);
+  assert.ok(!several.state.calls.some(c => /_POST$|TableCreateColumn/.test(c.name)), 'nothing is written');
+
+  // none: no_workspace, and no workspace made even with create.workspace
+  const none = fakeBaserow();
+  none.state.bases = [];
+  none.state.tables = [];
+  const empty = load(none.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'apply', schema, create: { workspace: true } });
+  assert.equal(empty.error.code, 'no_workspace');
+  assert.match(empty.error.message, /Ask them to open the No Code Studio data tab once, then retry; this tool does not create a workspace on its own\./);
+  assert.ok(!none.state.calls.some(c => /_POST$/.test(c.name)), 'no workspace and no base made');
+
+  // a base of that name in the user's catalog is still found, in any workspace
+  const existing = load(several.transport).C8O.nocodeBaserow.schemaApply({ token: 't', mode: 'plan', schema: { baseName: 'Notes', tables: [{ name: 'Requests' }] } });
+  assert.equal(existing.status, 'ok', JSON.stringify(existing.error));
+  assert.equal(existing.actions.find(a => a.type === 'base_exists').baseId, 21);
+});
+
+test('nocode-app-create and schema-apply choose the workspace with the same rule', () => {
+  const C8O = load(fakeBaserow().transport).C8O;
+  const W = C8O.nocodeBaserow.defaultWorkspace;
+  const catalog = workspaces => ({ workspaces, bases: [] });
+  assert.deepEqual(plain(W(catalog([{ id: 1, name: 'A' }]), 'nocode:someone@example.invalid')), { workspace: { id: 1, name: 'A' }, reason: 'the only workspace of the user' });
+  assert.equal(W(catalog([{ id: 1, name: 'A' }, { id: 2, name: 'Databases - someone@example.invalid' }]), 'nocode:someone@example.invalid').workspace.id, 2);
+  assert.equal(W(catalog([{ id: 1, name: 'A' }, { id: 2, name: 'B' }]), 'someone@example.invalid').error.code, 'workspace_required');
+  assert.equal(W(catalog([]), 'someone@example.invalid').error.code, 'no_workspace');
+  assert.match(fs.readFileSync(path.join(root, 'js/nocode_app.js'), 'utf8'), /var choice = C8O\.nocodeBaserow\.defaultWorkspace\(catalog, user\);/);
+});

@@ -669,6 +669,39 @@ C8O.sqlDialect = C8O.sqlDialect || {};
 
   var HSQLDB_CAUSE = /^(user lacks privilege or object not found|unexpected token|unknown token|data exception|incompatible data type|interval qualifier|data type cast needed)/i;
 
+  // The characters HSQLDB cannot read outside a string or a comment: it answers "unknown token:", which names none (36
+  // times in 5 minutes for one agent, TigoAccess 9213aceb, 17/11). [{character, expression, fix}], the first place of
+  // each, at most max (default 4). @@IDENTITY has its own rule above.
+  var UNREADABLE = [
+    { character: "@", re: /(^|[^@])@([A-Za-z_]\w*)/, lead: true, fix: function (m) { return "write {" + m[2] + "}: a variable of the transaction (or a sequence variable passed to it), bound as a parameter"; } },
+    { character: "@@", re: /@@(?!IDENTITY\b)([A-Za-z_]\w*)/i, fix: function () { return "HSQLDB has no @@ variables: write the value as {x}, or the HSQLDB function (IDENTITY() for the last generated key, CURRENT_TIMESTAMP)"; } },
+    { character: "#", re: /#+\s*[^\s#]*/, fix: function () { return "# starts no comment here: write -- comment (to the end of the line) or /* comment */; a #temp table is a table of its own (CREATE TABLE)"; } },
+    { character: "&&", re: /&&/, fix: function () { return "write AND"; } },
+    { character: "`", re: /`([^`]*)`?/, fix: function (m) { return "write " + (m[1] ? "\"" + m[1] + "\" (double quotes) or " + m[1] + " alone" : "a name between double quotes, or alone"); } }
+  ];
+
+  api.unreadableCharacters = function (sql, max) {
+    var found = [];
+    var raw = String(sql || "");
+    var bare = scan(raw, false);
+    for (var r = 0; r < UNREADABLE.length && found.length < (max || 4); r++) {
+      var m = UNREADABLE[r].re.exec(bare);
+      if (m) {
+        // a rule with lead matches the character before it too (no lookbehind in Rhino): the place starts after it
+        var at = UNREADABLE[r].lead ? m.index + m[1].length : m.index;
+        var length = UNREADABLE[r].lead ? m[0].length - m[1].length : m[0].length;
+        found.push({ character: UNREADABLE[r].character, expression: raw.substr(at, Math.min(length, 40)).replace(/\s+/g, " ").trim(), fix: UNREADABLE[r].fix(m) });
+      }
+    }
+    // \' as a quote inside a string (MariaDB/MySQL, JavaScript): HSQLDB ends the string at it and reads the rest as SQL.
+    var escaped = /\\'/.exec(raw);
+    if (escaped && found.length < (max || 4)) {
+      found.push({ character: "\\'", where: "in a string: the string ends there", expression: raw.substr(Math.max(0, escaped.index - 12), 26).replace(/\s+/g, " ").trim(),
+        fix: "a quote inside a string is doubled: write '' (it's becomes 'it''s); \\ escapes nothing in SQL" });
+    }
+    return found;
+  };
+
   // Hints for the SQL error a transaction returned: the formats HSQLDB reads for a refused date or interval, the values
   // of the call that it does not read, and the equivalents of what the statement wrote for another database. dialect
   // may be "" (a sequence called the transaction): the wording of the cause says HSQLDB. statement is the SQL the
@@ -701,6 +734,19 @@ C8O.sqlDialect = C8O.sqlDialect || {};
       hints.push("HSQLDB reads an interval as INTERVAL '7' DAY (the number alone in quotes, the unit after: YEAR, MONTH, DAY, HOUR, MINUTE, SECOND; " +
         "no WEEK) or as 7 DAY right after a date (CURRENT_DATE - 7 DAY); INTERVAL '7 days', '30 minutes', '1 year 2 months' and 'PT30M' are refused. " +
         "A count from a {variable}: ts + {x} MINUTE, or DATEADD('minute', {x}, ts).");
+    }
+    // "unknown token" on @x, # and &&; "unexpected token" on \' and ` (checked on HSQLDB 2.7, 27/11)
+    if (dialect === "hsqldb" && /unknown token|unexpected token/i.test(cause)) {
+      var unreadable = api.unreadableCharacters(statement || "", 3);
+      if (unreadable.length) {
+        unreadable.forEach(function (item) {
+          hints.push("HSQLDB cannot read " + item.character + " " + (item.where || "outside a string") + " (at " + JSON.stringify(item.expression) + "): " + item.fix + ".");
+        });
+      } else if (/unknown token/i.test(cause) && !/@@IDENTITY/i.test(statement || "")) {
+        hints.push("\"unknown token\" is a character HSQLDB cannot read outside a string: a value is {x} (not @x or :x), a comment " +
+          "is -- or /* */ (not #), a quote inside a string is '' (not \\'), AND is AND (not &&), a quoted name is \"name\" (not `name`). " +
+          "Look for such a character in the SQL of the transaction.");
+      }
     }
     // On HSQLDB only an error its rules explain gets them (a constraint violation does not).
     var findings = dialect === "hsqldb" && !HSQLDB_CAUSE.test(cause) ? [] : api.foreignSyntax(dialect, statement || "", 6);

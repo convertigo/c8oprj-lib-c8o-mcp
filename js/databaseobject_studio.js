@@ -40,11 +40,113 @@ C8O.dbo.studioLock = function () {
 
 C8O.dbo.STUDIO_LOCK_BUSY = "studio_write_in_progress";
 
+// The saves that did not end within SAVE_WAIT_MS (C8O.dbo.saveProject): the thread of each, by project, in the map the
+// engine shares between projects. A write of the MCP waits for the save of the projects (withStudioLock) instead of
+// changing a project while it is written; a save of the same project waits for it too.
+var PENDING_SAVES_KEY = "lib_ConvertigoMCP.pendingSaves";
+C8O.dbo.SAVE_WAIT_MS = 20000;
+
+C8O.dbo.pendingSaveStore = function () {
+  var store = C8O.dbo.studioLockStore();
+  var saves = store.get(PENDING_SAVES_KEY);
+  if (saves == null) {
+    saves = new Packages.org.mozilla.javascript.Synchronizer(function () {
+      var existing = store.get(PENDING_SAVES_KEY);
+      if (existing == null) {
+        existing = new java.util.concurrent.ConcurrentHashMap();
+        store.set(PENDING_SAVES_KEY, existing);
+      }
+      return existing;
+    }, new java.lang.String(PENDING_SAVES_KEY).intern())();
+  }
+  return saves;
+};
+
+C8O.dbo.markPendingSave = function (projectName, thread) {
+  var now = Number(java.lang.System.currentTimeMillis());
+  var since = now - C8O.dbo.SAVE_WAIT_MS;
+  // the save started SAVE_WAIT_MS ago: [its thread, when it started]
+  var entry = new java.util.ArrayList();
+  entry.add(thread);
+  entry.add(java.lang.Long.valueOf(since));
+  C8O.dbo.pendingSaveStore().put(String(projectName), entry);
+  return { project: String(projectName), runningMs: now - since };
+};
+
+// Waits waitMs at most for the save of projectName still running (every project when null). null when none runs (any
+// ended one leaves the map), else {project, runningMs} of the one still running.
+C8O.dbo.awaitPendingSaves = function (projectName, waitMs) {
+  // read only: the map is made by the first save that did not end
+  var saves = C8O.dbo.studioLockStore().get(PENDING_SAVES_KEY);
+  if (saves == null || saves.isEmpty()) {
+    return null;
+  }
+  var deadline = Number(java.lang.System.currentTimeMillis()) + Math.max(0, Number(waitMs) || 0);
+  var names = saves.keySet().toArray();
+  for (var i = 0; i < names.length; i++) {
+    var name = String(names[i]);
+    if (projectName != null && name !== String(projectName)) {
+      continue;
+    }
+    var entry = saves.get(name);
+    if (entry == null) {
+      continue;
+    }
+    var thread = entry.get(0);
+    try {
+      thread.join(Math.max(1, deadline - Number(java.lang.System.currentTimeMillis())));
+    } catch (_interrupted) {}
+    if (thread.isAlive()) {
+      return { project: name, runningMs: Number(java.lang.System.currentTimeMillis()) - Number(entry.get(1)) };
+    }
+    saves.remove(name, entry);
+  }
+  return null;
+};
+C8O.dbo.STUDIO_UI_FROZEN = "studio_ui_frozen";
+
+// Work on the Studio interface thread, bounded (C8O.util.studioUiExec). Once the thread did not answer in a call, the
+// next ones of the same call wait STUDIO_UI_RECHECK_MS only: a delete, then its refresh, then its reveal waited the
+// full bound each.
+var STUDIO_UI_RECHECK_MS = 1500;
+C8O.dbo.studioUi = function (fn, options) {
+  var opts = {};
+  var source = options || {};
+  for (var key in source) {
+    opts[key] = source[key];
+  }
+  if (C8O.dbo._studioUiFrozen === true) {
+    opts.timeoutMs = Math.min(Number(opts.timeoutMs) > 0 ? Number(opts.timeoutMs) : C8O.util.STUDIO_UI_WAIT_MS, STUDIO_UI_RECHECK_MS);
+  }
+  if (typeof C8O.util.studioUiExec !== "function") {
+    // without js/util.js (a test of this file alone): the work runs at once, as before
+    return { ran: true, value: fn() };
+  }
+  var run = C8O.util.studioUiExec(fn, opts);
+  // work that started and is still running (a long reload) is no sign of a frozen thread
+  C8O.dbo._studioUiFrozen = run.ran !== true && run.started !== true;
+  return run;
+};
+
+// The result of a tree refresh, reveal or cleanup the interface thread did not take in time: deferred, with why.
+C8O.dbo.studioUiDeferred = function (result, run, effect) {
+  result.status = "deferred";
+  result.executed = false;
+  result.uiBusy = true;
+  result.waitedMs = run.waitedMs;
+  result.message = run.message + " " + effect;
+  return result;
+};
+
 // label: what the call writes, named to a call that waits too long ("tree-apply under Shop.Application...").
-C8O.dbo.withStudioLock = function (fn, label) {
+// options.awaitSaves false: work that writes no project (a Project Explorer refresh) does not wait for a save still
+// running; a move saved, left its save running, then waited 30 s per refresh for it (review 27/11).
+C8O.dbo.withStudioLock = function (fn, label, options) {
+  var awaitSaves = !(options && options.awaitSaves === false);
   var store = C8O.dbo.studioLockStore();
   var lock = C8O.dbo.studioLock();
   var acquired = false;
+  var lockAskedAt = Number(java.lang.System.currentTimeMillis());
   try {
     acquired = lock.tryLock(STUDIO_LOCK_WAIT_MS, java.util.concurrent.TimeUnit.MILLISECONDS) === true;
   } catch (_interrupted) {
@@ -62,6 +164,23 @@ C8O.dbo.withStudioLock = function (fn, label) {
     throw busy;
   }
   var outermost = lock.getHoldCount() === 1;
+  if (outermost && awaitSaves) {
+    // a save that did not end in its call is still writing a project: wait for it in the rest of the lock wait
+    var saving = null;
+    try {
+      saving = C8O.dbo.awaitPendingSaves(null, STUDIO_LOCK_WAIT_MS - (Number(java.lang.System.currentTimeMillis()) - lockAskedAt));
+    } catch (_unreadableSaves) {
+      saving = null;
+    }
+    if (saving) {
+      lock.unlock();
+      var savingBusy = new Error("The save of " + saving.project + " has been running for " + Math.round(saving.runningMs / 1000) +
+        " s and has not ended: this call waited and changed nothing. The Studio is slow or held (a dialog waiting for an answer, " +
+        "an Engine Log view receiving many lines): look at its window, then send the call again.");
+      savingBusy.code = C8O.dbo.STUDIO_LOCK_BUSY;
+      throw savingBusy;
+    }
+  }
   if (outermost) {
     store.set(STUDIO_LOCK_KEY + ".holder", JSON.stringify({ what: String(label || "a project write"), since: Number(java.lang.System.currentTimeMillis()) }));
   }
@@ -79,7 +198,7 @@ C8O.dbo.refreshStudioTreeByQName = function (targetQName, errors) {
   try {
     return C8O.dbo.withStudioLock(function () {
       return C8O.dbo._refreshStudioTreeByQName(targetQName, errors);
-    }, "a Studio tree refresh of " + targetQName);
+    }, "a Studio tree refresh of " + targetQName, { awaitSaves: false });
   } catch (busy) {
     if (!busy || busy.code !== C8O.dbo.STUDIO_LOCK_BUSY) {
       throw busy;
@@ -170,7 +289,9 @@ C8O.dbo._refreshStudioTreeByQName = function (targetQName, errors) {
       return result;
     }
 
-    ConvertigoPlugin.syncExec(new Runnable({ run: function () {
+    // Bounded (C8O.util.studioUiExec): the change is made; a refresh the interface thread has not taken in time runs
+    // once it is free, and the call answers now.
+    var refreshRun = C8O.dbo.studioUi(function () {
       try {
         var view = pluginInstance.getProjectExplorerView();
         if (view == null) {
@@ -189,7 +310,10 @@ C8O.dbo._refreshStudioTreeByQName = function (targetQName, errors) {
         result.message = String(uiError);
         result.error = String(uiError);
       }
-    }}));
+    }, { label: "Project Explorer refresh of " + requestedQName, runLate: true });
+    if (refreshRun.ran !== true) {
+      return C8O.dbo.studioUiDeferred(result, refreshRun, "The change is made; the Project Explorer shows it once the interface is free.");
+    }
   } catch (refreshError) {
     result.status = "error";
     result.message = String(refreshError);
@@ -379,7 +503,7 @@ C8O.dbo.revealStudioTreeByQName = function (targetQName, errors, details) {
       return result;
     }
 
-    ConvertigoPlugin.syncExec(new Runnable({ run: function () {
+    var revealRun = C8O.dbo.studioUi(function () {
       try {
         var view = pluginInstance.getProjectExplorerView ? pluginInstance.getProjectExplorerView() : null;
         if (view == null) {
@@ -443,7 +567,11 @@ C8O.dbo.revealStudioTreeByQName = function (targetQName, errors, details) {
         result.message = String(uiError);
         result.error = String(uiError);
       }
-    }}));
+    }, { label: "Project Explorer reveal of " + requestedQName, runLate: false });
+    if (revealRun.ran !== true) {
+      // a selection made minutes later would move the tree under the user: dropped
+      return C8O.dbo.studioUiDeferred(result, revealRun, "The object is not revealed in the Project Explorer; the change itself is made.");
+    }
   } catch (revealError) {
     result.status = "error";
     result.message = String(revealError);
@@ -507,7 +635,7 @@ C8O.dbo.removeStudioProjectTreeByName = function (projectName, errors) {
       return result;
     }
 
-    ConvertigoPlugin.syncExec(new Runnable({ run: function () {
+    var cleanupRun = C8O.dbo.studioUi(function () {
       try {
         var view = pluginInstance.getProjectExplorerView ? pluginInstance.getProjectExplorerView() : null;
         if (view == null) {
@@ -552,7 +680,10 @@ C8O.dbo.removeStudioProjectTreeByName = function (projectName, errors) {
         result.message = String(uiError);
         result.error = String(uiError);
       }
-    }}));
+    }, { label: "Project Explorer cleanup of " + requestedProject, runLate: true });
+    if (cleanupRun.ran !== true) {
+      return C8O.dbo.studioUiDeferred(result, cleanupRun, "The project is deleted; its entry leaves the Project Explorer once the interface is free.");
+    }
   } catch (cleanupError) {
     result.status = "error";
     result.message = String(cleanupError);
@@ -579,10 +710,12 @@ C8O.dbo.getReloadStudioPlugin = function () {
   return ConvertigoPlugin;
 };
 
-C8O.dbo.flushStudioUiQueue = function (ConvertigoPlugin) {
-  var Runnable = Packages.java.lang.Runnable;
-  ConvertigoPlugin.syncExec(new Runnable({ run: function () {} }));
-  ConvertigoPlugin.syncExec(new Runnable({ run: function () {} }));
+// Two empty runs on the interface thread: what the reload queued before them has run. false when the thread did not
+// take them within timeoutMs.
+C8O.dbo.flushStudioUiQueue = function (ConvertigoPlugin, timeoutMs) {
+  var noop = function () {};
+  var bound = { timeoutMs: timeoutMs > 0 ? timeoutMs : C8O.util.STUDIO_UI_WAIT_MS, label: "the project reload", runLate: false };
+  return C8O.dbo.studioUi(noop, bound).ran === true && C8O.dbo.studioUi(noop, bound).ran === true;
 };
 
 // The loaded project, without loading it (null when it is not in the engine cache).
@@ -610,10 +743,9 @@ C8O.dbo.getCachedProjectIdentity = function (projectName) {
   return project == null ? 0 : Packages.java.lang.System.identityHashCode(project);
 };
 
-C8O.dbo.isStudioProjectTreeLoaded = function (ConvertigoPlugin, projectName) {
-  var Runnable = Packages.java.lang.Runnable;
+C8O.dbo.isStudioProjectTreeLoaded = function (ConvertigoPlugin, projectName, timeoutMs) {
   var result = { loaded: false, error: "" };
-  ConvertigoPlugin.syncExec(new Runnable({ run: function () {
+  var run = C8O.dbo.studioUi(function () {
     try {
       var pluginInstance = ConvertigoPlugin.getDefault();
       var view = pluginInstance && pluginInstance.getProjectExplorerView ? pluginInstance.getProjectExplorerView() : null;
@@ -624,7 +756,12 @@ C8O.dbo.isStudioProjectTreeLoaded = function (ConvertigoPlugin, projectName) {
       result.error = String(treeError);
       result.loaded = false;
     }
-  }}));
+  }, { timeoutMs: timeoutMs > 0 ? timeoutMs : C8O.util.STUDIO_UI_WAIT_MS, label: "the project reload", runLate: false });
+  if (run.ran !== true) {
+    var frozen = new Error(run.message);
+    frozen.code = C8O.dbo.STUDIO_UI_FROZEN;
+    throw frozen;
+  }
   if (result.error.length) {
     throw new Error(result.error);
   }
@@ -643,8 +780,16 @@ C8O.dbo.waitForProjectReload = function (ConvertigoPlugin, projectName, previous
     lastIdentity = C8O.dbo.getCachedProjectIdentity(projectName);
     var cacheReloaded = lastIdentity !== 0 && (previousIdentity === 0 || lastIdentity !== previousIdentity);
 
-    C8O.dbo.flushStudioUiQueue(ConvertigoPlugin);
-    treeLoaded = C8O.dbo.isStudioProjectTreeLoaded(ConvertigoPlugin, projectName);
+    // each wait on the interface thread is bounded too: a frozen Studio answers in seconds, not at the end of the reload
+    var uiLeftMs = Math.max(1000, Math.min(C8O.util.STUDIO_UI_WAIT_MS, deadline - System.currentTimeMillis()));
+    if (!C8O.dbo.flushStudioUiQueue(ConvertigoPlugin, uiLeftMs)) {
+      var frozenReload = new Error("The reload of " + projectName + " is asked, but " +
+        C8O.util.studioUiFrozenMessage("the project reload", Number(System.currentTimeMillis()) - Number(deadline - timeoutMs)).replace(/^The/, "the"));
+      frozenReload.code = C8O.dbo.STUDIO_UI_FROZEN;
+      throw frozenReload;
+    }
+    treeLoaded = C8O.dbo.isStudioProjectTreeLoaded(ConvertigoPlugin, projectName,
+      Math.max(1000, Math.min(C8O.util.STUDIO_UI_WAIT_MS, deadline - System.currentTimeMillis())));
 
     if (cacheReloaded && treeLoaded) {
       return;
@@ -702,7 +847,20 @@ C8O.dbo.reloadProject = function (projectOrName, errors) {
         cached.hasChanged = false;
       }
       var previousIdentity = C8O.dbo.getCachedProjectIdentity(name);
-      ConvertigoPlugin.getDefault().reloadProject(name);
+      // ConvertigoPlugin.reloadProject waits for the interface thread without a limit: it runs there, bounded, and is
+      // dropped when the thread does not take it (the unsaved changes are kept then).
+      // a big project takes long to reload: only the start is bounded, then the reload is waited for as before
+      var reloadRun = C8O.dbo.studioUi(function () {
+        ConvertigoPlugin.getDefault().reloadProject(name);
+      }, { label: "the reload of " + name, runLate: false, runMs: 110000 });
+      if (reloadRun.ran !== true && reloadRun.started !== true) {
+        if (discarded) {
+          cached.hasChanged = true;
+        }
+        var notReloaded = new Error(reloadRun.message + " " + name + " was not reloaded" + (discarded ? "; its unsaved changes are kept." : "."));
+        notReloaded.code = C8O.dbo.STUDIO_UI_FROZEN;
+        throw notReloaded;
+      }
       C8O.dbo.waitForProjectReload(ConvertigoPlugin, name, previousIdentity);
       return {
         reloaded: true,

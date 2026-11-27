@@ -1050,6 +1050,145 @@ C8O.requestable.runBefore = function (executionPlan) {
   }
 };
 
+// The name a sign-in has in the before guard, the same for a before item and a direct call: <project>.<sequence>.
+C8O.requestable._signInName = function (executionPlan) {
+  return executionPlan.project + '.' + (executionPlan.isSequence ? '' : executionPlan.connector + '.') + executionPlan.name;
+};
+
+// A sequence that signs a user in, run directly by requestable-execute (not in before): a login was tried 61 times with
+// guessed passwords that way (TigoAccess 8e1d46fe, 13-18/11). Its failures go to the before guard, so the same values are
+// refused, and so is any try after REQUESTABLE_TRIES different values in the conversation.
+C8O.requestable.guardSignIn = function (executionPlan, sequence) {
+  var guard = C8O.requestable._beforeGuard();
+  if (!guard || typeof guard.signsIn !== 'function' || !sequence) {
+    return;
+  }
+  var signsIn = false;
+  try {
+    signsIn = guard.signsIn(sequence) === true;
+  } catch (_ignoreSignIn) {
+    signsIn = false;
+  }
+  if (!signsIn) {
+    return;
+  }
+  executionPlan.signIn = true;
+  var refused = guard.refusal(context, [{ requestable: C8O.requestable._signInName(executionPlan), variables: executionPlan.variables || {} }], true);
+  if (refused) {
+    throw new Error(refused.message + ' ' + executionPlan.requestable + ' was not run.');
+  }
+};
+
+// js/repeated_failure.js, when the engine has it.
+C8O.requestable._repeatedFailure = function () {
+  try {
+    if (typeof C8O.repeatedFailure === 'undefined' && typeof include === 'function') {
+      include('js/repeated_failure.js');
+    }
+  } catch (_noRepeatedFailure) {}
+  return typeof C8O.repeatedFailure !== 'undefined' && typeof C8O.repeatedFailure.refusal === 'function' ? C8O.repeatedFailure : null;
+};
+
+// The SQL of the transaction of the call ('' when it has none or it cannot be read), and what else decides how the
+// database reads it: the driver and the URL of its connector, the default values of its variables (a {{x}} default is
+// written into the SQL). A change of any of them runs the call again.
+C8O.requestable._transactionSource = function (executionPlan) {
+  var source = { sql: '', fingerprint: '' };
+  try {
+    var project = Packages.com.twinsoft.convertigo.engine.Engine.theApp.databaseObjectsManager.getOriginalProjectByName(executionPlan.project, false);
+    var connector = project ? project.getConnectorByName(executionPlan.connector) : null;
+    var transaction = connector ? connector.getTransactionByName(executionPlan.name) : null;
+    source.sql = transaction && transaction.getSqlQuery ? String(transaction.getSqlQuery()) : '';
+    var parts = [source.sql];
+    try {
+      parts.push(String(connector.getJdbcDriverClassName()), String(connector.getJdbcURL()));
+    } catch (_noConnection) {}
+    try {
+      var list = transaction.getVariablesList();
+      for (var i = 0; list != null && i < list.size(); i++) {
+        var value = list.get(i).getValueOrNull();
+        parts.push(String(list.get(i).getName()) + '=' + (value == null ? '' : String(value)));
+      }
+    } catch (_noVariables) {}
+    source.fingerprint = parts.join('\n');
+  } catch (_noSql) {
+    source.sql = '';
+  }
+  return source;
+};
+
+// A transaction run with the SQL and the values that the database already refused while reading them answers the same
+// error: it is refused without running, with the cause and the hints for that SQL.
+C8O.requestable.guardRepeatedRun = function (executionPlan) {
+  var repeated = C8O.requestable._repeatedFailure();
+  if (!repeated || executionPlan.isSequence) {
+    return;
+  }
+  var source = C8O.requestable._transactionSource(executionPlan);
+  var sql = source.sql;
+  if (!sql.length) {
+    return;
+  }
+  executionPlan.runDigest = repeated.runDigest(executionPlan.requestable, executionPlan.variables || {}, source.fingerprint);
+  var refused = repeated.refusal(context, executionPlan.runDigest);
+  if (!refused) {
+    return;
+  }
+  var hints = [];
+  try {
+    if (typeof C8O.sqlDialect === 'undefined' && typeof include === 'function') {
+      include('js/sql_dialect.js');
+    }
+    hints = C8O.sqlDialect.errorHints('', refused.cause, sql, executionPlan.variables || {});
+  } catch (_noHints) {
+    hints = [];
+  }
+  throw new Error('Refused without running anything: ' + executionPlan.requestable + ' already failed in this conversation with ' +
+    'this same SQL and these same values, on "' + refused.cause + '", an error the database gives while it reads the statement: ' +
+    'it fails again. Change the SQL first (databaseobject-tree-apply on the transaction), or what it is read with (the ' +
+    'values, the defaults of the variables, the connector).' + (hints.length ? ' ' + hints.join(' ') : ''));
+};
+
+// After the call, its compact answer in hand (tools_requestable_execute BuildCompactResult): an error of a sign-in run
+// directly is remembered by the before guard and says not to guess; an error with the cause of the failures before it
+// says how many in a row; a success clears the count. Never throws.
+C8O.requestable.afterCall = function (executionPlan, result) {
+  if (!executionPlan || !result || typeof result !== 'object') {
+    return;
+  }
+  var failed = result.status === 'error' && result.error && typeof result.error === 'object';
+  try {
+    var guard = executionPlan.signIn === true && failed ? C8O.requestable._beforeGuard() : null;
+    if (guard) {
+      var name = C8O.requestable._signInName(executionPlan);
+      guard.failed(context, name, executionPlan.variables || {});
+      var tries = typeof guard.tries === 'function' ? guard.tries(context, name) : 0;
+      result.error.hint = (result.error.hint ? result.error.hint + ' ' : '') + name + ' signs a user in and refused these values' +
+        (tries ? ' (' + tries + ' of ' + guard.REQUESTABLE_TRIES + ' different values in this conversation)' : '') + '. Never guess ' +
+        'or try passwords: take the test account from the project notes or project-brief, else ask the user once for one. These ' +
+        'values are refused from now on in this conversation, and every try after ' + guard.REQUESTABLE_TRIES + ' different values. ' +
+        'To run another sequence as a signed-in user, pass authenticatedUser.';
+    }
+  } catch (_ignoreSignInFailure) {}
+  try {
+    var repeated = C8O.requestable._repeatedFailure();
+    if (!repeated) {
+      return;
+    }
+    if (!failed) {
+      repeated.recordSuccess(context, executionPlan.requestable);
+      return;
+    }
+    var count = repeated.recordFailure(context, executionPlan.requestable, result.error, executionPlan.runDigest || null);
+    if (count >= repeated.NOTE_FROM) {
+      result.error.repeated = count;
+      result.error.repeatedNote = 'Failure ' + count + ' in a row of ' + executionPlan.requestable + ' with this same cause in this ' +
+        'conversation: calling it again as it is gives the same error. Read the hints above and change the SQL or the values ' +
+        'they name before the next call; if nothing explains it, tell the user what fails instead of trying again.';
+    }
+  } catch (_ignoreRepeated) {}
+};
+
 // js/before_guard.js, when the engine has it (the tests of runBefore run without it).
 C8O.requestable._beforeGuard = function () {
   try {
@@ -1194,6 +1333,8 @@ C8O.requestable._configureExecutor = function (executionPlan) {
         throw unknownSequence;
       }
     }
+    // A sign-in run directly: refused when its values already failed, or after REQUESTABLE_TRIES values (js/before_guard.js).
+    C8O.requestable.guardSignIn(executionPlan, knownSequence);
     seqStep.setSourceSequence(executionPlan.project + '.' + executionPlan.name);
     C8O.requestable._clearVariables(seqStep);
     C8O.requestable._addVariables(seqStep, executionPlan.variables || {});
@@ -1239,6 +1380,9 @@ C8O.requestable._configureExecutor = function (executionPlan) {
   C8O.requestable._clearVariables(txStep);
   C8O.requestable._addVariables(txStep, executionPlan.variables || {});
   C8O.requestable._resetExecutionState(executionPlan, seqStep, txStep);
+  // The same SQL with the same values that the database already refused while reading it: refused before the call runs
+  // (js/repeated_failure.js).
+  C8O.requestable.guardRepeatedRun(executionPlan);
   if (executionPlan.recordSchema === true) {
     try {
       var txQName = executionPlan.project + '.cn:' + executionPlan.connector + '.tr:' + executionPlan.name;
@@ -1258,4 +1402,219 @@ C8O.requestable._configureExecutor = function (executionPlan) {
     var txCount = txStep.getVariables() != null ? txStep.getVariables().size() : 0;
     EngineLog.debug('[tools_requestable_execute] transaction vars=' + txCount + ' target=' + executionPlan.project + '.' + executionPlan.connector + '.' + executionPlan.name);
   }
+};
+
+// ---- The Studio interface thread, bounded ---------------------------------------------------------------------------
+//
+// ConvertigoPlugin.syncExec waits for the SWT interface thread without a limit. On the Windows Studios of two customers
+// (24-26/11) that thread was held (engine #1299 and #1307: an Engine Log view frozen while rows came, a viewer dialog
+// behind the Studio) and mobile-builder-open waited 61-74 s, a move 67 s, a delete 154 s: past the minute after which
+// the client fails the call ("The provided tool call failed [mcp_timeout]") without a word on why. A call now queues its
+// work with asyncExec and waits for it timeoutMs at most (STUDIO_UI_WAIT_MS by default):
+// - { ran: true, value } when the work ran (an error it threw is thrown here);
+// - { ran: false, timedOut: true, waitedMs, message } when the interface thread did not take it in time. The work stays
+//   queued and runs once the thread is free (a tree refresh, an editor that opens), unless runLate is false: it then
+//   does nothing, for work that acts on a state the call no longer knows.
+// On the interface thread itself the work runs at once (waiting there for the queue would wait for itself).
+// - runMs: long work (a project reload): only its start is bounded by timeoutMs; once started, it is waited for runMs more.
+// - Once a wait timed out, every call of the engine waits STUDIO_UI_RECHECK_MS only, until the interface thread takes a
+//   work again or STUDIO_UI_FROZEN_KEEP_MS passed: a delete, its refresh and the reveal after it each waited the full
+//   bound, past the client timeout (review 27/11).
+C8O.util.STUDIO_UI_WAIT_MS = 10000;
+C8O.util.STUDIO_UI_RECHECK_MS = 1500;
+C8O.util.STUDIO_UI_FROZEN_KEEP_MS = 60000;
+
+C8O.util.studioUiFrozenMessage = function (what, waitedMs) {
+  return "The Studio interface did not answer in " + Math.round(Number(waitedMs || 0) / 1000) + " s" +
+    (what ? " (" + what + ")" : "") + ": it is busy or frozen, often by a dialog waiting for an answer or an Engine Log " +
+    "view receiving many lines. This call did not wait longer. Look at the Studio window (answer or close its dialog, " +
+    "close the Engine Log view), then call again.";
+};
+
+C8O.util.studioUiExec = function (fn, options) {
+  var opts = options || {};
+  var timeoutMs = Number(opts.timeoutMs);
+  if (!(timeoutMs > 0)) {
+    timeoutMs = C8O.util.STUDIO_UI_WAIT_MS;
+  }
+  var host = C8O.util.studioUiHost();
+  if (host.onUiThread()) {
+    return { ran: true, value: fn() };
+  }
+  var frozenAt = typeof host.frozenAt === "function" ? Number(host.frozenAt()) || 0 : 0;
+  if (frozenAt > 0 && host.now() - frozenAt < C8O.util.STUDIO_UI_FROZEN_KEEP_MS) {
+    timeoutMs = Math.min(timeoutMs, C8O.util.STUDIO_UI_RECHECK_MS);
+  }
+  var state = { value: undefined, error: null };
+  var latch = host.latch();
+  // 0 queued, 1 started, 2 dropped: without runLate the work either starts or is dropped, never both
+  var gate = host.gate();
+  var runLate = opts.runLate !== false;
+  host.asyncExec(function () {
+    try {
+      // the interface thread takes work again: the next calls wait their full bound
+      if (typeof host.setFrozenAt === "function") {
+        host.setFrozenAt(0);
+      }
+      if (!gate.compareAndSet(0, 1) && !runLate) {
+        return;
+      }
+      gate.set(1);
+      state.value = fn();
+    } catch (uiError) {
+      state.error = uiError;
+    } finally {
+      latch.countDown();
+    }
+  });
+  var startedAt = host.now();
+  var finished = host.await(latch, timeoutMs);
+  if (!finished) {
+    var dropped = !runLate && gate.compareAndSet(0, 2);
+    if (!dropped && Number(gate.get()) === 1) {
+      // started: long work goes on for runMs; other work may have ended right now
+      finished = host.await(latch, Number(opts.runMs) > 0 ? Number(opts.runMs) : 1);
+    }
+  }
+  if (!finished) {
+    var waitedMs = host.now() - startedAt;
+    if (Number(gate.get()) !== 1 && typeof host.setFrozenAt === "function") {
+      host.setFrozenAt(host.now());
+    }
+    return {
+      ran: false,
+      timedOut: true,
+      waitedMs: waitedMs,
+      // started: the interface thread took the work at the last moment and it is still running
+      started: Number(gate.get()) === 1,
+      queued: runLate && Number(gate.get()) === 0,
+      dropped: dropped,
+      message: C8O.util.studioUiFrozenMessage(opts.label, waitedMs)
+    };
+  }
+  if (state.error) {
+    throw state.error;
+  }
+  return { ran: true, value: state.value };
+};
+
+// The engine side of studioUiExec; the tests give their own.
+C8O.util.studioUiHost = function () {
+  if (C8O.util._studioUiHost) {
+    return C8O.util._studioUiHost;
+  }
+  return {
+    onUiThread: function () {
+      try {
+        return Packages.org.eclipse.swt.widgets.Display.getCurrent() != null;
+      } catch (_noSwt) {
+        return false;
+      }
+    },
+    asyncExec: function (work) {
+      Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin.asyncExec(new Packages.java.lang.Runnable({ run: work }));
+    },
+    latch: function () {
+      return new java.util.concurrent.CountDownLatch(1);
+    },
+    gate: function () {
+      return new java.util.concurrent.atomic.AtomicInteger(0);
+    },
+    await: function (latch, timeoutMs) {
+      try {
+        return latch.await(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS) === true;
+      } catch (_interrupted) {
+        return false;
+      }
+    },
+    now: function () {
+      return Number(java.lang.System.currentTimeMillis());
+    },
+    // when a wait last timed out, for every call of the engine (0: the thread answers)
+    frozenAt: function () {
+      try {
+        return Number(Packages.com.twinsoft.convertigo.engine.Engine.theApp.getShareServerMap().get("lib_ConvertigoMCP.studioUiFrozenAt") || 0);
+      } catch (_noShare) {
+        return 0;
+      }
+    },
+    setFrozenAt: function (ms) {
+      try {
+        Packages.com.twinsoft.convertigo.engine.Engine.theApp.getShareServerMap().set("lib_ConvertigoMCP.studioUiFrozenAt", ms > 0 ? java.lang.Long.valueOf(ms) : null);
+      } catch (_noShare) {}
+    }
+  };
+};
+
+// A Java call that does not use the interface thread but can still wait on the Studio (a project export on a Windows
+// Studio whose disk or log view is held) runs on a thread of its own, waited for timeoutMs at most:
+// - { done: true, value } when it ended in time (its error is thrown here);
+// - { done: false, timedOut: true, waitedMs, thread } when it did not: it goes on and ends on its own. The caller says so
+//   and keeps what depends on it (C8O.dbo.pendingSaveOf) until it ends.
+// onLateError(error): told the error of work that ended after the call answered.
+C8O.util.boundedCall = function (fn, timeoutMs, name, onLateError) {
+  var host = C8O.util.boundedCallHost();
+  var state = { value: undefined, error: null, answered: false };
+  var thread = host.start(function () {
+    try {
+      state.value = fn();
+    } catch (callError) {
+      state.error = callError;
+      if (state.answered && typeof onLateError === "function") {
+        try {
+          onLateError(callError);
+        } catch (_ignoreLateError) {}
+      }
+    }
+  }, name);
+  var startedAt = host.now();
+  if (!host.join(thread, timeoutMs)) {
+    state.answered = true;
+    return { done: false, timedOut: true, waitedMs: host.now() - startedAt, thread: thread };
+  }
+  if (state.error) {
+    throw state.error;
+  }
+  return { done: true, value: state.value };
+};
+
+C8O.util.boundedCallHost = function () {
+  if (C8O.util._boundedCallHost) {
+    return C8O.util._boundedCallHost;
+  }
+  return {
+    start: function (work, name) {
+      // the log context of the call (its project, its nolog) goes with the work
+      var logContext = null;
+      try {
+        var current = org.apache.log4j.MDC.getContext();
+        logContext = current != null ? new java.util.HashMap(current) : null;
+      } catch (_noLogContext) {
+        logContext = null;
+      }
+      var thread = new java.lang.Thread(new java.lang.Runnable({ run: function () {
+        try {
+          if (logContext != null) {
+            var keys = logContext.keySet().toArray();
+            for (var i = 0; i < keys.length; i++) {
+              org.apache.log4j.MDC.put(keys[i], logContext.get(keys[i]));
+            }
+          }
+        } catch (_ignoreLogContext) {}
+        work();
+      } }), String(name || "lib_ConvertigoMCP bounded call"));
+      thread.setDaemon(true);
+      thread.start();
+      return thread;
+    },
+    join: function (thread, timeoutMs) {
+      try {
+        thread.join(Math.max(1, Math.round(timeoutMs)));
+      } catch (_interrupted) {}
+      return thread.isAlive() !== true;
+    },
+    now: function () {
+      return Number(java.lang.System.currentTimeMillis());
+    }
+  };
 };
