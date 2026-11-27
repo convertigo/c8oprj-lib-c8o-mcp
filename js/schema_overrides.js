@@ -1421,7 +1421,7 @@ C8O.schemaOverrides = C8O.schemaOverrides || {};
       type: "object",
       properties: {
         project: nocodeFormsProjectProperty(),
-        reduced: jsonObjectOrStringSchema("Reduced creative form JSON (required, except with createId). For Baserow, supply table configuration and mappings but omit form_id/source_id/source_owner: creation finalizes them automatically and verifies readback. If saved=true with status=partial, resume the returned same-id recovery; do not recreate. Thumbnail upload: reduced.thumbnailImage={attachment:'<file name>'} (an image the user attached) or {contentType:'image/png',base64:'...'} is checked, then persisted as the thumbnail attachment through APIV2_updateFormulaireDocument."),
+        reduced: jsonObjectOrStringSchema("Reduced creative form JSON (required, except with createId). For Baserow, supply table configuration and mappings but omit form_id/source_id/source_owner: creation finalizes them automatically and verifies readback. If saved=true with status=partial, resume the returned same-id recovery; do not recreate. The same reduced form sent again within 10 minutes answers the form already made (repeated); another form takes another name. Thumbnail upload: reduced.thumbnailImage={attachment:'<file name>'} (an image the user attached) or {contentType:'image/png',base64:'...'} is checked, then persisted as the thumbnail attachment through APIV2_updateFormulaireDocument."),
         createId: {
           type: "string",
           description: "createId of a creation that answered status running (a large form): given alone, no reduced, the call waits for that same creation and answers its result with the id of the form. Never send the reduced form of a running creation again."

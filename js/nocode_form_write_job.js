@@ -17,6 +17,11 @@
  * MCP request when the call answers ("Session request-... is invalidated", measured on a headless 8.5 engine, 23/11), so a
  * copy of the request of the call failed after it. A write is kept KEEP_MS for its caller only: the digest of the bearer
  * of the call binds it.
+ * A creation (KINDS[kind].repeat) is not made twice either once its answer reached its caller: the same input sent again
+ * by the same caller within REPEAT_MS answers the form it made (repeated), while that form still exists. On test-nocode
+ * (26/11) an agent got the answer of nocode-form-create as one page of partialAnswer (js/mcp_answer_pages.js), read
+ * r.status and r.id on it, found them empty and sent the same creation 10 s later: a second « Test modale » was made.
+ * A form made on purpose with the same content takes another name, which makes it another input.
  * C8O.nocodeFormWriteJob.run(params, host) holds the logic; javaHost(context) gives it the engine, a test gives its own.
  */
 if (typeof C8O === "undefined") { var C8O = {}; }
@@ -27,6 +32,8 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
   var CALL_BUDGET_MS = 38000;
   var POLL_MS = 250;
   var KEEP_MS = 30 * 60000;
+  // a creation sent again within it answers the form already made; an agent's retry comes seconds or minutes later
+  var REPEAT_MS = 10 * 60000;
   var MAX_WRITES = 200;
 
   var GET_CHECK = "read the form with nocode-form-get (its rev, find a word of the change)";
@@ -42,9 +49,11 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
     update: { tool: "nocode-form-update", idName: "updateId", form: true, noun: "update", input: "patch", failCode: "update_failed",
       maybe: "The change may have been saved", check: GET_CHECK, once: "it was not applied again." },
     create: { tool: "nocode-form-create", idName: "createId", form: false, noun: "creation", input: "reduced form", failCode: "create_failed",
-      maybe: "The form may have been created", check: LIST_CHECK, once: "no second form was created." },
+      maybe: "The form may have been created", check: LIST_CHECK, once: "no second form was created.",
+      repeat: "To make another form with the same content on purpose, give it another name." },
     app: { tool: "nocode-app-create", idName: "createId", form: false, noun: "creation of the application", input: "spec", failCode: "app_create_failed",
-      maybe: "The application or its tables may have been created", check: APP_CHECK, once: "no second application was created." },
+      maybe: "The application or its tables may have been created", check: APP_CHECK, once: "no second application was created.",
+      repeat: "To make another application with the same content on purpose, give it another name." },
     schema: { tool: "nocode-baserow-schema-apply", idName: "applyId", form: false, noun: "apply of the schema", input: "schema", failCode: "baserow_schema_apply_failed",
       maybe: "Part of the schema or of its rows may have been written", check: BASE_CHECK, once: "it was not applied again." },
     publish: { tool: "nocode-form-publish", idName: "publishId", form: true, noun: "publication", input: "confirm", again: "do not publish it again", failCode: "publish_failed",
@@ -61,6 +70,7 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
   api.STORE_KEY = STORE_KEY;
   api.CALL_BUDGET_MS = CALL_BUDGET_MS;
   api.KEEP_MS = KEEP_MS;
+  api.REPEAT_MS = REPEAT_MS;
   api.KINDS = KINDS;
 
   function str(value) {
@@ -122,6 +132,41 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
       }
     });
     return found;
+  }
+
+  // The latest creation of this input by this owner whose answer reached it within REPEAT_MS and saved a form.
+  function madeWrite(writes, kind, owner, fingerprint, now) {
+    var found = null;
+    writes.keys().forEach(function (jobId) {
+      var entry = read(writes, jobId);
+      var answer = entry && entry.answer;
+      if (entry && entry.kind === kind && entry.owner === owner && entry.fingerprint === fingerprint && entry.status === "done" &&
+        entry.delivered === true && now - Number(entry.endedAt || entry.startedAt || 0) <= REPEAT_MS && answer && typeof answer === "object" &&
+        answer.saved === true && str(answer.id).length && (!found || entry.startedAt > found.startedAt)) {
+        found = entry;
+      }
+    });
+    return found;
+  }
+
+  // The answer of a creation sent again: the one it got, or, when its form changed since, where it stands now.
+  function repeatedAnswer(kind, entry, current, host) {
+    var spec = KINDS[kind];
+    var made = entry.answer;
+    var seconds = Math.max(0, Math.round((host.now() - Number(entry.endedAt || entry.startedAt)) / 1000));
+    var note = "The same " + spec.noun + " was made " + seconds + " s ago (" + spec.idName + " " + entry.jobId + ", form " + made.id +
+      "): " + spec.once + " " + spec.repeat;
+    var currentRev = current && current.rev ? String(current.rev) : "";
+    var answer;
+    if (currentRev.length && currentRev !== str(made.rev)) {
+      answer = { status: made.status, saved: true, id: made.id, rev: currentRev };
+      answer.next = "The form changed since (rev " + currentRev + "): read it with nocode-form-get before changing it.";
+    } else {
+      answer = JSON.parse(JSON.stringify(made));
+    }
+    answer[spec.idName] = entry.jobId;
+    answer.repeated = note;
+    return answer;
   }
 
   // An exception may come after the save (the read back): whether the write was saved is not known. A read wrote nothing.
@@ -252,6 +297,14 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
       var fingerprint = canonical(params.input);
       entry = sameWrite(writes, kind, owner, formId, fingerprint);
       joined = !!entry;
+      if (!entry && spec.repeat && owner.length) {
+        var made = madeWrite(writes, kind, owner, fingerprint, host.now());
+        // the form it made still exists (or cannot be checked): it is answered again; one deleted since is made anew
+        var current = made && typeof host.current === "function" ? host.current(kind, made.answer, params.options || {}) : null;
+        if (made && !(current && current.exists === false)) {
+          return repeatedAnswer(kind, made, current, host);
+        }
+      }
       if (!entry) {
         entry = start(writes, host, kind, owner, formId, fingerprint, params.input, params.options || {});
       }
@@ -323,6 +376,18 @@ C8O.nocodeFormWriteJob = C8O.nocodeFormWriteJob || {};
         var thread = new java.lang.Thread(new java.lang.Runnable({ run: run }), String(name));
         thread.setDaemon(true);
         thread.start();
+      },
+      // Whether the form a creation made still exists, and its rev: {exists, rev}, or null when it cannot be told.
+      current: function (kind, answer, options) {
+        try {
+          var got = C8O.nocodeForms.get(String(answer.id), options);
+          if (got && got._id) {
+            return { exists: true, rev: got._rev == null ? "" : String(got._rev) };
+          }
+          return got && got.status === "unavailable" ? { exists: false } : null;
+        } catch (_unchecked) {
+          return null;
+        }
       },
       write: function (kind, id, input, options) {
         var merged = function () {

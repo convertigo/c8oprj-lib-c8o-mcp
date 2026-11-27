@@ -40,11 +40,27 @@ function fakeHost(options = {}) {
     write: (kind, id, input, opts) => {
       state.writes.push({ kind, id, input: plain(input), opts: plain(opts) });
       if (options.throws) throw new Error(options.throws);
-      if (kind === 'create' || kind === 'app') return { id: 'form-' + (++state.forms), rev: '1-x', status: 'ok', saved: true };
+      if (options.refused) return { status: 'error', saved: false, error: { code: 'invalid_form', message: 'refused' } };
+      if (kind === 'create' || kind === 'app') return { id: 'form-' + (++state.forms), rev: '1-x', status: 'ok', saved: true, validation: { valid: true, warnings: [] } };
       if (kind === 'schema') return { status: 'ok', created: { rows: 3 } };
       if (kind === 'publish') return { status: 'ok', published: true, id, version: '2', link: opts && opts.linkRoot ? opts.linkRoot + '/projects/C8Oforms/DisplayObjects/pwas/x/index.html' : null };
       return { id, rev: (state.writes.length + 4) + '-x', status: 'ok', saved: true };
     }
+  };
+  // what C8Oforms holds of the forms made (javaHost.current): {id: rev}, a form deleted is absent; options.unchecked
+  // plays a check that fails
+  state.held = {};
+  host.current = (kind, answer) => {
+    state.checks = (state.checks || 0) + 1;
+    if (options.unchecked) return null;
+    const id = String(answer.id);
+    return id in state.held ? { exists: true, rev: state.held[id] } : { exists: false };
+  };
+  const write = host.write;
+  host.write = (...args) => {
+    const answer = write(...args);
+    if (answer && answer.saved === true && answer.id && (args[0] === 'create' || args[0] === 'app')) state.held[answer.id] = answer.rev;
+    return answer;
   };
   function run(thread) { thread.done = true; thread.fn(); }
   return { host, state, map, finishAll: () => state.threads.filter(t => !t.done).forEach(run), elapse: ms => { state.now += ms; } };
@@ -343,6 +359,109 @@ test('an application, a schema apply and a publication answer running with their
     assert.deepEqual([done.status, done.error.code, done.saved], ['error', code, undefined], kind);
     assert.match(done.next, check, kind);
   }
+});
+
+// test-nocode, 26/11: the answer of nocode-form-create reached the agent as one page of partialAnswer; its script read
+// r.status and r.id, found them empty and sent the same creation 10 s later, which made a second « Test modale ».
+test('a creation sent again after its answer was given answers the form it made, never a second one', () => {
+  const api = job();
+  const f = fakeHost({ durationMs: 3000 });
+  const first = plain(api.run({ kind: 'create', input: reduced, owner: 'owner-a', options: { project: 'C8Oforms', token: 't' } }, f.host));
+  assert.deepEqual([first.status, first.id, first.repeated], ['ok', 'form-1', undefined]);
+  f.elapse(10000);
+  // the same reduced form, keys in another order
+  const again = plain(api.run({ kind: 'create', input: { pages: reduced.pages, name: reduced.name }, owner: 'owner-a', options: { project: 'C8Oforms', token: 't' } }, f.host));
+  assert.equal(f.state.writes.length, 1, 'no second form');
+  assert.deepEqual([again.status, again.saved, again.id, again.rev], ['ok', true, 'form-1', '1-x']);
+  assert.deepEqual(again.validation, first.validation, 'the answer it got, whole');
+  assert.match(again.createId, /^create-\d+-[0-9a-f]{8}$/);
+  assert.equal(again.repeated, 'The same creation was made 10 s ago (createId ' + again.createId + ', form form-1): no second form was created. To make another form with the same content on purpose, give it another name.');
+  // the form changed since: where it stands now, with its rev
+  f.state.held['form-1'] = '3-y';
+  const changed = plain(api.run({ kind: 'create', input: reduced, owner: 'owner-a' }, f.host));
+  assert.deepEqual([changed.status, changed.saved, changed.id, changed.rev, changed.validation], ['ok', true, 'form-1', '3-y', undefined]);
+  assert.match(changed.next, /^The form changed since \(rev 3-y\): read it with nocode-form-get/);
+  assert.match(changed.repeated, /no second form was created/);
+  // another name is another creation
+  const named = plain(api.run({ kind: 'create', input: { ...reduced, name: 'Candidature emploi 2' }, owner: 'owner-a' }, f.host));
+  assert.equal(named.id, 'form-2');
+  assert.equal(named.repeated, undefined);
+  assert.equal(f.state.writes.length, 2);
+  // the form deleted since is made anew
+  delete f.state.held['form-1'];
+  const anew = plain(api.run({ kind: 'create', input: reduced, owner: 'owner-a' }, f.host));
+  assert.deepEqual([anew.id, anew.repeated], ['form-3', undefined]);
+  // past REPEAT_MS, a creation is a new one
+  f.elapse(api.REPEAT_MS + 1000);
+  const late = plain(api.run({ kind: 'create', input: reduced, owner: 'owner-a' }, f.host));
+  assert.deepEqual([late.id, late.repeated], ['form-4', undefined]);
+  assert.equal(f.state.writes.length, 4);
+});
+
+test('a repeated creation is the caller\'s own, a refused one is made again, and an unchecked form is not made twice', () => {
+  const api = job();
+  const f = fakeHost({ durationMs: 1000 });
+  plain(api.run({ kind: 'create', input: reduced, owner: 'owner-a' }, f.host));
+  const other = plain(api.run({ kind: 'create', input: reduced, owner: 'owner-b' }, f.host));
+  assert.deepEqual([other.id, other.repeated], ['form-2', undefined], 'another caller makes its own');
+  assert.equal(api.KINDS.edit.repeat, undefined, 'edits, updates, schemas and publications keep their own rules');
+  // a creation refused saved nothing: the same one sent again is checked again
+  const g = fakeHost({ durationMs: 1000, refused: true });
+  const api2 = job();
+  plain(api2.run({ kind: 'create', input: reduced, owner: 'owner-a' }, g.host));
+  const retried = plain(api2.run({ kind: 'create', input: reduced, owner: 'owner-a' }, g.host));
+  assert.equal(g.state.writes.length, 2);
+  assert.equal(retried.repeated, undefined);
+  // C8Oforms cannot be asked: the form made is answered again rather than a second one made
+  const h = fakeHost({ durationMs: 1000, unchecked: true });
+  const api3 = job();
+  plain(api3.run({ kind: 'create', input: reduced, owner: 'owner-a' }, h.host));
+  const unchecked = plain(api3.run({ kind: 'create', input: reduced, owner: 'owner-a' }, h.host));
+  assert.deepEqual([unchecked.id, h.state.writes.length], ['form-1', 1]);
+  assert.match(unchecked.repeated, /no second form was created/);
+  // an application sent again answers the one made
+  const k = fakeHost({ durationMs: 1000 });
+  const api4 = job();
+  const spec = { name: 'Suivi des visites', entities: [{ name: 'visite', fields: [{ name: 'Date', type: 'date' }] }] };
+  const app = plain(api4.run({ kind: 'app', input: spec, owner: 'owner-a' }, k.host));
+  const appAgain = plain(api4.run({ kind: 'app', input: spec, owner: 'owner-a' }, k.host));
+  assert.deepEqual([appAgain.id, k.state.writes.length], [app.id, 1]);
+  assert.match(appAgain.repeated, /^The same creation of the application was made \d+ s ago .*no second application was created\. To make another application/);
+  // project-changes does not record it again
+  const journal = load(['js/write_journal.js']).C8O.writeJournal;
+  assert.equal(journal.entryOf('tools_nocode_form_create', unchecked, { reduced: JSON.stringify(reduced) }, {}), null);
+  assert.ok(journal.entryOf('tools_nocode_form_create', { status: 'ok', saved: true, id: 'f9' }, { reduced: '{}' }, {}));
+});
+
+test('the engine host checks a form made with nocode-form-get: there, deleted, or not known', () => {
+  const sandbox = load(['js/nocode_form_write_job.js']);
+  const calls = [];
+  const answers = { f1: { _id: 'f1', _rev: '2-z' }, f2: { status: 'unavailable', fetched: false }, f3: { status: 'auth_required' } };
+  sandbox.C8O.nocodeForms = { get: (id, options) => { calls.push([id, options.token]); if (id === 'f4') throw new Error('down'); return answers[id]; } };
+  sandbox.Packages = { com: { twinsoft: { convertigo: { engine: { requesters: { InternalHttpServletRequest: class {} } } } } } };
+  sandbox.java = { util: { concurrent: { ConcurrentHashMap: Map } } };
+  const values = {};
+  const host = sandbox.C8O.nocodeFormWriteJob.javaHost({ server: { get: key => values[key] ?? null, set: (key, value) => { values[key] = value; } } });
+  assert.deepEqual(plain(host.current('create', { id: 'f1' }, { token: 't' })), { exists: true, rev: '2-z' });
+  assert.deepEqual(plain(host.current('create', { id: 'f2' }, { token: 't' })), { exists: false });
+  assert.equal(host.current('create', { id: 'f3' }, { token: 't' }), null);
+  assert.equal(host.current('app', { id: 'f4' }, { token: 't' }), null);
+  assert.deepEqual(calls.map(c => c[0]), ['f1', 'f2', 'f3', 'f4']);
+});
+
+test('the output schemas of the creations take the answer of a creation sent again (Vibe checks it)', () => {
+  const ctx = { C8O: {}, include() {}, Packages: {}, java: {} };
+  vm.createContext(ctx);
+  ['js/schema_overrides_crud.js', 'js/schema_overrides.js'].forEach(file => vm.runInContext(read(file), ctx));
+  const overrides = ctx.C8O.schemaOverrides;
+  for (const sequence of ['tools_nocode_form_create', 'tools_nocode_app_create']) {
+    const schema = overrides.decorateOutput(sequence, overrides.applyOutput(sequence, null, null), null);
+    for (const key of ['repeated', 'createId', 'next', 'id', 'rev']) {
+      assert.ok(schema.properties[key] || schema.additionalProperties !== false, sequence + ' refuses ' + key);
+    }
+  }
+  const input = overrides.applyInput('tools_nocode_form_create', null, null);
+  assert.match(input.properties.reduced.description, /The same reduced form sent again within 10 minutes answers the form already made \(repeated\)/);
 });
 
 test('the tool sequences write through the job, wait up to 300 s and take the id of a running write', () => {

@@ -491,9 +491,9 @@ if (typeof C8O === "undefined") {
   function form(change, detail) {
     return function (r, args) {
       // running: a large form written in a thread of its own (js/nocode_form_write_job.js); the answer of the call that
-      // waits for it is recorded, once
+      // waits for it is recorded, once. repeated: a creation sent again, answered with the form made before (recorded then).
       if (text(args.mode).toLowerCase() === "plan" || text(r.mode).toLowerCase() === "plan" || truthy(r.dryRun) || r.saved === false ||
-        text(r.status).toLowerCase() === "running") {
+        text(r.status).toLowerCase() === "running" || filled(r.repeated)) {
         return null;
       }
       var response = isObject(r.response) ? r.response : {};
