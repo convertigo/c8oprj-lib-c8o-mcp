@@ -310,23 +310,9 @@ C8O.nocodeApp = C8O.nocodeApp || {};
     return catalog.tables.filter(function (table) { return Number(table.baseId) === Number(baseId) && trimmed(table.name).toLowerCase() === trimmed(name).toLowerCase(); })[0] || null;
   }
 
-  // The workspaces to choose from, without listing every base: a test account answered more than 30 of them.
+  // The workspaces to choose from (C8O.nocodeBaserow.workspaceSummary).
   function workspaceSummary(catalog) {
-    return catalog.workspaces.map(function (workspace) {
-      var bases = catalog.bases.filter(function (base) { return base.workspaceId === workspace.id; });
-      var out = { id: workspace.id, name: workspace.name, baseCount: bases.length };
-      if (bases.length) { out.bases = bases.slice(0, 5).map(function (base) { return { id: base.id, name: base.name }; }); }
-      return out;
-    });
-  }
-
-  // No Code Studio gives each user a workspace of their own, named after their e-mail ("Convertigo NoCode Databases -
-  // <e-mail>" on test-nocode): with several workspaces it is the one an application of the user goes to.
-  function ownWorkspace(catalog, user) {
-    var email = trimmed(user).toLowerCase().split(":").pop();
-    if (email.indexOf("@") < 0) { return null; }
-    var own = catalog.workspaces.filter(function (workspace) { return trimmed(workspace.name).toLowerCase().indexOf(email) >= 0; });
-    return own.length === 1 ? own[0] : null;
+    return C8O.nocodeBaserow.workspaceSummary(catalog);
   }
 
   // The base of the new tables: the one given, else the one of the existing tables, else a base named after the
@@ -354,12 +340,13 @@ C8O.nocodeApp = C8O.nocodeApp || {};
     if (!workspace) {
       if (existing.length) {
         workspace = catalog.workspaces.filter(function (item) { return item.id === existing[0].workspaceId; })[0];
-      } else if (catalog.workspaces.length === 1) {
-        workspace = catalog.workspaces[0];
-      } else if (ownWorkspace(catalog, user)) {
-        workspace = ownWorkspace(catalog, user);
       } else {
-        return { error: { code: catalog.workspaces.length ? "workspace_required" : "no_workspace", message: catalog.workspaces.length ? "The user has several Baserow workspaces: give baserow.baseId (an existing base) or baserow.workspaceId with baserow.baseName (a new base)." : "The user has no Baserow workspace: ask them to open the No Code Studio data tab once.", workspaces: workspaceSummary(catalog) } };
+        // the rule nocode-baserow-schema-apply follows too (C8O.nocodeBaserow.defaultWorkspace)
+        var choice = C8O.nocodeBaserow.defaultWorkspace(catalog, user);
+        if (choice.error) {
+          return { error: { code: choice.error.code, message: choice.error.code === "workspace_required" ? "The user has several Baserow workspaces: give baserow.baseId (an existing base) or baserow.workspaceId with baserow.baseName (a new base)." : "The user has no Baserow workspace: ask them to open the No Code Studio data tab once.", workspaces: choice.error.workspaces } };
+        }
+        workspace = choice.workspace;
       }
     }
     baseName = baseName || app.name;

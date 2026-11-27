@@ -1779,9 +1779,10 @@ const TICKETS = { id: 5277, name: 'Tickets', columns: [
   { id: 7, name: 'Montant', type: 'number' }
 ] };
 function planApp(spec, tables = [TICKETS], options = {}) {
-  const C8O = api(undefined, ['js/nocode_app.js']);
+  // as tools_nocode_app_create: js/nocode_baserow.js before js/nocode_app.js; its Baserow calls are faked
+  const C8O = api(undefined, ['js/nocode_baserow.js', 'js/nocode_app.js']);
   const calls = [];
-  C8O.nocodeBaserow = {
+  Object.assign(C8O.nocodeBaserow, {
     catalogList: () => ({ status: 'ok', authentication: { authenticated: true, user: 'person@example.invalid' },
       workspaces: options.workspaces || [{ id: 10, name: 'Team', bases: [{ id: 20, name: 'Support', tables: tables.map(t => ({ id: t.id, name: t.name })) }] }] }),
     tableFields: id => { calls.push('fields ' + id); return { bearer: 'JWT test', fields: clone((tables.find(t => t.id === Number(id)) || {}).columns || []) }; },
@@ -1790,7 +1791,7 @@ function planApp(spec, tables = [TICKETS], options = {}) {
       const schema = clone(o.schema);
       return { status: 'ok', schema, actions: schema.tables.filter(t => t.id == null).map(t => ({ type: 'create_table', table: t.name })), created: {} };
     }
-  };
+  });
   let compiled = null;
   const compile = C8O.nocodeForms.compile;
   C8O.nocodeForms.compile = (reduced, o) => (compiled = compile(reduced, o));

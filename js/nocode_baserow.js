@@ -2164,6 +2164,36 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
 
   // The error goes right after the status: a reader that keeps the first "message" of the answer (the Assistant's
   // feedback did) took the first planned action, "Table already exists.", for the error.
+  // The workspaces to choose from, without listing every base: a test account answered more than 30 of them.
+  C8O.nocodeBaserow.workspaceSummary = function (catalog) {
+    return ensureArray(catalog && catalog.workspaces).map(function (workspace) {
+      var bases = ensureArray(catalog.bases).filter(function (base) { return base.workspaceId === workspace.id; });
+      var out = { id: workspace.id, name: workspace.name, baseCount: bases.length };
+      if (bases.length) { out.bases = bases.slice(0, 5).map(function (base) { return { id: base.id, name: base.name }; }); }
+      return out;
+    });
+  };
+
+  // The workspace a new base goes to when the call names none, the same for nocode-app-create and
+  // nocode-baserow-schema-apply: the user's only workspace; with several, the one No Code Studio made for the user,
+  // named after their e-mail ("Convertigo NoCode Databases - <e-mail>" on test-nocode), when exactly one is; else the
+  // user chooses (workspace_required, with the workspaces). None: no_workspace. A workspace is never created here.
+  // {workspace, reason} or {error: {code, workspaces}}.
+  C8O.nocodeBaserow.defaultWorkspace = function (catalog, user) {
+    var workspaces = ensureArray(catalog && catalog.workspaces);
+    if (workspaces.length === 1) {
+      return { workspace: workspaces[0], reason: "the only workspace of the user" };
+    }
+    var email = trimmed(user).toLowerCase().split(":").pop();
+    if (workspaces.length > 1 && email.indexOf("@") >= 0) {
+      var own = workspaces.filter(function (workspace) { return trimmed(workspace.name).toLowerCase().indexOf(email) >= 0; });
+      if (own.length === 1) {
+        return { workspace: own[0], reason: "the workspace No Code Studio made for the user" };
+      }
+    }
+    return { error: { code: workspaces.length ? "workspace_required" : "no_workspace", workspaces: C8O.nocodeBaserow.workspaceSummary(catalog) } };
+  };
+
   function failedPlan(plan, error) {
     var out = { status: "error", error: error };
     Object.keys(plan).forEach(function (key) {
@@ -2238,9 +2268,30 @@ C8O.nocodeBaserow = C8O.nocodeBaserow || {};
           });
         }
       }
+      // No workspace named and no base of that name: the new base goes where nocode-app-create puts one (TigoAccess
+      // 1ca4964b, 17/11: "Cannot create base without an existing or newly created workspace id").
+      var chosenWorkspace = null;
+      if (schema.baseId == null && schema.workspaceId == null && !schema.workspaceName.length && schema.baseName.length &&
+          !findByIdOrName(catalog.bases, null, schema.baseName)) {
+        var choice = C8O.nocodeBaserow.defaultWorkspace(catalog, authentication.user);
+        if (choice.error) {
+          return failedPlan(plan, {
+            code: choice.error.code,
+            message: choice.error.code === "workspace_required"
+              ? "Nothing was changed: the schema names no workspace for the new base " + schema.baseName + " and the user has several " +
+                "Baserow workspaces. Ask the user which one (workspaces lists them), then give workspaceId with baseName."
+              : "Nothing was changed: the user has no Baserow workspace for the new base " + schema.baseName + ". Ask them to open the " +
+                "No Code Studio data tab once, then retry; this tool does not create a workspace on its own.",
+            workspaces: choice.error.workspaces
+          });
+        }
+        chosenWorkspace = choice.workspace;
+        pushAction(plan, "workspace_chosen", "The schema names no workspace: the new base goes to " + choice.reason + ".",
+          { workspaceId: chosenWorkspace.id, workspaceName: chosenWorkspace.name });
+      }
       // The catalog is read again only after a creation: rows written into existing tables read it once.
       var createdBefore = plan.created.workspaces.length;
-      var workspace = ensureWorkspace(plan, schema, create, apply, bearer, catalog);
+      var workspace = chosenWorkspace || ensureWorkspace(plan, schema, create, apply, bearer, catalog);
       if (apply && plan.created.workspaces.length > createdBefore) {
         catalog = normalizeCatalog(readApplications());
       }
