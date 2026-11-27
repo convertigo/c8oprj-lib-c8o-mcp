@@ -1259,3 +1259,175 @@ C8O.requestable._configureExecutor = function (executionPlan) {
     EngineLog.debug('[tools_requestable_execute] transaction vars=' + txCount + ' target=' + executionPlan.project + '.' + executionPlan.connector + '.' + executionPlan.name);
   }
 };
+
+// ---- The Studio interface thread, bounded ---------------------------------------------------------------------------
+//
+// ConvertigoPlugin.syncExec waits for the SWT interface thread without a limit. On the Windows Studios of two customers
+// (24-26/11) that thread was held (engine #1299 and #1307: an Engine Log view frozen while rows came, a viewer dialog
+// behind the Studio) and mobile-builder-open waited 61-74 s, a move 67 s, a delete 154 s: past the minute after which
+// the client fails the call ("The provided tool call failed [mcp_timeout]") without a word on why. A call now queues its
+// work with asyncExec and waits for it timeoutMs at most (STUDIO_UI_WAIT_MS by default):
+// - { ran: true, value } when the work ran (an error it threw is thrown here);
+// - { ran: false, timedOut: true, waitedMs, message } when the interface thread did not take it in time. The work stays
+//   queued and runs once the thread is free (a tree refresh, an editor that opens), unless runLate is false: it then
+//   does nothing, for work that acts on a state the call no longer knows.
+// On the interface thread itself the work runs at once (waiting there for the queue would wait for itself).
+C8O.util.STUDIO_UI_WAIT_MS = 10000;
+
+C8O.util.studioUiFrozenMessage = function (what, waitedMs) {
+  return "The Studio interface did not answer in " + Math.round(Number(waitedMs || 0) / 1000) + " s" +
+    (what ? " (" + what + ")" : "") + ": it is busy or frozen, often by a dialog waiting for an answer or an Engine Log " +
+    "view receiving many lines. This call did not wait longer. Look at the Studio window (answer or close its dialog, " +
+    "close the Engine Log view), then call again.";
+};
+
+C8O.util.studioUiExec = function (fn, options) {
+  var opts = options || {};
+  var timeoutMs = Number(opts.timeoutMs);
+  if (!(timeoutMs > 0)) {
+    timeoutMs = C8O.util.STUDIO_UI_WAIT_MS;
+  }
+  var host = C8O.util.studioUiHost();
+  if (host.onUiThread()) {
+    return { ran: true, value: fn() };
+  }
+  var state = { value: undefined, error: null };
+  var latch = host.latch();
+  // 0 queued, 1 started, 2 dropped: without runLate the work either starts or is dropped, never both
+  var gate = host.gate();
+  var runLate = opts.runLate !== false;
+  host.asyncExec(function () {
+    try {
+      if (!gate.compareAndSet(0, 1) && !runLate) {
+        return;
+      }
+      gate.set(1);
+      state.value = fn();
+    } catch (uiError) {
+      state.error = uiError;
+    } finally {
+      latch.countDown();
+    }
+  });
+  var startedAt = host.now();
+  var finished = host.await(latch, timeoutMs);
+  if (!finished) {
+    var dropped = !runLate && gate.compareAndSet(0, 2);
+    var waitedMs = host.now() - startedAt;
+    return {
+      ran: false,
+      timedOut: true,
+      waitedMs: waitedMs,
+      // started: the interface thread took the work at the last moment and it is still running
+      started: Number(gate.get()) === 1,
+      queued: runLate && Number(gate.get()) === 0,
+      dropped: dropped,
+      message: C8O.util.studioUiFrozenMessage(opts.label, waitedMs)
+    };
+  }
+  if (state.error) {
+    throw state.error;
+  }
+  return { ran: true, value: state.value };
+};
+
+// The engine side of studioUiExec; the tests give their own.
+C8O.util.studioUiHost = function () {
+  if (C8O.util._studioUiHost) {
+    return C8O.util._studioUiHost;
+  }
+  return {
+    onUiThread: function () {
+      try {
+        return Packages.org.eclipse.swt.widgets.Display.getCurrent() != null;
+      } catch (_noSwt) {
+        return false;
+      }
+    },
+    asyncExec: function (work) {
+      Packages.com.twinsoft.convertigo.eclipse.ConvertigoPlugin.asyncExec(new Packages.java.lang.Runnable({ run: work }));
+    },
+    latch: function () {
+      return new java.util.concurrent.CountDownLatch(1);
+    },
+    gate: function () {
+      return new java.util.concurrent.atomic.AtomicInteger(0);
+    },
+    await: function (latch, timeoutMs) {
+      try {
+        return latch.await(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS) === true;
+      } catch (_interrupted) {
+        return false;
+      }
+    },
+    now: function () {
+      return Number(java.lang.System.currentTimeMillis());
+    }
+  };
+};
+
+// A Java call that does not use the interface thread but can still wait on the Studio (a project export on a Windows
+// Studio whose disk or log view is held) runs on a thread of its own, waited for timeoutMs at most:
+// - { done: true, value } when it ended in time (its error is thrown here);
+// - { done: false, timedOut: true, waitedMs, thread } when it did not: it goes on and ends on its own. The caller says so
+//   and keeps what depends on it (C8O.dbo.pendingSaveOf) until it ends.
+C8O.util.boundedCall = function (fn, timeoutMs, name) {
+  var host = C8O.util.boundedCallHost();
+  var state = { value: undefined, error: null };
+  var thread = host.start(function () {
+    try {
+      state.value = fn();
+    } catch (callError) {
+      state.error = callError;
+    }
+  }, name);
+  var startedAt = host.now();
+  if (!host.join(thread, timeoutMs)) {
+    return { done: false, timedOut: true, waitedMs: host.now() - startedAt, thread: thread };
+  }
+  if (state.error) {
+    throw state.error;
+  }
+  return { done: true, value: state.value };
+};
+
+C8O.util.boundedCallHost = function () {
+  if (C8O.util._boundedCallHost) {
+    return C8O.util._boundedCallHost;
+  }
+  return {
+    start: function (work, name) {
+      // the log context of the call (its project, its nolog) goes with the work
+      var logContext = null;
+      try {
+        var current = org.apache.log4j.MDC.getContext();
+        logContext = current != null ? new java.util.HashMap(current) : null;
+      } catch (_noLogContext) {
+        logContext = null;
+      }
+      var thread = new java.lang.Thread(new java.lang.Runnable({ run: function () {
+        try {
+          if (logContext != null) {
+            var keys = logContext.keySet().toArray();
+            for (var i = 0; i < keys.length; i++) {
+              org.apache.log4j.MDC.put(keys[i], logContext.get(keys[i]));
+            }
+          }
+        } catch (_ignoreLogContext) {}
+        work();
+      } }), String(name || "lib_ConvertigoMCP bounded call"));
+      thread.setDaemon(true);
+      thread.start();
+      return thread;
+    },
+    join: function (thread, timeoutMs) {
+      try {
+        thread.join(Math.max(1, Math.round(timeoutMs)));
+      } catch (_interrupted) {}
+      return thread.isAlive() !== true;
+    },
+    now: function () {
+      return Number(java.lang.System.currentTimeMillis());
+    }
+  };
+};

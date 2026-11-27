@@ -73,6 +73,22 @@ comment: |
           - SmartType: 
             - ↑mode: JS
             - →→: searchSummary.nextCursor
+  ↓MessageFieldIf [steps.IfStep-1795800000101]: 
+    comment: Why the scan stopped before the end (its time budget) and how to go on
+    condition: notEmpty(searchSummary && searchSummary.message)
+    ↓MessageField [steps.JsonFieldStep-1795800000102]: 
+      key: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: PLAIN
+            - →→: message
+      value: 
+        - xmlizable: 
+          - ↑classname: com.twinsoft.convertigo.beans.steps.SmartType
+          - SmartType: 
+            - ↑mode: JS
+            - →→: searchSummary.message
   ↓Matches [steps.JsonArrayStep-1762941383896]: 
     comment: Matching database objects
     key: 
@@ -206,8 +222,8 @@ comment: |
   description: Optional object type filter: the type returned in matches (Step, Sequence, Transaction, Variable, Connector...) or a class token such as steps.SequenceStep. Use * or omit for any type.
   value: '*'
 ↓_nextCursor [variables.RequestableVariable-1762957543690]: 
-  comment: Opaque cursor from a previous response. Internal pagination token.
-  description: Opaque cursor from a previous response. Internal pagination token.
+  comment: Opaque cursor from a previous response (nextCursor). Internal pagination token; it also goes on after a search that stopped on its time budget.
+  description: Opaque cursor from a previous response (nextCursor). Internal pagination token; it also goes on after a search that stopped on its time budget.
 ↓ByPriority [core.TestCase-1763465053816]: 
   ↓qname [variables.TestCaseVariable-1763465054743]: 
     value: lib_ConvertigoMCP

@@ -31,7 +31,23 @@ C8O.dbo.saveProject = function (project, errors) {
         message: ""
       };
     }
-    Engine.theApp.databaseObjectsManager.exportProject(project);
+    // exportProject waits on the Studio on a Windows Studio whose interface is held (a delete took 154 s, 24/11): it runs
+    // on a thread of its own, waited for SAVE_WAIT_MS at most. Past that the save goes on and ends on its own; the call
+    // says so, and the next write of the MCP waits for it (C8O.dbo.awaitPendingSaves) instead of changing a project
+    // being written.
+    var saveName = String(project.getName());
+    var before = C8O.dbo.awaitPendingSaves(saveName, C8O.dbo.SAVE_WAIT_MS);
+    if (before) {
+      return C8O.dbo.savePendingResult(before, errors, versionUpdate, true);
+    }
+    var exported = C8O.util.boundedCall(function () {
+      Engine.theApp.databaseObjectsManager.exportProject(project);
+    }, C8O.dbo.SAVE_WAIT_MS, "lib_ConvertigoMCP save of " + saveName);
+    if (exported.done !== true) {
+      var pending = C8O.dbo.markPendingSave(saveName, exported.thread);
+      C8O.dbo.invalidateProjectRuntime(project, errors);
+      return C8O.dbo.savePendingResult(pending, errors, versionUpdate, false);
+    }
     var invalidation = C8O.dbo.invalidateProjectRuntime(project, errors);
     var finalVersion = "";
     try {
@@ -61,6 +77,34 @@ C8O.dbo.saveProject = function (project, errors) {
     }
     return { saved: false, message: saveMessage };
   }
+};
+
+// The answer of a save still running: saved false, savePending true, and why. earlier: the save that waits is one an
+// earlier call started (this one did not write).
+C8O.dbo.savePendingResult = function (pending, errors, versionUpdate, earlier) {
+  var seconds = Math.round(Number(pending.runningMs || 0) / 1000);
+  var message = (earlier
+    ? "An earlier save of " + pending.project + " has been running for " + seconds + " s and has not ended: this save waits for it and was not made. "
+    : "The save of " + pending.project + " has not ended after " + seconds + " s: it goes on and the files are written when it ends. ") +
+    "The change is made in the Studio; do not make it again. The Studio is slow or held (a dialog waiting for an answer, an " +
+    "Engine Log view receiving many lines): look at its window, then call project-save " + JSON.stringify({ project: pending.project }) +
+    " in a moment to check the save.";
+  if (errors && errors.push) {
+    errors.push({ name: "__save__", message: message, pending: true });
+  }
+  return {
+    saved: false,
+    savePending: true,
+    message: message,
+    versionChecked: !!(versionUpdate && versionUpdate.checked === true),
+    versionDirty: !!(versionUpdate && versionUpdate.dirty === true),
+    versionBumped: !!(versionUpdate && versionUpdate.bumped === true),
+    previousVersion: versionUpdate && versionUpdate.previousVersion ? String(versionUpdate.previousVersion) : "",
+    version: versionUpdate && versionUpdate.version ? String(versionUpdate.version) : "",
+    headVersion: versionUpdate && versionUpdate.headVersion ? String(versionUpdate.headVersion) : "",
+    versionReason: versionUpdate && versionUpdate.reason ? String(versionUpdate.reason) : "",
+    versionMessage: versionUpdate && versionUpdate.message ? String(versionUpdate.message) : ""
+  };
 };
 
 C8O.dbo.invalidateProjectRuntime = function (projectOrName, errors) {

@@ -111,7 +111,8 @@ test('mobile-builder-open: the web Studio starts its development build through t
   assert.deepEqual(run(engineWith({ startDevBuild: () => { throw new Error('no build on this engine'); } }), true), { supported: true, started: false, error: 'no build on this engine' });
   assert.deepEqual(run(engineWith({}), false), { supported: false, started: false, error: '' }, 'an engine without startDevBuild');
   assert.match(source, /\} else if \(webStudio && stateOnlyValue !== true\) \{\n\s+webStudioBuild = startWebStudioDevBuild\(projectName, endpoint, forceRestartValue\);\n\s+launchRequested = webStudioBuild\.started === true;/);
-  assert.match(source, /if \(studioMode && stateOnlyValue !== true && !launchedFromEditor && !reusedExistingBuilder\) \{\n\s+MobileBuilder\.initBuilder\(projectRef\);\n\s+startBuildWithWsBuilder\(projectName, endpoint\);/, 'the Eclipse path is unchanged');
+  // (unless the Studio interface did not take the editor work: then nothing else starts, validate_studio_ui_bounded.cjs)
+  assert.match(source, /if \(studioMode && stateOnlyValue !== true && !launchedFromEditor && !reusedExistingBuilder && !studioUiBusy\) \{\n\s+MobileBuilder\.initBuilder\(projectRef\);\n\s+startBuildWithWsBuilder\(projectName, endpoint\);/, 'the Eclipse path is unchanged');
   assert.match(source, /if \(webStudioBuild\.supported !== true \|\| webStudioBuild\.error\.length\) \{\n\s+waitValue = false;\n\s+timeoutSecValue = 0;/, 'nothing to wait for on an older engine');
   assert.ok(source.indexOf('waitValue = false;') < source.indexOf('var deadline = startedAt + (timeoutSecValue * 1000);'), 'before the deadline is computed');
   const schema = read('js/schema_overrides.js');

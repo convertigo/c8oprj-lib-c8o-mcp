@@ -35,13 +35,27 @@ if (_nextCursor !== undefined && _nextCursor !== null) {
   }
 }
 var startIndex = 0;
+// A cursor "p<projects>.<objects>.<matches>" goes on where the scan stopped: the projects finished before are skipped
+// without being loaded, the objects of the project in progress scanned before are walked, not read, and the matches
+// are counted from <matches>. A plain number (older answers) counts matches from the start.
+var resumeProjects = 0;
+var resumeObjects = 0;
+var resumed = false;
 if (cursorRaw.length > 0) {
-  try {
-    var parsedCursor = parseInt(cursorRaw, 10);
-    if (!isNaN(parsedCursor) && parsedCursor >= 0) {
-      startIndex = parsedCursor;
-    }
-  } catch (_ignoredCursor) {}
+  var scanCursor = /^p(\d+)\.(\d+)\.(\d+)$/.exec(cursorRaw);
+  if (scanCursor) {
+    resumed = true;
+    resumeProjects = parseInt(scanCursor[1], 10);
+    resumeObjects = parseInt(scanCursor[2], 10);
+    startIndex = parseInt(scanCursor[3], 10);
+  } else {
+    try {
+      var parsedCursor = parseInt(cursorRaw, 10);
+      if (!isNaN(parsedCursor) && parsedCursor >= 0) {
+        startIndex = parsedCursor;
+      }
+    } catch (_ignoredCursor) {}
+  }
 }
 var pageUpperBound = startIndex + limitValue;
 
@@ -95,6 +109,35 @@ var totalMatches = 0;
 var MAX_MATCHES_CHARS = 13000;
 var matchesChars = 0;
 var hasMore = false;
+// A search across the projects of a customer's Studio ran 405 s (TigoAccess 174f1807, 24/11): the client had failed the
+// call after a minute. The scan stops after SEARCH_TIME_BUDGET_MS and answers what it found, with a cursor that goes on
+// from the object it stopped at.
+var SEARCH_TIME_BUDGET_MS = 20000;
+var searchStartedAt = Number(java.lang.System.currentTimeMillis());
+var timeBudgetReached = false;
+// the position of the scan: objects scanned before the next one, and matches counted before it
+var scanPosition = null;
+var projectsTotal = 0;
+// the project entries taken from the stack (skipped ones included), and the objects scanned in the current project (or
+// under qname)
+var projectsReached = 0;
+var inProject = 0;
+// objects read (not walked) by this call: the budget stops a call only once it read one, so every call goes on
+var evaluated = 0;
+if (resumed) {
+  // the matches before the cursor were counted by the calls before
+  totalMatches = startIndex;
+}
+// Where the next call goes on: before the next entry of the stack (atNext), or before the object just taken.
+function positionOf(atNext) {
+  var nextIsProject = atNext && stack.length > 0 && stack[stack.length - 1].projectName !== undefined;
+  if (projectsTotal === 0) {
+    return { projects: 0, objects: atNext ? inProject : inProject - 1, matches: totalMatches };
+  }
+  return nextIsProject
+    ? { projects: projectsReached, objects: 0, matches: totalMatches }
+    : { projects: Math.max(0, projectsReached - 1), objects: atNext ? inProject : inProject - 1, matches: totalMatches };
+}
 var snippetRadius = 20;
 
 function buildRecord(dbo, depth, contextSnippet) {
@@ -264,15 +307,11 @@ if (singleObject) {
     var rootDbo = C8O.dbo.resolve(rootQName, { messagePrefix: "qname" });
     pushNode(rootDbo, 0);
   } else {
+    // Every project is loaded when the scan reaches it, not all of them before it starts (loading them took the time).
     for (var i = 0; i < projectNames.size(); i++) {
-      var projectName = projectNames.get(i);
-      try {
-        var project = manager.getOriginalProjectByName(projectName);
-        if (project != null) {
-          pushNode(project, 0);
-        }
-      } catch (_ignoredProject) {}
+      stack.push({ projectName: String(projectNames.get(i)), depth: 0 });
     }
+    projectsTotal = projectNames.size();
   }
 
   var abortSearch = false;
@@ -281,13 +320,50 @@ if (singleObject) {
     if (abortSearch) {
       break;
     }
+    if (evaluated > 0 && resumeObjects === 0 && Number(java.lang.System.currentTimeMillis()) - searchStartedAt >= SEARCH_TIME_BUDGET_MS) {
+      timeBudgetReached = true;
+      hasMore = true;
+      scanPosition = positionOf(true);
+      break;
+    }
     var entry = stack.pop();
     var dbo = entry.dbo;
     var depth = entry.depth || 0;
+    if (entry.projectName !== undefined) {
+      projectsReached++;
+      inProject = 0;
+      // finished by the calls before this one: not loaded again
+      if (resumeProjects > 0) {
+        resumeProjects--;
+        continue;
+      }
+      dbo = null;
+      try {
+        dbo = manager.getOriginalProjectByName(entry.projectName);
+      } catch (_ignoredProject) {
+        dbo = null;
+      }
+    }
     if (!dbo) {
       continue;
     }
     scanned++;
+    inProject++;
+    // The objects of this project scanned by the calls before this one are walked, not read again.
+    if (resumeObjects > 0) {
+      resumeObjects--;
+      var walkedChildren = null;
+      try {
+        walkedChildren = dbo.getDatabaseObjectChildren();
+      } catch (_ignoredWalkedChildren) {}
+      for (var w = walkedChildren != null ? walkedChildren.size() - 1 : -1; w >= 0; w--) {
+        if (walkedChildren.get(w) != null) {
+          stack.push({ dbo: walkedChildren.get(w), depth: depth + 1 });
+        }
+      }
+      continue;
+    }
+    evaluated++;
     var typeMatch = matchesObjectType(dbo) && matchesQNamePattern(dbo);
     // Without filter, objectType or the qname pattern selects alone: the scan listed nothing before (objectType only).
     var snippet = typeMatch ? (searchActive ? matchesSearch(dbo) : "") : null;
@@ -298,6 +374,9 @@ if (singleObject) {
       if (currentIndex >= startIndex && matchesWindow.length < limitValue && matchesWindow.length > 0 && matchesChars >= MAX_MATCHES_CHARS) {
         hasMore = true;
         abortSearch = true;
+        // the next call reads this object again: it is the first of its page
+        totalMatches = currentIndex;
+        scanPosition = positionOf(false);
         break;
       }
       if (currentIndex >= startIndex && matchesWindow.length < limitValue) {
@@ -307,6 +386,8 @@ if (singleObject) {
       } else if (currentIndex >= pageUpperBound) {
         hasMore = true;
         abortSearch = true;
+        totalMatches = currentIndex;
+        scanPosition = positionOf(false);
         break;
       }
     }
@@ -325,7 +406,10 @@ if (singleObject) {
   }
 }
 
-var nextCursorValue = hasMore ? String(startIndex + matchesWindow.length) : "";
+var nextCursorValue = hasMore
+  ? (scanPosition !== null ? "p" + scanPosition.projects + "." + scanPosition.objects + "." + scanPosition.matches : String(startIndex + matchesWindow.length))
+  : "";
+var searchElapsedMs = Number(java.lang.System.currentTimeMillis()) - searchStartedAt;
 searchQuery = {
   qname: sourceQName,
   search: searchRaw,
@@ -342,6 +426,14 @@ searchSummary = {
   scanned: scanned,
   returned: matchesWindow.length,
   hasMore: hasMore,
+  timeBudgetReached: timeBudgetReached,
+  elapsedMs: searchElapsedMs,
+  message: timeBudgetReached
+    ? "The search stopped after " + Math.round(searchElapsedMs / 1000) + " s, its time budget, with " + matchesWindow.length +
+      " match(es) in this answer" + (projectsTotal > 0 ? ", " + projectsReached + " of " + projectsTotal + " projects reached" : "") +
+      ". Call again with _nextCursor " + JSON.stringify(nextCursorValue) + " to go on from there" +
+      (rootQName.length ? "" : ", or give qname (a project, or a part of it) to search less") + "."
+    : "",
   startIndex: startIndex,
   limit: limitValue,
   cursorInput: cursorRaw,
