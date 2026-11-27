@@ -12,6 +12,7 @@ const root = path.resolve(__dirname, '../..');
 
 function world(answers) {
   const calls = [];
+  const mdc = new Map([['nolog', true]]);
   const attributes = new Map([['existing', 1]]);
   function JavaMap() { this.m = {}; }
   JavaMap.prototype.put = function (k, v) { this.m[k] = v; };
@@ -28,13 +29,13 @@ function world(answers) {
         removeAttribute: name => attributes.delete(name),
       },
     },
-    Packages: { java: { util: { HashMap: JavaMap } }, com: { twinsoft: { convertigo: { engine: {
+    Packages: { org: { apache: { log4j: { MDC: { get: k => mdc.get(k), remove: k => mdc.delete(k), put: (k,v) => mdc.set(k,v) } } } }, java: { util: { HashMap: JavaMap } }, com: { twinsoft: { convertigo: { engine: {
       Engine: { theApp: { contextManager: { remove() {} } } },
       enums: { JsonOutput: { JsonRoot: { docNode: 'doc' } } },
       util: { XMLUtils: { XmlToJson: doc => JSON.stringify(doc) } },
       requesters: { InternalRequester: function (params, request) {
         this.processRequest = () => {
-          calls.push({ params: params.m, request });
+          calls.push({ params: params.m, request, quiet: mdc.get("nolog") });
           const answer = answers.shift();
           if (answer instanceof Error) throw answer;
           if (answer && answer.sets) attributes.set(answer.sets, 'admin');
@@ -46,17 +47,19 @@ function world(answers) {
   };
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(root, 'js/util.js'), 'utf8'), ctx);
-  return { R: ctx.C8O.requestable, calls, attributes, user };
+  return { R: ctx.C8O.requestable, calls, attributes, user, mdc };
 }
 
 test('before requestables run first, in order, through the current request, and their session ends with the call', () => {
-  const { R, calls, attributes } = world([{ sets: 'role' }, {}]);
+  const { R, calls, attributes, mdc } = world([{ sets: 'role' }, {}]);
   const plan = { requestable: 'App.list_items', before: JSON.stringify([
     { requestable: 'App.login', variables: { user: 'admin', password: 'admin' } }, 'App.cn:db.tr:warm_cache'] ) };
   R.runBefore(plan);
   assert.deepEqual(JSON.parse(JSON.stringify(calls.map(c => c.params))), [
     { __project: 'App', __sequence: 'login', __context: 'mcp_before_1_0', user: 'admin', password: 'admin' },
     { __project: 'App', __connector: 'db', __transaction: 'warm_cache', __context: 'mcp_before_1_1' }]);
+  assert.ok(calls.every(call => !call.quiet), "the user calls write their normal logs");
+  assert.equal(mdc.get("nolog"), true, "the MCP wrapper stays quiet afterwards");
   assert.equal(calls[0].request.id, 'current request', 'the same HTTP request, so the same session');
   assert.deepEqual(JSON.parse(JSON.stringify(plan.beforeResults.map(r => r.status))), ['ok', 'ok']);
   R.runBefore(plan);
@@ -106,6 +109,7 @@ test('a second before call that fails leaves nothing of the first in the session
   const previous = { requestable: 'App.list_items', authenticatedUser: 'alice', previousAuthenticatedUser: 'bob',
     before: [{ requestable: 'App.login' }, { requestable: 'App.load_rights' }] };
   assert.throws(() => back.R.configureExecutor(previous), /before\[1\] App\.load_rights failed/);
+  assert.equal(back.mdc.get('nolog'), true, 'restore the MCP logging scope when a user call throws');
   assert.equal(back.user.name, 'bob', 'the user the session had before the call comes back');
   assert.deepEqual([...back.attributes.keys()], ['existing']);
 });
@@ -121,4 +125,19 @@ test('a target check that throws after the before calls gives the session back t
   user.name = 'carol';
   R.endCall(plan);
   assert.equal(user.name, 'carol', 'ended once: a later endCall changes nothing');
+});
+
+test('the executor lifts the inherited log flag only around an application target', () => {
+  const { R, mdc } = world([]);
+  for (const internal of ['lib_ConvertigoMCP', 'lib_ConvertigoAssistant', 'lib_ConvertigoAgentBridge']) {
+    assert.equal(R.beginTargetLogs(internal), null);
+    assert.equal(mdc.get('nolog'), true);
+  }
+  assert.equal(R.beginTargetLogs('App', { __nolog: 'true' }), null);
+  const saved = R.beginTargetLogs('App', {});
+  assert.equal(mdc.has('nolog'), false);
+  R.endTargetLogs(saved);
+  assert.equal(mdc.get('nolog'), true);
+  const steps = fs.readFileSync(path.join(root, '_c8oProject/sequences/tools_requestable_execute.yaml'), 'utf8');
+  assert.match(steps, /beginTargetLogs\(executionPlan.project, executionPlan.variables\)[\s\S]*↓CallSequence [\s\S]*↓CallTransaction [\s\S]*endTargetLogs\(previousTargetNoLog\)[\s\S]*↓CollectExecutionLogs /);
 });

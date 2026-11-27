@@ -56,6 +56,8 @@ comment: |
 ↓CallWrapper [steps.XMLComplexStep-1763056061207]: 
   nodeName: CallWrapper
   output: false
+  ↓BeginTargetLogs [steps.SimpleStep-1795772117203]: 
+    expression: var previousTargetNoLog = C8O.requestable.beginTargetLogs(executionPlan.project, executionPlan.variables);
   ↓SwitchTarget [steps.IfThenElseStep-1763056222502]: 
     condition: executionPlan && executionPlan.isSequence === true
     ↓Then [steps.ThenStep-1763056351508]: 
@@ -64,6 +66,8 @@ comment: |
     ↓Else [steps.ElseStep-1763056367864]: 
       ↓CallTransaction [steps.TransactionStep-1763056393878]: 
         sourceTransaction: lib_ConvertigoMCP.void.void
+  ↓EndTargetLogs [steps.SimpleStep-1795772117204]: 
+    expression: C8O.requestable.endTargetLogs(previousTargetNoLog);
 ↓CollectExecutionLogs [steps.SimpleStep-1772727101000]: 
   comment: Optionally capture execution logs for this requestable execution.
   expression: |

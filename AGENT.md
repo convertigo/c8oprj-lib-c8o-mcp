@@ -142,11 +142,11 @@ http://<host>/convertigo/api/mcp?jsonOnly=false&from_bridge=true&descriptorVersi
 
 ## X-Convertigo-No-Log in the client configurations
 
-Since Convertigo 8.4.6 the engine `MdcFilter` covers every URL, `/api/mcp`
-included: a request carrying `X-Convertigo-No-Log: true` (or `?__nolog=true`)
-writes no engine log at all. Below 8.4.6 the header only mutes the logs of the
-sequence steps (`js/mcp_endpoint_router.js`). It mutes a whole client, tool
-calls included, not one JSON-RPC method.
+Since Convertigo 8.4.6, `MdcFilter` mutes HTTP dispatch on all paths, including
+`/api/mcp`, for a request carrying `X-Convertigo-No-Log: true` or
+`?__nolog=true`. Older engines apply the header in the MCP sequence steps.
+Application sequences and transactions run by requestable-execute, including
+its before calls, use normal logging unless the target requests quiet execution.
 
 - `_setupCodex`, `_setupClaude` and `_setupVibe` write the header on the
   `convertigo` server (not on `convertigo-flow`), with the Bridge's rule

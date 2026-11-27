@@ -245,7 +245,7 @@ C8O.marketplace.callConnector = function (payload) {
   request.put("__project", "lib_ConvertigoMCP");
   request.put("__connector", "marketplace");
   request.put("__transaction", "list_apply_kd_tree_js");
-  request.put("__nolog", "true");
+  if (C8O.util.mcpNoLogEnabled()) { request.put("__nolog", "true"); }
 
   var keys = Object.keys(payload || {});
   for (var i = 0; i < keys.length; i++) {
