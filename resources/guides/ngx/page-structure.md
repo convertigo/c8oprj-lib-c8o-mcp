@@ -1,7 +1,7 @@
 # Viewer proof, pages and action paths
 
 Read when: Viewer proof, pages and action paths. Summary: `convertigo://guides/ngx`.
-Previous: `convertigo://guides/ngx/presentation`. Next: `convertigo://guides/ngx/events`.
+Previous: `convertigo://guides/ngx/i18n`. Next: `convertigo://guides/ngx/events`.
 
 ---
 

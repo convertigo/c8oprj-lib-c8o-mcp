@@ -317,7 +317,7 @@
         "when": "SmartSource JSON and visible search structure",
         "sha256": "4302c19eedf9fd9bf65441448be5497a5fe943f81011d583c6bfc0e85c84b014",
         "bodyOffset": 254,
-        "servedSha256": "871d3eeb81909100ebbe7c049126a1881129e596dcc48eefd4e0fcf12e65e2c5"
+        "servedSha256": "bd3223b5ea644f44f25099621cab080ba2879a793b3c53a6c83a018efc7a8351"
       },
       {
         "uri": "convertigo://guides/http-app/ngx-page-3",
@@ -1375,16 +1375,23 @@
         "file": "guides/ngx/presentation.md",
         "when": "Cards, labels and readable page structure",
         "sha256": "bc47e31b85aac5497060f35ccfdb19aebb97238328363d643523653c079a7dbe",
-        "bodyOffset": 240,
-        "servedSha256": "c091faaf87070f254732e50f06543d2cdae2223d0d353ebe4778c468d9c14c09"
+        "bodyOffset": 230,
+        "servedSha256": "6ca27c44824701607b210f22d84db93499028fa90054f6084bd7ee6bdb0608f0"
+      },
+      {
+        "uri": "convertigo://guides/ngx/i18n",
+        "file": "guides/ngx/i18n.md",
+        "when": "Translation keys, dictionaries and languages",
+        "bodyOffset": 209,
+        "servedSha256": "f1387de6135643b24ea5ef4c4492c47e3feeefb9b2c74bba8792389e53c7497b"
       },
       {
         "uri": "convertigo://guides/ngx/page-structure",
         "file": "guides/ngx/page-structure.md",
         "when": "Viewer proof, pages and action paths",
         "sha256": "b9b24f443af2ecbe7adb6a532a5a60da4b9d2f112c00d3a778905d1f7da7f36f",
-        "bodyOffset": 221,
-        "servedSha256": "e1a8b98a76b584e759beffce5e856e306b2048f11814b594b5a3817582ecc7fb",
+        "bodyOffset": 213,
+        "servedSha256": "02dfbdffbae3e32c78ac49d7ea58215aa8ec69a1343a711efdc1bbd7e436ba3f",
         "trailingSourceNewlines": 1
       },
       {
@@ -1498,7 +1505,7 @@
         "servedSha256": "72df05db2b0bb856ce099158c903cd4682c7f2d036447ce205744ce327bd1838"
       }
     ],
-    "summarySha256": "89dad6b727277faab83207df3160e18acc295808f1dd010984a67ea608bab4e8"
+    "summarySha256": "c8462a074a9432ae1629d723b02a58fcad255818e009a68fdee41097d1dc0239"
   },
   {
     "oldUri": "convertigo://resources/convertigo-validation-and-evidence",
@@ -1670,7 +1677,7 @@
         "when": "Guidance freshness and MCP-only authoring",
         "sha256": "18f808aa4a6651603803a7e0bf7c2af45b65db5d2414f72cd82f741e971a9260",
         "bodyOffset": 190,
-        "servedSha256": "0bff2e2a75efba805bb3f062e5b1220981b43bcc91f5630e6ff4076a8861c865",
+        "servedSha256": "af6efbb5dd3bab6adf895195a538ac5ea3260f93201813f5e8e5a8859b4716e0",
         "trailingSourceNewlines": 1
       },
       {
