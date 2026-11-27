@@ -12,6 +12,20 @@ live), the engine-pitfall battery (`tests/preflight/pitfalls_live.py`) and the e
 (`lib_ConvertigoAssistant/tests/preflight/soak_contexts.py`). A test marked todo in the offline file is a defect
 found on the current code.
 
+## JavaScript loop bindings
+
+The common property writer checks backend step expressions, conditions and JS SmartTypes with the engine's parser.
+It changes only `const` declarations in a loop body of the same function to `let`, and returns a `JS-LOOP-CONST`
+notice. Other declarations, callbacks, comments, strings, browser code and plain SmartTypes stay unchanged.
+The check does not rewrite existing projects on disk or change the engine.
+
+Run `node --test tests/scripts/validate_rhino_loop_bindings.cjs` with a JDK 17+ and `RHINO_TEST_JAR` pointing to a
+Rhino 1.9.2 JAR (a cached Gradle copy is also discovered). The JVM test runs in interpreted and compiled modes,
+first proving that the uncorrected vector returns the first iteration's value, then checking the corrected vectors,
+function boundaries, unchanged source text, JS/plain SmartTypes and idempotence. Without the JAR, the JVM test is
+reported as skipped; it must run before releasing this change. The property-writer integration also runs in
+`validate_preflight_contract.cjs`.
+
 ## YAML delta apply
 
 Run `python3 tests/scripts/test_yaml_mcp_delta_apply.py` after changing `scripts/yaml_mcp_delta_apply.py`. The
