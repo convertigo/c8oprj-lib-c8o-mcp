@@ -792,7 +792,6 @@ function injectMeta(target) {
   if (!target || typeof target !== "object") {
     return;
   }
-  target.__nolog = "true";
   if (metaNextCursor !== null && metaNextCursor !== undefined) {
     var cursorText = String(metaNextCursor);
     if (cursorText.length > 0) {
@@ -820,7 +819,7 @@ if (methodName === "initialize") {
   // without internal_call or mcp_ping, and keep these calls out of the engine logs.
   pingInline = true;
   try {
-    Packages.org.apache.log4j.MDC.put("nolog", Packages.java.lang.Boolean.TRUE);
+    if (C8O.util.mcpNoLogEnabled()) { Packages.org.apache.log4j.MDC.put("nolog", Packages.java.lang.Boolean.TRUE); }
   } catch (_ignorePingNoLog) {}
 } else if (methodName === "prompts/list") {
   callSequence = "mcp_prompts_list";

@@ -725,7 +725,7 @@ C8O.seedProof = C8O.seedProof || {};
         request.put("__project", "lib_ConvertigoMCP");
         request.put("__sequence", "tools_requestable_execute");
         request.put("__context", "seed_proof_" + java.lang.System.currentTimeMillis() + "_" + run);
-        request.put("__nolog", "true");
+        if (C8O.util.mcpNoLogEnabled()) { request.put("__nolog", "true"); }
         request.put("requestable", String(requestable));
         request.put("variables", JSON.stringify(variables || {}));
         if (user) {

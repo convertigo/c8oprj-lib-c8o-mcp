@@ -600,6 +600,21 @@ C8O.util.makeFileResult = function (status, message, extras) {
 
 C8O.requestable = C8O.requestable || {};
 
+// The engine inherits the MCP request's MDC. Lift just its log flag while running an application target.
+C8O.requestable.beginTargetLogs = function (project, variables) {
+  if (/^lib_Convertigo(?:Assistant|AgentBridge|MCP)$/.test(String(project)) || String((variables || {}).__nolog) === "true") {
+    return null;
+  }
+  var mdc = Packages.org.apache.log4j.MDC;
+  var previous = mdc.get("nolog");
+  if (previous != null) { mdc.remove("nolog"); }
+  return previous;
+};
+
+C8O.requestable.endTargetLogs = function (previous) {
+  if (previous != null) { Packages.org.apache.log4j.MDC.put("nolog", previous); }
+};
+
 /**
  * The requestable a client names, <project>.<sequence> or <project>.<connector>.<transaction>, also written as the
  * Studio QName other tools return (<project>.sq:<sequence>, <project>.cn:<connector>.tr:<transaction>).
@@ -1011,12 +1026,15 @@ C8O.requestable.runBefore = function (executionPlan) {
       requester = new InternalRequester(params);
     }
     var response = null;
+    var previousNoLog = C8O.requestable.beginTargetLogs(target.project, variables);
     try {
       response = requester.processRequest();
     } catch (callError) {
       executionPlan.beforeResults.push({ requestable: target.requestable, status: 'error' });
       var cause = callError && callError.javaException ? callError.javaException.getMessage() : (callError && callError.message) || String(callError);
       throw new Error('before[' + n + '] ' + target.requestable + ' failed: ' + cause + ' ' + executionPlan.requestable + ' was not run.');
+    } finally {
+      C8O.requestable.endTargetLogs(previousNoLog);
     }
     try {
       Engine.theApp.contextManager.remove(requester.getContext());

@@ -515,7 +515,7 @@ C8O.crud = C8O.crud || {};
     var request = new HashMap();
     request.put("__project", "lib_ConvertigoMCP");
     request.put("__sequence", sequenceName);
-    request.put("__nolog", "true");
+    if (C8O.util.mcpNoLogEnabled()) { request.put("__nolog", "true"); }
     var keys = Object.keys(argsMap || {});
     for (var i = 0; i < keys.length; i++) {
       var key = keys[i];
@@ -631,7 +631,6 @@ C8O.crud = C8O.crud || {};
     request.put("__project", String(projectName));
     request.put("__connector", String(connectorName));
     request.put("__transaction", String(transactionName));
-    request.put("__nolog", "true");
     try {
       var requester = null;
       try {
@@ -639,7 +638,13 @@ C8O.crud = C8O.crud || {};
       } catch (_ignoreHttpRequest) {
         requester = new InternalRequester(request);
       }
-      var response = requester.processRequest();
+      var previousNoLog = C8O.requestable.beginTargetLogs(projectName);
+      var response;
+      try {
+        response = requester.processRequest();
+      } finally {
+        C8O.requestable.endTargetLogs(previousNoLog);
+      }
       var root = response && response.getDocumentElement ? response.getDocumentElement() : response;
       var XMLUtils = Packages.com.twinsoft.convertigo.engine.util.XMLUtils;
       return collectSqlOutputRows(JSON.parse(String(XMLUtils.XmlToJson(root, true, true))));

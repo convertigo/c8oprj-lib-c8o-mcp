@@ -93,7 +93,7 @@ C8O.maintainerDocs = C8O.maintainerDocs || {};
     var request = new HashMap();
     request.put("__project", "lib_ConvertigoMCP");
     request.put("__sequence", sequenceName);
-    request.put("__nolog", "true");
+    if (C8O.util.mcpNoLogEnabled()) { request.put("__nolog", "true"); }
 
     var keys = Object.keys(argsMap || {});
     for (var i = 0; i < keys.length; i++) {

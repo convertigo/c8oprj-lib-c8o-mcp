@@ -545,8 +545,8 @@ test('an MCP call adds its variables to the Call step of its own run only (frict
     });
   }
   assert.equal(projectStep.orderedVariables.get(0).length, 0, 'the step of the project keeps no variable of a call');
-  assert.deepEqual(runs.map(step => step.orderedVariables.get(0).length), [4, 3], 'each run orders its own variables');
-  assert.deepEqual(runs[1].vars.map(v => v.name), ['target', '__nolog', '__sequence']);
+  assert.deepEqual(runs.map(step => step.orderedVariables.get(0).length), [3, 2], 'each run orders its own variables');
+  assert.deepEqual(runs[1].vars.map(v => v.name), ['target', '__sequence']);
 });
 
 test('requestable-execute sets the variables of its call step on its own run only', () => {

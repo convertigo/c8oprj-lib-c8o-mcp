@@ -135,7 +135,7 @@ test('runBefore refuses a known failed sign-in without running anything, per con
       httpServletRequest: { getHeader: name => headers[name] || null },
       httpSession: { getAttributeNames: () => ({ hasMoreElements: () => false }), removeAttribute() {} }
     },
-    Packages: { java: { util: { HashMap: JavaMap } }, com: { twinsoft: { convertigo: { engine: {
+    Packages: { org: { apache: { log4j: { MDC: { get: () => null } } } }, java: { util: { HashMap: JavaMap } }, com: { twinsoft: { convertigo: { engine: {
       Engine: { theApp: { contextManager: { remove() {} } } },
       enums: { JsonOutput: { JsonRoot: { docNode: 'doc' } } },
       util: { XMLUtils: { XmlToJson: doc => JSON.stringify(doc) } },
