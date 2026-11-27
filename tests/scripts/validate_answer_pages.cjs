@@ -146,19 +146,89 @@ test('the pages fit with a guidance warning and with jsonOnly, and a page stays 
   for (const page of pages.slice(0, -1)) assert.match(page.partialAnswer.text, /,$/, 'a piece ends after a comma');
 });
 
-test('the structured content counts: indented nesting or jsonOnly pages an answer whose text is short', () => {
+test('the structured content counts: an answer whose text needs pages is paged on its indented size, never more pages than needed', () => {
   const { api } = pagesApi();
   // a grid of digits: 2 characters each in the text, a line each once indented
-  const nested = { status: 'ok', grid: Array.from({ length: 40 }, () => Array.from({ length: 60 }, (_, i) => i % 10)) };
-  assert.ok(JSON.stringify(nested).length < api.BUDGET, 'its text fits: ' + JSON.stringify(nested).length);
-  assert.ok(indented(nested) > api.BUDGET, 'indented it does not: ' + indented(nested));
+  const grid = rows => ({ status: 'ok', grid: Array.from({ length: rows }, () => Array.from({ length: 60 }, (_, i) => i % 10)) });
   const store = server();
-  const first = api.bound(caller(store), { sequence: 'tools_databaseobject_tree_get', value: nested });
+  // its text needs two pages, its indented size is far over the budget: paged, and the pages say what was measured
+  const nested = grid(110);
+  assert.ok(JSON.stringify(nested).length > api.PAGE_ROOM && JSON.stringify(nested).length < api.BUDGET, 'text ' + JSON.stringify(nested).length);
+  assert.ok(indented(nested) > api.BUDGET, 'indented ' + indented(nested));
+  const first = api.bound(caller(store), { sequence: 'tools_databaseobject_tree_get', value: nested, jsonOnly: true });
   assert.ok(first, 'paged on its structured content');
+  const partial = first.structured.partialAnswer;
+  assert.equal(partial.pages, 2);
+  assert.match(partial.howTo, new RegExp('weighs ' + indented(nested) + ' characters as a client gets it'));
+  assert.match(partial.howTo, new RegExp('its JSON text \\(' + JSON.stringify(nested).length + ' characters\\) comes in 2 pages\\. Read page 2 with answer-page'));
+  assert.equal(first.structured.status, 'ok', 'its short top-level fields come with the first page');
   assert.deepEqual(readAll(api, caller(store), first.structured).value, nested);
   // jsonOnly sends no text: only the structured content counts
   const flat = { text: 'z'.repeat(api.BUDGET - 200) };
   assert.equal(api.bound(caller(store), { sequence: 'tools_log_view', value: flat, jsonOnly: true }), null);
+});
+
+// test-nocode, 26/11: nocode-form-create answered 7,379 characters, over 14,000 once indented, as a partialAnswer of one
+// page ("Read pages 2 to 1"); the agent's script read r.status and r.id on it, found them empty and created the form again.
+test('an answer whose JSON text fits one page goes out whole, whatever its indented size, and no howTo says pages 2 to 1', () => {
+  const { api, logs } = pagesApi();
+  const store = server();
+  const created = {
+    id: '1795719515303', rev: '1-575207d17593fdc1dabc9680beed5931', status: 'ok', saved: true,
+    validation: { valid: true, issueCount: 0, warningCount: 3, issues: [], warnings: Array.from({ length: 3 }, (_, i) => ({ code: 'w' + i, message: 'Review native margin/padding on confirmation', path: '/formulaire/' + i + '/config/boxStyle' })) },
+    form: { pages: [{ name: 'Accueil', fields: Array.from({ length: 24 }, (_, i) => ({ type: 'button', name: 'b' + i, cols: [{ size: 6 }, { size: 6 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }], tablet: [{ size: 6 }, { size: 6 }, { size: 0 }, { size: 0 }, { size: 0 }, { size: 0 }] })) }] }
+  };
+  const text = JSON.stringify(created).length;
+  assert.ok(text < 8000 && indented(created) > api.BUDGET, 'text ' + text + ', indented ' + indented(created));
+  for (const jsonOnly of [true, false]) {
+    assert.equal(api.bound(caller(store), { sequence: 'tools_nocode_form_create', value: created, jsonOnly }), null, 'jsonOnly ' + jsonOnly);
+  }
+  assert.equal(store.get(api.STORE_KEY), null, 'nothing kept');
+  assert.ok(logs.some(line => /answer of nocode-form-create goes out whole: \d+ characters as measured, its JSON text \(\d+\) fits one page/.test(line)));
+  // any size: kept, an answer comes in two pages or more; whole, it is not paged
+  const seen = { whole: 0, paged: 0 };
+  for (let rows = 1; rows <= 400; rows += 3) {
+    const value = { status: 'ok', id: 'f' + rows, nested: Array.from({ length: rows }, (_, i) => ({ a: { b: [i, { c: i % 7 }] } })) };
+    const first = api.bound(caller(store), { sequence: 'tools_nocode_form_get', value, jsonOnly: rows % 2 === 0 });
+    if (!first) {
+      if (indented(value) > api.BUDGET) seen.whole++;
+      continue;
+    }
+    seen.paged++;
+    const partial = first.structured.partialAnswer;
+    assert.ok(partial.pages >= 2, rows + ': ' + partial.pages + ' pages');
+    assert.doesNotMatch(partial.howTo, /pages 2 to [01]\b|in 1 pages/, rows + ': ' + partial.howTo);
+    assert.equal(first.structured.id, 'f' + rows);
+  }
+  assert.ok(seen.whole > 10 && seen.paged > 10, JSON.stringify(seen));
+});
+
+test('a paged answer repeats its short top-level fields on its first page, and only there', () => {
+  const { api } = pagesApi();
+  const store = server();
+  const context = caller(store);
+  const value = { id: '1795719515303', rev: '1-abc', status: 'ok', saved: true, count: 3, empty: null, long: 'l'.repeat(api.HEAD_MAX_STRING + 1), ...bigAnswer(20), notes: 'n' };
+  delete value.quotes;
+  value.status = 'partial';
+  const first = api.bound(context, { sequence: 'tools_nocode_form_create', value, argumentWarning: 'Ignored argument foo' }).structured;
+  assert.deepEqual(Object.keys(first), ['argumentWarning', 'id', 'rev', 'status', 'saved', 'count', 'notes', 'partialAnswer'], 'the notes, the head in the answer\'s order, then the page');
+  assert.deepEqual([first.id, first.rev, first.status, first.saved, first.count], ['1795719515303', '1-abc', 'partial', true, 3]);
+  assert.match(first.partialAnswer.howTo, /Its short top-level fields are repeated beside partialAnswer\./);
+  assert.ok(delivered(api, first) <= api.PAGE_ROOM, 'the first page fits with its head: ' + delivered(api, first));
+  const { value: back, pages } = readAll(api, context, first);
+  assert.deepEqual(back, JSON.parse(JSON.stringify(api.answerValue(value, 'Ignored argument foo'))), 'the pages still join to the whole answer');
+  for (const page of pages.slice(1)) assert.deepEqual(Object.keys(page), ['partialAnswer'], 'later pages hold the text only');
+  // page 1 read again from the store gives the same first page
+  assert.deepEqual(api.execute(context, { answerId: first.partialAnswer.answerId, page: 1 }), first);
+  // the head is bounded in fields and size, and an answer with no short field has none
+  const many = Object.fromEntries(Array.from({ length: 40 }, (_, i) => ['k' + i, 'v'.repeat(150)]));
+  const head = api.head(many);
+  assert.ok(Object.keys(head).length <= api.HEAD_MAX_FIELDS && JSON.stringify(head).length <= api.HEAD_MAX_CHARS, JSON.stringify(head).length);
+  assert.equal(api.head({ rows: [1], form: {} }), null);
+  // a Java string of Rhino (typeof object) is read as its text
+  const javaString = { getClass: () => ({ getName: () => 'java.lang.String' }), toString: () => '1795719515303' };
+  assert.deepEqual({ ...api.head({ id: javaString, form: {} }) }, { id: '1795719515303' });
+  assert.equal(api.head([1, 2]), null);
 });
 
 test('another caller cannot read an answer, and nobody reads it after its time', () => {
@@ -432,7 +502,11 @@ test('every output schema takes a first page, and answer-page declares its own',
   const own = overrides.decorateOutput('tools_answer_page', overrides.applyOutput('tools_answer_page', null, null), null);
   assert.ok(own.properties.partialAnswer.properties.text, 'its own schema, not the generic one');
   const { api } = pagesApi();
-  const page = api.bound(caller(server()), { sequence: 'tools_x_y', value: bigAnswer(5), argumentWarning: 'w' }).structured;
+  // the short top-level fields a first page repeats are the tool's own (api.head), which its schema takes as in its
+  // whole answer: the generic page here has none
+  const { status, ...noHead } = bigAnswer(5);
+  assert.equal(api.head(noHead), null);
+  const page = api.bound(caller(server()), { sequence: 'tools_x_y', value: noHead, argumentWarning: 'w' }).structured;
   for (const file of fs.readdirSync(path.join(root, '_c8oProject/sequences')).filter(f => /^tools_.*\.yaml$/.test(f))) {
     const sequence = file.replace(/\.yaml$/, '');
     const schema = overrides.decorateOutput(sequence, overrides.applyOutput(sequence, null, null), null);

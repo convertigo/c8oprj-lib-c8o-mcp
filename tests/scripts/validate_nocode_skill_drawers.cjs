@@ -43,7 +43,9 @@ const DRAWER_BUDGET = 12000;
 // Then the components and settings the C8Oforms of the server does not write (C8Oforms 2.3, table unwritten): kept as
 // No Code Studio wrote them, asked of the user with their page, component and setting, never approximated
 // (workflow-existing.md).
-const SKILL_TEXT_SHA256 = '9fc9a3e960e9a89f8c162f6e6f774a4ef42075c765ed7ada0a23285c3e14059d';
+// Then a paged answer (27/11): two pages or more, its short fields (status, id) beside partialAnswer; never call a write
+// again because a field is missing (SKILL.md Long answers, workflow-new.md).
+const SKILL_TEXT_SHA256 = '79fbe90132dcf983b91f2e0e882e015456d5b178ff416534e35203d78df6c0cf';
 
 test('SKILL.md names each drawer once, and each drawer file of its folder is named', () => {
   const named = pointers.map(p => p.file);

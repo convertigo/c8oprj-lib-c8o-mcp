@@ -18,6 +18,11 @@ if (typeof C8O === "undefined") {
 // joined in order are that JSON, which a script parses. A page stays under PAGE_ROOM, its text counted as escaped in its
 // JSON string, leaving room for what the endpoint adds to an answer-page answer. Every output schema declares partialAnswer (js/schema_overrides.js decorateOutput):
 // the MCP client of Vibe checks a structured answer against the schema of its tool.
+// An answer whose JSON text fits one page goes out whole: in one page it would only trade the answer for the same text
+// in a string, and a script that reads its fields (status, id) found nothing. On test-nocode (26/11) nocode-form-create
+// answered 7,379 characters (over 14,000 once indented) as one page; the agent's script read r.status and r.id, found
+// them empty and created the form a second time. A paged answer repeats its short top-level fields (HEAD_*: status, id,
+// rev, saved...) beside partialAnswer on its first page, for the same reads.
 (function () {
   var api = C8O.mcpAnswerPages = C8O.mcpAnswerPages || {};
   api.BUDGET = 14000;
@@ -34,6 +39,11 @@ if (typeof C8O === "undefined") {
   api.STORE_KEY = "lib_ConvertigoMCP.answerPages";
   // mcp_endpoint, the text of a result with a guidance warning
   api.GUIDANCE = "Refresh the Convertigo MCP setup or skill context for this endpoint before further guarded project changes.";
+  // the short top-level fields of an answer repeated on its first page: a script reads them without the pages
+  api.HEAD_MAX_FIELDS = 12;
+  api.HEAD_MAX_STRING = 200;
+  api.HEAD_MAX_CHARS = 1200;
+  var NOTE_KEYS = ["operatorNote", "argumentWarning", "repeatedFailure"];
   var NARROWER = "a narrower call (a section, a page, a limit, a filter) may answer at once";
   var ID_PATTERN = /^[0-9a-f]{32}$/;
 
@@ -120,6 +130,47 @@ if (typeof C8O === "undefined") {
       return JSON.stringify(value);
     }
     return JSON.stringify({ convertigoGuidanceWarning: String(guidanceWarning), guidance: api.GUIDANCE, result: value });
+  };
+
+  // The short top-level fields of an answer (strings up to HEAD_MAX_STRING, numbers, booleans), in its order, at most
+  // HEAD_MAX_FIELDS and HEAD_MAX_CHARS of JSON: null when it has none. The notes of the call stay on their own.
+  api.head = function (value) {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      return null;
+    }
+    var out = {};
+    var count = 0;
+    var size = 2;
+    for (var key in value) {
+      if (count >= api.HEAD_MAX_FIELDS) {
+        break;
+      }
+      if (key === "partialAnswer" || NOTE_KEYS.indexOf(key) >= 0) {
+        continue;
+      }
+      var field = value[key];
+      var kind = typeof field;
+      // in Rhino a field may be a Java string (typeof object)
+      if (kind === "object" && field !== null && typeof field.getClass === "function") {
+        try {
+          if (String(field.getClass().getName()) === "java.lang.String") {
+            field = String(field);
+            kind = "string";
+          }
+        } catch (_notJava) {}
+      }
+      if (!(kind === "boolean" || (kind === "number" && isFinite(field)) || (kind === "string" && field.length <= api.HEAD_MAX_STRING))) {
+        continue;
+      }
+      var weight = JSON.stringify(key).length + JSON.stringify(field).length + 2;
+      if (size + weight > api.HEAD_MAX_CHARS) {
+        continue;
+      }
+      out[key] = field;
+      size += weight;
+      count++;
+    }
+    return count ? out : null;
   };
 
   // What a client shows of an answer: the text of a direct call (none with jsonOnly), or the structured content a
@@ -250,18 +301,27 @@ if (typeof C8O === "undefined") {
     return cuts;
   };
 
+  // The size that decided the pages (what a client gets: the text of a direct call, or the structured content indented
+  // as a script returns it) and the size of the JSON text the pages hold, each named for what it is.
+  function sizes(record) {
+    var measured = Math.max(Number(record.measured) || 0, record.chars);
+    return "The answer of " + record.tool + " weighs " + measured + " characters as a client gets it (a script's return " +
+      "is weighed as JSON indented by 2), more than a client shows at once (" + api.BUDGET + ")";
+  }
+
   function howTo(record) {
     var pages = record.cuts.length - 1;
-    var size = record.chars + " characters";
     if (record.kept !== true) {
-      return "The answer of " + record.tool + " is " + size + ", more than a client shows at once (" + api.BUDGET +
-        ") and too large to keep in pages (over " + api.MAX_ANSWER_CHARS + "): here is its beginning. Call " + record.tool +
-        " again with a narrower request (a section, a page, a limit, a filter).";
+      return sizes(record) + ", and its JSON text (" + record.chars + " characters) is too large to keep in pages (over " +
+        api.MAX_ANSWER_CHARS + "): here is its beginning. Call " + record.tool + " again with a narrower request (a section, " +
+        "a page, a limit, a filter).";
     }
-    return "The answer of " + record.tool + " is " + size + ", more than a client shows at once (" + api.BUDGET +
-      "): it comes as its JSON text in " + pages + " pages. Read pages 2 to " + pages + " with " + api.TOOL +
-      " {answerId, page}, in order; the texts of pages 1 to " + pages + " joined are the whole answer (JSON.parse it in a " +
-      "script; each page's text is partialAnswer.text of its answer, this one included). Kept " + Math.round(api.KEEP_MS / 60000) + " minutes; " + NARROWER + ".";
+    var rest = pages > 2 ? "pages 2 to " + pages : "page " + pages;
+    return sizes(record) + ": its JSON text (" + record.chars + " characters) comes in " + pages + " pages. Read " + rest +
+      " with " + api.TOOL + " {answerId, page}, in order; the texts of pages 1 to " + pages + " joined are the whole answer " +
+      "(JSON.parse it in a script; each page's text is partialAnswer.text of its answer, this one included)." +
+      (record.head ? " Its short top-level fields are repeated beside partialAnswer." : "") +
+      " Kept " + Math.round(api.KEEP_MS / 60000) + " minutes; " + NARROWER + ".";
   }
 
   // Page number of a record: {partialAnswer: {...}}, with the notes of the call first on page 1.
@@ -289,11 +349,16 @@ if (typeof C8O === "undefined") {
     partial.text = record.text.substring(record.cuts[number - 1], record.cuts[number]);
     var value = {};
     if (number === 1 && record.notes) {
-      ["operatorNote", "argumentWarning", "repeatedFailure"].forEach(function (key) {
+      NOTE_KEYS.forEach(function (key) {
         if (filled(record.notes[key])) {
           value[key] = String(record.notes[key]);
         }
       });
+    }
+    if (number === 1 && record.head) {
+      for (var key in record.head) {
+        value[key] = record.head[key];
+      }
     }
     value.partialAnswer = partial;
     return value;
@@ -314,13 +379,17 @@ if (typeof C8O === "undefined") {
       chars: input.text.length,
       text: input.text,
       notes: input.notes || null,
+      head: input.head || null,
+      measured: Number(input.measured) || 0,
       kept: input.kept === true,
+      // the whole text fits the first page: the answer goes out whole (bound)
+      whole: false,
       cuts: [0, 0]
     };
     // What a page weighs around its text, with the largest numbers it may show: the first page (howTo, next, the
     // notes of the call), and a middle page (next).
     function overhead(number) {
-      var probe = { id: record.id, tool: record.tool, chars: 9999999, text: "", notes: record.notes, kept: record.kept, cuts: [0, 0, 0, 0] };
+      var probe = { id: record.id, tool: record.tool, chars: 9999999, measured: 9999999, text: "", notes: record.notes, head: record.head, kept: record.kept, cuts: [0, 0, 0, 0] };
       var value = api.page(probe, number);
       var partial = value.partialAnswer;
       if (record.kept === true) {
@@ -329,7 +398,7 @@ if (typeof C8O === "undefined") {
         partial.next = api.TOOL + " " + JSON.stringify({ answerId: record.id, page: 99999 });
       }
       if (number === 1) {
-        partial.howTo = howTo({ tool: record.tool, chars: 9999999, kept: record.kept, cuts: new Array(100000) });
+        partial.howTo = howTo({ tool: record.tool, chars: 9999999, measured: 9999999, head: record.head, kept: record.kept, cuts: new Array(100000) });
       }
       return api.measure(api.deliveredText(value, input.guidanceWarning), value, input.jsonOnly === true);
     }
@@ -337,6 +406,7 @@ if (typeof C8O === "undefined") {
     var nextRoom = api.PAGE_ROOM - overhead(2);
     for (var attempt = 0; attempt < 4; attempt++) {
       var cuts = api.split(record.text, firstRoom, nextRoom);
+      record.whole = cuts.length === 2;
       // an answer not kept answers its first page only
       record.cuts = record.kept === true ? cuts : cuts.slice(0, 2);
       var over = false;
@@ -352,9 +422,28 @@ if (typeof C8O === "undefined") {
     return record;
   };
 
-  // The serialized record in the store: "<at>\n<owner>\n<tool>\n<cuts>\n<notes JSON>\n<text>".
+  // The serialized record in the store: "<at>\n<owner>\n<tool>\n<cuts>\n<meta JSON>\n<text>"; meta holds the notes of
+  // the call, the head of the answer (head) and its size as measured (measured), each when set.
   function serialize(record) {
-    return [String(record.at), record.owner, record.tool, record.cuts.join(","), record.notes ? JSON.stringify(record.notes) : "",
+    var meta = {};
+    var any = false;
+    if (record.notes) {
+      NOTE_KEYS.forEach(function (key) {
+        if (filled(record.notes[key])) {
+          meta[key] = String(record.notes[key]);
+          any = true;
+        }
+      });
+    }
+    if (record.head) {
+      meta.head = record.head;
+      any = true;
+    }
+    if (record.measured) {
+      meta.measured = record.measured;
+      any = true;
+    }
+    return [String(record.at), record.owner, record.tool, record.cuts.join(","), any ? JSON.stringify(meta) : "",
       record.text].join("\n");
   }
 
@@ -370,13 +459,23 @@ if (typeof C8O === "undefined") {
       from = at + 1;
     }
     var cuts = parts[3].split(",").map(function (n) { return Number(n); });
+    var meta = parts[4].length ? JSON.parse(parts[4]) : {};
+    var notes = null;
+    NOTE_KEYS.forEach(function (key) {
+      if (filled(meta[key])) {
+        notes = notes || {};
+        notes[key] = String(meta[key]);
+      }
+    });
     return {
       id: id,
       at: Number(parts[0]),
       owner: parts[1],
       tool: parts[2],
       cuts: cuts,
-      notes: parts[4].length ? JSON.parse(parts[4]) : null,
+      notes: notes,
+      head: meta.head && typeof meta.head === "object" ? meta.head : null,
+      measured: Number(meta.measured) || 0,
       text: value.substring(from),
       chars: value.length - from,
       kept: true
@@ -486,7 +585,8 @@ if (typeof C8O === "undefined") {
       var value = api.answerValue(input.value, input.argumentWarning, input.operatorNote, input.repeatedFailure);
       var delivered = api.deliveredText(value, input.guidanceWarning);
       var jsonOnly = input.jsonOnly === true;
-      if (api.measure(delivered, value, jsonOnly) <= api.BUDGET) {
+      var measured = api.measure(delivered, value, jsonOnly);
+      if (measured <= api.BUDGET) {
         return null;
       }
       var full = JSON.stringify(value);
@@ -511,10 +611,18 @@ if (typeof C8O === "undefined") {
         tool: api.toolName(sequence),
         text: full,
         notes: anyNote ? notes : null,
+        head: api.head(value),
+        measured: measured,
         kept: kept,
         guidanceWarning: input.guidanceWarning,
         jsonOnly: jsonOnly
       });
+      if (record.whole) {
+        // one page would hold the same text in a string: the answer itself is what a script reads
+        api.host.info("answer of " + record.tool + " goes out whole: " + measured + " characters as measured, its JSON text (" +
+          full.length + ") fits one page");
+        return null;
+      }
       // stamped when kept, after the cut (long for a large answer): its time starts when its client can read it
       record.at = api.host.now();
       if (kept && !api.write(store, record, record.at)) {

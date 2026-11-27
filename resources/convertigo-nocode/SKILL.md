@@ -76,7 +76,7 @@ A file the user attached to the message (a spreadsheet, CSV, PDF, Word or text f
 
 ## Long answers
 
-A tool answer stays under 14,000 characters. From a script (`run_typescript`), return the answer itself or the part the task needs, never only its keys. You see about 2,000 tokens of a longer result: after a create or an edit, return `{ status, saved, id, rev, validation }` and what you check. An answer with `partialAnswer`, even of one page, is its first page: in the same script, read pages 2 to `pages` with `answer-page` `{answerId, page}` and join their `text` in order before `JSON.parse` (`whole()` in `workflow-new.md`). An answer listing `remaining` (contract sections) or a `next` page says what to ask in the next call.
+A tool answer stays under 14,000 characters. From a script (`run_typescript`), return the answer itself or the part the task needs, never only its keys. You see about 2,000 tokens of a longer result: after a create or an edit, return `{ status, saved, id, rev, validation }` and what you check. An answer with `partialAnswer` is the first of its pages, with its short fields (`status`, `id`...): in the same script, read pages 2 to `pages` with `answer-page` `{answerId, page}` and join their `text` in order before `JSON.parse` (`whole()` in `workflow-new.md`). An answer listing `remaining` (contract sections) or a `next` page says what to ask in the next call.
 
 ## Publishing
 
